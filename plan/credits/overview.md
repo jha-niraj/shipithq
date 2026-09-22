@@ -93,6 +93,7 @@ Already in the product, moving into the same table unchanged:
 | Project mock interview | 30 |
 | Practice set | 5 |
 | Exam set | 10 |
+| Module onboarding (adaptive questions before a sub-module dashboard) | **0** |
 
 **Why parsing an uploaded resume is free.** It runs automatically behind an
 upload the user never asked for - at onboarding they have already moved into the

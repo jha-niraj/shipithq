@@ -10,7 +10,8 @@
         ".": "./src/index.ts",
         "./client": "./src/client.ts",
         "./schema": "./src/schema/index.ts",
-        "./resume": "./src/resume.ts"
+        "./resume": "./src/resume.ts",
+        "./onboarding": "./src/onboarding-types.ts"
     },
     "scripts": {
         "db:generate": "dotenv -e ../../apps/main/.env -- drizzle-kit generate",

@@ -15,6 +15,7 @@ export * from "./credits";
 export * from "./knowme";
 export * from "./mock";
 export * from "./practice";
+export * from "./onboarding";
 export * from "./assessments";
 export * from "./projects";
 export * from "./opensource";

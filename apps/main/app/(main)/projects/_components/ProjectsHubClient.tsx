@@ -47,9 +47,11 @@ import type { MyProjectSummary, MyProjectsOverview } from "@/actions/(main)/proj
 interface ProjectsHubClientProps {
 	overview: MyProjectsOverview | null
 	activity: { series: ActivityPoint[]; unit: string; total: number }
+	/** Rendered above the header. The onboarding "where you stand" widget lives here. */
+	widget?: React.ReactNode
 }
 
-export default function ProjectsHubClient({ overview, activity }: ProjectsHubClientProps) {
+export default function ProjectsHubClient({ overview, activity, widget }: ProjectsHubClientProps) {
 	const active = overview?.active ?? []
 	const finished = overview?.finished ?? []
 	const totals = overview?.totals
@@ -58,6 +60,7 @@ export default function ProjectsHubClient({ overview, activity }: ProjectsHubCli
 
 	return (
 		<div className="w-full px-4 py-6 sm:px-6">
+			{widget && <div className="mb-6">{widget}</div>}
 			<motion.header
 				initial={{ opacity: 0, y: -12 }}
 				animate={{ opacity: 1, y: 0 }}

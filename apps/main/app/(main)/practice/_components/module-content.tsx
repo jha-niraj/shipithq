@@ -43,6 +43,8 @@ interface ModuleContentProps {
     categories: PracticeCategory[];
     leaderboard: PracticeLeaderboardEntry[];
     activeCategory: string | null;
+    /** Rendered above the header. The onboarding "where you stand" widget lives here. */
+    headerSlot?: React.ReactNode;
 }
 
 export function ModuleContent({
@@ -52,6 +54,7 @@ export function ModuleContent({
     categories,
     leaderboard,
     activeCategory,
+    headerSlot,
 }: ModuleContentProps) {
     const router = useRouter();
     const [difficultyFilter, setDifficultyFilter] = useState<string | null>(null);
@@ -68,6 +71,7 @@ export function ModuleContent({
 
     return (
         <div className="p-6 lg:p-8 space-y-6 w-full mx-auto">
+            {headerSlot}
             {/* The left breadcrumb+title block and the right add-button+filter-pills
                 cluster (~320px alone) had no responsive stacking and exceeded a
                 328px phone. See docs/responsiveness.md section 4. */}

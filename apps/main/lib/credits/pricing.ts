@@ -42,6 +42,15 @@ export const CREDIT_PRICES = {
     project_mock: 30,
     practice_set: 5,
     exam_set: 10,
+
+    // ── Module onboarding ────────────────────────────────────────────────────
+    /**
+     * The adaptive onboarding a user completes before a sub-module's dashboard
+     * shows. Free on purpose: it is a mandatory gate nobody asked for, and
+     * charging for that is the resume-parse mistake again. Decision recorded in
+     * `plan/module-onboarding/overview.md`.
+     */
+    module_onboarding: 0,
 } as const
 
 export type PricedOperation = keyof typeof CREDIT_PRICES
