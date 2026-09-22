@@ -72,7 +72,7 @@ overview lists it.
 
 ## MO-2 Run lifecycle actions and the question route
 
-- [ ] Status: in progress (2026-09-22). Code complete. The model loop (prompt, guards, floor, ceiling, open cap, retry with reason) was driven against gpt-4o-mini for ten persona runs: all finished in 8 to 10 questions, none exceeded two open questions, p50 1.3 s. See `manual-pass-1.md`. The HTTP path (`curl` with a session cookie, resume after reload) is not yet exercised: no signed-in session was available.
+- [x] Status: done (2026-09-22). Through the real route handler and actions as a signed-in test user (`apps/main/scripts/practice-checks/e2e.ts`, three runs): a second start returns the same run, asking twice without answering returns the same question, a run finishes with its profile stored, never more than two open questions. The ten persona runs in `manual-pass-1.md` cover question quality and latency.
 - Blocked by: MO-1
 - Blocks: MO-3, MO-4
 
@@ -379,7 +379,7 @@ and shipping rather than solving problems.
 
 ## MO-8 Change an earlier answer
 
-- [ ] Status: in progress (2026-09-22). Built and typechecks. Not verified in a browser; the Chrome extension was not connected. The checklist is in `manual-pass-1.md` under "Not verified".
+- [ ] Status: in progress (2026-09-22). Server side verified end to end: reopening question 2 truncates the later turns and clears its answer, and the run continues to a completed profile. The rail click and confirm dialog in a browser still owed.
 - Blocked by: MO-4
 
 **Why.** Item 10. The rail lists answered questions; clicking one must do

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
-    ChevronRight, Code2, Network, Globe, Server, BarChart3
+    ChevronRight, Code2, Network, Globe, Server, BarChart3, Brain
 } from "lucide-react";
 import { ScrollArea } from "@repo/ui/components/ui/scroll-area";
 import { cn } from "@repo/ui/lib/utils";
@@ -71,6 +71,15 @@ export function PracticeSidebar({ activeModule, activeCategory }: PracticeSideba
                     )}>
                     <BarChart3 className="h-4 w-4" />
                     Dashboard
+                </Link>
+                <Link href="/practice/memory" className={cn(
+                        "mt-1 cursor-pointer flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                        pathname === "/practice/memory"
+                            ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                            : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                    )}>
+                    <Brain className="h-4 w-4" />
+                    What the mentor knows
                 </Link>
             </div>
             <ScrollArea className="min-h-0 flex-1">

@@ -6,6 +6,7 @@ import { getSession } from "@repo/auth";
 import { headers } from "next/headers";
 import { db, practiceProblem } from "@repo/db";
 import { eq, and, desc } from "drizzle-orm";
+import { startBackgroundJob } from "@/actions/(main)/workers/jobs.action";
 
 type PracticeModule = 'DSA' | 'SYSTEM_DESIGN' | 'WEB_FRONTEND' | 'WEB_BACKEND'
 type PracticeDifficulty = 'EASY' | 'MEDIUM' | 'HARD'
@@ -260,6 +261,8 @@ export async function createUserPracticeProblem(data: {
 }): Promise<{
 	success: boolean;
 	problem?: { id: string; slug: string; title: string };
+	/** DSA only: the test-generation job, for the sheet to follow (PD-12). Null if dispatch failed. */
+	judgeJobId?: string | null;
 	error?: string;
 }> {
 	try {
@@ -319,7 +322,16 @@ export async function createUserPracticeProblem(data: {
 				title: practiceProblem.title,
 			});
 
-		return { success: true, problem };
+		// DSA problems get judge assets (signature, harness, tests) from a worker
+		// job. A failed dispatch does not fail the save: the problem exists and
+		// the sheet offers a retry (plan/practice-dsa PD-12).
+		let judgeJobId: string | null = null;
+		if (data.module === "DSA" && problem) {
+			const job = await startBackgroundJob("practice_tests_generate", { problemId: problem.id }, { cost: 0 });
+			judgeJobId = job.success && job.jobId ? job.jobId : null;
+		}
+
+		return { success: true, problem, judgeJobId };
 	} catch (error) {
 		console.error("Error creating practice problem:", error);
 		const message = error instanceof Error ? error.message : "Failed to create practice problem";

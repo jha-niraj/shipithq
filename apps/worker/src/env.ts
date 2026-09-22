@@ -29,6 +29,9 @@ export const JOB_BINDINGS = {
 	subgoal_generation: "SUBGOAL_GENERATION",
 	goal_creation: "GOAL_CREATION",
 	interview_prep_generation: "INTERVIEW_PREP_GENERATION",
+	practice_tests_generate: "PRACTICE_TESTS_GENERATE",
+	practice_memory_update: "PRACTICE_MEMORY_UPDATE",
+	practice_reflect: "PRACTICE_REFLECT",
 } as const satisfies Partial<Record<JobType, string>>
 
 export type RunnableJobType = keyof typeof JOB_BINDINGS
@@ -64,5 +67,14 @@ export type Env = {
 	 */
 	GITHUB_TOKEN?: string
 	WORKER_SECRET: string
+	/**
+	 * The code-execution worker (apps/shipitworker), for validating generated
+	 * DSA tests. A service binding in production; absent under `wrangler dev`,
+	 * where `EXECUTOR_URL` (http://localhost:8788 or wherever the executor is
+	 * served) takes over. With neither set, `runJudge` fails with a readable
+	 * error rather than hanging.
+	 */
+	CODE_EXECUTOR?: Fetcher
+	EXECUTOR_URL?: string
 	NODE_ENV?: string
 }

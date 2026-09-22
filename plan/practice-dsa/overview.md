@@ -182,3 +182,23 @@ deletes.
 tests plus the recorded Optimise verdict. The reflection and XP award run in
 `practice_reflect`, a job, which replaces the DSA branch of
 `assessPracticeWork`. The other modules keep `assessPracticeWork` unchanged.
+
+**Every AI task runs on gpt-4o-mini, chosen in one place.** (Niraj,
+2026-09-22: cost.) `packages/ai` (`@repo/ai`) holds the model registry with
+prices and `AI_TASKS`, the table that names the model for each task; no call
+site names a model. Where mini fell short in testing, the fix was the prompt,
+and three techniques did it: ask narrow yes/no facts and derive the judgement
+in code (stage verdict, memory status), give a worked WRONG and RIGHT example
+for the failure seen (the mentor describing the mechanism), and split one big
+generation into focused steps with their own feedback (judge assets: harness,
+then the optimal class, then the brute-force class). The recorded checks are
+in `mentor-adversarial.md` and `manual-pass-1.md`. Two catalogue problems
+(Three Sum, Non-overlapping Intervals) were generated once with gpt-4o through
+the local runner's `--model` flag after mini kept failing them; that flag is
+a one-off for bulk runs and does not change the product default.
+
+**A problem whose brute force cannot be written keeps its reference alone.**
+Some naive solutions are exponential and a small model cannot write them
+correctly. When the optimal solution passes every sample and no brute force
+does, hidden outputs rest on the reference only, and the job result says
+`crossChecked: false` so the problem can be reviewed.

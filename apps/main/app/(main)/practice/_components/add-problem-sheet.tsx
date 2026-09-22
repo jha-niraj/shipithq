@@ -22,6 +22,7 @@ import {
 import { MODULE_CONFIG } from "@/types/practice";
 import type { PracticeModule, PracticeDifficulty } from "@/types/practice";
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { PreparingTests } from "./preparing-tests";
 
 interface AddProblemSheetProps {
     module: PracticeModule;
@@ -57,6 +58,7 @@ export function AddProblemSheet({ module, onProblemAdded }: AddProblemSheetProps
     const [generating, setGenerating] = useState(false);
     const [saving, setSaving] = useState(false);
     const [preview, setPreview] = useState<GeneratedProblem | null>(null);
+    const [preparing, setPreparing] = useState<{ jobId: string | null; problem: { id: string; slug: string; title: string } } | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     const config = MODULE_CONFIG[selectedModule];
@@ -70,6 +72,7 @@ export function AddProblemSheet({ module, onProblemAdded }: AddProblemSheetProps
         setDifficulty("");
         setPreview(null);
         setError(null);
+        setPreparing(null);
     };
 
     const handleGenerate = async () => {
@@ -110,10 +113,17 @@ export function AddProblemSheet({ module, onProblemAdded }: AddProblemSheetProps
             });
 
             if (result.success) {
+                onProblemAdded?.();
+                // DSA: stay open and follow test generation, so the user can open
+                // the problem the moment it can be practised (PD-12).
+                if (selectedModule === "DSA" && result.problem) {
+                    setPreview(null);
+                    setPreparing({ jobId: result.judgeJobId ?? null, problem: result.problem });
+                    return;
+                }
                 toast.success("Problem added successfully!");
                 setOpen(false);
                 resetForm();
-                onProblemAdded?.();
             } else {
                 toast.error(result.error ?? "Failed to save problem.");
             }
@@ -144,6 +154,13 @@ export function AddProblemSheet({ module, onProblemAdded }: AddProblemSheetProps
                     <SheetTitle className="text-base">Add Custom Problem</SheetTitle>
                 </SheetHeader>
 
+                {preparing ? (
+                    <PreparingTests
+                        jobId={preparing.jobId}
+                        problem={preparing.problem}
+                        onDone={() => { setOpen(false); resetForm(); }}
+                    />
+                ) : (
                 <div className="space-y-5">
                     {/* Mode Toggle */}
                     <div className="flex rounded-lg border border-neutral-200 dark:border-neutral-800 p-0.5">
@@ -382,6 +399,7 @@ export function AddProblemSheet({ module, onProblemAdded }: AddProblemSheetProps
                         )}
                     </AnimatePresence>
                 </div>
+                )}
             </SheetContent>
         </Sheet>
     );

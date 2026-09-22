@@ -9,7 +9,7 @@ import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
 
 export default function Loading() {
     return (
-        <div className="w-full px-4 py-6 sm:px-6">
+        <div className="w-full px-page py-6">
             <ShimmerStyles />
 
             {/* Header: title + subtitle on the left, two buttons on the right. */}

@@ -1,8 +1,130 @@
 import { NextRequest } from "next/server";
+import { modelFor } from "@repo/ai";
 import { openai } from "@/lib/openai-client";
-import { db, practiceProblem } from "@repo/db";
+import { db, practiceProblem, sampleTests } from "@repo/db";
 import { eq } from "drizzle-orm";
 import { getSession } from "@repo/auth";
+import { loadMentorContext } from "@/lib/practice/memory-read";
+import { buildGuidedSystemPrompt, OPENING_USER_MESSAGE, resumeMessage } from "@/lib/practice/mentor-prompt";
+import { judgeStage, settleStage } from "@/lib/practice/mentor-verdict";
+
+type ChatTurn = { role: "user" | "assistant" | "system"; content: string };
+
+const encoder = new TextEncoder();
+const sse = (payload: unknown) => encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
+const SSE_HEADERS = { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" };
+
+/**
+ * The guided DSA mentor (plan/practice-dsa PD-6). Returns null when the
+ * session is not a DSA assist session, so the caller falls through to the
+ * original free-form mentor for every other module.
+ *
+ * Streams the reply as `{content}` events. After the text, it decides whether
+ * the stage moved (tests, or a small verdict call on the last turns) and, if
+ * it did, sends `{stage}` before `[DONE]`. The streamed text is never parsed
+ * for stage markers.
+ */
+async function guidedMentor(userId: string, body: {
+    sessionId?: string;
+    chatHistory: ChatTurn[];
+    userMessage: string;
+    userCode: string;
+    language?: string;
+    open?: boolean;
+}): Promise<Response | null> {
+    if (!body.sessionId) return null;
+    const ctx = await loadMentorContext(userId, body.sessionId);
+    if (!ctx) return new Response("Session not found", { status: 404 });
+    if (ctx.session.problem.module !== "DSA" || ctx.session.mode !== "ASSIST") return null;
+
+    const { session, stage } = ctx;
+    const history = (Array.isArray(body.chatHistory) ? body.chatHistory : [])
+        .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim());
+
+    // Returning to a problem already started: a templated line from memory.
+    // Instant, no model call, cannot invent anything.
+    if (body.open && history.length > 0) {
+        const text = resumeMessage(stage, session.mentorState, session.problem.title);
+        return new Response(
+            new ReadableStream({
+                start(controller) {
+                    controller.enqueue(sse({ content: text }));
+                    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                    controller.close();
+                },
+            }),
+            { headers: SSE_HEADERS },
+        );
+    }
+
+    const opening = Boolean(body.open) && history.length === 0;
+    const userMessage = opening ? OPENING_USER_MESSAGE : String(body.userMessage ?? "").slice(0, 8000);
+    if (!userMessage.trim()) return new Response("Empty message", { status: 400 });
+
+    const code = typeof body.userCode === "string" ? body.userCode : "";
+    const system = buildGuidedSystemPrompt({
+        problem: session.problem,
+        samples: sampleTests(session.problem.judgeTests),
+        stage,
+        mentorState: session.mentorState,
+        concepts: ctx.concepts,
+        mistakes: ctx.mistakes,
+        onboarding: ctx.onboarding,
+        code,
+        language: body.language || session.language || "cpp",
+    });
+
+    const stream = await openai.chat.completions.create({
+        model: modelFor("practiceMentor"),
+        messages: [{ role: "system", content: system }, ...history.slice(-20), { role: "user", content: userMessage }],
+        temperature: 0.5,
+        max_tokens: 900,
+        stream: true,
+    });
+
+    const readable = new ReadableStream({
+        async start(controller) {
+            let reply = "";
+            try {
+                for await (const chunk of stream as AsyncIterable<{ choices?: Array<{ delta?: { content?: string } }> }>) {
+                    const content = chunk.choices?.[0]?.delta?.content;
+                    if (content) {
+                        reply += content;
+                        controller.enqueue(sse({ content }));
+                    }
+                }
+            } catch (err: unknown) {
+                console.error("[mentor-stream] Error:", err);
+                controller.error(err);
+                return;
+            }
+
+            // Stage settlement. Never fatal: a failure here only means the stage
+            // did not move on this reply.
+            if (!opening && stage !== "done") {
+                try {
+                    const turns = [...history, { role: "user", content: userMessage }, { role: "assistant", content: reply }];
+                    const verdict = await judgeStage({
+                        stage,
+                        problemTitle: session.problem.title,
+                        problemDescription: session.problem.description,
+                        code,
+                        turns,
+                    });
+                    const moved = await settleStage({ sessionId: session.id, stage, mentorState: session.mentorState, verdict });
+                    if (moved) controller.enqueue(sse({ stage: moved }));
+                } catch (err: unknown) {
+                    console.error("[mentor-stage] Error:", err instanceof Error ? err.message : err);
+                }
+            }
+
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+        },
+    });
+
+    return new Response(readable, { headers: SSE_HEADERS });
+}
 
 export async function POST(req: NextRequest) {
     const session = await getSession(req.headers);
@@ -28,6 +150,9 @@ export async function POST(req: NextRequest) {
         userCode: string;
         attemptNumber: number;
     };
+
+    const guided = await guidedMentor(session.user.id, body);
+    if (guided) return guided;
 
     const [problem] = await db
         .select({

@@ -74,6 +74,14 @@ Widen only when a change genuinely crosses package boundaries. Editing
 `packages/{ui,db,auth,email}` does affect consumers, so typecheck the directly
 affected apps in that case.
 
+## AI models
+
+Model names come from `@repo/ai` (`packages/ai`): `modelFor("<task>")` for a
+task in `AI_TASKS` (`packages/ai/src/tasks.ts`), which defaults to
+gpt-4o-mini. Never write a model id at a call site; add a task line instead.
+Changing a task's model means re-running that task's recorded check
+(`plan/practice-dsa/mentor-adversarial.md`, `manual-pass-1.md`).
+
 ## Database
 
 `db` from `@repo/db` is the **neon-http** driver, which has no transaction

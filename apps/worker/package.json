@@ -17,6 +17,7 @@
 	"dependencies": {
 		"@neondatabase/serverless": "^1.1.0",
 		"@paralleldrive/cuid2": "^2.2.2",
+		"@repo/ai": "workspace:*",
 		"@repo/db": "workspace:*",
 		"drizzle-orm": "^0.45.2"
 	},

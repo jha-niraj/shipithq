@@ -53,7 +53,7 @@ export default async function HomePage() {
                 recentActivity={recentActivity}
             />
 
-            <div className="mx-auto w-full space-y-4 px-4 pb-10 sm:px-6 lg:px-8">
+            <div className="mx-auto w-full space-y-4 px-page pb-10">
                 {hasContinueLearning && (
                     <Suspense fallback={<ContinueLearningSkeleton />}>
                         <ContinueLearning

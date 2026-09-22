@@ -1,6 +1,6 @@
 "use server";
 
-import { db, users, practiceProblem, practiceUserSession, practiceModuleProgress, practiceLeaderboard } from "@repo/db";
+import { db, users, practiceProblem, practiceUserSession, practiceModuleProgress, practiceLeaderboard, backgroundJobs } from "@repo/db";
 import { eq, and, sql } from "drizzle-orm";
 import { getSession } from "@repo/auth";
 import { headers } from "next/headers";
@@ -10,6 +10,9 @@ import type {
     PracticeRecentSession, PracticeSessionData, PracticeChatMessage,
 } from "@/types/practice";
 import { MODULE_CONFIG } from "@/types/practice";
+import { clientSafeJudge } from "@repo/db";
+import { withCredits } from "@/lib/credits/charge";
+import { startBackgroundJob } from "@/actions/(main)/workers/jobs.action";
 
 // Re-export the PracticeModule and PracticeSessionStatus types from db schema enums
 // for backward compatibility with callers that import from this file
@@ -43,6 +46,7 @@ export async function getProblemsForModule(
             difficulty: true,
             tags: true,
             sortOrder: true,
+            judgeStatus: true,
         },
         with: userId ? {
             sessions: {
@@ -73,6 +77,7 @@ export async function getProblemsForModule(
             difficulty: p.difficulty,
             tags: p.tags,
             sortOrder: p.sortOrder,
+            judgeStatus: p.judgeStatus,
             userStatus: userSession?.status ?? undefined,
             userBestScore: userSession?.bestScore ?? undefined,
         };
@@ -80,6 +85,10 @@ export async function getProblemsForModule(
 }
 
 export async function getProblemBySlug(slug: string): Promise<PracticeProblemDetail | null> {
+    // `referenceSolution` is deliberately NOT selected. `harness` and
+    // `judgeTests` are, but only so `clientSafeJudge` can derive the flags and
+    // the sample subset; neither is returned. This object goes straight into a
+    // client component, so nothing hidden may be spread into it (PD-4).
     const problem = await db.query.practiceProblem.findFirst({
         where: eq(practiceProblem.slug, slug),
         columns: {
@@ -96,14 +105,20 @@ export async function getProblemBySlug(slug: string): Promise<PracticeProblemDet
             starterCss: true,
             testCases: true,
             tags: true,
+            functionSignature: true,
+            judgeStatus: true,
+            judgeTests: true,
+            harness: true,
         },
     });
 
     if (!problem) return null;
 
+    const { functionSignature, judgeStatus, judgeTests, harness, ...rest } = problem;
     return {
-        ...problem,
+        ...rest,
         testCases: problem.testCases as PracticeProblemDetail["testCases"],
+        judge: clientSafeJudge({ functionSignature, judgeStatus, judgeTests, harness }),
     };
 }
 
@@ -163,6 +178,117 @@ export async function getCategoriesForModule(module: PracticeModule): Promise<Pr
 // SESSIONS
 // ─────────────────────────────────────────────
 
+function toSessionData(row: typeof practiceUserSession.$inferSelect): PracticeSessionData {
+    return {
+        id: row.id,
+        userId: row.userId,
+        problemId: row.problemId,
+        module: row.module,
+        mode: row.mode,
+        status: row.status,
+        code: row.code,
+        cssCode: row.cssCode,
+        canvasData: row.canvasData,
+        language: row.language,
+        attempts: row.attempts,
+        bestScore: row.bestScore,
+        lastFeedback: row.lastFeedback,
+        requirementsMet: row.requirementsMet as Record<string, boolean> | null,
+        totalTimeSeconds: row.totalTimeSeconds,
+        startedAt: row.startedAt,
+        completedAt: row.completedAt,
+        voiceUsed: row.voiceUsed,
+        chatHistory: row.chatHistory as PracticeChatMessage[] | null,
+        xpAwarded: row.xpAwarded,
+        stage: row.status === "COMPLETED" ? "done" : row.stage,
+    };
+}
+
+/**
+ * The guided (DSA, ASSIST) session for a problem, WITHOUT creating one.
+ *
+ * A guided session is created only by `startGuidedSession`, which charges
+ * `practice_set` (PD-10). The page renders the start card when this is null.
+ */
+export async function getGuidedSession(problemSlug: string): Promise<PracticeSessionData | null> {
+    const session = await getSession(headers());
+    if (!session?.user?.id) return null;
+    const problem = await db.query.practiceProblem.findFirst({
+        where: eq(practiceProblem.slug, problemSlug),
+        columns: { id: true },
+    });
+    if (!problem) return null;
+    const row = await db.query.practiceUserSession.findFirst({
+        where: and(
+            eq(practiceUserSession.userId, session.user.id),
+            eq(practiceUserSession.problemId, problem.id),
+            eq(practiceUserSession.mode, "ASSIST"),
+        ),
+    });
+    return row ? toSessionData(row) : null;
+}
+
+export type StartGuidedResult =
+    | { success: true; session: PracticeSessionData; charged: number }
+    | { success: false; error: string; code?: string; required?: number; available?: number };
+
+/**
+ * Open a guided DSA session, charging `practice_set` once (PD-10).
+ *
+ * Reopening is free: an existing row is returned before anything is reserved.
+ * The row is inserted INSIDE the credit hold, so when two clicks race past the
+ * existence check, the loser's insert hits the unique index, its hold is
+ * released, and only one charge settles. The price comes from the pricing
+ * table (`plan/practice-dsa/overview.md` records the decision).
+ */
+export async function startGuidedSession(problemSlug: string): Promise<StartGuidedResult> {
+    const session = await getSession(headers());
+    if (!session?.user?.id) return { success: false, error: "Sign in to start practising." };
+    const userId = session.user.id;
+
+    const problem = await db.query.practiceProblem.findFirst({ where: eq(practiceProblem.slug, problemSlug) });
+    if (!problem) return { success: false, error: "That problem does not exist." };
+    if (problem.module !== "DSA") return { success: false, error: "Guided sessions are for DSA problems." };
+    if (problem.judgeStatus !== "ready") return { success: false, error: "This problem's tests are still being prepared." };
+
+    const findExisting = () => db.query.practiceUserSession.findFirst({
+        where: and(
+            eq(practiceUserSession.userId, userId),
+            eq(practiceUserSession.problemId, problem.id),
+            eq(practiceUserSession.mode, "ASSIST"),
+        ),
+    });
+    const existing = await findExisting();
+    if (existing) return { success: true, session: toSessionData(existing), charged: 0 };
+
+    const opensInCpp = Boolean(problem.harness?.cpp);
+    const result = await withCredits(
+        { userId, operation: "practice_set", reason: `Guided DSA: ${problem.title}` },
+        async () => {
+            const [created] = await db.insert(practiceUserSession).values({
+                userId,
+                problemId: problem.id,
+                module: problem.module,
+                mode: "ASSIST",
+                code: problem.starterCode ?? "",
+                cssCode: problem.starterCss ?? "",
+                language: opensInCpp ? "cpp" : "javascript",
+                paidAt: new Date(),
+            }).returning();
+            if (!created) throw new Error("Could not start the session.");
+            return created;
+        },
+    );
+
+    if (!result.success) {
+        // Lost a race: the other request created the row and paid. Use it.
+        const raced = await findExisting();
+        if (raced) return { success: true, session: toSessionData(raced), charged: 0 };
+        return result;
+    }
+    return { success: true, session: toSessionData(result.data), charged: result.charged };
+}
+
 export async function getOrCreateSession(
     problemSlug: string,
     mode: "EXAM" | "ASSIST"
@@ -204,9 +330,14 @@ export async function getOrCreateSession(
             voiceUsed: existing.voiceUsed,
             chatHistory: existing.chatHistory as PracticeChatMessage[] | null,
             xpAwarded: existing.xpAwarded,
+            stage: existing.status === "COMPLETED" ? "done" : existing.stage,
         };
     }
 
+    // A DSA problem with a C++ harness opens in C++ on its `class Solution`
+    // starter: that is the language with tests (PD-5). Everything else keeps
+    // the previous default.
+    const opensInCpp = problem.module === "DSA" && problem.judgeStatus === "ready" && Boolean(problem.harness?.cpp);
     const [created] = await db.insert(practiceUserSession).values({
         userId,
         problemId: problem.id,
@@ -214,7 +345,7 @@ export async function getOrCreateSession(
         mode,
         code: problem.starterCode ?? "",
         cssCode: problem.starterCss ?? "",
-        language: "javascript",
+        language: opensInCpp ? "cpp" : "javascript",
     }).returning();
 
     return {
@@ -238,6 +369,7 @@ export async function getOrCreateSession(
         voiceUsed: created!.voiceUsed,
         chatHistory: null,
         xpAwarded: created!.xpAwarded,
+        stage: created!.stage,
     };
 }
 
@@ -262,7 +394,8 @@ export async function saveSessionProgress(
                 ...(data.cssCode !== undefined ? { cssCode: data.cssCode } : {}),
                 ...(data.canvasData !== undefined ? { canvasData: data.canvasData as object } : {}),
                 ...(data.language !== undefined ? { language: data.language } : {}),
-                ...(data.chatHistory !== undefined ? { chatHistory: data.chatHistory as object[] } : {}),
+                // Ephemeral lines (the "welcome back" message) are display only.
+                ...(data.chatHistory !== undefined ? { chatHistory: data.chatHistory.filter((m) => !m.ephemeral) as object[] } : {}),
                 ...(data.totalTimeSeconds !== undefined ? { totalTimeSeconds: data.totalTimeSeconds } : {}),
             })
             .where(and(
@@ -320,6 +453,85 @@ export async function updateSessionAfterAssess(
     } catch {
         return false;
     }
+}
+
+// ─────────────────────────────────────────────
+// GUIDED COMPLETION (DSA, ASSIST; plan/practice-dsa PD-13)
+// ─────────────────────────────────────────────
+
+/**
+ * Finish a guided session: move it to `done` and dispatch `practice_reflect`,
+ * which writes the closing feedback. Allowed once every test has passed at
+ * least once, so a user stuck before the optimal solution can still close the
+ * problem (at a lower score). Returns the job to await.
+ */
+export async function finishGuidedSession(sessionId: string): Promise<{ success: true; jobId: string } | { success: false; error: string }> {
+    const session = await getSession(headers());
+    if (!session?.user?.id) return { success: false, error: "Not signed in." };
+    const row = await db.query.practiceUserSession.findFirst({
+        where: and(eq(practiceUserSession.id, sessionId), eq(practiceUserSession.userId, session.user.id)),
+        columns: { id: true, module: true, mode: true, mentorState: true, status: true },
+    });
+    if (!row || row.module !== "DSA" || row.mode !== "ASSIST") return { success: false, error: "That guided session does not exist." };
+    const state = row.mentorState;
+    const passed = Boolean(state && (state.testsPassedAt.length > 0 || state.lastSubmit?.passed));
+    if (!passed) return { success: false, error: "Get every test passing first, then you can finish." };
+
+    if (row.status !== "COMPLETED") {
+        await db.update(practiceUserSession).set({ stage: "done" }).where(eq(practiceUserSession.id, row.id));
+    }
+    const job = await startBackgroundJob("practice_reflect", { sessionId }, { cost: 0 });
+    if (!job.success || !job.jobId) return { success: false, error: job.error ?? "Could not finish the session." };
+    return { success: true, jobId: job.jobId };
+}
+
+/**
+ * Apply a finished `practice_reflect` job: mark the session completed, record
+ * the score and feedback, and award XP through the one existing path. The
+ * result is read from the job row on the server, never taken from the client,
+ * and the completion is conditional on the session not being completed yet,
+ * so XP is awarded once however often this is called.
+ */
+export async function applyGuidedCompletion(sessionId: string, jobId: string): Promise<
+    { success: true; score: number; feedback: string; firstCompletion: boolean } | { success: false; error: string }
+> {
+    const session = await getSession(headers());
+    if (!session?.user?.id) return { success: false, error: "Not signed in." };
+    const userId = session.user.id;
+
+    const [job] = await db
+        .select({ status: backgroundJobs.status, type: backgroundJobs.type, input: backgroundJobs.input, result: backgroundJobs.result })
+        .from(backgroundJobs)
+        .where(and(eq(backgroundJobs.jobId, jobId), eq(backgroundJobs.userId, userId)))
+        .limit(1);
+    const input = job?.input as { sessionId?: string } | undefined;
+    if (!job || job.type !== "practice_reflect" || input?.sessionId !== sessionId) return { success: false, error: "That review does not belong to this session." };
+    if (job.status !== "completed") return { success: false, error: "The review has not finished yet." };
+    const result = job.result as { score?: number; feedback?: string; requirementsMet?: Record<string, boolean> } | null;
+    if (!result || typeof result.score !== "number" || typeof result.feedback !== "string") return { success: false, error: "The review came back incomplete." };
+
+    const current = await db.query.practiceUserSession.findFirst({
+        where: and(eq(practiceUserSession.id, sessionId), eq(practiceUserSession.userId, userId)),
+        columns: { id: true, module: true, problemId: true, bestScore: true },
+    });
+    if (!current) return { success: false, error: "That session no longer exists." };
+
+    const [updated] = await db
+        .update(practiceUserSession)
+        .set({
+            status: "COMPLETED",
+            stage: "done",
+            completedAt: new Date(),
+            bestScore: Math.max(current.bestScore, result.score),
+            lastFeedback: result.feedback,
+            requirementsMet: result.requirementsMet ?? {},
+            attempts: sql`${practiceUserSession.attempts} + 1`,
+        })
+        .where(and(eq(practiceUserSession.id, sessionId), sql`${practiceUserSession.status} <> 'COMPLETED'`))
+        .returning({ id: practiceUserSession.id });
+
+    if (updated) await updateModuleProgress(userId, current.module, current.problemId);
+    return { success: true, score: result.score, feedback: result.feedback, firstCompletion: Boolean(updated) };
 }
 
 // ─────────────────────────────────────────────

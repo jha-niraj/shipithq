@@ -16,6 +16,9 @@ export { ResumeImport } from "./resume-import"
 export { SubGoalGeneration } from "./subgoal-generation"
 export { GoalCreation } from "./goal-creation"
 export { InterviewPrepGeneration } from "./interview-prep-generation"
+export { PracticeTestsGenerate } from "./practice-tests-generate"
+export { PracticeMemoryUpdate } from "./practice-memory-update"
+export { PracticeReflect } from "./practice-reflect"
 
 /**
  * Resolve the Durable Object that owns a job type.

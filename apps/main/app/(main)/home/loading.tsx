@@ -9,10 +9,10 @@ import {
 export default function HomeLoading() {
     return (
         <div className="w-full pb-4">
-            <div className="mx-auto w-full px-4 pt-6 pb-10 sm:px-6 lg:px-8">
+            <div className="mx-auto w-full px-page pt-6 pb-10">
                 <HomeDashboardSkeleton />
             </div>
-            <div className="mx-auto w-full space-y-4 px-4 pb-10 sm:px-6 lg:px-8">
+            <div className="mx-auto w-full space-y-4 px-page pb-10">
                 <ContinueLearningSkeleton />
                 <ActivityCalendarSkeleton />
             </div>

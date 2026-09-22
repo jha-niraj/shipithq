@@ -59,7 +59,7 @@ export default function ProjectsHubClient({ overview, activity, widget }: Projec
 	const hasWork = (totals?.projects ?? 0) > 0
 
 	return (
-		<div className="w-full px-4 py-6 sm:px-6">
+		<div className="w-full px-page py-6">
 			{widget && <div className="mb-6">{widget}</div>}
 			<motion.header
 				initial={{ opacity: 0, y: -12 }}

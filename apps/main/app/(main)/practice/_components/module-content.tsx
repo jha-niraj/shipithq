@@ -70,7 +70,7 @@ export function ModuleContent({
         : null;
 
     return (
-        <div className="p-6 lg:p-8 space-y-6 w-full mx-auto">
+        <div className="px-page py-6 space-y-6 w-full mx-auto">
             {headerSlot}
             {/* The left breadcrumb+title block and the right add-button+filter-pills
                 cluster (~320px alone) had no responsive stacking and exceeded a
@@ -237,6 +237,13 @@ function ProblemRow({
                     }
                 </div>
             </div>
+            {
+                problem.module === "DSA" && problem.judgeStatus !== "ready" && (
+                    <span className="shrink-0 rounded-md border border-neutral-200 px-2 py-0.5 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
+                        {problem.judgeStatus === "failed" ? "Tests failed" : "Preparing tests"}
+                    </span>
+                )
+            }
             <Badge
                 variant="outline"
                 className={cn(

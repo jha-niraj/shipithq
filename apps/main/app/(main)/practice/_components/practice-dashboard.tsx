@@ -54,7 +54,7 @@ export function PracticeDashboard({ stats, dailyChallenge, activity }: PracticeD
     }
 
     return (
-        <div className="p-6 lg:p-8 space-y-8 w-full mx-auto">
+        <div className="px-page py-6 space-y-8 w-full mx-auto">
             <div>
                 <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
                     Practice
@@ -206,7 +206,7 @@ function DailyChallengeCard({ challenge }: { challenge: DailyChallengeData }) {
 
 function EmptyDashboard({ dailyChallenge }: { dailyChallenge?: DailyChallengeData | null }) {
     return (
-        <div className="p-6 lg:p-8 space-y-8 max-w-6xl mx-auto">
+        <div className="px-page py-6 space-y-8 max-w-6xl mx-auto">
             <div>
                 <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
                     Practice

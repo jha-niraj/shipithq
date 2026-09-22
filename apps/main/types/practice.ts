@@ -5,6 +5,7 @@ import {
     practiceSessionStatusEnum,
     practiceModeEnum,
 } from "@repo/db";
+import type { ClientJudgeView, PracticeStage } from "@repo/db";
 
 export type PracticeModule = typeof practiceModuleEnum.enumValues[number];
 export type PracticeDifficulty = typeof practiceDifficultyEnum.enumValues[number];
@@ -25,6 +26,8 @@ export interface PracticeProblemListItem {
     /** User-specific status (injected from session query) */
     userStatus?: PracticeSessionStatus;
     userBestScore?: number;
+    /** DSA: whether the problem's tests exist yet (PD-12). */
+    judgeStatus: string;
 }
 
 export interface PracticeProblemDetail {
@@ -41,6 +44,12 @@ export interface PracticeProblemDetail {
     starterCss: string | null;
     testCases: PracticeTestCase[] | null;
     tags: string[];
+    /**
+     * DSA judge assets as the browser may see them: signature, status, SAMPLE
+     * tests and which languages have a harness. Built only by `clientSafeJudge`;
+     * hidden tests, harnesses and the reference solution never reach here.
+     */
+    judge: ClientJudgeView;
 }
 
 export interface PracticeTestCase {
@@ -89,7 +98,41 @@ export interface PracticeSessionData {
     voiceUsed: boolean;
     chatHistory: PracticeChatMessage[] | null;
     xpAwarded: number;
+    /** Guided-session stage (DSA, ASSIST). A COMPLETED session reads as `done`. */
+    stage: PracticeStage;
 }
+
+// ── Judge (DSA Run and Submit) ──
+
+export interface PracticeJudgeCase {
+    id: string;
+    label: string;
+    hidden: boolean;
+    passed: boolean;
+    /** Empty for a PASSING hidden case: hidden inputs are only revealed when they fail. */
+    input: string;
+    expectedOutput: string;
+    actualOutput: string;
+    explanation?: string;
+    /** The case hit the per-case time limit; show "time limit", not a wrong answer. */
+    timedOut: boolean;
+}
+
+export type PracticeJudgeResult =
+    | {
+        status: "ok";
+        kind: "run" | "submit";
+        language: string;
+        passed: boolean;
+        cases: PracticeJudgeCase[];
+        sampleTotal: number;
+        samplePassed: number;
+        hiddenTotal: number;
+        hiddenPassed: number;
+        executionTimeMs: number;
+    }
+    | { status: "compile_error"; kind: "run" | "submit"; language: string; message: string }
+    | { status: "unavailable"; kind: "run" | "submit"; language: string; message: string };
 
 export interface PracticeChatMessage {
     id: string;
@@ -97,6 +140,12 @@ export interface PracticeChatMessage {
     content: string;
     timestamp: string;
     isAssessment?: boolean;
+    /**
+     * Shown but never saved or sent back to the model: the templated "welcome
+     * back" line a returning user sees. Persisting it would add one message to
+     * the transcript per visit, and the memory job would read it as a real turn.
+     */
+    ephemeral?: boolean;
 }
 
 // ── Progress & Leaderboard ──
@@ -139,6 +188,8 @@ export interface PracticeAssessPayload {
     language?: string;
     conversationHistory: PracticeChatMessage[];
     previousFeedback?: string;
+    /** DSA: the hidden-test verdict from the judge, passed to the assessor as fact (PD-13). */
+    judgeSummary?: string;
 }
 
 export interface PracticeAssessResult {

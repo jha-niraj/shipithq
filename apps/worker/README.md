@@ -45,6 +45,9 @@ there is one place in the product where a charge or a refund can happen.
 | `resume_ats_score` | `ResumeAtsScore` | scores a resume against a JD on gpt-4o-mini |
 | `cover_letter_questions` | `CoverLetterQuestions` | the tailored questions asked before a letter is written |
 | `resume_import` | `ResumeImport` | up to four Exa scrapes and six GitHub REST calls, then a gpt-4o pass. The longest non-model wait in the product |
+| `practice_tests_generate` | `PracticeTestsGenerate` | one gpt-4o pass writing a C++ harness, reference solution and tests for a DSA problem, then the reference solution run against every test in the code executor. Marks the problem `ready` only if it passes; one repair attempt with the failing cases |
+| `practice_memory_update` | `PracticeMemoryUpdate` | one gpt-4o-mini extraction over the new part of a guided DSA conversation, merged into the session's mentor state and the user's learner profile; applied at most once per window (watermark-guarded transaction) |
+| `practice_reflect` | `PracticeReflect` | one gpt-4o pass writing the closing feedback for a finished guided DSA session; the score comes from recorded facts (100 optimal, 70 brute force), and the app applies completion and XP from the stored result |
 
 ## Adding a job type
 
@@ -117,6 +120,20 @@ pnpm dev                      # serves on :8787
 
 `apps/main` falls back to `http://localhost:8787` when there is no service
 binding, which is always the case under `next dev`.
+
+Jobs that run code (`practice_tests_generate`) need the code executor. Locally,
+run its container server directly and point the worker at it with
+`EXECUTOR_URL` in `.dev.vars`; when set, it wins over the `CODE_EXECUTOR`
+binding, which under `wrangler dev` points at a worker that is not running:
+
+```bash
+cd apps/shipitworker/container && PORT=8080 node server.mjs
+# .dev.vars: EXECUTOR_URL="http://localhost:8080"
+```
+
+To fill a development database with DSA judge assets without deploying,
+`scripts/generate-judge-assets.ts` runs the same generation code as the job
+(usage at the top of the file).
 
 ## Deploying
 

@@ -12,6 +12,10 @@ import {
 import { relations } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { users } from "./schema";
+import type {
+    DeletedConcept, JudgeLanguage, JudgeStatus, JudgeTest, LearnerConcept, LearnerMistake,
+    PracticeMentorState, PracticeStage,
+} from "../practice-types";
 
 // ===========================
 // Enums
@@ -63,6 +67,19 @@ export const practiceProblem = pgTable(
         tags: text("tags").array().notNull().default([]),
         sortOrder: integer("sort_order").notNull().default(0),
         isActive: boolean("is_active").notNull().default(true),
+        // ── Judge assets (DSA) ──────────────────────────────────────────────
+        // Generated once per problem by the `practice_tests_generate` job and
+        // marked `ready` only after the reference solution passed every test in
+        // the real container. `referenceSolution` and the hidden entries of
+        // `judgeTests` must never be selected into anything a client renders:
+        // `clientSafeProblem` in `@repo/db` is the only projection allowed out.
+        // Plan: plan/practice-dsa (PD-1, PD-3, PD-4).
+        functionSignature: text("function_signature"),
+        harness: jsonb("harness").$type<Partial<Record<JudgeLanguage, string>>>(),
+        judgeTests: jsonb("judge_tests").$type<JudgeTest[]>(),
+        referenceSolution: jsonb("reference_solution").$type<Partial<Record<JudgeLanguage, string>>>(),
+        judgeStatus: text("judge_status").$type<JudgeStatus>().notNull().default("none"),
+        judgeError: text("judge_error"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().$onUpdateFn(() => new Date()),
     },
@@ -94,8 +111,21 @@ export const practiceUserSession = pgTable(
         startedAt: timestamp("started_at").notNull().defaultNow(),
         completedAt: timestamp("completed_at"),
         voiceUsed: boolean("voice_used").notNull().default(false),
+        // Appended in place, never reordered or truncated from the front:
+        // `memoryWatermark` is an index into it.
         chatHistory: jsonb("chat_history"),
         xpAwarded: integer("xp_awarded").notNull().default(0),
+        // ── Guided session (DSA, ASSIST) ────────────────────────────────────
+        // A `COMPLETED` session counts as `done` regardless of `stage`; rows that
+        // predate this column keep the default and are read that way (PD-1).
+        stage: text("stage").$type<PracticeStage>().notNull().default("understand"),
+        mentorState: jsonb("mentor_state").$type<PracticeMentorState>(),
+        // Index into `chatHistory` up to which `practice_memory_update` has
+        // consolidated. Re-running the job from the same watermark is a no-op.
+        memoryWatermark: integer("memory_watermark").notNull().default(0),
+        // When `practice_set` was settled for this row. Null on rows created
+        // before charging existed: they open free, never backfilled (PD-10).
+        paidAt: timestamp("paid_at"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().$onUpdateFn(() => new Date()),
     },
@@ -154,6 +184,26 @@ export const practiceLeaderboard = pgTable(
     ],
 );
 
+export const practiceLearnerProfile = pgTable(
+    "practice_learner_profile",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        module: practiceModuleEnum("module").notNull(),
+        // What the mentor has observed across problems: concept entries with a
+        // status and evidence, recurring mistakes, and the slugs the user deleted
+        // so the consolidation job never brings them back (PD-8, PD-9).
+        concepts: jsonb("concepts").$type<LearnerConcept[]>().notNull().default([]),
+        mistakes: jsonb("mistakes").$type<LearnerMistake[]>().notNull().default([]),
+        deletedSlugs: jsonb("deleted_slugs").$type<DeletedConcept[]>().notNull().default([]),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow().$onUpdateFn(() => new Date()),
+    },
+    (table) => [
+        uniqueIndex("uq_practice_learner_profile_user_id_module").on(table.userId, table.module),
+    ],
+);
+
 // ===========================
 // Relations
 // ===========================
@@ -179,6 +229,14 @@ export const practiceModuleProgressRelations = relations(practiceModuleProgress,
         fields: [practiceModuleProgress.userId],
         references: [users.id],
         relationName: "UserPracticeProgress",
+    }),
+}));
+
+export const practiceLearnerProfileRelations = relations(practiceLearnerProfile, ({ one }) => ({
+    user: one(users, {
+        fields: [practiceLearnerProfile.userId],
+        references: [users.id],
+        relationName: "UserPracticeLearnerProfile",
     }),
 }));
 

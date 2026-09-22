@@ -33,6 +33,9 @@ export {
 	SubGoalGeneration,
 	GoalCreation,
 	InterviewPrepGeneration,
+	PracticeTestsGenerate,
+	PracticeMemoryUpdate,
+	PracticeReflect,
 } from "./jobs"
 
 // ─────────────────────────────────────────────────────────────────────────────

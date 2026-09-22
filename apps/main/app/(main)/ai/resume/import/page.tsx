@@ -17,7 +17,7 @@ export default async function ImportPage() {
     const links = await getMyProfileLinks()
 
     return (
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+        <div className="w-full px-page py-6">
             <ImportClient links={links} />
         </div>
     )

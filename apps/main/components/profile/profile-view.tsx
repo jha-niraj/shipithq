@@ -235,7 +235,7 @@ export function ProfileView({
         isOwn && handler ? { label, onClick: handler } : undefined;
 
     return (
-        <div className="mx-auto w-full max-w-5xl space-y-3 px-4 py-5 pb-8 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-5xl space-y-3 px-page py-5 pb-8">
             {/* ── Identity ── */}
             <motion.section
                 initial={{ opacity: 0, y: 12 }}

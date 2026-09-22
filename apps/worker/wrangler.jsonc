@@ -35,7 +35,10 @@
 			{ "name": "RESUME_IMPORT", "class_name": "ResumeImport" },
 			{ "name": "SUBGOAL_GENERATION", "class_name": "SubGoalGeneration" },
 			{ "name": "GOAL_CREATION", "class_name": "GoalCreation" },
-			{ "name": "INTERVIEW_PREP_GENERATION", "class_name": "InterviewPrepGeneration" }
+			{ "name": "INTERVIEW_PREP_GENERATION", "class_name": "InterviewPrepGeneration" },
+			{ "name": "PRACTICE_TESTS_GENERATE", "class_name": "PracticeTestsGenerate" },
+			{ "name": "PRACTICE_MEMORY_UPDATE", "class_name": "PracticeMemoryUpdate" },
+			{ "name": "PRACTICE_REFLECT", "class_name": "PracticeReflect" }
 		]
 	},
 
@@ -83,6 +86,23 @@
 		{
 			"tag": "v7",
 			"new_sqlite_classes": ["InterviewPrepGeneration"]
+		},
+		{
+			"tag": "v8",
+			"new_sqlite_classes": ["PracticeTestsGenerate", "PracticeMemoryUpdate", "PracticeReflect"]
+		}
+	],
+
+	// ── The code executor ─────────────────────────────────────────────────────
+	// `practice_tests_generate` proves a generated test set by running the
+	// reference solution in the real container before a problem is marked ready.
+	// Same service apps/main binds as CODE_EXECUTOR; same shared-secret auth.
+	// Under `wrangler dev` there is no binding and `EXECUTOR_URL` in .dev.vars is
+	// used instead (plan/practice-dsa, PD-2).
+	"services": [
+		{
+			"binding": "CODE_EXECUTOR",
+			"service": "shipithq-shipitworker"
 		}
 	],
 

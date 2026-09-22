@@ -17,7 +17,7 @@ function Block({ className = "" }: { className?: string }) {
 
 export function ProfileSkeleton() {
     return (
-        <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-6 pb-12 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-5xl space-y-5 px-page py-6 pb-12">
             <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
                 <div className="h-24 animate-pulse bg-neutral-200 dark:bg-neutral-800 sm:h-28" />
                 <div className="px-5 pb-5 sm:px-6 sm:pb-6">

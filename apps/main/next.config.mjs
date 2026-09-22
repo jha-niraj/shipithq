@@ -9,7 +9,7 @@ const nextConfig = {
     // module identity across an HMR rebuild, which surfaces as
     // "module factory is not available" pointing at a @repo/ui file.
     // uni, hiring and web already set this; main and admin did not.
-    transpilePackages: ["@repo/ui", "@repo/db", "@repo/auth", "@repo/email"],
+    transpilePackages: ["@repo/ui", "@repo/db", "@repo/auth", "@repo/email", "@repo/ai"],
     typescript: {
         ignoreBuildErrors: true,
     },

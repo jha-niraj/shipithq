@@ -302,7 +302,7 @@ export default function HomeDashboard({
 	}))
 
 	return (
-		<div className="mx-auto w-full space-y-7 px-4 pt-6 pb-10 sm:px-6 lg:px-8">
+		<div className="mx-auto w-full space-y-7 px-page pt-6 pb-10">
 			{/* ── Header ── */}
 			<motion.div
 				initial={{ opacity: 0, y: 12 }}

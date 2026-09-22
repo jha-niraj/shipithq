@@ -4,6 +4,7 @@
  *     pnpm db:seed                  # companies, jobs, projects
  *     pnpm db:seed --applications=you@example.com
  *     pnpm db:seed --clear          # remove everything this script created
+ *     pnpm db:seed --only=practice  # just the DSA practice catalogue
  *
  * ── Why this exists ──────────────────────────────────────────────────────────
  * Every layout decision in this product has been made against an empty database:
@@ -35,6 +36,8 @@
  */
 
 import { db } from "../client";
+import { practiceProblem } from "../schema/practice";
+import { DSA_CATALOGUE, SEEDED_SORT_ORDER_FLOOR } from "./practice-dsa";
 import {
     companies,
     companyMembers,
@@ -416,12 +419,62 @@ async function clear() {
 
 // ── Entry point ──────────────────────────────────────────────────────────────
 
+/**
+ * The DSA practice catalogue (plan/practice-dsa PD-11).
+ *
+ * Upserts statement fields only, on slug. Never touches judge columns (tests
+ * are generated and validated separately) or `isActive`, so re-running after
+ * generation keeps every problem's tests. A row with a sortOrder below the
+ * seeded floor is a user's own problem that shares a slug: it is reported and
+ * left alone.
+ *
+ * Deliberately NOT part of `--clear`: deleting a problem cascades to every
+ * user's practice session on it.
+ */
+async function seedPracticeDsa(): Promise<{ written: number; skipped: string[] }> {
+    const existing = await db
+        .select({ slug: practiceProblem.slug, sortOrder: practiceProblem.sortOrder })
+        .from(practiceProblem);
+    const userOwned = new Set(existing.filter((r) => r.sortOrder < SEEDED_SORT_ORDER_FLOOR).map((r) => r.slug));
+
+    const skipped: string[] = [];
+    let written = 0;
+    for (const p of DSA_CATALOGUE) {
+        if (userOwned.has(p.slug)) {
+            skipped.push(p.slug);
+            continue;
+        }
+        const statement = {
+            title: p.title,
+            description: p.description,
+            category: p.category,
+            difficulty: p.difficulty,
+            requirements: p.requirements,
+            hints: p.hints,
+            tags: p.tags,
+            sortOrder: p.sortOrder,
+        };
+        await db
+            .insert(practiceProblem)
+            .values({ slug: p.slug, module: "DSA", isActive: true, ...statement })
+            .onConflictDoUpdate({ target: practiceProblem.slug, set: statement });
+        written++;
+    }
+    return { written, skipped };
+}
+
 async function main() {
     assertNotProduction();
 
     const args = process.argv.slice(2);
     if (args.includes("--clear")) {
         await clear();
+        return;
+    }
+
+    if (args.includes("--only=practice")) {
+        const r = await seedPracticeDsa();
+        console.log(`  practice   ${r.written} DSA problems${r.skipped.length ? ` (left alone, user-owned: ${r.skipped.join(", ")})` : ""}`);
         return;
     }
 
@@ -460,6 +513,9 @@ async function main() {
 
     const projectCount = await seedProjects(owner.id);
     console.log(`  projects   ${projectCount}`);
+
+    const practice = await seedPracticeDsa();
+    console.log(`  practice   ${practice.written} DSA problems${practice.skipped.length ? ` (left alone, user-owned: ${practice.skipped.join(", ")})` : ""}`);
 
     const appArg = args.find((a) => a.startsWith("--applications="));
     if (appArg) {

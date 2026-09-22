@@ -28,9 +28,9 @@ export function PathfinderGoalsSkeleton() {
     return <LoaderTile className="h-64" />;
 }
 
-export function ActivityCalendarSkeleton() {
-    return <LoaderTile className="h-64" />;
-}
+// The real grid with inert cells: it has the calendar's exact height at every
+// width, which a fixed-height tile cannot.
+export { ActivityCalendarSkeleton } from "./activity-calendar";
 
 export function AchievementsCardSkeleton() {
     return <LoaderTile className="h-56" />;

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server"
+import { modelFor } from "@repo/ai"
 import { and, eq, sql } from "drizzle-orm"
 import { getSession } from "@repo/auth"
 import {
@@ -29,7 +30,7 @@ import type { OnboardingNextResponse } from "@/types/onboarding"
 // cannot both append; the loser returns the winner's turn.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MODEL = "gpt-4o-mini"
+const MODEL = modelFor("onboardingQuestion")
 
 type ModelReply = {
     done?: unknown

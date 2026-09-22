@@ -6,6 +6,10 @@ export {
     getProblemBySlug,
     getCategoriesForModule,
     getOrCreateSession,
+    getGuidedSession,
+    startGuidedSession,
+    finishGuidedSession,
+    applyGuidedCompletion,
     saveSessionProgress,
     updateSessionAfterAssess,
     getModuleProgress,
@@ -26,3 +30,9 @@ export {
     generateProblemFromName,
     createUserPracticeProblem,
 } from "./generate-problem.action";
+
+// DSA judge: test generation, Run and Submit
+export { requestJudgeAssets, runSampleTests, submitSolution } from "./judge.action";
+
+// Mentor memory: consolidation, the learner profile page
+export { requestMemoryUpdate, getLearnerProfile, deleteLearnerEntry } from "./memory.action";

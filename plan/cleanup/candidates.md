@@ -796,3 +796,14 @@ accurate. The fourth was never computed from anything, which is why the hub now
 reads the user's own rows instead. If a platform-wide stat is ever wanted again
 (a marketing page in `apps/web`, say), this is the action to reuse, and the 94%
 is the thing not to.
+
+## Practice problem generation still calls gpt-4o in server actions (2026-09-22)
+
+Found while building `plan/practice-dsa` PD-12, not in its scope:
+`generateProblemFromName` and `generateProblemFromURL` in
+`apps/main/actions/(main)/practice/generate-problem.action.ts` each run a
+2500-token gpt-4o completion (the URL one after an Exa fetch) inside the
+server action, which the working agreement says belongs in `apps/worker`.
+They are free and the user watches the sheet, so the harm is a killed request
+rather than a lost charge. Candidate: move both to one
+`practice_problem_draft` job. Not a deletion; listed for a decision.

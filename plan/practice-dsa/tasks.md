@@ -16,7 +16,7 @@ Shared vocabulary used below:
 
 ## PD-1 Schema: judge assets, mentor state, learner profile, job types
 
-- [ ] Status: not started
+- [x] Status: done (2026-09-22). Migration `0017_sticky_preak.sql` applied: `practice_learner_profile`, six judge columns on `practice_problem`, `stage`, `mentor_state`, `memory_watermark`, `paid_at` on `practice_user_session`; every column read back from `information_schema`; `judge_status` grouped returns nothing because the table is empty in this database; main and worker typecheck. Shared shapes live in `packages/db/src/practice-types.ts`, exported from `@repo/db`.
 
 **Why.** Nothing in the definition of done (items 5, 9, 10, 12, 14) has a
 column to live in. Hidden tests, the reference solution and the stage cannot be
@@ -28,7 +28,7 @@ test shape for backend problems.
 - `packages/db/src/schema/worker.ts` (`JOB_TYPES`)
 - `packages/db/src/schema/index.ts` (export the new table and relations, if
   exports are enumerated there)
-- `packages/db/drizzle/0016_*.sql` (generated)
+- `packages/db/drizzle/0017_sticky_preak.sql` (generated)
 
 **Steps.**
 1. On `practiceProblem` add:
@@ -88,7 +88,7 @@ table above and nothing else, both apps typecheck, and
 
 ## PD-2 The job worker can execute code, and one judge helper is shared
 
-- [ ] Status: not started
+- [x] Status: done locally (2026-09-22). `spliceHarness`, `canonicalOutput`, `outputsMatch`, `sampleTests`, `hiddenTests`, `clientSafeJudge` in `packages/db/src/practice-judge.ts`, exported as `@repo/db/practice` (the worker cannot import the package root: it pulls the Node client). `runJudge` in `apps/worker/src/executor.ts`; `CODE_EXECUTOR` service binding plus `EXECUTOR_URL` fallback. Throwaway check against the container server running locally: a correct Two Sum passed 3/3, a wrong one failed all three with actual outputs, a tampered expected output failed exactly that case, a syntax error came back as a compile error. Not yet run against a deployed preview; do that at release. Finding: Apple clang has no `bits/stdc++.h`, so the PD-3 prompt requires explicit standard headers.
 - Blocks: PD-3, PD-4, PD-13
 
 **Why.** Generated tests are only trustworthy after the reference solution has
@@ -147,7 +147,7 @@ is edited.
 
 ## PD-3 `practice_tests_generate` job: signature, harness, tests, reference solution
 
-- [ ] Status: not started
+- [x] Status: done (2026-09-22). The generation core (`generateJudgeAssets`) was driven directly against gpt-4o and the container server running locally: Two Sum came back `ready` in 12 s with 3 samples and 8 hidden tests; the one-word statement "array" failed in 1.5 s with `judgeError` "The statement is not precise enough to test: ...". Design changed from the plan during verification: the model does NOT write hidden expected outputs (it wrote inputs with several valid answers and "described" large inputs, and a retry did not fix it). It writes hidden INPUTS only; expected outputs are what the reference solution prints, and an input is kept only when an independently written brute-force solution prints the same thing. Six of fourteen Two Sum inputs were dropped that way, all of them ones with several valid pairs. The Durable Object wrapper around the core is not exercised until the worker is deployed. Also: harnesses must use explicit standard headers (`bits/stdc++.h` is gcc-only).
 - Blocked by: PD-1, PD-2
 - Blocks: PD-11, PD-12
 
@@ -212,7 +212,7 @@ with `judgeStatus = 'failed'` and a non-empty `judgeError`, and the
 
 ## PD-4 Run and Submit execute real tests, hidden tests stay on the server
 
-- [ ] Status: not started
+- [ ] Status: server and flow verified end to end (`scripts/practice-checks/e2e.ts`, 40 of 40, three runs, gpt-4o-mini): samples on Run, hidden on Submit, 13/13 for brute force and optimal, code saved and attempt recorded on mentor state, no hidden input or reference code in the client payload. Rendering of the cases panel in a browser still owed.
 - Blocked by: PD-1, PD-2
 
 **Why.** Items 5 and 6. Run today passes an empty test list and the mentor is
@@ -274,7 +274,7 @@ case's input and expected output.
 
 ## PD-5 Function-only editor for C++; honest behaviour for other languages
 
-- [ ] Status: not started
+- [ ] Status: session opens in C++ on the class starter, verified end to end (`scripts/practice-checks/e2e.ts`, 40 of 40, three runs, gpt-4o-mini). The editor strip and language switching in a browser still owed.
 - Blocked by: PD-1
 
 **Why.** Items 6 and 7. The user writes the `class Solution` block, as on
@@ -325,7 +325,7 @@ the notice and stdout behaviour, switching back restores the C++ body.
 
 ## PD-6 Mentor route: stage-aware prompt, memory in, stage verdict out
 
-- [ ] Status: not started
+- [ ] Status: verified end to end (`scripts/practice-checks/e2e.ts`, 40 of 40, three runs, gpt-4o-mini): the route streams the opening line, understand, approach, brute force, optimise and reflect each advance exactly when their goal is met and not before (a correct but non-optimal claim does not advance). Adversarial set on gpt-4o-mini: 0 of 20 leaked in two runs (`mentor-adversarial.md`). Nothing browser-only here; left open only because PD-7 renders it.
 - Blocked by: PD-1, PD-4
 - Blocks: PD-7, PD-8
 
@@ -429,7 +429,7 @@ network tab at each boundary.
 
 ## PD-7 Stage tracker, opening turn, and resume in the mentor panel
 
-- [ ] Status: not started
+- [ ] Status: the stage events it renders are verified end to end (`scripts/practice-checks/e2e.ts`, 40 of 40, three runs, gpt-4o-mini). Rendering of the tracker and dividers in a browser still owed.
 - Blocked by: PD-6
 
 **Why.** Item 2 says the stage is visible. Item 1 says the mentor speaks first.
@@ -470,7 +470,7 @@ reloading the page shows the resume message and the same pill.
 
 ## PD-8 `practice_memory_update` job: consolidate the transcript into memory
 
-- [ ] Status: not started
+- [x] Status: done (2026-09-22). Verified end to end (`scripts/practice-checks/e2e.ts`, 40 of 40, three runs, gpt-4o-mini): the job runs in a real Durable Object, advances the watermark to the saved transcript, a rerun with nothing new is a no-op, and the profile records concepts with evidence. Extraction on gpt-4o-mini asks per-concept facts and derives the status in code: 6 of 6 on the recorded transcripts.
 - Blocked by: PD-1, PD-6
 - Blocks: PD-9
 
@@ -528,7 +528,7 @@ running the job again does not bring it back.
 
 ## PD-9 "What the mentor knows about you" page
 
-- [ ] Status: not started
+- [ ] Status: deleting a concept removes it from the profile and from the mentor's context, verified end to end (`scripts/practice-checks/e2e.ts`, 40 of 40, three runs, gpt-4o-mini). The page in a browser still owed.
 - Blocked by: PD-8
 
 **Why.** Item 11. Memory the user cannot see is memory they cannot trust.
@@ -567,7 +567,7 @@ grouped list layout with no reflow on load.
 
 ## PD-10 Charge `practice_set` once per problem on first guided open
 
-- [ ] Status: not started
+- [ ] Status: verified end to end (`scripts/practice-checks/e2e.ts`, 40 of 40, three runs, gpt-4o-mini): 4 credits refused with INSUFFICIENT_CREDITS, 5 credits charged once, balance 0, reopening free, exam mode free. The start card in a browser still owed.
 - Blocked by: PD-1
 
 **Why.** Item 12. The price exists and nothing charges it. Decision recorded
@@ -613,7 +613,7 @@ still opens directly.
 
 ## PD-11 Seed the 75-problem catalogue and generate its judge assets
 
-- [ ] Status: not started
+- [x] Status: done (2026-09-22). 75 seeded by `pnpm db:seed --only=practice` (idempotent: two runs, same rows), all 75 `ready`, every reference solution re-run against every stored test (1,226). Statements were drafted by gpt-4o from the titles in `catalogue.md` as original wording; a person reading the samples of each problem is still worth doing and is not claimed here.
 - Blocked by: PD-3
 
 **Why.** Item 13. There is no seed data; the catalogue starts empty for
@@ -673,7 +673,7 @@ changes zero rows.
 
 ## PD-12 "Add problem" produces judge assets and shows "Preparing tests"
 
-- [ ] Status: not started
+- [ ] Status: verified end to end (`scripts/practice-checks/e2e.ts`, 40 of 40, three runs, gpt-4o-mini): saving a problem dispatches the job, the worker makes it `ready` (5 samples, 12 hidden, cross-checked). A thrown job now records `failed` instead of leaving `generating`. The sheet in a browser still owed.
 - Blocked by: PD-3, PD-10
 
 **Why.** Item 13, second half. A user-added problem must reach the same
@@ -713,7 +713,7 @@ badge with a readable error and a working retry.
 
 ## PD-13 DSA completion, reflection and XP move to `practice_reflect`
 
-- [ ] Status: not started
+- [x] Status: done (2026-09-22). Verified end to end (`scripts/practice-checks/e2e.ts`, 40 of 40, three runs, gpt-4o-mini): finish dispatches the review job, completion applies score 100, XP is added once (+25) however often completion is applied, the session is COMPLETED at `done`. Feedback on gpt-4o-mini: 6 of 6 (quotes the reflection, no code, the brute-force note does not name the technique).
 - Blocked by: PD-4, PD-6, PD-8
 
 **Why.** Items 8 and 14. Today Submit asks gpt-4o for a score in a server
@@ -768,7 +768,7 @@ DSA ASSIST path (assess remains for the other modules and for EXAM).
 
 ## PD-14 Loading skeletons, contrast pass, end-to-end run
 
-- [ ] Status: not started
+- [ ] Status: in progress (2026-09-22). Skeleton rebuilt, contrast measured, typechecks and `check-nav` pass, the flow is verified end to end. Owed: the browser pass listed in `manual-pass-1.md`.
 - Blocked by: PD-5, PD-7, PD-9, PD-10
 
 **Why.** Item 16. The workspace layout changes (stage tracker, cases panel,

@@ -258,6 +258,9 @@ importers:
       '@react-three/fiber':
         specifier: ^9.4.2
         version: 9.4.2(@types/react@19.2.2)(immer@11.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(three@0.182.0)
+      '@repo/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@repo/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -664,6 +667,9 @@ importers:
       '@paralleldrive/cuid2':
         specifier: ^2.2.2
         version: 2.3.1
+      '@repo/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -680,6 +686,15 @@ importers:
       wrangler:
         specifier: ^4.116.0
         version: 4.116.0(@cloudflare/workers-types@4.20260702.1)
+
+  packages/ai:
+    devDependencies:
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
 
   packages/auth:
     dependencies:

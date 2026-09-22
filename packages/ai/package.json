@@ -1,0 +1,22 @@
+{
+  "name": "@repo/ai",
+  "version": "1.0.0",
+  "description": "Model registry, pricing, and the one table that says which model each AI task uses",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./models": "./src/models.ts",
+    "./tasks": "./src/tasks.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "5.9.2"
+  }
+}

@@ -1,7 +1,7 @@
 "use server";
 
 import { openai } from '@/lib/openai-client'
-import { db, practiceProblem } from "@repo/db";
+import { db, practiceProblem, clientSafeJudge } from "@repo/db";
 import { eq } from "drizzle-orm";
 import { getSession } from "@repo/auth";
 import { headers } from "next/headers";
@@ -231,6 +231,7 @@ Requirements:
 ${requirementsList}
 
 ${workSection}
+${payload.judgeSummary ? `\nJudge results (authoritative; these were produced by running the code against the problem's full test set, do not contradict them):\n${payload.judgeSummary}\n` : ""}
 ${previousContext}
 ${conversationContext}
 
@@ -292,6 +293,7 @@ export async function assessPracticeWork(
             starterCss: problem.starterCss,
             testCases: problem.testCases as PracticeProblemDetail["testCases"],
             tags: problem.tags,
+            judge: clientSafeJudge(problem),
         };
 
         const systemPrompt = MODULE_SYSTEM_PROMPTS[payload.module] ?? MODULE_SYSTEM_PROMPTS.DSA!;

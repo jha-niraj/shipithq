@@ -621,7 +621,7 @@ export function ResumeHub({ drafts: initialDrafts, templates }: Props) {
                 squarer card inside the rounded page card the shell already draws, and its
                 bottom edge cut the page in half. Every other page under (main) lets its
                 title sit on the page surface; this one does now too. */}
-            <div className="px-4 sm:px-6 lg:px-8 pt-8 pb-6">
+            <div className="px-page pt-8 pb-6">
                 <div className="max-w-5xl mx-auto">
                     <div className="flex items-start justify-between gap-4">
                         <div>
@@ -669,7 +669,7 @@ export function ResumeHub({ drafts: initialDrafts, templates }: Props) {
             </div>
 
             {/* ── Tabs ── */}
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="max-w-5xl mx-auto px-page py-6">
                 <Tabs defaultValue="resumes">
                     <TabsList className="mb-6">
                         <TabsTrigger value="resumes">My Resumes</TabsTrigger>

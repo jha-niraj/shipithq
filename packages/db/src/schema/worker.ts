@@ -65,6 +65,12 @@ export const JOB_TYPES = [
     "cover_letter_questions",
     "resume_import",
     "interview_prep_generation",
+    // Guided DSA practice (plan/practice-dsa). Test generation validates a
+    // reference solution in the code executor; memory consolidation and the
+    // closing reflection are model calls that must not sit on a chat turn.
+    "practice_tests_generate",
+    "practice_memory_update",
+    "practice_reflect",
 ] as const;
 
 export type JobType = (typeof JOB_TYPES)[number];
