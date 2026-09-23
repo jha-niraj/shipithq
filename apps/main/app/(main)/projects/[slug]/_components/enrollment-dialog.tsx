@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
 	Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader,
@@ -8,6 +8,7 @@ import {
 } from "@repo/ui/components/ui/dialog";
 import { Button } from "@repo/ui/components/ui/button";
 import { Badge } from "@repo/ui/components/ui/badge";
+import { ENROLL_CREDIT_COST } from "@/lib/credits/pricing";
 import {
 	CheckCircle2, Coins, FileCode, ListChecks, Sparkles, AlertCircle, PartyPopper
 } from "lucide-react";
@@ -23,6 +24,8 @@ interface EnrollmentDialogProps {
 	projectSlug?: string;
 	tasksCount: number;
 	userCredits: number;
+	/** A platform-seeded project costs nothing to start (plan/projects, PJ-11). */
+	isFree?: boolean;
 }
 
 type EnrollmentStep = "confirm" | "processing" | "success" | "error";
@@ -32,8 +35,10 @@ export function EnrollmentDialog({
 	onOpenChange,
 	projectId,
 	projectTitle,
+	projectSlug,
 	tasksCount,
 	userCredits,
+	isFree = false,
 }: EnrollmentDialogProps) {
 	const router = useRouter();
 	const [step, setStep] = useState<EnrollmentStep>("confirm");
@@ -45,8 +50,13 @@ export function EnrollmentDialog({
 	}
 
 	const [enrollmentData, setEnrollmentData] = useState<EnrollmentData | null>(null);
+	const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(() => () => { if (redirectTimer.current) clearTimeout(redirectTimer.current); }, []);
 
-	const enrollmentCost = 13;
+	// The server decides the price (`enrollInProject`), and a platform-seeded
+	// project is free. This reads the same constant so the dialog and the ledger
+	// cannot disagree - it was the literal 13, in three separate files.
+	const enrollmentCost = isFree ? 0 : ENROLL_CREDIT_COST;
 	const canAfford = userCredits >= enrollmentCost;
 
 	const handleEnroll = async () => {
@@ -66,11 +76,10 @@ export function EnrollmentDialog({
 				setStep("success");
 				toast.success("Successfully enrolled in project!");
 
-				// Auto-close and redirect after 3 seconds
-				setTimeout(() => {
-					onOpenChange(false);
-					router.refresh();
-				}, 3000);
+				// Auto-advance, unless they press the button first. Tracked so it
+				// can be cleared: it used to fire into an unmounted dialog if the
+				// user navigated away inside the three seconds.
+				redirectTimer.current = setTimeout(goToBoard, 2500);
 			} else {
 				setError(result.error || "Failed to enroll");
 				setStep("error");
@@ -82,6 +91,24 @@ export function EnrollmentDialog({
 			setStep("error");
 			toast.error("An unexpected error occurred");
 		}
+	};
+
+	/*
+	 * Enrolling has to LAND somewhere.
+	 *
+	 * "Start Building" closed the dialog and called `router.refresh()`, and the
+	 * copy above it said "Redirecting you to the project" - so the one thing it
+	 * promised was the one thing it did not do. Niraj, 2026-09-23: "nothing
+	 * happened when I enroll and then clicked on build, it should have taken me
+	 * to the sprints and tasks page".
+	 *
+	 * `projectSlug` was declared in the props and never destructured, which is
+	 * why there was nothing to navigate to.
+	 */
+	const goToBoard = () => {
+		onOpenChange(false);
+		if (projectSlug) router.push(`/projects/${projectSlug}/sprints`);
+		else router.refresh();
 	};
 
 	const handleClose = () => {
@@ -279,17 +306,11 @@ export function EnrollmentDialog({
 									</div>
 								</div>
 								<p className="text-sm text-muted-foreground text-center">
-									Redirecting you to the project...
+									Taking you to the sprint board...
 								</p>
 							</div>
 							<DialogFooter className="sm:justify-center">
-								<Button
-									onClick={() => {
-										onOpenChange(false);
-										router.refresh();
-									}}
-									className="gap-2"
-								>
+								<Button onClick={goToBoard} className="gap-2">
 									<CheckCircle2 className="h-4 w-4" />
 									Start Building
 								</Button>

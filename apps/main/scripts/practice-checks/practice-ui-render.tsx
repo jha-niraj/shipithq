@@ -39,7 +39,7 @@ check("the stage shows its topic and goal", withPath.includes("Arrays &amp; Hash
 check("the stage lists its checkpoint's three parts", withPath.includes(">Quiz<") && withPath.includes(">Mock interview<") && withPath.includes(">Timed problem<"))
 check("next up names one problem", withPath.includes("Next up"))
 check("the page opens on the current stage, expanded", withPath.includes("Checkpoint"))
-check("the list is inside a scroll area, and the page is one screen", withPath.includes("data-radix-scroll-area-viewport") && withPath.includes("lg:h-[calc(var(--page-h,100vh)-3rem)]"))
+check("the list is inside a scroll area, and the page is one screen", withPath.includes("data-radix-scroll-area-viewport") && withPath.includes("lg:h-[var(--page-h,100vh)]"))
 
 const noPath = renderToString(
     <ModuleContent
@@ -60,8 +60,10 @@ check("memory has a tab per sub-module", ["DSA", "System Design", "Frontend", "B
 check("a module with no onboarding says how to get one", memory.includes("No read on where you stand"))
 check("an empty memory says what fills it, per module", memory.includes("Nothing is written here until you solve a problem with the mentor"))
 
+// The tabs live in the page header now (PJ-3), so they own no row of their own.
 const tabs = renderToString(<PracticeTabs />)
-check("the practice tab row is shorter than it was", tabs.includes("h-12") && !tabs.includes("h-14"))
+check("the tabs no longer own a row above the page", !tabs.includes("h-12") && !tabs.includes("h-14") && !tabs.includes("px-page"))
+check("the module page's header carries the tabs beside the title", withPath.indexOf("Data Structures &amp; Algorithms") < withPath.indexOf(">Mentor memory<"))
 
 // Topics: a dropdown of checkboxes on the filter line, not a field of chips (2026-09-22)
 const manyTopics = [

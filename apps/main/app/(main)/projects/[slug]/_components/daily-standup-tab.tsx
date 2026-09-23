@@ -56,6 +56,9 @@ interface StandupEntry {
 // ElevenLabs Agent ID for Daily Standups
 const STANDUP_AGENT_ID = process.env.NEXT_PUBLIC_ELEVENLABS_STANDUP_AGENT_ID || ''
 
+// Mirrors `daily-standup-sheet.tsx`. Flip both together.
+const STANDUPS_FOR_SALE = false
+
 export default function DailyStandupTab({
     projectId,
     projectSlug,
@@ -440,6 +443,24 @@ Keep responses brief and natural.`,
                         </div>
                     </div>
                 )}
+            </div>
+        )
+    }
+
+    /*
+     * NOT FOR SALE YET (Niraj, 2026-09-23). Same reason as the sheet: this
+     * charges 5 credits a day and the standup it schedules has nowhere to be
+     * submitted. The setup form below is intact and unreachable until the
+     * submission screen ships.
+     */
+    if (!STANDUPS_FOR_SALE) {
+        return (
+            <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center dark:border-neutral-700 dark:bg-neutral-900/50">
+                <h3 className="text-sm font-medium text-neutral-900 dark:text-white">Daily standups are not ready yet.</h3>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                    Scheduling works, but there is nowhere to submit one, so there is nothing worth charging for.
+                    It will open here when the submission screen lands.
+                </p>
             </div>
         )
     }

@@ -21,6 +21,7 @@ import { ResourceType } from '@repo/db'
 import toast from '@repo/ui/components/ui/sonner'
 import { formatDistanceToNow } from 'date-fns'
 import AddResourceSheet from './add-resource-sheet'
+import { HoverSelect } from './hover-select'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 
 const RESOURCE_TYPES = [
@@ -128,40 +129,66 @@ export default function ResourcesList({ projectId, currentUserId, isCreator }: R
         }
     }, [selectedType, resources])
 
+    /*
+     * All three of these ran a server action and showed nothing while it did
+     * (sweep 2026-09-23, loading P0 4-6): the vote count jumped late, a deleted
+     * row sat there looking undeleted, and a failed vote was silent.
+     */
+    const [busyId, setBusyId] = useState<string | null>(null)
+
     const handleToggleHelpful = async (resourceId: string) => {
         if (!currentUserId) {
             toast.error('Please sign in to mark resources as helpful')
             return
         }
-
-        const result = await toggleResourceHelpful(resourceId)
-        if (result.success) {
+        if (busyId) return
+        setBusyId(resourceId)
+        try {
+            const result = await toggleResourceHelpful(resourceId)
+            if (!result.success) {
+                toast.error(result.error || 'That did not save. Try again.')
+                return
+            }
             setMarkedHelpful(prev => ({ ...prev, [resourceId]: result.marked! }))
-
-            // Update resource count
             setResources(prev => prev.map(r =>
                 r.id === resourceId
                     ? { ...r, helpfulCount: r.helpfulCount + (result.marked ? 1 : -1) }
                     : r
             ))
+        } finally {
+            setBusyId(null)
         }
     }
 
     const handleDelete = async (resourceId: string) => {
         if (!confirm('Are you sure you want to delete this resource?')) return
-
-        const result = await deleteProjectResource(resourceId)
-        if (result.success) {
-            toast.success('Resource deleted')
-            setResources(prev => prev.filter(r => r.id !== resourceId))
-        } else {
-            toast.error(result.error || 'Failed to delete resource')
+        if (busyId) return
+        setBusyId(resourceId)
+        try {
+            const result = await deleteProjectResource(resourceId)
+            if (result.success) {
+                toast.success('Resource deleted')
+                setResources(prev => prev.filter(r => r.id !== resourceId))
+            } else {
+                toast.error(result.error || 'Failed to delete resource')
+            }
+        } finally {
+            setBusyId(null)
         }
     }
 
-    const handleResourceClick = async (resource: ResourceItem) => {
-        await incrementResourceView(resource.id)
+    const handleResourceClick = (resource: ResourceItem) => {
+        /*
+         * Open FIRST, count after.
+         *
+         * This used to `await incrementResourceView(...)` before `window.open`,
+         * which breaks the user-gesture chain - by the time the open ran, the
+         * browser no longer treated it as user-initiated and popup blockers ate
+         * the tab. The count is not worth losing the click over, so it is fired
+         * and forgotten.
+         */
         window.open(resource.link, '_blank', 'noopener,noreferrer')
+        void incrementResourceView(resource.id)
     }
 
     if (loading) {
@@ -180,34 +207,17 @@ export default function ResourcesList({ projectId, currentUserId, isCreator }: R
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex flex-wrap gap-2 flex-1">
-                    {
-                        RESOURCE_TYPES.map((type) => {
-                            const Icon = type.icon
-                            const count = type.value === 'ALL' ? resources.length : (typeCounts[type.value] || 0)
-
-                            return (
-                                <Button
-                                    key={type.value}
-                                    variant={selectedType === type.value ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setSelectedType(type.value)}
-                                    className="gap-2"
-                                >
-                                    <Icon className="w-4 h-4" />
-                                    {type.label}
-                                    {
-                                        count > 0 && (
-                                            <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
-                                                {count}
-                                            </Badge>
-                                        )
-                                    }
-                                </Button>
-                            )
-                        })
-                    }
-                </div>
+                {/* One dropdown, not eleven chips wrapping onto three lines (PJ-16 item 3). */}
+                <HoverSelect
+                    ariaLabel="Filter resources by type"
+                    value={selectedType}
+                    onValueChange={setSelectedType}
+                    className="w-full sm:w-52"
+                    options={RESOURCE_TYPES.map((type) => ({
+                        ...type,
+                        count: type.value === 'ALL' ? resources.length : (typeCounts[type.value] || 0),
+                    }))}
+                />
                 {
                     (currentUserId || isCreator) && (
                         <AddResourceSheet projectId={projectId} />
@@ -262,10 +272,14 @@ export default function ResourcesList({ projectId, currentUserId, isCreator }: R
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
+                                                            disabled={busyId === resource.id}
+                                                            aria-label="Delete this resource"
                                                             onClick={() => handleDelete(resource.id)}
                                                             className="flex-shrink-0"
                                                         >
-                                                            <Trash2 className="w-4 h-4 text-red-600" />
+                                                            {busyId === resource.id
+                                                                ? <InlineLoader size="sm" />
+                                                                : <Trash2 className="w-4 h-4" />}
                                                         </Button>
                                                     )
                                                 }
@@ -307,10 +321,15 @@ export default function ResourcesList({ projectId, currentUserId, isCreator }: R
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
+                                                        disabled={busyId === resource.id}
                                                         onClick={() => handleToggleHelpful(resource.id)}
                                                         className={markedHelpful[resource.id] ? 'text-neutral-800 dark:text-neutral-200' : ''}
                                                     >
-                                                        <ThumbsUp className={`w-4 h-4 ${markedHelpful[resource.id] ? 'fill-current' : ''}`} />
+                                                        {busyId === resource.id ? (
+                                                            <InlineLoader size="sm" />
+                                                        ) : (
+                                                            <ThumbsUp className={`w-4 h-4 ${markedHelpful[resource.id] ? 'fill-current' : ''}`} />
+                                                        )}
                                                         <span className="ml-1">{resource.helpfulCount}</span>
                                                     </Button>
                                                 </div>

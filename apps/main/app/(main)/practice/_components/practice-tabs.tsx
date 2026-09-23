@@ -19,14 +19,14 @@ export const PRACTICE_TABS = [
     { href: "/practice/memory", label: "Mentor memory" },
 ] as const;
 
-/** The tab row's height, as a CSS length. Full-height practice content subtracts it.
- *  3rem, down from 3.5: the row sat too far from the page under it (Niraj, 2026-09-22). */
-export const PRACTICE_TABS_HEIGHT = "3rem";
+/** What the header costs a full-height page: the title row plus its margin (PJ-3).
+ *  The tabs sit inside that row now rather than above it. */
+export const PRACTICE_TABS_HEIGHT = "4rem";
 
 export function PracticeTabs() {
     const pathname = usePathname();
     return (
-        <div className="flex h-12 items-center px-page">
+        <div className="flex min-w-0 items-center">
             <TabsNav
                 aria-label="Practice"
                 size="sm"

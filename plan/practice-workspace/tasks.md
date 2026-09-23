@@ -67,3 +67,38 @@ there is logic worth proving.
 
 **Done when.** Nothing in `apps/main` imports `@elevenlabs/react`, and the mic behaves the same in all three places.
 
+## PW-8 The composer is one row: field, mic, send
+- [ ] Status: built (2026-09-23). Typecheck clean; the practice render check still 18/18. One row, `items-end`, field `min-h-[38px]` growing to `max-h-40`, both buttons `h-8 w-8` pinned to the last line. Needs a browser for the growth and the narrowest width.
+
+**Why.** Niraj, 2026-09-23: "on the practice/dsa/problemdetails page the mentor
+input box is looking very bad, I told you to keep the input, mic and send in one
+row". PW-3 moved the buttons UNDER the text to fix the caret landing in a corner
+of a tall box, which fixed the caret and made the composer a 120px slab with two
+icons floating under it. The instruction was one row all along.
+
+**Files.** `apps/main/app/(main)/practice/_components/workspace/practice-workspace.tsx`
+(the composer block under the transcript ScrollArea).
+
+**Steps.**
+1. One bordered container, `flex items-end gap-1`, holding the textarea and the
+   two icon buttons side by side. The border belongs to the container and the
+   field keeps `border-0 bg-transparent focus-visible:ring-0`, so the whole box
+   still lights up on focus and the caret still starts at the left edge.
+2. The field starts at one row (`rows={1}`, `min-h-[40px]`) and grows to
+   `max-h-40`; the buttons stay `h-9 w-9` and pinned to the bottom of the row,
+   so they sit beside the LAST line as it grows rather than drifting.
+3. The listening transcript line stays above the box, unchanged.
+4. Keep Enter to send and Shift+Enter for a newline, and keep both titles.
+
+**Edge cases.**
+- Two icon buttons plus padding is about 90px: the placeholder must not run
+  under them at the panel's narrowest, so the field is `min-w-0 flex-1`.
+- The mic is disabled when dictation is unavailable and while transcribing; in
+  one row that disabled state has to stay legible rather than vanish.
+- The panel is also mounted in the mobile sheet, where the row is narrowest.
+
+**Done when.** In a browser the composer is one line high with the mic and send
+to the right of the text, the caret starts at the left, typing four lines grows
+the box downward with the buttons staying beside the last line, and nothing
+overlaps at the panel's minimum width.
+

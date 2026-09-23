@@ -165,7 +165,7 @@ export default function KnowMeAnalytics({ analytics, initialRange, profileStatus
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                     <Select value={timeRange} onValueChange={handleRangeChange}>
-                        <SelectTrigger className="w-40 rounded-xl">
+                        <SelectTrigger className="w-40">
                             <Calendar className="mr-2 h-4 w-4" />
                             <SelectValue />
                         </SelectTrigger>

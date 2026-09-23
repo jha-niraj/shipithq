@@ -46,7 +46,8 @@ export async function PracticeModulePage({
 
     if (showFlow) {
         return (
-            // The whole page: the practice tabs are hidden while `?onboarding=1` is set.
+            // The whole page: the tabs live in a page header now, and the onboarding
+            // has no header of its own (MO-10, PJ-3).
             <div className="h-[var(--page-h,100vh)] min-h-0">
                 <ModuleOnboardingEntry
                     moduleKey={onboardingKey}

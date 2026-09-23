@@ -23,11 +23,21 @@ import {
 import dynamic from 'next/dynamic'
 import type { AgentState } from '@/components/main/orb'
 
-const Orb = dynamic(() => import('@/components/main/orb').then(m => ({ default: m.Orb })), { ssr: false })
+// The orb IS the interview screen, so a bare `dynamic` left an empty
+// aspect-square box where the thing you are talking to should be.
+const Orb = dynamic(() => import('@/components/main/orb').then(m => ({ default: m.Orb })), {
+    ssr: false,
+    loading: () => (
+        <div className="flex aspect-square w-full items-center justify-center">
+            <InlineLoader size="lg" label="Waking the interviewer" />
+        </div>
+    ),
+})
 import toast from '@repo/ui/components/ui/sonner'
 import {
     generateProjectMockKnowledgeBase, createProjectMockSession,
     updateProjectMockSessionStatus, processProjectMockCompletion,
+    abandonProjectMockSession,
     getProjectMockAttempts
 } from '@/actions/(main)/projects/projectv2-mock.action'
 import { getElevenLabsToken } from '@/actions/(main)/mockvoice/session.action'
@@ -91,6 +101,11 @@ export default function AIMockInterviewClient({
     const [volume, setVolume] = useState(0.8)
     const [agentState, setAgentState] = useState<AgentState>(null)
     const [hasStarted, setHasStarted] = useState(false)
+    // Both entry points are paid: creating a session charges 30 credits, and
+    // neither button showed anything while its server action ran, so a second
+    // click bought a second interview (sweep 2026-09-23, loading P0 1-3).
+    const [starting, setStarting] = useState(false)
+    const [ending, setEnding] = useState(false)
     const [showProcessingDialog, setShowProcessingDialog] = useState(false)
     const [processingStatus, setProcessingStatus] = useState<'processing' | 'success' | 'error'>('processing')
 
@@ -100,6 +115,35 @@ export default function AIMockInterviewClient({
     const conversationIdRef = useRef<string | null>(null)
     const intentionalEndRef = useRef(false)
     const isProcessingRef = useRef(false)
+
+    /*
+     * A call that produced nothing must not cost 30 credits.
+     *
+     * The session is charged the moment it is created, before a word is said, so
+     * every way out of an interview that never connected has to come through
+     * here: a dropped connection, a failure to authenticate with the voice agent,
+     * ending it before it started, or simply leaving the page. The action is
+     * idempotent and only refunds when there is no conversation and no
+     * transcript, so calling it from all four is safe.
+     */
+    const abandonSession = useCallback(async (id: string | null) => {
+        if (!id) return
+        const result = await abandonProjectMockSession(id)
+        if (result.success && (result.refunded ?? 0) > 0) {
+            toast.info(`That call did not connect. Your ${result.refunded} credits were refunded.`)
+        }
+    }, [])
+
+    // Leaving the page before anything connected is a dropped call by another
+    // name. The hourly server-side sweep is the backstop for a hard close, where
+    // this never gets to run.
+    const sessionIdRef = useRef<string | null>(null)
+    useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
+    useEffect(() => () => {
+        if (sessionIdRef.current && !conversationIdRef.current) {
+            void abandonProjectMockSession(sessionIdRef.current)
+        }
+    }, [])
 
     const handleConversationEnd = useCallback(async () => {
         if (!conversationIdRef.current || !sessionId || isProcessingRef.current) return
@@ -152,6 +196,13 @@ export default function AIMockInterviewClient({
             // Only process end if this was an intentional end
             if (intentionalEndRef.current && conversationIdRef.current) {
                 handleConversationEnd()
+                return
+            }
+            // Dropped before anything was recorded: close the session and give
+            // the credits back rather than leave it IN_PROGRESS for good.
+            if (!conversationIdRef.current) {
+                setHasStarted(false)
+                abandonSession(sessionId)
             }
         },
         onModeChange: (mode: { mode: string }) => {
@@ -194,6 +245,8 @@ export default function AIMockInterviewClient({
     }
 
     const handleStartInterview = async () => {
+        if (starting) return
+        setStarting(true)
         try {
             const result = await createProjectMockSession(project.slug)
 
@@ -206,9 +259,11 @@ export default function AIMockInterviewClient({
             setAgentId(result.agentId || null)
             setVariables(result.variables)
             setStage('interview')
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error starting interview:', error)
             toast.error('Failed to start interview')
+        } finally {
+            setStarting(false)
         }
     }
 
@@ -225,6 +280,9 @@ export default function AIMockInterviewClient({
                 toast.error('Failed to authenticate with voice agent')
                 setAgentState(null)
                 setHasStarted(false)
+                await abandonSession(sessionId)
+                setStage('ready')
+                setSessionId(null)
                 return
             }
 
@@ -246,23 +304,40 @@ export default function AIMockInterviewClient({
             conversationIdRef.current = conversationId
             await updateProjectMockSessionStatus(sessionId!, 'IN_PROGRESS', conversationId)
 
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error starting conversation:', error)
             toast.error('Failed to start interview. Please try again.')
             setAgentState(null)
             setHasStarted(false)
+            await abandonSession(sessionId)
+            setStage('ready')
+            setSessionId(null)
         }
     }
 
     const endInterview = async () => {
+        if (ending) return
+        setEnding(true)
         try {
             intentionalEndRef.current = true
             await conversation.endSession()
-            await updateProjectMockSessionStatus(sessionId!, 'COMPLETED', conversationIdRef.current || undefined)
+            // Ended before the agent ever connected: there is nothing to process
+            // and nothing to charge for.
+            if (!conversationIdRef.current) {
+                setAgentState(null)
+                setHasStarted(false)
+                await abandonSession(sessionId)
+                setSessionId(null)
+                setStage('ready')
+                return
+            }
+            await updateProjectMockSessionStatus(sessionId!, 'COMPLETED', conversationIdRef.current)
             setAgentState(null)
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error ending interview:', error)
             toast.error('Failed to end interview properly')
+        } finally {
+            setEnding(false)
         }
     }
 
@@ -494,11 +569,21 @@ export default function AIMockInterviewClient({
                         <div className="flex flex-col items-center gap-4">
                             <Button
                                 onClick={handleStartInterview}
+                                disabled={starting}
                                 size="lg"
-                                className="bg-gradient-to-r from-neutral-800 to-neutral-800 text-white hover:opacity-90 px-12 py-6 text-lg"
+                                className="px-12 py-6 text-lg"
                             >
-                                <Phone className="w-5 h-5 mr-2" />
-                                Start Interview
+                                {starting ? (
+                                    <>
+                                        <InlineLoader size="sm" className="mr-2" />
+                                        Setting up your interview
+                                    </>
+                                ) : (
+                                    <>
+                                        <Phone className="w-5 h-5 mr-2" />
+                                        Start Interview
+                                    </>
+                                )}
                             </Button>
                             <p className="text-sm text-neutral-500 dark:text-neutral-400">
                                 Make sure your microphone is working
@@ -605,11 +690,21 @@ export default function AIMockInterviewClient({
                                 !hasStarted ? (
                                     <Button
                                         size="lg"
-                                        className="bg-gradient-to-r from-neutral-800 to-neutral-800 hover:opacity-90 text-white px-8 py-6 text-lg"
+                                        className="px-8 py-6 text-lg"
+                                        disabled={agentState === 'thinking'}
                                         onClick={startConversation}
                                     >
-                                        <Phone className="w-5 h-5 mr-2" />
-                                        Start Interview
+                                        {agentState === 'thinking' ? (
+                                            <>
+                                                <InlineLoader size="sm" className="mr-2" />
+                                                Connecting
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Phone className="w-5 h-5 mr-2" />
+                                                Start Interview
+                                            </>
+                                        )}
                                     </Button>
                                 ) : (
                                     <>
@@ -625,9 +720,11 @@ export default function AIMockInterviewClient({
                                             size="lg"
                                             variant="destructive"
                                             onClick={endInterview}
+                                            disabled={ending}
+                                            aria-label="End the interview"
                                             className="rounded-full w-16 h-16"
                                         >
-                                            <PhoneOff className="w-6 h-6" />
+                                            {ending ? <InlineLoader size="sm" /> : <PhoneOff className="w-6 h-6" />}
                                         </Button>
                                         <Button
                                             size="lg"

@@ -343,7 +343,7 @@ export default function KnowMeSettings({ profile, apiConfig, initialTab }: KnowM
                                 <div className="flex items-center gap-4">
                                     <div className="flex-1">
                                         <Select value={updateCycle} onValueChange={setUpdateCycle}>
-                                            <SelectTrigger className="rounded-xl">
+                                            <SelectTrigger className="">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>

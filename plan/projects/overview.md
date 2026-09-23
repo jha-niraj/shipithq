@@ -74,6 +74,27 @@ Done with `db:generate` + `db:migrate` rather than `db:push`, even though this i
 not production: `push` would leave the database ahead of the migration chain, and
 the chain is how a fresh environment gets built.
 
+### Prices, grants and gates
+
+The numbers, in one place, as CLAUDE.md requires. The code reads them from
+`apps/main/lib/credits/pricing.ts` and `apps/main/lib/projects/gates.ts`, which
+reference this section; no call site restates them.
+
+| Thing | Number | Note |
+|---|---|---|
+| Generate a public project | 13 credits | Held at dispatch, refunded if the job fails |
+| Generate a private project | 25 credits | Same |
+| Add the assessment to a generation | +30 credits | Quiz plus mock knowledge base |
+| Generate the quiz | 25 credits | Refunded if the project already has one |
+| A mock interview session | 30 credits | Per session, refunded if the call never connects |
+| Start a curated project | **0** | Decided 2026-09-23. The work is already written; credits are for the model, and no model runs |
+| The quiz opens at | **50%** of tasks | Inclusive, `>= 50` |
+| The mock interview opens at | **75%** of tasks | Inclusive, `>= 75` |
+
+Both gates were restated in four places and two of them used `<=`, so at exactly
+50 and 75 percent the board and the page disagreed about whether you were let
+in. That is why they are a helper now and not a literal.
+
 ## Out of scope
 
 - **`apps/uni`.** The university app has its own assignment and class model, and

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { PageHeader } from "@repo/ui/components/ui/page-header";
+import { PracticeHeaderTabs } from "./practice-layout-wrapper";
 import {
     Trophy, Flame, Zap, Target, Code2, Network, Globe, Server,
     ChevronRight, Sparkles, ArrowRight
@@ -55,15 +57,12 @@ export function PracticeDashboard({ stats, dailyChallenge, activity }: PracticeD
     }
 
     return (
-        <div className="px-page py-6 space-y-8 w-full mx-auto">
-            <div>
-                <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
-                    Practice
-                </h1>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                    Sharpen your skills with hands-on coding challenges
-                </p>
-            </div>
+        <div className="w-full space-y-6 px-page pb-6 pt-2">
+            <PageHeader
+                title="Practice"
+                subtitle="Sharpen your skills with hands-on coding challenges"
+                tabs={<PracticeHeaderTabs />}
+            />
             {dailyChallenge && <DailyChallengeCard challenge={dailyChallenge} />}
             <StatBand
                 cols={4}

@@ -44,9 +44,10 @@ export async function issueWorkerToken(action: 'generate_project' | 'generate_ve
  * request path, writing status/progress to `background_job`. The client polls
  * `getGenerationStatus(jobId)`.
  *
- * Credits for this one are deducted inside the pipeline, at the point the
- * project row is written, rather than held here - see `apps/worker/src/pipeline.ts`.
- * That is why no `cost` is passed below; passing one would charge twice.
+ * Credits are HELD here, like every other job. The pipeline used to debit them
+ * itself, unguarded, minutes after this check - see the note in
+ * `apps/worker/src/pipeline.ts`. `startBackgroundJob({ cost })` reserves them
+ * under a SQL balance guard and refunds automatically if the job fails.
  */
 export async function startProjectGeneration(
     input: z.infer<typeof ProjectEchoSchema>,
@@ -60,7 +61,14 @@ export async function startProjectGeneration(
             return { success: false, error: `Insufficient credits. You need ${cost} credits to generate this project.` }
         }
 
-        const started = await startBackgroundJob('project_generation', validated as unknown as Record<string, unknown>)
+        // Single flight: two dispatches are two projects and two charges. A double
+        // click lands inside the dispatch window comfortably.
+        const started = await startBackgroundJob('project_generation', validated as unknown as Record<string, unknown>, {
+            cost,
+            reason: `Generated project: ${validated.projectTitle}`,
+            singleFlight: true,
+            singleFlightKey: user.id,
+        })
         if (!started.success) {
             return { success: false, error: started.error ?? 'Failed to start generation. Please try again.' }
         }

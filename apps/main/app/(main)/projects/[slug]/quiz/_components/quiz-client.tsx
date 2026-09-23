@@ -367,5 +367,26 @@ export default function QuizClient({ project, existingQuiz, userCredits, previou
         );
     }
 
-    return null;
+    /*
+     * Every stage above returns, so reaching here means `stage === 'quiz'` with
+     * no quiz loaded - the generation reported success and the read came back
+     * null. It used to `return null`, which renders a blank white page with no
+     * message and no way out (sweep 2026-09-23).
+     */
+    return (
+        <div className="px-page py-6">
+            <div className="mx-auto max-w-lg rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center dark:border-neutral-700 dark:bg-neutral-900/50">
+                <h2 className="text-sm font-medium text-neutral-900 dark:text-white">The quiz did not load.</h2>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                    It was generated, but reading it back failed. Your credits were not spent twice - try again.
+                </p>
+                <div className="mt-4 flex items-center justify-center gap-2">
+                    <Button size="sm" onClick={() => window.location.assign(`/projects/${project.slug}/quiz`)}>Try again</Button>
+                    <Button size="sm" variant="outline" asChild>
+                        <Link href={`/projects/${project.slug}`}>Back to the project</Link>
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
 }

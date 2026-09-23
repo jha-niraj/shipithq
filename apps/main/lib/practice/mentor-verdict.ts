@@ -39,8 +39,8 @@ export interface StageVerdict {
  */
 const STAGE_FACTS: Record<string, string> = {
     understand: `"restatedCorrectly": did the STUDENT restate the task in their own words, including what is returned? (informal wording is fine)
-"walkedExampleCorrectly": did the STUDENT work through at least one concrete example by hand, with the right result?`,
-    approach: `"statedWorkingPlan": did the STUDENT describe a concrete plan that would produce correct answers, even if slow? ("use a loop" is not a plan; "check every pair i<j and return the one that sums to target" is.)`,
+"walkedExampleCorrectly": did the STUDENT give at least one concrete example with the correct result? Naming an input and its correct output counts ("[10,20,30,40,50] becomes [20,30,40,50,10]"). A step-by-step trace is NOT required. Say no only if there is no concrete example, or the result they gave is wrong.`,
+    approach: `"statedWorkingPlan": did the STUDENT describe a concrete plan that would produce correct answers, even if slow? ("use a loop" is not a plan; "check every pair i<j and return the one that sums to target" is, and so is "save the first element, move each later element one place left, then put the saved one at the end".) A plan that names the steps in order is enough; they do not need the loop bounds, the syntax, or the complexity.`,
     optimise: `"currentCodeIsOptimal": does the CURRENT CODE shown have the best achievable time complexity for this problem? Judge the code, not what anyone said.
 "explainedCurrentComplexity": in the messages AFTER the current code was written or submitted, did the STUDENT state the time complexity of THAT code correctly, with a correct reason? A claim about an earlier, slower solution is false here. A test result is false here.`,
     reflect: `"wroteKeyIdea": did the STUDENT write, in their own words, at least one sentence on the key idea that made the solution work?`,

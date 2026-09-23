@@ -542,3 +542,464 @@ Suspense fallback. Both need a human look.
 
 **What it is.** `packages/db/src/seed/project-ideas.ts`: 30 ideas across web, backend, realtime, devtools and CLI, easy to hard. Each names the thing, says what it does and says what the hard part will be, which is what makes it a project rather than a tutorial. Seeded as curated and approved, upserted on the title so re-running edits rather than duplicates, and left out of `--clear`.
 
+
+---
+
+## PJ-3 One page header, title left and tabs right
+- [ ] Status: built (2026-09-23). Render check 13/13 plus 18/18 for practice. Practice (hub, module pages, memory) and the projects Explore page all draw it. Needs a browser to judge the spacing.
+
+**Why.** Niraj, 2026-09-23: "put the tabs on the right and then keep the title bar on the left that will save the space ... and we can keep this page header as common". Practice spends a whole row on its tabs above the title, and projects has no shared header at all.
+
+**Files.** New `packages/ui/src/components/ui/page-header.tsx`; `app/(main)/practice/_components/{practice-layout-wrapper,practice-tabs}.tsx`; the practice module pages; the projects pages.
+
+**Done when.** Practice and projects draw the same header: title and subtitle on the left, tabs on the right of the same row, one height and one spacing, wrapping to two rows only when it must.
+
+## PJ-4 /projects/explore
+- [ ] Status: built (2026-09-23). Render check covers the three tabs, both browse modes, the filter controls and the empty state; `check-nav` passes with the sidebar pointing at the tabs. Needs a browser for the panes themselves.
+
+**Why.** Four list routes, none of them obviously the one to open. Niraj, 2026-09-23: one Explore page with tabs, filters as technology-first and problem-first, dropdowns, and the state in the URL.
+
+**Decisions (Niraj, 2026-09-23).** Tabs are Ideas, Community and Mine. Explore replaces `/projects/ideas`, `/projects/allprojects` and `/projects/myprojects`, which redirect into the matching tab. The hub at `/projects` stays as the dashboard.
+
+**Steps.** `?tab=ideas|community|mine` picks the pane, and each pane keeps its own layout. The Ideas pane carries the technology-first and problem-first switch and the filter dropdowns, all in the URL (`mode`, `stack`, `difficulty`, `category`), so a filtered view is shareable and survives a reload. The three old routes redirect.
+
+**Done when.** One page browses everything, every filter is in the URL, and the old links land in the right tab.
+
+## PJ-5 The list pages scroll
+- [x] Status: done (2026-09-23). `SmoothScroll` is off both list clients. It bound Lenis to the document as the root scroller while the real scroller is the shell's ScrollArea, so the wheel went nowhere.
+
+**Why.** "All Projects page is not even scrolling." `AllProjectsClient` and `MyProjectsClient` wrap themselves in `SmoothScroll`, which binds Lenis to the document as the root scroller. In this shell the scroller is the page card's ScrollArea, so Lenis takes the wheel and nothing moves.
+
+**Done when.** Every projects list scrolls with the wheel, the trackpad and the keyboard.
+
+## PJ-6 Generating a project knows who you are
+- [ ] Status: built (2026-09-23). The sheet lists up to three picks from the projects onboarding while the form is untouched, and filling one sets the title, description and difficulty. Needs a browser to confirm the fill.
+
+**Why.** The onboarding asks what someone has built and how long they have, and the generate sheet ignored it.
+
+**Decision (Niraj, 2026-09-23).** The sheet shows three suggestions from the profile; pressing one fills the title and description, which stay editable.
+
+**Done when.** Opening the sheet with an empty form offers three suggestions, one press fills it, and a user with no onboarding sees the plain form with no empty section.
+
+## PJ-7 Close the seven open items from the 2026-09-23 sweep
+- [ ] Status: server verified (2026-09-23). `scripts/practice-checks/projects-money.ts` 25/25, twice: three sprints added at once get 1, 2, 3; a personal sprint takes a number and the creator's next one still lands; ticking a task moves the project's progress; one call returns every sprint's status; a mock session charges 30, refunds 30 when the call recorded nothing, refunds nothing on a second abandon, keeps the charge and settles the hold when it connected, and a session left two hours is swept closed and refunded. Typecheck clean in `apps/main` and `apps/worker`, `check-nav` 36/36, `check-destinations` 17/17, render checks 13/18/15/8 unaffected. The two worker changes need `apps/worker` deployed BEFORE `apps/main`, or the old worker debits while the new app also holds. The interview page's own wiring has not been through a browser.
+
+**Why.** The sweep left seven findings open, four of them about money. Niraj chose, through AskUserQuestion on 2026-09-23: fix both worker items now and deploy when ready; refund a dropped call that recorded nothing; keep the `updateTaskStatus` that recalculates progress and delete the other; delete all three dead files.
+
+**Decisions (Niraj, 2026-09-23).**
+- A mock interview that ends with no conversation and no transcript is CANCELLED and fully refunded. One that connected keeps the charge, because the minutes were spent.
+- An unfinished mock session is abandoned after **one hour** and closed by a sweep on the paths that already read the table.
+- Project generation is paid for the way every other job is: a hold at dispatch, settled or refunded by the app. The worker no longer touches credits.
+
+**What changed.**
+1. `apps/worker/src/pipeline.ts` - the unguarded `credits - cost` and its ledger row are gone; `projectsworker.action.ts` passes `cost` to `startBackgroundJob`, which reserves under a SQL balance guard.
+2. `apps/worker/src/jobs/project-quiz.ts` - a project that already has a quiz now throws instead of returning, so the 25-credit hold is released rather than settled.
+3. `sprint-generation.action.ts` - `insertSprintWithNextNumber` recomputes `max(sprint_number) + 1` inside a five-attempt retry on the unique index, so a personal sprint or a concurrent accept no longer produces "Failed to add sprint".
+4. `projectv2-mock.action.ts` - the hold is keyed on the session id and held open for the call: settled when a transcript is saved, released when nothing was recorded. `abandonProjectMockSession` and an hourly sweep close what the browser never closed; the interview page calls it on a dropped connection, a token failure, an end before connect, and unmount.
+5. `tasks.action.ts` - its `updateTaskStatus` is deleted and the sprints page uses the one in `project.action.ts`, which recalculates `user_project_v2_progress`. The sprints page also reverts its optimistic tick when the action reports a failure.
+6. `projectassessments.action.ts` - `getSprintCompletionStatuses(projectId)` returns every sprint's status in five queries; the sprints page made one call per sprint in series on mount.
+7. Deleted, approved by Niraj: `components/projects/project-analytics.tsx`, `app/(main)/projects/_components/recent-submissions-grid.tsx`, `app/(main)/projects/ideas/_components/ProjectIdeasClient.tsx` (1,540 lines, no importers).
+
+**Done when.** A generation with too few credits at debit time can no longer go negative; a second quiz job refunds; two sprints added at once both land; a call that drops before it connects shows the refund and leaves no IN_PROGRESS row; ticking a task on the sprints page moves the project's progress bar; the sprints page issues one completion-status call.
+
+---
+
+# The 2026-09-23 browser pass
+
+Niraj went through the module in a browser and found four things, listed as
+PJ-8 to PJ-11, plus the state of the pages under a project, which is PJ-12.
+Decisions he took by AskUserQuestion on 2026-09-23 are recorded in the task
+that depends on them. Taken in order.
+
+## PJ-8 The idea cards say more, and the topbar stays put
+- [ ] Status: built (2026-09-23). `projects-render.tsx` 30/30: the card is a column whose body takes the slack so the buttons line up, it states sprints, tasks and hours, it shows the outcome chips and both the stack and the categories, and it links to the project when a blueprint exists or offers to generate it when one does not. The header is a sticky band with its own opaque surface and its own padding. Both skeletons follow it. Needs a browser to judge the band and the card height.
+
+**What the numbers come from.** The blueprint, through `project_idea.blueprint_project_id`, counted in SQL - not copied onto the idea. One source of truth for how long a project is: the project. Until PJ-11 seeds the blueprints, the meta row is empty and the card offers "Generate this" instead of "Build this".
+
+**Why.** "These projects cards should have some more information and keep the
+button at the bottom so that it looks consistent" and "the topbar should be
+sticky as well so that it should not go with the page when scrolling". Today a
+card carries a title, three lines of description and a stack line, and the
+"Build this" button sits directly under whatever the description ended at - so
+in a row of three cards the three buttons are at three different heights. The
+header, its tabs and "New project" scroll away with the grid.
+
+**Decision (Niraj, 2026-09-23).** The card carries, beyond the title and
+description: sprints and tasks count, estimated hours, what you will learn, and
+the category chips. Both browse modes read off the same card.
+
+**Files.**
+- `apps/main/app/(main)/projects/explore/_components/ideas-pane.tsx`
+- `apps/main/app/(main)/projects/explore/_components/explore-shell.tsx`
+- `apps/main/actions/(main)/projects/explore.action.ts` (the extra fields)
+- `packages/db/src/seed/project-ideas.ts` (hours and outcomes per idea)
+- `apps/main/app/(main)/projects/explore/loading.tsx` (match the taller card)
+
+**Steps.**
+1. Add `estimatedHours` and `outcomes: string[]` to `CuratedIdea` and fill them
+   for every idea that survives PJ-11. Sprints and tasks come from the seeded
+   blueprint, so they are counted in the query, not stored twice.
+2. `getIdeas` returns `estimatedHours`, `outcomes`, `sprintCount`, `taskCount`
+   and `slug` (null until PJ-11 gives the idea a blueprint).
+3. The card becomes a flex column with `flex-1` on the description block and the
+   button row pinned at the end, so every button in a row lines up whatever the
+   title wraps to. Meta row: `4 sprints - 18 tasks - ~20 hours`. Outcome chips
+   under it, at most three. Category chips beside the stack line.
+4. The header moves out of the scrolling column into a `sticky top-0 z-20`
+   band with an opaque surface (`bg-white/85 dark:bg-neutral-950/85
+   backdrop-blur` and a bottom border), because `data-app-page` is deliberately
+   transparent over the backdrop. The `px-page` padding moves onto the header
+   itself so the stuck band reaches both edges.
+5. Update `loading.tsx` to the new card height and the sticky band.
+
+**Edge cases.**
+- The scroller is the shell's `ScrollArea` viewport, not the window, so sticky
+  is relative to it. Nothing between the header and the viewport may have
+  `overflow-hidden` or a `transform` - in particular the header must be a
+  sibling of the embedded list clients, not inside one of their `motion.div`
+  wrappers, or the transform will contain it and it will scroll away.
+- Sticky and `space-y-*` fight: the sibling margin renders above the stuck
+  element. The header gets its own spacing, not the column's.
+- An idea with no outcomes yet renders no chip row rather than an empty one.
+- z-index in this app is already inconsistent (10, 20 and 30 are all in use for
+  sticky bars). Use 20 and say so here.
+
+**Done when.** In a browser, scrolling the ideas grid leaves the title, the
+three tabs and "New project" fixed at the top with nothing showing through
+them; every "Build this" in a row sits on the same line; and each card states
+its sprints, tasks, hours, what you will learn and its categories.
+
+## PJ-9 The Mine tab looks like the tabs above it
+- [ ] Status: built (2026-09-23). `projects-render.tsx` 21/21: the Mine strip is the shared segmented trough, hugs its labels, carries all four filters and has no `gray` left on it. Community got the same treatment - its filter panel had `shadow-2xl` and its heading was gradient clip-text. Needs a browser for the rhythm.
+
+**Why.** "This Mine page tabs are not looking great so remove any external
+styles from this tab and use the one from tabs directly - Community, Mine is
+looking so classy". `MyProjectsClient` renders `<TabsList className="">` with no
+props, which gives the default card variant with `w-full` and `flex-1`
+triggers: four labels stretched across the whole page. The empty state beside
+it is from an older language - `shadow-2xl` on an empty card, `p-5` plus
+`py-12`, `text-gray-*` instead of neutral, and a button that re-hardcodes
+`bg-black dark:bg-white`. The column also runs `mb-6, mb-8, mb-8, mb-8, mb-6,
+mb-8 + mt-8`, three scales and one 4rem collision.
+
+**Files.**
+- `apps/main/app/(main)/projects/myprojects/_components/MyProjectsClient.tsx`
+- `apps/main/app/(main)/projects/allprojects/_components/AllProjectsClient.tsx`
+  (the same header and gray palette)
+
+**Steps.**
+1. `<TabsList variant="segmented" size="sm" fit>` and drop every className on
+   the list and the triggers. That is the same call the Ideas / Community / Mine
+   strip makes, which is why that one reads well.
+2. Replace the empty state with the dashed-border language already used on the
+   ideas pane: `rounded-2xl border border-dashed p-8 text-center`, no shadow,
+   neutral text, the default Button variant. Copy: say what the tab holds and
+   offer the one action. The dead `/projects/generate` link goes; the sheet
+   opens in place, as it does on Explore.
+3. One `space-y-5` on the column, `px-page` instead of `px-6`, `py-10` gone
+   (the shell supplies the page padding), and every `text-gray-*` becomes
+   `text-neutral-*`.
+4. The `text-4xl md:text-5xl` h1 goes: inside Explore the page header is
+   already drawn above it, so the client renders no title of its own.
+
+**Edge cases.**
+- Both clients render embedded (inside Explore) and standalone. The embedded
+  path must not draw a second header; the standalone path is only reached by
+  the old redirect URLs.
+- The tab strip drives a filter, not a panel - there is no `TabsContent` - so
+  `segmented` is also the honest affordance.
+- Counts in the labels (`All Projects (12)`) make the triggers wide; `fit` must
+  not push the row into a wrap at 1280px with the AI rail docked.
+
+**Done when.** The Mine tab strip is the same object as the tabs in the page
+header, drawn by props alone; the empty state is the dashed panel with a
+working action; and the gaps down the page come from one `space-y` value.
+
+## PJ-10 The filter dropdowns open instead of crashing
+- [ ] Status: built (2026-09-23). `scripts/practice-checks/projects-render.tsx` 17/17: three comboboxes, each labelled, each with its label in the server HTML, and a source guard that fails if `asChild` ever appears on a menu item again (comments stripped first, since the note explaining the trap quotes the broken markup). Needs a browser to confirm the menus open and filter.
+
+**Why.** Clicking "Stack" takes the whole page to the error boundary ("This page
+didn't load"). `FilterMenu` renders `<DropdownMenuCheckboxItem asChild><Link/></DropdownMenuCheckboxItem>`,
+and the wrapper in `packages/ui` always renders TWO children - the check
+indicator span and `children` - so Radix's `asChild` hits `React.Children.only`
+and throws during render. Niraj: "it should have been the select for the
+dropdown as well please, and check these issues as well for the later filters".
+Difficulty and Category are the same component, so all three are broken.
+
+**Files.**
+- `apps/main/app/(main)/projects/explore/_components/ideas-pane.tsx`
+- `apps/main/scripts/practice-checks/projects-render.tsx` (a case for it)
+
+**Steps.**
+1. Replace `FilterMenu` with the shared `Select` (`@repo/ui/components/ui/select`):
+   trigger showing the label or the chosen value, one item per option plus an
+   "Any" item.
+2. A select is not a link, so navigation moves to `router.push(withParam(...))`
+   in `onValueChange`. The URL stays the source of truth - this is the one place
+   the `<Link>` convention cannot apply, and the comment says why.
+3. Keep the "Any x" reset item and the active styling on the trigger.
+4. Add a render check that all three filters render their options, so a
+   `Children.only` regression fails the check rather than the page.
+
+**Edge cases.**
+- `asChild` on any Radix item that draws its own indicator is the general trap,
+  not just here - grep for `DropdownMenuCheckboxItem asChild` and
+  `DropdownMenuRadioItem asChild` across the repo while fixing this.
+- Radix Select renders through a portal, so it is absent from server-rendered
+  HTML: the render check asserts the trigger and the options list, not the open
+  menu.
+- The value must survive a reload from the URL, including a value with a hyphen
+  (`arrays-and-hashing`).
+
+**Done when.** Stack, Difficulty and Category each open a select, choosing one
+filters the grid and puts the choice in the URL, "Any" clears it, and the error
+boundary never appears.
+
+## PJ-11 Ten curated projects that are real
+- [x] Status: done (2026-09-23). `pnpm db:seed --only=project-blueprints` reports **10 projects, 40 sprints, 200 tasks, 10 ideas linked, 30 removed**, and the database agrees: 10 ideas, all 10 linked, 40 sprints, 200 tasks, no project left empty. `getIdeas` returns 10 cards, every one with a slug, its sprint and task counts, its hours and its outcomes. Typecheck clean in `apps/main` and `packages/db`; `projects-render` 30/30; `projects-money` 26/26.
+
+**What the real data exposed.** The Ideas tab sorted by `asc(difficulty)` on a TEXT column, and alphabetically that is EASY, HARD, MEDIUM - so the hard projects sat second. Invisible across 30 near-identical rows, obvious the moment ten curated ones went in. It orders by an explicit CASE now.
+
+**Every blueprint file** is exactly 4 sprints of 5 tasks, pure ASCII (so no dashes, smart quotes or emoji), with falsifiable criteria and hints that point rather than solve. Two hints came back referencing THIS repo (the neon-http transaction rule, and a weight change being likely "in this codebase"); a learner's project is not this codebase, so both were generalised.
+
+**Revised after looking at what was already there (2026-09-23).** Six platform-seeded projects already existed in `packages/db/src/seed/data.ts` - good descriptions, key outcomes, hours, recruiter signal - and **all six had zero sprints and zero tasks**. They were empty shells, linked to nothing. Niraj: write the sprints and tasks for those six, add four more, keep the ten and delete the rest.
+
+**The ten.** `realtime-collaboration-board`, `job-board-with-matching`, `observability-mini-stack`, `personal-finance-tracker`, `markdown-notes-with-search`, `offline-first-delivery-app` (the six that existed), plus `habit-tracker-weekly-review`, `url-shortener-with-analytics`, `expense-splitter` and `rate-limiter-service` (new). Three EASY, three MEDIUM, four HARD.
+
+**How it is wired.**
+- `seed/blueprints/<slug>.ts` - one file per project, 4 sprints of 5 tasks, against the `SeedSprint`/`SeedTask` types in `blueprints/types.ts`.
+- `seedProjectBlueprints()` writes them after the project rows exist. It REPLACES rather than upserts, and it refuses to touch a project somebody has started: replacing the sprints under a user's feet would orphan their task statuses and reset the progress that gates their quiz and mock.
+- `seedProjectIdeas()` now sets `blueprint_project_id` and `has_blueprint_generated` on each idea, which is what makes the Explore card say "Build this" and link to the project. Then it deletes every other platform-curated idea.
+- `pnpm db:seed --only=project-blueprints` does the three steps on their own.
+
+**Why.** "Build this" opens the generation sheet, which charges credits to
+regenerate something the catalogue already describes. Niraj: seed the data
+"for some of the projects and only keep those whose data is there properly so
+that when I click on this then take me to the project details page, and then
+there I can confirm for the credits before starting".
+
+**Decisions (Niraj, 2026-09-23).**
+- **Ten flagship projects, hand-authored**, and the catalogue is trimmed to
+  those ten. Every card on the page leads to a real project.
+- **Starting is free.** Credits are spent later, inside the project, on the
+  quiz, the mock interview and generating further sprints and tasks. The
+  confirm step states exactly that before you start.
+- **The whole outline is visible before you start**, every sprint and task
+  title listed and inert.
+- **Depth: 4 sprints of 5 tasks each**, every task with a description, success
+  criteria and hints. Roughly what the generator produces, written rather than
+  sampled.
+
+**Files.**
+- `packages/db/src/seed/project-ideas.ts` - trimmed to the ten, with hours and
+  outcomes (PJ-8)
+- `packages/db/src/seed/project-blueprints.ts` - NEW: the ten projects with
+  their sprints and tasks
+- `packages/db/src/seed/index.ts` - a `--only=project-blueprints` entry
+- `apps/main/actions/(main)/projects/explore.action.ts` - return the slug
+- `apps/main/app/(main)/projects/explore/_components/ideas-pane.tsx` - the card
+  links to the project instead of opening the sheet
+- `apps/main/app/(main)/projects/[slug]/_components/project-details-client.tsx`
+  - the start confirm and the pre-start outline
+
+**Steps.**
+1. Write the ten blueprints: for each, 3 to 5 sprints, 4 to 6 tasks per sprint,
+   every task with a title, a description, success criteria and hints. Hand
+   written, because the point is that these ten are good.
+2. Seed a platform user to own them (`created_by` is NOT NULL and references
+   `user`), mark the rows `isPlatformSeeded`, `visibility: PUBLIC`, and set
+   `project_idea.blueprint_project_id` and `has_blueprint_generated` on the
+   matching idea - those columns already exist for exactly this.
+3. The seeder is idempotent on slug, like the ideas seeder: re-running updates
+   rather than duplicating, and never touches a project a user has started.
+4. Delete the twenty ideas without a blueprint from the seed file, and remove
+   the rows whose `blueprint_project_id` is null when re-seeding.
+5. The card's primary action becomes a `<Link>` to `/projects/<slug>`. The
+   generation sheet stays on the page header's "New project", which is what it
+   is for.
+6. On the project page, a project you have not started shows the outline in
+   full, greyed and unclickable, and one "Start building" button. The confirm
+   names the sprints, the tasks and the hours, says starting is free, and says
+   the quiz costs 25 and a mock interview 30 when you reach them.
+
+**Edge cases.**
+- `startProject` is creator-only and these are owned by the platform user, so
+  the path for everybody else is `enrollInProject`, which charges 13 credits
+  today. That contradicts "free": enrolling in a platform-seeded project must
+  cost 0, and the price has to come from the server, not the two hardcoded 13s
+  in the client.
+- The same person pressing Start twice must end with one progress row.
+- A project already started skips the confirm and shows the live board.
+- Seeding runs against the dev database only, behind the existing guard.
+- Ten projects with sprints and tasks is a few hundred rows: the seeder batches
+  rather than inserting in a loop of single statements.
+
+**Done when.** `pnpm db:seed --only=project-blueprints` fills ten projects with
+sprints and tasks; the Ideas tab shows exactly those ten; pressing "Build this"
+opens the project page; the page lists every sprint and task before you start;
+Start asks once, costs nothing, and lands on a board with the tasks in it.
+
+## PJ-12 The pages inside a project hold together
+- [ ] Status: steps 1-8 built (2026-09-23), 9-11 still open. Typecheck clean, `check-nav` 36/36, `check-destinations` 17/17, `projects-render` 30/30, `projects-money` 25/25 three times.
+
+**What the money check caught.** Racing three sprint inserts failed on the third run after passing twice: PJ-12's retry tested `String(error)`, and Drizzle wraps the driver error in a `DrizzleQueryError` whose message is "Failed query: insert into ..." - the `23505` and the words "duplicate key" are on the CAUSE. The retry was silently giving up on the one error it exists to handle. It walks the cause chain now.
+
+**Still open here:** step 9 (the layout drift across the five routes), step 10 (three skeletons that do not match their page) and step 11 (the dead files, which need Niraj's word).
+
+**Why.** "Make sure that the later pages inside the project details should be
+smooth as well, like no UI and layout related issues". A read of the five
+routes under `[slug]` found four things that are broken rather than untidy, and
+a long tail of layout drift. The broken ones come first; the drift is the rest
+of the list and is bounded to these five routes.
+
+**Files.** `apps/main/app/(main)/projects/[slug]/**`, `apps/main/components/projects/**`.
+
+**Steps, in order.**
+1. **Public projects are unreachable when signed out.** `getProjectBySlug` calls
+   a helper that throws for an anonymous visitor, so every shared link shows
+   "Project Not Found". Read the session without throwing and apply the
+   visibility gate to the result.
+2. **A dead link in Quick Actions.** "Mock AI" points at `/projects/<slug>/mock`;
+   the route is `aimock`. It 404s every time.
+3. **An empty card.** A private project viewed by a non-creator who has not
+   started falls through to `null` inside the action card, drawing an empty
+   white box with no text and no button.
+4. **The gates disagree by one.** The sprints board disables the quiz at
+   `<= 50` and the mock at `<= 75`; the pages and the detail page allow
+   `>= 50` and `>= 75`. At exactly 50 or 75 one screen says locked and the other
+   says open. One helper, used by all three.
+5. **The sprint rail is `hidden md:flex`,** so on a phone the board has no sprint
+   list, no generate button and nothing selected - a dead "Select a Sprint"
+   screen. It needs a way in below `md`.
+6. **Ticking a task reloads the page.** `handleTaskUpdate` is
+   `window.location.reload()` in two files. Revalidate instead.
+7. **Auth redirects go to three different URLs** across these routes:
+   `/auth/login`, `/auth/signin` and `/login`. At most one exists.
+8. **The tasks route has no access check at all**, while the sprints route has
+   one. Same check, or the route goes (it is reachable from two places and
+   duplicates the sprints board's list).
+9. **Layout drift.** Five routes, five hand-rolled headers, four "Back to
+   project" pills and no two page paddings alike. Adopt `PageHeader` and
+   `px-page`, drop `min-h-screen` + gradient roots and `max-w-4xl` inside the
+   shell, and take the pink and red decoration out (quiz CTA, progress banner,
+   resource type chips, "Common Mistakes").
+10. **Three of the five `loading.tsx` do not match their page** - the detail
+    skeleton draws 8 tab pills for a 3-tab page, the sprints skeleton draws a
+    card grid for a 3-pane board. A skeleton that does not match is worse than
+    none.
+11. **Dead code to propose for deletion** (not deleted without Niraj's word):
+    `[slug]/not-found.tsx` (unreachable, `page.tsx` short-circuits),
+    `[slug]/_components/index.ts` (barrel nobody imports),
+    `[slug]/_components/team-members-display.tsx` (only the barrel),
+    the default export of `components/projects/task-list-progress.tsx`,
+    and the unused share-dialog state and imports on the detail page.
+
+**Edge cases.**
+- The sprints board nests a `h-dvh` three-pane layout inside the shell's
+  ScrollArea, giving five columns with the AI rail docked. Whatever else
+  changes, that page must not scroll twice.
+- `isEnrolled = true` is hardcoded on the sprints board, which makes two
+  permission checks dead. Fixing it will lock people out who are currently
+  getting through - that is the point, but it needs the enrol path from PJ-11
+  working first.
+- A started project with zero sprints renders an empty flowchart and an empty
+  milestone rail; both need an empty state pointing at sprint generation.
+
+**Done when.** A signed-out visitor can open a public project; every action on
+the detail page goes somewhere real; the quiz and mock gates agree at exactly
+50 and 75 percent; the board is usable on a phone; ticking a task does not
+reload the page; and the five routes share one header, one padding and a
+skeleton that matches.
+
+## PJ-13 Work through the deep sweep
+- [ ] Status: the security and money findings are fixed (2026-09-23); the rest is listed in `sweep-2026-09-23-module.md` with the reason each one is still open.
+
+**Why.** Niraj asked for a scan of the module end to end before manual testing. Three passes found about 120 things. The ones that had to be fixed before anybody touches it are done; the remainder are real but each needs its own change, and several need a decision.
+
+**Order for the rest.** Money in the edge features (task details, standups) first, because they take credits and give nothing back on failure. Then the races. Then the six inline model calls, which is a worker migration and wants its own task. Then the duplication and the cosmetics, most of which belong to `plan/ui-pass`.
+
+**Done when.** `sweep-2026-09-23-module.md` has nothing left under "Still open".
+
+## PJ-14 The six inline model calls move to the worker
+- [ ] Status: not started. Planned 2026-09-23 on Niraj's call: after manual testing, not before.
+
+**Why.** CLAUDE.md: anything that calls an LLM runs in `apps/worker` as a Durable Object plus Alarm, never in a server action, because a Worker request has a hard budget and a 60-second completion is killed long after the user has been charged. Six calls in this module are still inline.
+
+**The six.**
+| Where | What | Rough latency |
+|---|---|---|
+| `projectassessments.action.ts` | task quiz questions | 5-15s |
+| `projectassessments.action.ts` | code challenge instructions | 5-15s |
+| `projectassessments.action.ts` | code review | **unbounded** - the prompt embeds a user-supplied code blob |
+| `task-details.action.ts` | sub-tasks, errors, related tasks | 10-25s, and it times itself |
+| `projectv2-mock.action.ts` | the mock knowledge base | 10-30s, `max_tokens: 2000` |
+| `projectv2-mock.action.ts` | interview feedback | 10-20s, and it runs after a voice-provider round trip in the same request |
+
+The code review is the one that will fail first, because its input size is whatever the user pasted.
+
+**Steps.** Five job types (the two assessment generators can share one), each with the five edits `apps/worker/README.md` lists - including the fifth, the entry-point export. Dispatch with `startBackgroundJob(type, input, { cost })`, follow with `useBackgroundJob`. Credits move to holds at dispatch, so the debits inside these actions go.
+
+**Edge cases.**
+- The assessment file charges NOTHING today. Moving it to a job means deciding a price, which is a decision for `overview.md`, not a constant.
+- `task-details` and both mock calls debit before the model runs. On the hold path that inverts: reserve, run, settle or refund.
+- The screens need a pending state that survives a reload, which is what `useBackgroundJob` gives them.
+- A worker deploy, before the app deploy, as in PJ-7.
+
+**Done when.** No `openai.chat.completions.create` remains under `actions/(main)/projects/`, and each of the six screens shows progress it can resume after a refresh.
+
+## PJ-15 The 2026-09-23 browser pass, second round
+- [ ] Status: items 1, 2, 5, 6 and the back affordance are done; item 3 (the project page's own UI) is next.
+
+**Why.** Niraj went through the seeded catalogue and the project page. Six findings.
+
+**Done.**
+1. **Enrolling now LANDS somewhere.** "Start Building" closed the dialog and called `router.refresh()`, while the copy above it said "Redirecting you to the project" - the one thing it promised was the one thing it did not do. `projectSlug` was declared in the dialog's props and never destructured, so there was nothing to navigate to. It goes to the sprint board now, from the button and from the auto-advance, and the timer is cleared on unmount.
+2. **One card for the catalogue.** `components/projects/catalogue-card.tsx`. The Community tab drew a different, weaker card: a tag cloud on top, the title buried under it, the author in a footer. Both tabs draw the same card now, and it takes an author line - name first, username second, "ShipItHQ" only if neither. The meta and the button share one row at the bottom.
+3. **The card's text is readable.** The secondary ink was `neutral-400`, which on the near-black card measures about 4:1 - under AA for body text and hard work at 11px. `neutral-300` clears 7:1 and still reads as secondary.
+4. **The toast is glass, and the green is gone.** A translucent surface with a blur behind it, and success is carried by the tick glyph rather than by emerald. Error keeps its red, because that is the one state where colour is doing work rather than decoration. Also fixed two classNames that each set two conflicting dark colours, where the later one silently won.
+5. **The back pill is a quiet link**, the page frame uses `px-page`, the `min-h-screen` gradient is gone, and the header actions sit in the flow instead of `absolute`, where they overlapped the pill at narrow widths.
+
+**Item 3, the project page - done 2026-09-23.**
+- The tab strip is `segmented size="sm" fit`. It was the default card variant at full width, which stretched three labels across the page and re-drew the border, background and shadow the component already owns.
+- **"Pages (0)" is gone.** The tab only renders when the project has pages; it used to open an empty grid with no empty state.
+- **Every seeded project has a Setup Guide.** The tab reads `projects_v2.setup_guide` and all ten had none, so all ten said "No Setup Guide Available". It is DERIVED from the project's own `stacks` in the seeder rather than hand-written ten times, so it cannot drift from the stack the project declares: prerequisites, env vars, the commands to get it running, and how you know it worked.
+- **The hero gap.** The action card stretches to the hero's height instead of leaving a column of empty page beside the stats, and the hero-to-tabs gap went from `mb-8` plus `mt-6` to `mb-6` plus `mt-4`.
+- **Key Outcomes spans the row** and is hidden when there are none: it used to sit half-width with nothing beside it.
+- **The balance was printed twice** in the enrolment card, three lines apart. Also two "gradients" whose stops were identical, and `shadow-xl` on a card that needs no lift.
+- **The generate sheet states the price once.** A "Total cost" panel sat at the foot of the form and the pinned footer repeated it two inches below; the reassurance moved to the footer, beside the button that does the charging.
+
+**What the re-seed proved.** It skipped `personal-finance-tracker` - "somebody has started it" - which is the guard working: you enrolled in that one while testing, and replacing its sprints would have orphaned your task statuses. Nine projects were rewritten, that one kept what it had, and the totals are still 40 sprints and 200 tasks.
+
+**Previously still to do - item 3, the project page itself.**
+- The tab strip is the default card variant at full width; it should be `segmented size="sm" fit`, like everywhere else.
+- The Resources and Errors sheets use rows of filter CHIPS where a Select belongs (eleven type chips wrapping onto three lines).
+- The forms inside those sheets should ask for `rounded-xl` like the generate sheet does.
+- The overview body is a 2/3 + 1/3 grid whose skeleton draws 8 tab pills and a 3-column body, so it reflows on load.
+- "Pages (0)" renders an empty grid with no empty state; Key Outcomes renders a titled card with an empty list when there are none.
+
+**Done when.** The project page reads like Explore: one header, one padding, the shared tabs, selects instead of chip rows, and a skeleton that matches.
+
+## PJ-16 The sprint board and the rest of the browser pass
+- [ ] Status: items 1-9 done in code (2026-09-23); the one browser pass that verifies them is left.
+
+**Decisions (Niraj, 2026-09-23).**
+- **The input radius lives in the base components: `rounded-lg`.** Reverses UI-8's "square, each call site opts in", which put the decision in hundreds of places and left half of them looking different from the other half. One value, one file, every app. The call-site `rounded-xl` lines I had added are removed, since `rounded-xl` would now fight the base.
+- **The sprint board's detail tabs become icon-only with tooltips**, and the task list gets room to breathe rather than clipping its titles.
+
+**Done.**
+- `Input`, `Textarea` and `SelectTrigger` are `rounded-lg` in `packages/ui`. That covers the generate sprint sheet, the Add Task dialog, the resource form and every other field in all five apps at once.
+- **The difficulty badge is legible in dark mode.** It set `text-neutral-800` with no dark variant, so on the board's near-black card the BEGINNER label was dark grey on black. Both maps also had three identical arms, so they only looked like they varied.
+
+- **"Enroll Now" changes after enrolling (2026-09-23).** Not caching, as first assumed: the schema names the relation `userProgress`, while `ProjectV2` and every reader use `project.progress`, so the page had never seen an enrolment. `getProjectBySlug` and `getUserProjects` rename it on the way out. The same miss meant the sprint board never loaded saved task ticks (a reload showed every task undone) and My Projects' In Progress / Completed counts were always 0; both are fixed by the same change. Verified against the dev DB: the old read gives `undefined` for the personal-finance-tracker enrolment, the new one gives `IN_PROGRESS` with 20 task statuses. Still to see in the browser.
+- **Loaders no longer pulse in step (2026-09-23).** The skeletons already staggered; the culprit was `InlineLoader`, whose dot-matrix clock starts at mount, so loaders mounted together stayed in lockstep. `useCyclePhase` and `DotmSquare18` take a `delay`, and `InlineLoader` passes one: explicit if given, otherwise the next of six 0.18s steps in mount order, so a group reads as a wave. Fixed in `packages/ui`, so every app gets it. `tsc` clean in `packages/ui` and `apps/main`; still to see in the browser.
+- **Resources and Errors filter on hover-opening dropdowns (2026-09-23).** `components/projects/hover-select.tsx`, used inside `ResourcesList` and `ErrorsTab`, so the project page's sheets and the sprint board's tabs both get it. Resources' eleven wrapping type chips became one dropdown with counts (the PJ-15 "selects, not chips" item); Errors' three `Select`s moved onto it. Built on a non-modal `DropdownMenu`, not `Select`: Radix Select sets `pointer-events: none` on the page while open, so a hover-opened one flickers shut. Hover is mouse-only; touch and keyboard open it normally, and clicking a menu hover already opened does not close it. `tsc` clean; still to try in the browser.
+- **Task titles wrap instead of clipping (2026-09-23).** The column was already a fixed `lg:w-[400px]`; the width that grew was Radix's `display: table` wrapper inside the list's `ScrollArea`, which sized itself to the longest title, so `truncate` never engaged and the text was cut off at the column edge. The list passes `reflow` (the shared `ScrollArea` already had it for this), titles wrap to two lines with the full title on hover, and the badge row wraps. `tsc` clean; still to see in the browser.
+- **The detail pane's tabs are icon-only with tooltips (2026-09-23)**, per the decision above: `segmented size="sm" fit`, one `DETAIL_TABS` list, the label as tooltip and `aria-label`. `tsc` clean; still to see in the browser.
+- **The board's skeleton draws the board (2026-09-23)**, item 8, found during item 5. `sprints/loading.tsx` drew a header, a tab row and a grid of cards; it now draws the sprint rail (md+), the 56px header, the task list (400px on lg, stacked above the pane below it) and the detail pane with five icon tabs. Serves PJ-12's "a skeleton that matches" for this route. `tsc` clean; still to see in the browser.
+- **The Setup Guide is one numbered path (2026-09-23)**, item 6. Four full-width cards became four steps on a connecting rail: Before you start (a two-column checklist), Environment (compact rows, only when there are variables), Install and run (one terminal block, a `$` line per command, per-line and copy-all buttons always visible), Check it works. Also fixed two legibility bugs: the commands were `text-neutral-800` on `bg-neutral-900`, and the copy buttons were `opacity-0` until hover, unreachable on touch. The terminal is dark in both themes, so its ink is constant. Checked against the seeded data (four prerequisites, three commands, two checks, no env vars). `tsc` clean; still to see in the browser.
+- **The generate sprint sheet and Add Task dialog follow the generate sheet (2026-09-23)**, item 7. The sprint sheet has the icon header, a `reflow` body, a pinned footer with one action per step, and the same progress view as the project sheet, using the job's real progress. It now says it is free and that nothing is added until you review it. "Regenerate", which only went back to the description, is now "Edit description". Three identical difficulty colours are gone, and generating is Ctrl/Cmd+Enter rather than bare Enter in a multi-line field. The Add Task dialog has the same header, difficulty as three picker cards instead of a Select, optional fields marked, and a footer bar. Add is disabled until there is a title (it used to be live and silently do nothing). `tsc` clean; still to see in the browser.
+- **Generate Sprint and Add Task are creator-only on the board (2026-09-23)**, item 9, found during item 7. Niraj's call: hide them rather than open personal sprints. The rail's Generate Sprint button showed to everyone while `startSprintGeneration` refuses all but the creator, so an enrolled user got an error toast; `addTaskToSprint` has the same rule. The rail button, the header's Add Task and the empty sprint's Add Task now render for the creator only, and an enrolled user's empty sprint says the creator has not added tasks yet. `tsc` clean; still to see in the browser.
+
+**Still open.**
+- One browser pass over items 1-9, as creator and as an enrolled user.
+

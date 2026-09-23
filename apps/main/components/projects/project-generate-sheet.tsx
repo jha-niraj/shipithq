@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { getProjectPicks, type RecommendedIdeaView } from '@/actions/(main)/projects/recommendations.action'
 import { useRouter } from 'next/navigation'
 import {
     ArrowRight, Check, Sparkles, Code2, Brain, Rocket,
-    Zap, Globe, Lock, Terminal, Cpu, Layers, AlertCircle,
-} from 'lucide-react'
+    Zap, Globe, Lock, Terminal, Cpu, Layers, } from 'lucide-react'
 import {
     Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
 } from '@repo/ui/components/ui/sheet'
@@ -44,6 +44,20 @@ const FRONTEND_STACKS = ['React', 'Next.js', 'Vue', 'Angular', 'Svelte', 'React 
 const BACKEND_STACKS = ['Node.js', 'Next.js API', 'Python / FastAPI', 'Django', 'Java / Spring', 'Go']
 const DATABASES = ['PostgreSQL', 'MongoDB', 'MySQL', 'SQLite', 'Supabase', 'Firebase']
 
+/** EASY/MEDIUM/HARD (catalogue and picks) to what this form and the generator take. */
+function toFormDifficulty(value?: string): 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' {
+    switch ((value ?? '').toUpperCase()) {
+        case 'EASY':
+        case 'BEGINNER':
+            return 'BEGINNER'
+        case 'HARD':
+        case 'ADVANCED':
+            return 'ADVANCED'
+        default:
+            return 'INTERMEDIATE'
+    }
+}
+
 interface ProjectGenerateSheetProps {
     trigger?: React.ReactNode
     onSuccess?: (projectSlug: string) => void
@@ -73,11 +87,33 @@ export default function ProjectGenerateSheet({
     const [phaseLabel, setPhaseLabel] = useState<string>(PHASES[0]!)
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+    /*
+     * What the onboarding already knows (plan/projects, PJ-6).
+     *
+     * The projects onboarding asks what someone has built, what stopped the ones
+     * that died and how many hours they have, and this form ignored all of it.
+     * The picks made from those answers are offered here; pressing one fills the
+     * form, and it stays editable, because the answer to "what do you want to
+     * build" has to remain theirs.
+     */
+    const [picks, setPicks] = useState<RecommendedIdeaView[]>([])
+    useEffect(() => {
+        if (!open) return
+        let cancelled = false
+        void getProjectPicks()
+            .then((r) => { if (!cancelled) setPicks(r.picks.slice(0, 3)) })
+            .catch(() => undefined)
+        return () => { cancelled = true }
+    }, [open])
+
     const [form, setForm] = useState<Partial<FormData>>({
         projectTitle: defaultValues?.title || '',
         projectDescription: defaultValues?.description || '',
         generationType: (defaultValues?.type as FormData['generationType']) || undefined,
-        difficulty: (defaultValues?.difficulty as FormData['difficulty']) || 'INTERMEDIATE',
+        // The catalogue and the picks say EASY/MEDIUM/HARD; this form and the
+        // generator's schema say BEGINNER/INTERMEDIATE/ADVANCED. Passing one
+        // through as the other failed Zod at Generate with a raw toast.
+        difficulty: toFormDifficulty(defaultValues?.difficulty),
         technologies: [],
         LearnsFocus: [],
         stacks: { frontend: '', backend: '', database: '', deployment: '', aiProvider: '' },
@@ -146,7 +182,7 @@ export default function ProjectGenerateSheet({
     if (loading) {
         return (
             <Sheet open={open} onOpenChange={(v) => { if (!v) toast.info('Generation continues in the background.'); setOpen(v) }}>
-                <SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-[720px]">
+                <SheetContent scroll={false} side="right" className="flex w-full flex-col p-0 sm:max-w-[720px]">
                     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-8">
                         <div className="relative flex h-20 w-20 items-center justify-center">
                             <div className="absolute inset-0 rounded-full border-2 border-neutral-900/20" />
@@ -210,7 +246,17 @@ export default function ProjectGenerateSheet({
                     </Button>
                 </SheetTrigger>
             ) : null}
-            <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[720px]">
+            {/*
+              * `scroll={false}` is load-bearing (Niraj, 2026-09-23: "this should be
+              * on the bottom of the sheet like sticky").
+              *
+              * SheetContent wraps its children in a ScrollArea unless told not to,
+              * so the header, the body's own ScrollArea and the footer were all
+              * inside one outer scroller and the cost row scrolled away with the
+              * form. This sheet lays itself out: header, `flex-1` body, pinned
+              * footer.
+              */}
+            <SheetContent scroll={false} side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[720px]">
                 <SheetHeader className="space-y-0 border-b border-neutral-200 px-6 py-4 dark:border-neutral-800">
                     <div className="flex items-center gap-3">
                         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
@@ -250,11 +296,42 @@ export default function ProjectGenerateSheet({
                     pushed off the bottom instead of this list scrolling. See JB-1. */}
                 <ScrollArea className="min-h-0 min-w-0 flex-1" reflow>
                     <div className="space-y-5 px-6 py-5">
+                        {/* Only while the form is untouched: once someone starts typing,
+                            a list of other projects is in the way. */}
+                        {picks.length > 0 && !form.projectDescription && !form.projectTitle && (
+                            <div className="space-y-1.5">
+                                <Label className="text-sm">From your onboarding</Label>
+                                <ul className="space-y-1.5">
+                                    {picks.map((pick) => (
+                                        <li key={pick.title}>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    set('projectTitle', pick.title)
+                                                    set('projectDescription', pick.description)
+                                                    set('difficulty', toFormDifficulty(pick.difficulty))
+                                                }}
+                                                className="group flex w-full cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 px-3 py-2.5 text-left transition-colors hover:border-neutral-400 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:border-neutral-600 dark:hover:bg-neutral-800/50"
+                                            >
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block truncate text-sm font-medium text-neutral-900 dark:text-white">{pick.title}</span>
+                                                    {pick.why && <span className="mt-0.5 block truncate text-xs text-neutral-600 dark:text-neutral-400">{pick.why}</span>}
+                                                </span>
+                                                <span className="shrink-0 text-xs font-medium text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white">Use this</span>
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                         <div className="space-y-1.5">
                             <Label className="text-sm">What do you want to build?</Label>
+                            {/* The base Input/Textarea/SelectTrigger are square
+                                (packages/ui). A form field in a panel like this
+                                asks for its own radius - Niraj, 2026-09-23. */}
                             <Textarea
                                 rows={4}
-                                placeholder="A realtime collaboration board for small design teams. Boards, sticky notes, live cursors, and comments."
+                                                                placeholder="A realtime collaboration board for small design teams. Boards, sticky notes, live cursors, and comments."
                                 value={form.projectDescription}
                                 onChange={e => set('projectDescription', e.target.value)}
                             />
@@ -266,7 +343,7 @@ export default function ProjectGenerateSheet({
                         <div className="space-y-1.5">
                             <Label className="text-sm">Call it</Label>
                             <Input
-                                placeholder="Realtime collaboration board"
+                                                                placeholder="Realtime collaboration board"
                                 value={form.projectTitle}
                                 onChange={e => set('projectTitle', e.target.value)}
                             />
@@ -397,24 +474,27 @@ export default function ProjectGenerateSheet({
                             </div>
                         </details>
 
-                        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-neutral-600 dark:text-neutral-400">Total cost</span>
-                                <span className="font-mono text-lg font-bold text-neutral-900 dark:text-white">{cost} credits</span>
-                            </div>
-                            <p className="mt-1 flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
-                                <AlertCircle className="h-3 w-3" /> Credits are only charged once generation succeeds.
-                            </p>
-                        </div>
+                        {/* The cost used to be stated HERE as well, in a panel at the
+                            foot of the form, and again on the pinned footer two
+                            inches below it. One price, said once, where the button
+                            that charges it lives (Niraj, 2026-09-23). */}
                     </div>
                 </ScrollArea>
 
                 <div className="flex shrink-0 items-center justify-between gap-3 border-t border-neutral-200 px-6 py-4 dark:border-neutral-800">
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">
                         Takes about a minute. You can close this and it keeps going.
+                        <span className="block">Credits are only charged once it succeeds.</span>
                     </p>
-                    <Button onClick={handleSubmit} disabled={!canProceed} className="shrink-0">
-                        <Sparkles className="mr-1.5 h-4 w-4" /> Generate · {cost} credits
+                    {/* `disabled` was gated on `canProceed` alone, so the button
+                        stayed live through the dispatch and a double click bought
+                        two projects (sweep 2026-09-23, loading P2). */}
+                    <Button onClick={handleSubmit} disabled={!canProceed || loading} className="shrink-0">
+                        {loading ? (
+                            <><InlineLoader size="sm" className="mr-1.5" /> Starting</>
+                        ) : (
+                            <><Sparkles className="mr-1.5 h-4 w-4" /> Generate · {cost} credits</>
+                        )}
                     </Button>
                 </div>
             </SheetContent>

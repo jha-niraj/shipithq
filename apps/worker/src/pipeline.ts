@@ -1,10 +1,9 @@
-import { eq, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import type { DB } from "./db"
 import { schema } from "./db"
 import { chatJSON } from "./openai"
 
-const { projectsV2, projectV2Sprints, projectV2Tasks, userProjectV2Progress, users, creditTransactions } = schema
+const { projectsV2, projectV2Sprints, projectV2Tasks, userProjectV2Progress } = schema
 
 export interface GenerationInput {
 	projectTitle: string
@@ -227,16 +226,16 @@ Make it buildable, sprint-based, and portfolio-worthy. Return the JSON blueprint
 		totalTasks,
 	})
 
-	// Deduct credits server-side (base 13 public / 25 private + 30 for assessment).
-	const cost = (input.visibility === "PUBLIC" ? 13 : 25) + (input.includeAssessment ? 30 : 0)
-	await db.update(users).set({ credits: sql`${users.credits} - ${cost}` }).where(eq(users.id, userId))
-	await db.insert(creditTransactions).values({
-		userId,
-		amount: -cost,
-		type: "SPEND",
-		currency: "INR",
-		description: `Generated project: ${input.projectTitle}`,
-	})
+	// No credit work here, deliberately.
+	//
+	// This used to debit the balance directly: `credits = credits - cost`, with
+	// no guard, minutes after the app checked the balance at dispatch. Anything
+	// the user spent in between - a mock interview, a quiz - and the subtraction
+	// drove them negative, with a ledger row to match. The dispatch in
+	// `projectsworker.action.ts` now holds the credits through
+	// `startBackgroundJob({ cost })`, which reserves them under a SQL guard and
+	// settles or refunds when the app sees a terminal status. Every credit
+	// decision in the product lives in `lib/credits/hold.ts`.
 
 	await onProgress(95, "Finalizing")
 	return { projectId, slug, title: input.projectTitle }

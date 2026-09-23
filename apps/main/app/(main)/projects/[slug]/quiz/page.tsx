@@ -1,4 +1,5 @@
 import { getSession } from '@repo/auth'
+import { QUIZ_UNLOCK_PERCENT, quizUnlocked } from '@/lib/projects/gates'
 import { headers } from 'next/headers'
 import { redirect } from "next/navigation"
 import {
@@ -19,7 +20,7 @@ export default async function QuizPage({ params }: { params: Promise<{ slug: str
     const { slug } = await params
 
     if (!session?.user?.id) {
-        redirect(`/login?callbackUrl=/projects/${slug}/quiz`)
+        redirect(`/signin?callbackUrl=/projects/${slug}/quiz`)
     }
 
     // Get project
@@ -61,12 +62,12 @@ export default async function QuizPage({ params }: { params: Promise<{ slug: str
     const userProgress = progressRows[0]
     const currentProgress = userProgress?.progressPercentage || 0
 
-    if (!userProgress || currentProgress < 50) {
+    if (!userProgress || !quizUnlocked(currentProgress)) {
         return (
             <ProgressGate
                 type="quiz"
                 currentProgress={currentProgress}
-                requiredProgress={50}
+                requiredProgress={QUIZ_UNLOCK_PERCENT}
                 projectSlug={slug}
                 projectTitle={project.title}
             />
@@ -100,8 +101,10 @@ export default async function QuizPage({ params }: { params: Promise<{ slug: str
                 difficulty: projectV2QuizQuestions.difficulty,
                 prompt: projectV2QuizQuestions.prompt,
                 options: projectV2QuizQuestions.options,
-                correctAnswer: projectV2QuizQuestions.correctAnswer,
-                explanation: projectV2QuizQuestions.explanation,
+                // NOT the answer key. This page is server-rendered into a payload
+                // the browser can read, so selecting `correctAnswer` and
+                // `explanation` handed every answer to anyone who opened the
+                // devtools before taking the quiz. Submitting returns both.
                 orderIndex: projectV2QuizQuestions.orderIndex,
             })
             .from(projectV2QuizQuestions)
@@ -136,8 +139,6 @@ export default async function QuizPage({ params }: { params: Promise<{ slug: str
             difficulty: q.difficulty,
             prompt: q.prompt,
             options: q.options,
-            correctAnswer: q.correctAnswer,
-            explanation: q.explanation,
             orderIndex: q.orderIndex,
         })),
     } : null

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { PageHeader } from "@repo/ui/components/ui/page-header";
+import { PracticeHeaderTabs } from "../../_components/practice-layout-wrapper";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
 import { cn } from "@repo/ui/lib/utils";
 import type { OnboardingModuleKey } from "@/lib/onboarding/modules";
@@ -40,13 +42,12 @@ export function MemoryTabs({ modules }: { modules: MemoryModuleData[] }) {
     const current = modules.find((m) => m.module === active) ?? modules[0];
 
     return (
-        <div className="w-full space-y-5 px-page pb-6 pt-3">
-            <header>
-                <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-50">What the mentor knows about you</h1>
-                <p className={cn("mt-1 max-w-2xl text-sm leading-relaxed", "text-neutral-600 dark:text-neutral-400")}>
-                    One page per practice module: where you said you stand, and what the mentor has seen while you solved problems. Anything wrong or out of date, delete it.
-                </p>
-            </header>
+        <div className="w-full space-y-5 px-page pb-6 pt-2">
+            <PageHeader
+                title="What the mentor knows about you"
+                subtitle="Where you said you stand, and what the mentor has seen while you solved problems."
+                tabs={<PracticeHeaderTabs />}
+            />
 
             <Tabs value={active} onValueChange={setActive}>
                 <TabsList variant="segmented" size="sm" fit aria-label="Practice module">

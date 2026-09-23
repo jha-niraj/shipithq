@@ -1,6 +1,21 @@
 import * as React from "react"
 import { cn } from "../../lib/utils"
 
+/*
+ * `rounded-lg`, and it lives HERE (Niraj, 2026-09-23: "keep the rounded-lg in
+ * base components itself", after "you can just grab all the input and change it
+ * in one as well").
+ *
+ * It was briefly `rounded-none` with each call site asking for its own radius.
+ * That put the decision in hundreds of places and left half of them looking
+ * different from the other half - the generate sprint sheet and the Add Task
+ * dialog were still square while the generate sheet was not. One value, one
+ * file, every app.
+ *
+ * This comment sits HERE and not inside the template literal below, because
+ * `cn()` joins that literal verbatim - a comment written inside it ships as
+ * class names in the DOM.
+ */
 const Input = React.forwardRef<
 	HTMLInputElement,
 	React.ComponentProps<"input">
@@ -12,7 +27,7 @@ const Input = React.forwardRef<
 			className={cn(
 				`
 					flex h-11 w-full
-					rounded-xl border
+					rounded-lg border
 					bg-white dark:bg-neutral-900
 					border-neutral-200 dark:border-neutral-700
 					px-3 text-sm

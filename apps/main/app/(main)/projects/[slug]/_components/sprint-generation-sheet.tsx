@@ -2,27 +2,32 @@
 
 import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import {
-    Sparkles, Rocket, Clock, Target, Code2, XCircle
-} from 'lucide-react'
+import { Sparkles, Clock, Target, Pencil } from 'lucide-react'
 import { Button } from '@repo/ui/components/ui/button'
-import { Badge } from '@repo/ui/components/ui/badge'
+import { Progress } from '@repo/ui/components/ui/progress'
 import {
-    Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription
+    Sheet, SheetContent, SheetHeader, SheetTitle
 } from '@repo/ui/components/ui/sheet'
-
 import { Textarea } from '@repo/ui/components/ui/textarea'
-import {
-    Card, CardContent, CardHeader, CardTitle
-} from '@repo/ui/components/ui/card'
 import toast from '@repo/ui/components/ui/sonner'
+import { cn } from '@repo/ui/lib/utils'
 import { awaitBackgroundJob } from '@/hooks/use-background-job'
 import {
     startSprintGeneration, addSprintToProject
 } from '@/actions/(main)/projects/sprint-generation.action'
 import { Label } from '@repo/ui/components/ui/label'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+
+const SUGGESTIONS = [
+    'User authentication system',
+    'Dashboard with analytics',
+    'API integration',
+    'Database models setup',
+    'Payment integration',
+    'File upload feature',
+]
+
+const DIFFICULTY_LABEL = { BEGINNER: 'Beginner', INTERMEDIATE: 'Intermediate', ADVANCED: 'Advanced' } as const
 
 // ============================================================================
 // Types
@@ -78,12 +83,7 @@ export function SprintGenerationSheet({
     const [generatedSprint, setGeneratedSprint] = useState<GeneratedSprint | null>(null)
     const [step, setStep] = useState<'input' | 'generating' | 'preview'>('input')
     const [generationPhase, setGenerationPhase] = useState<string>('')
-
-    const difficultyColors = {
-        BEGINNER: 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800/30 dark:text-neutral-100',
-        INTERMEDIATE: 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800/30 dark:text-neutral-100',
-        ADVANCED: 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800/30 dark:text-neutral-100',
-    }
+    const [generationProgress, setGenerationProgress] = useState(0)
 
     const handleGenerate = async () => {
         if (!sprintDescription.trim()) {
@@ -92,6 +92,8 @@ export function SprintGenerationSheet({
         }
 
         setIsGenerating(true)
+        setGenerationPhase('')
+        setGenerationProgress(0)
         setStep('generating')
 
         try {
@@ -107,7 +109,10 @@ export function SprintGenerationSheet({
 
             const outcome = await awaitBackgroundJob<{ sprint?: GeneratedSprint }>(
                 started.jobId,
-                (progress, phaseLabel) => setGenerationPhase(phaseLabel ? `${phaseLabel}…` : `${progress}%`),
+                (progress, phaseLabel) => {
+                    setGenerationProgress(progress)
+                    if (phaseLabel) setGenerationPhase(phaseLabel)
+                },
             )
 
             if (outcome.ok && outcome.result?.sprint) {
@@ -118,7 +123,7 @@ export function SprintGenerationSheet({
                 toast.error(outcome.ok ? 'Failed to generate sprint' : outcome.error)
                 setStep('input')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error generating sprint:', error)
             toast.error('Failed to generate sprint')
             setStep('input')
@@ -148,7 +153,7 @@ export function SprintGenerationSheet({
             } else {
                 toast.error(result.error || 'Failed to add sprint')
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error adding sprint:', error)
             toast.error('Failed to add sprint')
         } finally {
@@ -163,270 +168,206 @@ export function SprintGenerationSheet({
         onClose()
     }
 
+    // Cmd/Ctrl+Enter, not bare Enter: this is a multi-line field, and Enter
+    // alone started a generation when someone only wanted a new line.
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
             e.preventDefault()
             handleGenerate()
         }
     }
 
-    return (
-        <Sheet open={isOpen} onOpenChange={handleClose}>
-            <SheetContent side="right" className="w-full sm:max-w-2xl">
-                <SheetHeader className="text-left pb-6 max-w-5xl mx-auto space-y-6">
-                    <SheetTitle className="flex items-center gap-2 text-xl">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-900 to-neutral-800 flex items-center justify-center">
-                            <Sparkles className="w-5 h-5 text-white" />
-                        </div>
-                        Generate New Sprint
-                    </SheetTitle>
-                    <SheetDescription>
-                        Describe what you want to build and AI will create a structured sprint with tasks.
-                    </SheetDescription>
-                </SheetHeader>
-                <AnimatePresence mode="wait">
-                    <section className="max-w-5xl mx-auto space-y-6">
-                        {
-                            step === 'input' && (
-                                <motion.div
-                                    key="input"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    className="space-y-6"
-                                >
-                                    <div className="space-y-2">
-                                        <Label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                            What do you want to build?
-                                        </Label>
-                                        <Textarea
-                                            placeholder="e.g., User authentication with email verification and password reset functionality"
-                                            value={sprintDescription}
-                                            onChange={(e) => setSprintDescription(e.target.value)}
-                                            onKeyDown={handleKeyDown}
-                                            className="min-h-[120px] resize-none"
-                                            autoFocus
-                                        />
-                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                            Press Enter to generate or describe in detail for better results
-                                        </p>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                            Quick suggestions:
-                                        </p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {
-                                                [
-                                                    'User authentication system',
-                                                    'Dashboard with analytics',
-                                                    'API integration',
-                                                    'Database models setup',
-                                                    'Payment integration',
-                                                    'File upload feature'
-                                                ].map((suggestion) => (
-                                                    <Badge
-                                                        key={suggestion}
-                                                        variant="outline"
-                                                        className="cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                                                        onClick={() => setSprintDescription(suggestion)}
-                                                    >
-                                                        {suggestion}
-                                                    </Badge>
-                                                ))
-                                            }
-                                        </div>
-                                    </div>
-                                    <Button
-                                        onClick={handleGenerate}
-                                        disabled={!sprintDescription.trim() || isGenerating}
-                                        className="w-full bg-black text-white dark:bg-white dark:text-black"
-                                        size="lg"
-                                    >
-                                        <Sparkles className="w-4 h-4 mr-2" />
-                                        Generate Sprint with AI
-                                    </Button>
+    /*
+     * The same layout as the project generate sheet (plan/projects PJ-16 item 7):
+     * a compact header, a scrolling body, and a PINNED footer holding the one
+     * action for the current step. `scroll={false}` because SheetContent
+     * otherwise wraps everything, footer included, in its own scroller.
+     *
+     * What it was: the Generate button sat in the middle of the form, the
+     * preview's Add/Regenerate row scrolled away with a nested 300px scroller,
+     * "Regenerate" did not regenerate (it went back to the description, so it is
+     * now called what it does), three difficulty colours were identical, and the
+     * sheet never said what it costs. It costs nothing, and nothing is added to
+     * the project until the preview is accepted - so the footer says that.
+     */
+    const subtitle = step === 'preview'
+        ? 'Review it before it goes on the board.'
+        : 'Say what it should deliver. The AI writes the tasks.'
 
-                                    {
-                                        !isCreator && (
-                                            <p className="text-xs text-center text-neutral-500 dark:text-neutral-400">
-                                                As a collaborator, sprints you create will appear in your timeline.
-                                                You can accept or reject them to track progress.
+    return (
+        <Sheet open={isOpen} onOpenChange={(open) => { if (!open) handleClose() }}>
+            <SheetContent scroll={false} side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[720px]">
+                <SheetHeader className="space-y-0 border-b border-neutral-200 px-6 py-4 dark:border-neutral-800">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+                            <Sparkles className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <SheetTitle className="text-base">Generate a sprint</SheetTitle>
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400">{subtitle}</p>
+                        </div>
+                    </div>
+                </SheetHeader>
+
+                {
+                    step === 'generating' ? (
+                        <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8">
+                            <div className="relative flex h-20 w-20 items-center justify-center">
+                                <div className="absolute inset-0 rounded-full border-2 border-neutral-900/20 dark:border-white/20" />
+                                <Sparkles className="h-7 w-7 text-neutral-900 dark:text-neutral-100" />
+                            </div>
+                            <div className="text-center">
+                                <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Planning your sprint</h3>
+                                <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                                    {generationPhase || 'Reading the project and breaking the work into tasks'}
+                                </p>
+                            </div>
+                            <div className="w-full max-w-sm">
+                                <Progress value={generationProgress} className="h-1.5" />
+                                <div className="mt-2 flex justify-between font-mono text-xs text-neutral-600 dark:text-neutral-400">
+                                    <span>{generationProgress}%</span>
+                                    <span>~30-60s</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <ScrollArea className="min-h-0 min-w-0 flex-1" reflow>
+                            {
+                                step === 'input' && (
+                                    <div className="space-y-5 px-6 py-5">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="sprint-description" className="text-sm">What should this sprint deliver?</Label>
+                                            <Textarea
+                                                id="sprint-description"
+                                                placeholder="e.g., Sign up and log in with email, verify the address, reset a forgotten password"
+                                                value={sprintDescription}
+                                                onChange={(e) => setSprintDescription(e.target.value)}
+                                                onKeyDown={handleKeyDown}
+                                                className="min-h-[120px] resize-none"
+                                                autoFocus
+                                            />
+                                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                                The more specific, the better the tasks. <kbd className="font-sans">Ctrl</kbd>/<kbd className="font-sans">⌘</kbd> + <kbd className="font-sans">Enter</kbd> to generate.
                                             </p>
-                                        )
-                                    }
-                                </motion.div>
-                            )
-                        }
-                        {
-                            step === 'generating' && (
-                                <motion.div
-                                    key="generating"
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 1.05 }}
-                                    className="flex flex-col items-center justify-center py-16 space-y-6"
-                                >
-                                    <div className="relative">
-                                        <div className="w-24 h-24 rounded-full bg-gradient-to-r from-neutral-900 to-neutral-800 animate-pulse" />
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <InlineLoader size="lg" className="text-white" />
                                         </div>
-                                    </div>
-                                    <div className="text-center space-y-2">
-                                        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
-                                            Generating Your Sprint
-                                        </h3>
-                                        <div className="space-y-1">
-                                            {/* The real phase reported by the
-                                                worker, once there is one. Until
-                                                the first status write lands, the
-                                                rotating copy below stands in. */}
-                                            {
-                                                generationPhase ? (
-                                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                                                        {generationPhase}
-                                                    </p>
-                                                ) : [
-                                                    'Analyzing project context...',
-                                                    'Creating task breakdown...',
-                                                    'Adding success criteria...',
-                                                    'Finalizing sprint structure...'
-                                                ].map((text, idx) => (
-                                                    <motion.p
-                                                        key={text}
-                                                        initial={{ opacity: 0 }}
-                                                        animate={{ opacity: [0, 1, 1, 0] }}
-                                                        transition={{
-                                                            delay: idx * 1.5,
-                                                            duration: 1.5,
-                                                            repeat: Infinity,
-                                                            repeatDelay: 4.5
-                                                        }}
-                                                        className="text-sm text-neutral-500 dark:text-neutral-400"
-                                                    >
-                                                        {text}
-                                                    </motion.p>
-                                                ))
-                                            }
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )
-                        }
-                        {
-                            step === 'preview' && generatedSprint && (
-                                <motion.div
-                                    key="preview"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    className="space-y-6"
-                                >
-                                    <Card className="bg-gradient-to-br from-neutral-50 to-neutral-50 dark:from-neutral-900/30 dark:to-neutral-900/30 border-neutral-200 dark:border-neutral-800">
-                                        <CardHeader className="pb-2">
-                                            <div className="flex items-start justify-between">
-                                                <CardTitle className="text-lg">{generatedSprint.name}</CardTitle>
-                                                <Badge variant="secondary" className="flex items-center gap-1">
-                                                    <Clock className="w-3 h-3" />
-                                                    {generatedSprint.duration}
-                                                </Badge>
+                                        <div className="space-y-2">
+                                            <p className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Or start from</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {
+                                                    SUGGESTIONS.map((suggestion) => (
+                                                        <button
+                                                            key={suggestion}
+                                                            type="button"
+                                                            onClick={() => setSprintDescription(suggestion)}
+                                                            className={cn(
+                                                                'rounded-full border px-2.5 py-1 text-xs transition-colors',
+                                                                sprintDescription === suggestion
+                                                                    ? 'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900'
+                                                                    : 'border-neutral-200 text-neutral-600 hover:border-neutral-300 dark:border-neutral-800 dark:text-neutral-400 dark:hover:border-neutral-700'
+                                                            )}
+                                                        >
+                                                            {suggestion}
+                                                        </button>
+                                                    ))
+                                                }
                                             </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <p className="text-sm text-neutral-600 dark:text-neutral-400 flex items-start gap-2">
-                                                <Target className="w-4 h-4 flex-shrink-0 mt-0.5 text-neutral-800 dark:text-neutral-200" />
+                                        </div>
+                                    </div>
+                                )
+                            }
+                            {
+                                step === 'preview' && generatedSprint && (
+                                    <div className="space-y-5 px-6 py-5">
+                                        <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <h3 className="text-base font-semibold text-neutral-900 dark:text-white">{generatedSprint.name}</h3>
+                                                {
+                                                    generatedSprint.duration && (
+                                                        <span className="inline-flex shrink-0 items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
+                                                            <Clock className="h-3.5 w-3.5" />
+                                                            {generatedSprint.duration}
+                                                        </span>
+                                                    )
+                                                }
+                                            </div>
+                                            <p className="mt-2 flex items-start gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                                                <Target className="mt-0.5 h-4 w-4 shrink-0" />
                                                 {generatedSprint.goal}
                                             </p>
-                                        </CardContent>
-                                    </Card>
-                                    <div className="space-y-3">
-                                        <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 flex items-center gap-2">
-                                            <Code2 className="w-4 h-4" />
-                                            {generatedSprint.tasks.length} Tasks
-                                        </h4>
-                                        <ScrollArea className="min-h-0 flex-1" viewportClassName="space-y-2 max-h-[300px] pr-2" reflow>
-                                            {
-                                                generatedSprint.tasks.map((task, idx) => (
-                                                    <motion.div
-                                                        key={idx}
-                                                        initial={{ opacity: 0, y: 10 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        transition={{ delay: idx * 0.1 }}
-                                                        className="p-3 bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800"
-                                                    >
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="w-6 h-6 rounded-full bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100 flex items-center justify-center text-xs font-medium">
-                                                                    {idx + 1}
-                                                                </span>
-                                                                <h5 className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
-                                                                    {task.title}
-                                                                </h5>
-                                                            </div>
-                                                            <div className="flex items-center gap-1">
-                                                                <Badge className={`text-xs ${difficultyColors[task.difficulty]}`}>
-                                                                    {task.difficulty}
-                                                                </Badge>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-sm">{generatedSprint.tasks.length} tasks</Label>
+                                            <ol className="divide-y divide-neutral-200 rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+                                                {
+                                                    generatedSprint.tasks.map((task, idx) => (
+                                                        <li key={idx} className="flex gap-3 px-3 py-3">
+                                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-xs font-medium tabular-nums text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
+                                                                {idx + 1}
+                                                            </span>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{task.title}</p>
                                                                 {
-                                                                    task.estimatedTime && (
-                                                                        <Badge variant="outline" className="text-xs">
-                                                                            {task.estimatedTime}
-                                                                        </Badge>
+                                                                    task.description[0] && (
+                                                                        <p className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-400">
+                                                                            {task.description[0]}
+                                                                            {task.description.length > 1 && ` (+${task.description.length - 1} more steps)`}
+                                                                        </p>
                                                                     )
                                                                 }
+                                                                <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                                                                    {DIFFICULTY_LABEL[task.difficulty] ?? task.difficulty}
+                                                                    {task.estimatedTime && ` · ${task.estimatedTime}`}
+                                                                </p>
                                                             </div>
-                                                        </div>
-                                                        <p className="text-xs text-neutral-500 dark:text-neutral-400 ml-8">
-                                                            {task.description[0]}
-                                                            {task.description.length > 1 && ` (+${task.description.length - 1} more steps)`}
-                                                        </p>
-                                                    </motion.div>
-                                                ))
-                                            }
-                                        </ScrollArea>
+                                                        </li>
+                                                    ))
+                                                }
+                                            </ol>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                                )
+                            }
+                        </ScrollArea>
+                    )
+                }
+
+                {
+                    step !== 'generating' && (
+                        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-neutral-200 px-6 py-4 dark:border-neutral-800">
+                            {
+                                step === 'preview' ? (
+                                    <>
                                         <Button
                                             variant="outline"
                                             onClick={() => {
                                                 setGeneratedSprint(null)
                                                 setStep('input')
                                             }}
-                                            className="flex-1"
-                                        >
-                                            <XCircle className="w-4 h-4 mr-2" />
-                                            Regenerate
-                                        </Button>
-                                        <Button
-                                            onClick={handleAddSprint}
                                             disabled={isAdding}
-                                            className="flex-1 bg-gradient-to-r from-neutral-800 to-neutral-800 hover:from-neutral-700 hover:to-neutral-700"
+                                            className="gap-1.5"
                                         >
-                                            {
-                                                isAdding ? (
-                                                    <InlineLoader size="sm" className="mr-2" />
-                                                ) : (
-                                                    <Rocket className="w-4 h-4 mr-2" />
-                                                )
-                                            }
-                                            {isCreator ? 'Add to Project' : 'Add to My Timeline'}
+                                            <Pencil className="h-4 w-4" />
+                                            Edit description
                                         </Button>
-                                    </div>
-
-                                    {
-                                        !isCreator && (
-                                            <p className="text-xs text-center text-neutral-500 dark:text-neutral-400">
-                                                This sprint will be added to your personal timeline.
-                                                Accept it to include in your progress tracking.
-                                            </p>
-                                        )
-                                    }
-                                </motion.div>
-                            )
-                        }
-                    </section>
-                </AnimatePresence>
+                                        <Button onClick={handleAddSprint} disabled={isAdding} className="shrink-0">
+                                            {isAdding ? <><InlineLoader size="sm" className="mr-1.5" /> Adding</> : (isCreator ? 'Add to project' : 'Add to my timeline')}
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                            Free. Nothing is added until you review it.
+                                        </p>
+                                        <Button onClick={handleGenerate} disabled={!sprintDescription.trim() || isGenerating} className="shrink-0 gap-1.5">
+                                            <Sparkles className="h-4 w-4" />
+                                            Generate sprint
+                                        </Button>
+                                    </>
+                                )
+                            }
+                        </div>
+                    )
+                }
             </SheetContent>
         </Sheet>
     )

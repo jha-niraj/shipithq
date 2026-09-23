@@ -12,6 +12,8 @@ import {
     DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@repo/ui/components/ui/dropdown-menu";
 import { ScrollArea } from "@repo/ui/components/ui/scroll-area";
+import { PageHeader } from "@repo/ui/components/ui/page-header";
+import { PracticeHeaderTabs } from "./practice-layout-wrapper";
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader";
 import toast from "@repo/ui/components/ui/sonner";
 import type { PathStage } from "@repo/db/practice";
@@ -177,21 +179,19 @@ export function ModuleContent({
         // and the leaderboard scroll inside themselves (UI-9). Below lg the columns
         // stack and the page scrolls normally, because a phone has no room to nest
         // two scrollers.
-        <div className="flex w-full flex-col gap-3 px-page pb-6 pt-2 lg:h-[calc(var(--page-h,100vh)-3rem)] lg:overflow-hidden">
+        <div className="flex w-full flex-col gap-3 px-page pb-6 pt-2 lg:h-[var(--page-h,100vh)] lg:overflow-hidden">
             {/* "Add problem" used to sit at the right of this header. It is off the page
                 (Niraj, 2026-09-22): the catalogue is curated, a generated problem carries
                 generated tests, and a wrong test makes the mentor wrong. The generator and
                 its route are still in the repo (`add-problem-sheet.tsx`,
                 `generate-problem.action.ts`), unused, for a future "stuck on a problem from
                 elsewhere?" inside the mentor rather than a way to add to the catalogue. */}
-            <header className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                    <h1 className={cn("text-xl font-semibold tracking-tight", INK)}>{moduleLabel}</h1>
-                    <p className={cn("mt-0.5 text-sm", INK_DIM)}>
-                        {total} problem{total === 1 ? "" : "s"} · {solved} solved{inProgress ? ` · ${inProgress} in progress` : ""}
-                    </p>
-                </div>
-            </header>
+            <PageHeader
+                className="shrink-0"
+                title={moduleLabel}
+                subtitle={`${total} problem${total === 1 ? "" : "s"} · ${solved} solved${inProgress ? ` · ${inProgress} in progress` : ""}`}
+                tabs={<PracticeHeaderTabs />}
+            />
 
             <div className={cn(CARD, "shrink-0 space-y-3 p-3")}>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -532,7 +532,7 @@ function LeaderboardRow({ entry }: { entry: PracticeLeaderboardEntry }) {
 export function ModuleContentSkeleton() {
     const bar = "animate-pulse rounded-md bg-neutral-200 dark:bg-neutral-800";
     return (
-        <div className="flex w-full flex-col gap-3 px-page pb-6 pt-2 lg:h-[calc(var(--page-h,100vh)-3rem)] lg:overflow-hidden" aria-busy aria-label="Loading problems">
+        <div className="flex w-full flex-col gap-3 px-page pb-6 pt-2 lg:h-[var(--page-h,100vh)] lg:overflow-hidden" aria-busy aria-label="Loading problems">
             <div className="shrink-0 space-y-2">
                 <div className={cn(bar, "h-6 w-56")} />
                 <div className={cn(bar, "h-4 w-40")} />

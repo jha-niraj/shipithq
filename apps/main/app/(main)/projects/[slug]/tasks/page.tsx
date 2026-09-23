@@ -13,8 +13,15 @@ export default async function TasksPage({
     const session = await getSession(headers())
     const { slug } = await params
 
+    // `/signin`, which is the route that exists. This said `/auth/login` and the
+    // sprints page said `/auth/signin`; neither is a page, so a signed-out
+    // visitor was redirected to a 404 (plan/projects, PJ-12).
+    //
+    // Access itself is gated by `getProjectTasks`, which requires a progress row
+    // and so answers "Project not started" to anybody who is neither the creator
+    // nor enrolled.
     if (!session?.user?.id) {
-        redirect('/auth/login')
+        redirect(`/signin?callbackUrl=/projects/${slug}/tasks`)
     }
 
     const tasksResult = await getProjectTasks(slug)

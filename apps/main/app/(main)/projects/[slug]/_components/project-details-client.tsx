@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
     ArrowLeft, Sparkles, Clock, Code2, Brain, Trophy, CheckCircle2, Lock,
-    Unlock, Play, Users, Target, Lightbulb, Layers, ListChecks, Share2,
-    Coins, Copy, Check, Zap, Settings
+    Unlock, Play, Users, Target, Lightbulb, Layers, ListChecks,
+    Coins, Zap
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -29,9 +29,6 @@ import { Textarea } from '@repo/ui/components/ui/textarea'
 import {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger
 } from '@repo/ui/components/ui/tooltip'
-import {
-    Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle
-} from '@repo/ui/components/ui/dialog'
 import toast from '@repo/ui/components/ui/sonner'
 import {
     startProject, submitProject
@@ -42,7 +39,19 @@ import {
 import { EnrollmentDialog } from './enrollment-dialog'
 import DailyStandupSheet from './daily-standup-sheet'
 import { cn } from '@repo/ui/lib/utils'
-const BlueprintFlowchart = dynamic(() => import('@/components/projects/blueprintflowchart'), { ssr: false })
+import { MOCK_UNLOCK_PERCENT, QUIZ_UNLOCK_PERCENT, mockUnlocked, quizUnlocked } from '@/lib/projects/gates'
+import { ENROLL_CREDIT_COST } from '@/lib/credits/pricing'
+// `loading:` is not optional on a chunk this size. Without it the flowchart is a
+// blank hole in the middle of the page while React Flow downloads
+// (sweep 2026-09-23, loading P3).
+const BlueprintFlowchart = dynamic(() => import('@/components/projects/blueprintflowchart'), {
+    ssr: false,
+    loading: () => (
+        <div className="flex h-72 items-center justify-center rounded-2xl border border-neutral-200 dark:border-neutral-800">
+            <InlineLoader size="lg" label="Drawing the blueprint" />
+        </div>
+    ),
+})
 
 // New extracted components
 import { ProjectAssistantButtons } from './project-assistant-buttons'
@@ -54,7 +63,7 @@ import { SetupGuideTab } from './setup-guide-tab'
 
 
 
-import { TaskItem } from '@/components/projects/task-list-progress'
+import type { TaskItem } from '@/types/project'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 
 function MilestoneTracker({ progressPercentage }: { progressPercentage: number, includeAssessment?: boolean }) {
@@ -138,62 +147,76 @@ function QuickActions({
     isPublic: boolean
     hasStarted: boolean
 }) {
+    /*
+     * A locked action is a DISABLED BUTTON, not a link to "#".
+     *
+     * Every one of these was wrapped in `<Link href='#'>` with a disabled Button
+     * inside it, and a disabled button does not stop the anchor: clicking a locked
+     * action navigated to `#` and jumped the page to the top. And the mock's link
+     * pointed at `/projects/<slug>/mock`, a route that does not exist - the route
+     * is `aimock` - so the one unlocked action here 404'd every time
+     * (plan/projects, PJ-12).
+     */
+    const actions = [
+        {
+            key: "sprints",
+            icon: ListChecks,
+            label: "Sprints Board",
+            lockedLabel: "Start to unlock",
+            href: `/projects/${projectSlug}/sprints`,
+            unlocked: hasStarted,
+            shown: true,
+        },
+        {
+            key: "quiz",
+            icon: Brain,
+            label: "Quiz",
+            lockedLabel: `${QUIZ_UNLOCK_PERCENT}% to unlock`,
+            href: `/projects/${projectSlug}/quiz`,
+            unlocked: quizUnlocked(progressPercentage),
+            shown: includeAssessment,
+        },
+        {
+            key: "mock",
+            icon: Sparkles,
+            label: "Mock AI",
+            lockedLabel: `${MOCK_UNLOCK_PERCENT}% to unlock`,
+            href: `/projects/${projectSlug}/aimock`,
+            unlocked: mockUnlocked(progressPercentage),
+            shown: includeAssessment,
+        },
+    ].filter((a) => a.shown)
+
     return (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Link href={hasStarted ? `/projects/${projectSlug}/sprints` : '#'}>
-                <Button
-                    variant="outline"
-                    className={cn(
-                        "w-full h-auto py-4 flex-col gap-1 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all",
-                        !hasStarted && "opacity-50 cursor-not-allowed"
-                    )}
-                    disabled={!hasStarted}
-                >
-                    <ListChecks className="w-5 h-5" />
-                    <span className="text-xs">Sprints Board</span>
-                </Button>
-            </Link>
-
-            {
-                includeAssessment && (
-                    <Link href={progressPercentage >= 50 ? `/projects/${projectSlug}/quiz` : '#'}>
-                        <Button
-                            variant="outline"
-                            className={cn(
-                                "w-full h-auto py-4 flex-col gap-1",
-                                progressPercentage >= 50
-                                    ? "hover:bg-neutral-50 dark:hover:bg-neutral-800/20 hover:border-neutral-300"
-                                    : "opacity-50 cursor-not-allowed"
-                            )}
-                            disabled={progressPercentage < 50}
-                        >
-                            <Brain className={cn("w-5 h-5", progressPercentage >= 50 ? "text-neutral-800 dark:text-neutral-200" : "text-neutral-600")} />
-                            <span className="text-xs">{progressPercentage >= 50 ? 'Quiz' : '50% to unlock'}</span>
-                        </Button>
-                    </Link>
+            {actions.map(({ key, icon: Icon, label, lockedLabel, href, unlocked }) => {
+                const body = (
+                    <>
+                        <Icon className="w-5 h-5" />
+                        <span className="text-xs">{unlocked ? label : lockedLabel}</span>
+                    </>
                 )
-            }
-
-            {
-                includeAssessment && (
-                    <Link href={progressPercentage >= 75 ? `/projects/${projectSlug}/mock` : '#'}>
-                        <Button
-                            variant="outline"
-                            className={cn(
-                                "w-full h-auto py-4 flex-col gap-1",
-                                progressPercentage >= 75
-                                    ? "hover:bg-neutral-50 dark:hover:bg-neutral-800/20 hover:border-neutral-300"
-                                    : "opacity-50 cursor-not-allowed"
-                            )}
-                            disabled={progressPercentage < 75}
-                        >
-                            <Sparkles className={cn("w-5 h-5", progressPercentage >= 75 ? "text-neutral-800 dark:text-neutral-200" : "text-neutral-600")} />
-                            <span className="text-xs">{progressPercentage >= 75 ? 'Mock AI' : '75% to unlock'}</span>
-                        </Button>
-                    </Link>
+                return unlocked ? (
+                    <Button
+                        key={key}
+                        asChild
+                        variant="outline"
+                        className="w-full h-auto py-4 flex-col gap-1 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all"
+                    >
+                        <Link href={href}>{body}</Link>
+                    </Button>
+                ) : (
+                    <Button
+                        key={key}
+                        variant="outline"
+                        disabled
+                        aria-label={`${label} - ${lockedLabel}`}
+                        className="w-full h-auto py-4 flex-col gap-1 opacity-50"
+                    >
+                        {body}
+                    </Button>
                 )
-            }
-
+            })}
         </div>
     )
 }
@@ -220,7 +243,8 @@ export default function ProjectDetailsClient({
     const [starting, setStarting] = useState(false)
     const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
     const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
-    const [shareDialogOpen, setShareDialogOpen] = useState(false)
+    // `shareDialogOpen` and its five Dialog imports went with the share feature
+    // that was never built (approved by Niraj, 2026-09-23).
     const [submitting, setSubmitting] = useState(false)
     const [submitForm, setSubmitForm] = useState({
         githubUrl: '',
@@ -344,10 +368,12 @@ export default function ProjectDetailsClient({
 
 
 
+    // All three arms were the identical string, so the map never varied. One
+    // token, and it carries a border so the pill reads on both surfaces.
     const difficultyColors = {
-        BEGINNER: 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800/30 dark:text-neutral-100',
-        INTERMEDIATE: 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800/30 dark:text-neutral-100',
-        ADVANCED: 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800/30 dark:text-neutral-100',
+        BEGINNER: 'border border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200',
+        INTERMEDIATE: 'border border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200',
+        ADVANCED: 'border border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200',
     }
 
 
@@ -355,40 +381,50 @@ export default function ProjectDetailsClient({
 
 
     return (
-        <div className="relative min-h-screen w-full bg-gradient-to-b from-white to-neutral-50 dark:from-neutral-950 dark:to-neutral-900">
-            <div className="w-full py-6 px-4 md:px-6">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-6"
-                >
+        /*
+         * The page frame, matched to Explore (Niraj, 2026-09-23: this page does
+         * not match "the projects and explore page ui and professionalism").
+         *
+         * Gone: the `min-h-screen` gradient, which painted a full-viewport band
+         * behind content that is supposed to sit in cards on the shell's own
+         * surface; the hardcoded `px-4 md:px-6`, which is not the `px-page` every
+         * other page uses; and the rounded back PILL, which was one of six
+         * different back affordances in this module. A quiet text link, the way
+         * a breadcrumb reads, and the actions sit in the flow rather than
+         * `absolute`, where they overlapped the pill at narrow widths.
+         */
+        <div className="relative w-full">
+            <div className="w-full px-page py-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
                     <Link
-                        href="/projects"
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-neutral-900/80 border border-neutral-200 dark:border-neutral-800 rounded-full backdrop-blur-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                        href="/projects/explore"
+                        className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
                     >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Projects
+                        <ArrowLeft className="h-4 w-4" aria-hidden />
+                        Projects
                     </Link>
-                </motion.div>
-
-                {/* Header Actions including Assistant */}
-                <div className="absolute top-6 right-6 flex items-center gap-2">
-                    <ProjectAssistantButtons
-                        projectId={project.id}
-                        projectSlug={project.slug}
-                        isCreator={isCreator}
-                        isEnrolled={hasStarted || isCreator}
-                        currentUserId={currentUserId}
-                    />
+                    <div className="flex items-center gap-2">
+                        <ProjectAssistantButtons
+                            projectId={project.id}
+                            projectSlug={project.slug}
+                            isCreator={isCreator}
+                            isEnrolled={hasStarted || isCreator}
+                            currentUserId={currentUserId}
+                        />
+                    </div>
                 </div>
 
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
-                    className="mb-8"
+                    className="mb-6"
                 >
-                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                    {/* `items-stretch`, so the action card fills the hero's height
+                        instead of leaving a column of empty page beside the stats
+                        (Niraj, 2026-09-23: "too much of a gap, and there is no
+                        content as well"). */}
+                    <div className="flex flex-col lg:flex-row lg:items-stretch lg:justify-between gap-6">
                         <div className="flex-1">
                             <div className="flex items-center gap-3 mb-4 flex-wrap">
                                 <Badge className={`${difficultyColors[project.difficulty as keyof typeof difficultyColors]} px-3 py-1`}>
@@ -451,8 +487,8 @@ export default function ProjectDetailsClient({
                             </div>
                         </div>
                         <div className="lg:w-80 flex-shrink-0">
-                            <Card className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm border-neutral-200 dark:border-neutral-800 shadow-xl">
-                                <CardContent className="p-6 space-y-4">
+                            <Card className="h-full bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
+                                <CardContent className="flex h-full flex-col justify-center p-6 space-y-4">
                                     {
                                         hasStarted ? (
                                             <>
@@ -531,26 +567,52 @@ export default function ProjectDetailsClient({
                                                         <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Enrollment</span>
                                                         <Badge className="bg-neutral-100 text-neutral-700 dark:bg-neutral-800/50 dark:text-neutral-100">
                                                             <Coins className="w-3 h-3 mr-1" />
-                                                            13 Credits
+                                                            {ENROLL_CREDIT_COST} Credits
                                                         </Badge>
                                                     </div>
                                                     <p className="text-xs text-neutral-500 dark:text-neutral-400">
                                                         Your balance: {userCredits} credits
                                                     </p>
                                                 </div>
+                                                {/* One price and one balance, said once.
+                                                    The card printed "Your balance" twice,
+                                                    three lines apart. The gradient had
+                                                    identical stops, so it was a flat fill
+                                                    pretending to be a gradient. */}
                                                 <Button
                                                     onClick={() => setEnrollDialogOpen(true)}
-                                                    className="w-full bg-gradient-to-r from-neutral-800 to-neutral-800 hover:from-neutral-700 hover:to-neutral-700 text-white shadow-lg shadow-neutral-900/25"
+                                                    className="w-full"
                                                     size="lg"
                                                 >
                                                     <Coins className="w-4 h-4 mr-2" />
                                                     Enroll Now
                                                 </Button>
-                                                <p className="text-xs text-center text-neutral-500 dark:text-neutral-400">
-                                                    50% discount for public projects!
-                                                </p>
                                             </>
-                                        ) : null
+                                        ) : (
+                                            /*
+                                             * The last case is a PRIVATE project seen by
+                                             * somebody who is neither its creator nor
+                                             * started on it - which means they were
+                                             * enrolled in it. It used to be `null`, so
+                                             * the card rendered as an empty white box
+                                             * with no text and no button
+                                             * (plan/projects, PJ-12).
+                                             */
+                                            <>
+                                                <div className="text-center py-2">
+                                                    <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">You have access</h3>
+                                                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                                                        This project is private. Open the board to pick up where it stands.
+                                                    </p>
+                                                </div>
+                                                <Button asChild className="w-full" size="lg">
+                                                    <Link href={`/projects/${project.slug}/sprints`}>
+                                                        <ListChecks className="w-4 h-4 mr-2" />
+                                                        Open the board
+                                                    </Link>
+                                                </Button>
+                                            </>
+                                        )
 
                                     }
                                 </CardContent>
@@ -578,9 +640,15 @@ export default function ProjectDetailsClient({
                                 }))}
                                 projectTitle={project.title}
                                 progressPercentage={progressPercentage}
-                                onTaskClick={() => {
-                                    setActiveTab('tasks')
-                                }}
+                                /*
+                                 * The tabs on this page are overview / pages /
+                                 * setup - there is no 'tasks' tab, so clicking a
+                                 * node set `activeTab` to a value no TabsContent
+                                 * matches and the whole panel went blank
+                                 * (sweep 2026-09-23). The tasks live on the
+                                 * sprints board, so that is where a node goes.
+                                 */
+                                onTaskClick={() => router.push(`/projects/${project.slug}/sprints`)}
                             />
                         </motion.div>
                     )
@@ -614,18 +682,20 @@ export default function ProjectDetailsClient({
                     transition={{ delay: 0.4 }}
                 >
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="w-full lg:w-auto bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm rounded-xl p-1 border border-neutral-200 dark:border-neutral-800 shadow-sm flex-wrap">
-                            <TabsTrigger value="overview">
-                                Overview
-                            </TabsTrigger>
-                            <TabsTrigger value="pages">
-                                Pages ({project.pages.length})
-                            </TabsTrigger>
-                            <TabsTrigger value="setup">
-                                Setup Guide
-                            </TabsTrigger>
+                        {/* `segmented size="sm" fit`, the same call Explore and
+                            practice make. It was the default card variant at full
+                            width, which stretched three labels across the page and
+                            re-drew the border, background and shadow the component
+                            already owns. The Pages tab only appears when there are
+                            pages: "Pages (0)" opened an empty grid. */}
+                        <TabsList variant="segmented" size="sm" fit>
+                            <TabsTrigger value="overview">Overview</TabsTrigger>
+                            {project.pages.length > 0 && (
+                                <TabsTrigger value="pages">Pages ({project.pages.length})</TabsTrigger>
+                            )}
+                            <TabsTrigger value="setup">Setup Guide</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="overview" className="mt-6">
+                        <TabsContent value="overview" className="mt-4">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <Card className="bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow duration-300">
                                     <CardHeader>
@@ -681,7 +751,8 @@ export default function ProjectDetailsClient({
                                         </div>
                                     </CardContent>
                                 </Card>
-                                <Card className="bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow duration-300">
+                                {project.keyOutcomes?.length > 0 && (
+                                <Card className="lg:col-span-2 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2 text-xl">
                                             <Target className="w-5 h-5 text-neutral-900 dark:text-neutral-100" />
@@ -702,6 +773,7 @@ export default function ProjectDetailsClient({
                                         </ul>
                                     </CardContent>
                                 </Card>
+                                )}
                                 {
                                     project.vision && (
                                         <Card className="bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow duration-300">

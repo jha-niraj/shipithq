@@ -1,6 +1,7 @@
 "use server"
 
 import { getSession } from "@repo/auth";
+import { requireProjectAccess } from "@/lib/projects/access"
 import { headers } from "next/headers";
 import { db, projectV2Resources, projectsV2 } from "@repo/db";
 import { eq, and, desc, sql, type SQL } from "drizzle-orm";
@@ -26,9 +27,25 @@ export async function addProjectResource(data: {
             return { success: false, error: "Title must be 1-200 characters" }
         }
 
-        if (!data.link) {
-            return { success: false, error: "Link is required" }
+        /*
+         * A link, and a link we are willing to render. `data.link` was only
+         * checked non-empty, so `javascript:` and `data:` URLs went straight into
+         * a row the resources list renders as an anchor (sweep 2026-09-23,
+         * finding 13).
+         */
+        let parsed: URL
+        try {
+            parsed = new URL(data.link)
+        } catch {
+            return { success: false, error: "That does not look like a link." }
         }
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+            return { success: false, error: "Only http and https links can be added." }
+        }
+
+        // And the project has to be one this person is on.
+        const access = await requireProjectAccess(data.projectId)
+        if (!access.ok) return { success: false, error: access.error }
 
         const [project] = await db
             .select({ id: projectsV2.id, createdBy: projectsV2.createdBy })
@@ -85,6 +102,11 @@ export async function getProjectResources(params: {
     type?: string
 }) {
     try {
+        // Had no auth at all: a project id was enough to read everything anyone
+        // had attached to a private project.
+        const access = await requireProjectAccess(params.projectId)
+        if (!access.ok) return { success: false, error: access.error }
+
         const conditions: SQL[] = [eq(projectV2Resources.projectId, params.projectId)]
 
         if (params.type) {

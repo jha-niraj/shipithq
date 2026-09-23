@@ -94,7 +94,9 @@ const dead = []
 const dynamicOnly = []
 
 for (const p of paths) {
-    const segments = p.split("/").filter(Boolean)
+    // A nav path may carry a query - the projects Explore tabs are one page with
+    // `?tab=`. The route is the part before it; the query is the page's business.
+    const segments = p.split("?")[0].split("/").filter(Boolean)
     if (resolves(APP, segments, { literal: true })) continue
     if (resolves(APP, segments, { literal: false })) dynamicOnly.push(p)
     else dead.push(p)

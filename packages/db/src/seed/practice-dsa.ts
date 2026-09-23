@@ -29,6 +29,29 @@ export const SEEDED_SORT_ORDER_FLOOR = 1000;
 
 export const DSA_CATALOGUE: SeedDsaProblem[] = [
     {
+        "slug": "left-rotate-array-by-one",
+        "title": "Left Rotate Array by One",
+        "category": "arrays-and-hashing",
+        "difficulty": "EASY",
+        "description": "Given an integer array `nums`, rotate it to the left by one position, in place.\n\nEvery element moves one index to the left, and the element that was first ends up last. Change the array itself; do not return a new one.\n\n### Example 1\n- **Input:** nums = [10, 20, 30, 40, 50]\n- **Output:** [20, 30, 40, 50, 10]\n- **Explanation:** 20, 30, 40 and 50 each move one place left, and 10 wraps round to the end.\n\n### Example 2\n- **Input:** nums = [7]\n- **Output:** [7]\n- **Explanation:** A single element rotated by one is itself.\n\n### Example 3\n- **Input:** nums = [1, 2]\n- **Output:** [2, 1]\n\n### Constraints\n- 1 <= nums.length <= 10^5\n- -10^9 <= nums[i] <= 10^9",
+        "requirements": [
+            "Rotate the array in place, without returning a new one",
+            "Use O(1) extra space",
+            "Aim for O(n) time"
+        ],
+        "hints": [
+            "Which single element is about to be overwritten, and where does it need to end up?",
+            "If i is the position you are filling, which original position does its value come from?",
+            "What is the last index your loop may touch before nums[i + 1] runs off the end?"
+        ],
+        "tags": [
+            "array",
+            "two-pointers",
+            "in-place"
+        ],
+        "sortOrder": 1075
+    },
+    {
         "slug": "two-sum",
         "title": "Two Sum",
         "category": "arrays-and-hashing",

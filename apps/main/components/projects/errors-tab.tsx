@@ -29,6 +29,7 @@ import {
     getProjectErrorStats
 } from '@/actions/(main)/projects/project-errors.action'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { HoverSelect } from "./hover-select"
 
 // ============================================================================
 // Types
@@ -70,14 +71,14 @@ interface ErrorsTabProps {
 // ============================================================================
 
 const categoryConfig: Record<string, { icon: typeof Bug; color: string; label: string }> = {
-    SETUP: { icon: Settings, color: 'bg-slate-500', label: 'Setup' },
-    CONFIGURATION: { icon: Settings, color: 'bg-gray-500', label: 'Configuration' },
+    SETUP: { icon: Settings, color: 'bg-neutral-500', label: 'Setup' },
+    CONFIGURATION: { icon: Settings, color: 'bg-neutral-500', label: 'Configuration' },
     DATABASE: { icon: Database, color: 'bg-neutral-900', label: 'Database' },
     API: { icon: Globe, color: 'bg-neutral-900', label: 'API' },
-    UI: { icon: Layers, color: 'bg-pink-500', label: 'UI' },
+    UI: { icon: Layers, color: 'bg-neutral-900', label: 'UI' },
     STATE: { icon: Zap, color: 'bg-neutral-900', label: 'State' },
     DEPLOYMENT: { icon: Globe, color: 'bg-neutral-900', label: 'Deployment' },
-    SECURITY: { icon: Shield, color: 'bg-red-500', label: 'Security' },
+    SECURITY: { icon: Shield, color: 'bg-neutral-900', label: 'Security' },
     PERFORMANCE: { icon: Zap, color: 'bg-neutral-900', label: 'Performance' },
     OTHER: { icon: Bug, color: 'bg-neutral-500', label: 'Other' },
 }
@@ -510,41 +511,41 @@ export default function ErrorsTab({ projectId, isEnrolled, isCreator }: ErrorsTa
                     />
                 )
             }
+            {/* Hover-opening, shared with the sprint board's copy (PJ-16 item 3). */}
             <div className="flex flex-wrap items-center gap-3">
-                <Select value={filter.category} onValueChange={(v) => setFilter(prev => ({ ...prev, category: v }))}>
-                    <SelectTrigger className="w-[140px]">
-                        <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ALL">All Categories</SelectItem>
-                        {
-                            Object.entries(categoryConfig).map(([key, { label }]) => (
-                                <SelectItem key={key} value={key}>{label}</SelectItem>
-                            ))
-                        }
-                    </SelectContent>
-                </Select>
-                <Select value={filter.severity} onValueChange={(v) => setFilter(prev => ({ ...prev, severity: v }))}>
-                    <SelectTrigger className="w-[140px]">
-                        <SelectValue placeholder="Frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ALL">All</SelectItem>
-                        <SelectItem value="HIGH">Common</SelectItem>
-                        <SelectItem value="MEDIUM">Occasional</SelectItem>
-                        <SelectItem value="LOW">Rare</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Select value={filter.sortBy} onValueChange={(v: 'helpful' | 'recent' | 'encountered') => setFilter(prev => ({ ...prev, sortBy: v }))}>
-                    <SelectTrigger className="w-[140px]">
-                        <SelectValue placeholder="Sort" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="helpful">Most Helpful</SelectItem>
-                        <SelectItem value="encountered">Most Faced</SelectItem>
-                        <SelectItem value="recent">Recent</SelectItem>
-                    </SelectContent>
-                </Select>
+                <HoverSelect
+                    ariaLabel="Filter by category"
+                    className="w-40"
+                    value={filter.category}
+                    onValueChange={(v) => setFilter(prev => ({ ...prev, category: v }))}
+                    options={[
+                        { value: 'ALL', label: 'All Categories' },
+                        ...Object.entries(categoryConfig).map(([key, { label }]) => ({ value: key, label })),
+                    ]}
+                />
+                <HoverSelect
+                    ariaLabel="Filter by frequency"
+                    className="w-40"
+                    value={filter.severity}
+                    onValueChange={(v) => setFilter(prev => ({ ...prev, severity: v }))}
+                    options={[
+                        { value: 'ALL', label: 'Any frequency' },
+                        { value: 'HIGH', label: 'Common' },
+                        { value: 'MEDIUM', label: 'Occasional' },
+                        { value: 'LOW', label: 'Rare' },
+                    ]}
+                />
+                <HoverSelect
+                    ariaLabel="Sort errors"
+                    className="w-40"
+                    value={filter.sortBy}
+                    onValueChange={(v) => setFilter(prev => ({ ...prev, sortBy: v }))}
+                    options={[
+                        { value: 'helpful', label: 'Most Helpful' },
+                        { value: 'encountered', label: 'Most Faced' },
+                        { value: 'recent', label: 'Recent' },
+                    ]}
+                />
             </div>
             {
                 loading ? (

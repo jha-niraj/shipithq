@@ -8,7 +8,10 @@ import { useCyclePhase } from "../../lib/dotmatrix-hooks";
 import { usePrefersReducedMotion } from "../../lib/dotmatrix-hooks";
 import type { DotAnimationResolver, DotMatrixCommonProps } from "../../lib/dotmatrix-core";
 
-export type DotmSquare18Props = DotMatrixCommonProps;
+export type DotmSquare18Props = DotMatrixCommonProps & {
+  /** Seconds to offset this instance's cycle, so several do not move as one. */
+  delay?: number;
+};
 
 const BASE_OPACITY = 0.08;
 const LIT_OPACITY = 0.94;
@@ -25,6 +28,7 @@ export function DotmSquare18({
   pattern = "full",
   animated = true,
   hoverAnimated = false,
+  delay = 0,
   ...rest
 }: DotmSquare18Props) {
   const reducedMotion = usePrefersReducedMotion();
@@ -36,7 +40,8 @@ export function DotmSquare18({
   const animPhase = useCyclePhase({
     active: !reducedMotion && matrixPhase !== "idle",
     cycleMsBase: 1750,
-    speed
+    speed,
+    delay
   });
 
   const resolver = useMemo<DotAnimationResolver>(() => {

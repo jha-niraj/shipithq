@@ -201,7 +201,9 @@ export function ProjectCard({ project, showProgress = false }: ProjectCardProps)
                                     </Link>
                                 )}
                                 {userProgress.status === 'COMPLETED' && !project.submissions?.length && (
-                                    <Link href={`/projects/${project.slug}/submit`}>
+                                    // There is no /submit route: submitting is a sheet on the
+                                    // project page (sweep 2026-09-23).
+                                    <Link href={`/projects/${project.slug}`}>
                                         <Button size="sm" className="bg-neutral-900 text-white dark:bg-white dark:text-black hover:opacity-90 rounded-xl text-xs">
                                             <Trophy className="w-3.5 h-3.5 mr-1.5" />
                                             Submit

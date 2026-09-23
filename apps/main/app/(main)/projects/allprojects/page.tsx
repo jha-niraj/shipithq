@@ -1,11 +1,7 @@
-import type { Metadata } from 'next'
-import AllProjectsClient from './_components/AllProjectsClient'
+import { redirect } from "next/navigation"
 
-export const metadata: Metadata = {
-  title: 'All Projects | ShipItHQ',
-  description: 'Browse all available projects on ShipItHQ.',
-}
-
-export default function AllProjectsPage() {
-  return <AllProjectsClient />
+// Moved into the Explore page's "community" tab (plan/projects, PJ-4). Kept as a
+// redirect because these URLs are in people's history and in older links.
+export default function Page() {
+    redirect("/projects/explore?tab=community")
 }

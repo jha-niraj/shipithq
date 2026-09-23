@@ -6,41 +6,41 @@ import { ONBOARDING_PARAM } from "@/lib/onboarding/modules";
 import { PracticeTabs } from "./practice-tabs";
 
 /**
- * The practice section's frame: a small tab row above every practice page,
- * and nothing at all around a problem workspace (plan/practice-ui, UI-2).
+ * The practice section's frame (plan/practice-ui, UI-2).
  *
- * This replaced a second sidebar that listed every module's category tree.
- * That sidebar was also sized to 100% of a parent with no fixed height, so on
- * a short page (`/practice/memory`) it shrank to the content. The tab row has
- * no height to get wrong, and categories live as chips on each module page.
+ * It used to draw the tab row itself, above every page's own title, which spent
+ * two rows of a laptop screen on chrome. The tabs now sit in each page's header,
+ * beside the title (PJ-3), and this wrapper only decides whether a page gets them
+ * at all: a problem workspace (three segments deep) needs the whole screen, and a
+ * module's onboarding is not the module (`?onboarding=1`, MO-10).
  *
- * A workspace is any route three segments deep (`/practice/dsa/two-sum`).
- * `/practice/memory` is two, so it keeps the tabs.
- *
- * No tabs during a module's onboarding either (plan/module-onboarding, MO-10):
- * the page is then the gate or the question flow, not the module, and the
- * server page marks that with `?onboarding=1`, so this reads the URL rather
- * than guessing from the page's contents.
+ * `usePracticeTabs()` is what a page calls to render them.
  */
 export function PracticeLayoutWrapper({ children }: { children: React.ReactNode }) {
+    return <div className="min-w-0">{children}</div>;
+}
+
+/** True when this page should show the practice tabs. */
+export function usePracticeTabsVisible(): boolean {
     const pathname = usePathname();
+    const params = useSearchParams();
     const isWorkspace = pathname.split("/").filter(Boolean).length >= 3;
-    if (isWorkspace) return <>{children}</>;
+    return !isWorkspace && params.get(ONBOARDING_PARAM) !== "1";
+}
+
+/**
+ * The practice tabs for a page header, or nothing where they do not belong.
+ * Wrapped in Suspense because `useSearchParams` needs one on a statically
+ * rendered page; the fallback is the tabs, which is the common case.
+ */
+export function PracticeHeaderTabs() {
     return (
-        <div className="min-w-0">
-            {/* useSearchParams needs a Suspense boundary on a statically rendered page.
-                The fallback is the common case, the tabs; the onboarding pages are
-                dynamic, so they resolve on the server and never show the fallback. */}
-            <Suspense fallback={<PracticeTabs />}>
-                <TabsUnlessOnboarding />
-            </Suspense>
-            {children}
-        </div>
+        <Suspense fallback={<PracticeTabs />}>
+            <TabsUnlessOnboarding />
+        </Suspense>
     );
 }
 
 function TabsUnlessOnboarding() {
-    const params = useSearchParams();
-    if (params.get(ONBOARDING_PARAM) === "1") return null;
-    return <PracticeTabs />;
+    return usePracticeTabsVisible() ? <PracticeTabs /> : null;
 }

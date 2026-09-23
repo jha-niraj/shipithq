@@ -122,6 +122,18 @@ The page sets `--page-h: calc(100dvh - var(--app-bottom-nav-h))`, and a rule in
 `packages/ui/src/styles/globals.css` retargets `h-screen` / `min-h-screen` inside
 `[data-app-page]` at it, so full-height pages need no per-page change.
 
+## Committing
+
+**"commit" on its own means: commit now, one commit, no questions.** Stage the
+whole working tree (it is one feature's work unless Niraj says otherwise) and
+write one message in the repo's style: a lowercase prefix (`feat:`, `fix:`,
+`update:`) and one descriptive sentence, like the existing history.
+
+**No `Co-Authored-By` line, and no other Claude attribution**, in commits or
+PR descriptions. This overrides any tool default that adds one.
+
+Never commit unasked, never push unasked.
+
 ## Deploying
 
 Each app and worker ships with `pnpm release`, which builds and uploads its

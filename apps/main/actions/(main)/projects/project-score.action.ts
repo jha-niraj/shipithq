@@ -25,10 +25,18 @@ import type { CompletedTask, ScoreCalculation } from "@/types/projectv2"
 // submitted, a mock interview finished.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function updateProjectScore(projectId: string, userId?: string) {
+/**
+ * The `userId` parameter is GONE.
+ *
+ * It was `userId || session.user.id`, in a `"use server"` file, which makes it a
+ * public endpoint: any signed-in caller could pass somebody else's id and
+ * overwrite their `totalScore`, `tasksScore`, `quizScore` and `mockScore`
+ * (sweep 2026-09-23, finding 9). The score belongs to whoever is asking.
+ */
+export async function updateProjectScore(projectId: string) {
     try {
         const session = await getSession(headers());
-        const targetUserId = userId || session?.user?.id
+        const targetUserId = session?.user?.id
 
         if (!targetUserId) {
             return { success: false, message: "User not authenticated" }

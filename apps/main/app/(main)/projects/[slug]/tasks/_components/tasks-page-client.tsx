@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
     ArrowLeft, Target, CheckCircle2, Info, Sparkles, AlertCircle, Play, ChevronRight, ChevronDown, RotateCcw, Zap
@@ -670,8 +671,19 @@ export default function TasksPageClient({ project, tasks, userProgress }: TasksP
         ? allTasks
         : allTasks.filter(t => t.status === filter)
 
+    /*
+     * Refresh the server data, do not reload the browser.
+     *
+     * This was `window.location.reload()`, so ticking a checkbox threw the whole
+     * document away and fetched it again: the scroll position, the open filter
+     * and every bit of client state went with it, and on a slow connection the
+     * page went white (plan/projects, PJ-12). `router.refresh()` re-runs the
+     * server component and swaps the data in place.
+     */
+    const router = useRouter()
+    const [, startTransition] = useTransition()
     const handleTaskUpdate = () => {
-        window.location.reload()
+        startTransition(() => router.refresh())
     }
 
     return (

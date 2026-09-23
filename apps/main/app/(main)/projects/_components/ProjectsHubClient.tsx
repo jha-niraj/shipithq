@@ -85,7 +85,7 @@ export default function ProjectsHubClient({ overview, activity, widget, picks, c
 				</div>
 				<div className="flex shrink-0 items-center gap-2">
 					<Button asChild variant="outline" size="sm" className="gap-2">
-						<Link href="/projects/ideas">
+						<Link href="/projects/explore?tab=ideas">
 							<Lightbulb className="h-4 w-4" />
 							Browse ideas
 						</Link>
@@ -169,7 +169,7 @@ export default function ProjectsHubClient({ overview, activity, widget, picks, c
 				changes shape the first time somebody finishes a task. */}
 			<OverviewPanel
 				title="Tasks completed"
-				action={{ label: "All projects", href: "/projects/myprojects" }}
+				action={{ label: "All projects", href: "/projects/explore?tab=mine" }}
 				delay={0.1}
 				className="mb-6"
 			>
@@ -194,7 +194,7 @@ export default function ProjectsHubClient({ overview, activity, widget, picks, c
 					</h2>
 					{active.length > 0 && (
 						<Link
-							href="/projects/myprojects"
+							href="/projects/explore?tab=mine"
 							className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
 						>
 							All projects
@@ -249,7 +249,7 @@ export default function ProjectsHubClient({ overview, activity, widget, picks, c
 						From the catalogue
 					</h2>
 					<Link
-						href="/projects/allprojects"
+						href="/projects/explore?tab=community"
 						className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
 					>
 						Browse all
@@ -322,7 +322,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 					}
 				/>
 				<Button asChild variant="outline" size="sm" className="gap-2">
-					<Link href="/projects/ideas">
+					<Link href="/projects/explore?tab=ideas">
 						<Lightbulb className="h-4 w-4" />
 						Browse ideas
 					</Link>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
     ReactFlow, Node, Edge, Controls, Background, BackgroundVariant,
     useNodesState, useEdgesState, Position, MarkerType, Handle
@@ -345,8 +345,22 @@ export default function BlueprintFlowchart({
         return { initialNodes: nodes, initialEdges: edges }
     }, [tasks, projectTitle, progressPercentage])
 
-    const [nodes, , onNodesChange] = useNodesState(initialNodes)
-    const [edges, , onEdgesChange] = useEdgesState(initialEdges)
+    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
+    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+
+    /*
+     * Re-seed when the tasks change.
+     *
+     * `useNodesState` takes its argument as an INITIAL value and ignores it
+     * afterwards, so the `useMemo` above recomputed the nodes on every task
+     * change and nothing ever looked at the result: ticking a task off left the
+     * flowchart showing the old status for as long as the page stayed open
+     * (sweep 2026-09-23).
+     */
+    useEffect(() => {
+        setNodes(initialNodes)
+        setEdges(initialEdges)
+    }, [initialNodes, initialEdges, setNodes, setEdges])
 
     const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
         if (node.type === 'task' && onTaskClick) {
@@ -357,7 +371,10 @@ export default function BlueprintFlowchart({
     // Calculate height based on tasks
     const flowchartHeight = useMemo(() => {
         const tasksPerRow = 4
-        const rows = Math.ceil(tasks?.length ?? 0 / tasksPerRow)
+        // Parenthesised. `??` binds looser than `/`, so `tasks?.length ?? 0 / 4`
+        // parsed as `tasks?.length ?? (0 / 4)` - the row count was the TASK
+        // COUNT, and the canvas was drawn four times taller than it needed to be.
+        const rows = Math.ceil((tasks?.length ?? 0) / tasksPerRow)
         return Math.max(500, 250 + rows * 250)
     }, [tasks?.length])
 

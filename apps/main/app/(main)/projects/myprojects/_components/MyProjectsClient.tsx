@@ -6,9 +6,6 @@ import {
 	Plus, ArrowRight, Code2, Trophy, Play, CheckCircle2, Search,
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
-import {
-	Card, CardContent
-} from "@repo/ui/components/ui/card"
 import { Input } from "@repo/ui/components/ui/input"
 import {
 	Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -25,7 +22,7 @@ import { StatBand, StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 import Link from "next/link"
 import { getUserProjects } from "@/actions/(main)/projects/project.action"
 import { ProjectCard, ProjectCardSkeleton } from "@/components/projects/project-card"
-import SmoothScroll from "@/components/smoothscroll"
+import ProjectGenerateSheet from "@/components/projects/project-generate-sheet"
 import { ProjectV2Basic, ProjectV2Progress } from "@/types/project"
 
 
@@ -46,19 +43,26 @@ interface UserStats {
 	totalSubmissions: number
 }
 
-export default function MyProjectsPage() {
+export default function MyProjectsPage({ embedded = false }: { embedded?: boolean } = {}) {
 	const [projects, setProjects] = useState<UserProjectWithProgress[]>([])
 	const [stats, setStats] = useState<UserStats | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [searchQuery, setSearchQuery] = useState("")
 	const [statusFilter, setStatusFilter] = useState<string>("ALL")
 	const [visibilityFilter, setVisibilityFilter] = useState<string>("ALL")
+	// "Sort by" was wired to state that nothing read: picking Progress or Title
+	// re-rendered the same order (sweep 2026-09-23).
 	const [sortBy, setSortBy] = useState("recent")
 	const [activeTab, setActiveTab] = useState("all")
 	const [currentPage, setCurrentPage] = useState(1)
 	const [totalPages, setTotalPages] = useState(0)
 	const [totalProjects, setTotalProjects] = useState(0)
+	const [generateOpen, setGenerateOpen] = useState(false)
 	const limit = 30
+
+	// An empty list with a filter on it is a different situation from an empty
+	// list, and the panel says a different thing in each case.
+	const isFiltered = searchQuery.trim() !== "" || statusFilter !== "ALL" || visibilityFilter !== "ALL"
 
 	const fetchUserProjects = useCallback(async () => {
 		try {
@@ -139,18 +143,29 @@ export default function MyProjectsPage() {
 
 		return matchesSearch && matchesStatus && matchesVisibility && matchesTab
 	})
+		.sort((a, b) => {
+			// The control now does what it says. "Most recent" is the order the
+			// server already returned, so it stays as it is.
+			if (sortBy === "title") return a.title.localeCompare(b.title)
+			if (sortBy === "progress") {
+				return (b.progress?.[0]?.progressPercentage ?? 0) - (a.progress?.[0]?.progressPercentage ?? 0)
+			}
+			return 0
+		})
 
 	return (
-		<SmoothScroll>
-			<div className="py-10">
-				<div className="w-full px-6">
+			/* One rhythm, one padding (plan/projects, PJ-9). The column ran
+			   mb-6, mb-8, mb-8, mb-8, mb-6, mb-8 + mt-8 - three scales and a 4rem
+			   collision where the grid's margin met the pagination's. */
+			<div className={embedded ? "" : "py-6"}>
+				<div className={embedded ? "w-full space-y-5" : "w-full space-y-5 px-page"}>
+					{!embedded && (
 					<motion.div
-						className="mb-6"
 						initial={{ opacity: 0, y: 20 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.6 }}
 					>
-						<div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
+						<div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 mb-4">
 							<Link href="/projects" className="hover:text-neutral-800 dark:hover:text-neutral-100">
 								Projects
 							</Link>
@@ -159,25 +174,26 @@ export default function MyProjectsPage() {
 						</div>
 						<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
 							<div>
-								<h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+								{/* text-xl, the scale PageHeader uses. This was
+								    text-4xl md:text-5xl, one of five scales in the app
+								    for the same element. */}
+								<h1 className="text-xl font-semibold text-neutral-900 dark:text-white">
 									My Projects
 								</h1>
-								<p className="text-xl text-gray-600 dark:text-gray-300">
+								<p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
 									Manage your AI-generated projects and track your progress
 								</p>
 							</div>
-							<Link href="/projects/generate">
-								<Button size="lg" className="bg-black text-white dark:bg-white dark:text-black hover:opacity-90 rounded-xl">
-									<Plus className="mr-2 h-5 w-5" />
-									Generate New Project
-								</Button>
-							</Link>
+							<Button size="sm" onClick={() => setGenerateOpen(true)}>
+								<Plus className="mr-1.5 h-4 w-4" />
+								Generate a project
+							</Button>
 						</div>
 					</motion.div>
+					)}
 					{
 						stats ? (
 							<motion.div
-								className="mb-8"
 								initial={{ opacity: 0, y: 30 }}
 								animate={{ opacity: 1, y: 0 }}
 								transition={{ delay: 0.2, duration: 0.6 }}
@@ -193,12 +209,23 @@ export default function MyProjectsPage() {
 								/>
 							</motion.div>
 						) : loading ? (
-							<StatBandSkeleton count={4} cols={4} className="mb-8" />
+							<StatBandSkeleton count={4} cols={4} />
 						) : null
 					}
 
-					<Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-						<TabsList className="">
+					{/*
+					  * Props, not classes (plan/projects, PJ-9).
+					  *
+					  * This was `<TabsList className="">` with no props at all, which
+					  * is the default card variant: `w-full` with `flex-1` triggers,
+					  * so four labels stretched across the whole page and read as a
+					  * banner. `segmented size="sm" fit` is the same call the tabs in
+					  * the page header make, which is why those look like they belong.
+					  * There is no TabsContent here - the strip drives a filter - so
+					  * the quieter affordance is also the honest one.
+					  */}
+					<Tabs value={activeTab} onValueChange={setActiveTab}>
+						<TabsList variant="segmented" size="sm" fit>
 							<TabsTrigger value="all">
 								All Projects ({projects.length})
 							</TabsTrigger>
@@ -214,7 +241,7 @@ export default function MyProjectsPage() {
 						</TabsList>
 					</Tabs>
 					<motion.div
-						className="mb-8 space-y-4"
+						className="space-y-4"
 						initial={{ opacity: 0, y: 20 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ delay: 0.3, duration: 0.6 }}
@@ -222,7 +249,7 @@ export default function MyProjectsPage() {
 						<div className="flex flex-col lg:flex-row gap-4">
 							<div className="flex-1">
 								<div className="relative">
-									<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+									<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-4 h-4" />
 									<Input
 										placeholder="Search your projects..."
 										value={searchQuery}
@@ -263,7 +290,6 @@ export default function MyProjectsPage() {
 										<SelectItem value="recent">Most Recent</SelectItem>
 										<SelectItem value="progress">Progress</SelectItem>
 										<SelectItem value="title">Title</SelectItem>
-										<SelectItem value="rating">Rating</SelectItem>
 									</SelectContent>
 								</Select>
 							</div>
@@ -285,12 +311,12 @@ export default function MyProjectsPage() {
 								</div>
 							) : filteredProjects.length > 0 ? (
 								<>
-									<div className="mb-6">
-										<p className="text-sm text-gray-600 dark:text-gray-400">
+									<div className="mb-3">
+										<p className="text-sm text-neutral-600 dark:text-neutral-400">
 											Showing {((currentPage - 1) * limit) + 1}-{Math.min(currentPage * limit, filteredProjects.length)} of {filteredProjects.length} projects
 										</p>
 									</div>
-									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 										{
 											filteredProjects.map((project, index) => (
 												<motion.div
@@ -306,7 +332,7 @@ export default function MyProjectsPage() {
 									</div>
 									{
 										totalPages > 1 && (
-											<div className="flex justify-center mt-8">
+											<div className="flex justify-center mt-5">
 												<Pagination>
 													<PaginationContent>
 														<PaginationItem>
@@ -361,36 +387,59 @@ export default function MyProjectsPage() {
 									}
 								</>
 							) : (
-								<Card className="bg-white dark:bg-neutral-900 shadow-2xl p-5 rounded-xl border border-neutral-200 dark:border-neutral-800">
-									<CardContent className="text-center py-12">
-										<Code2 className="w-16 h-16 text-gray-400 dark:text-gray-400 mx-auto mb-4" />
-										<h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-											{
-												searchQuery || statusFilter !== "ALL" || visibilityFilter !== "ALL"
-													? "No projects match your filters"
-													: "No projects yet"
-											}
-										</h3>
-										<p className="text-gray-600 dark:text-gray-400 mb-6">
-											{
-												searchQuery || statusFilter !== "ALL" || visibilityFilter !== "ALL"
-													? "Try adjusting your search or filters to find projects."
-													: "Generate your first AI project to get started building something amazing!"
-											}
-										</p>
-										<Link href="/projects/generate">
-											<Button className="bg-black text-white dark:bg-white dark:text-black hover:opacity-90 rounded-xl">
-												<Plus className="mr-2 h-4 w-4" />
-												Generate New Project
-											</Button>
-										</Link>
-									</CardContent>
-								</Card>
+								/*
+								 * The same empty state as the ideas pane: a dashed panel,
+								 * no shadow, the default button. It was a Card with
+								 * `shadow-2xl` - the heaviest shadow in the app, on a
+								 * panel that holds nothing - plus `p-5` and `py-12` for
+								 * two sets of padding, and a button that re-hardcoded
+								 * black and white. Two empty-state languages in one route.
+								 */
+								<div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center dark:border-neutral-700 dark:bg-neutral-900/50">
+									<h3 className="text-sm font-medium text-neutral-900 dark:text-white">
+										{
+											isFiltered
+												? "No projects match those filters."
+												: "You have not started a project yet."
+										}
+									</h3>
+									<p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+										{
+											isFiltered
+												? "Clear the search or the filters to see the rest."
+												: "Pick one from Ideas, or describe what you want to build and have it generated."
+										}
+									</p>
+									{
+										isFiltered ? (
+											<button
+												type="button"
+												onClick={() => { setSearchQuery(""); setStatusFilter("ALL"); setVisibilityFilter("ALL") }}
+												className="mt-3 text-sm font-semibold text-neutral-900 underline underline-offset-4 dark:text-white"
+											>
+												Clear the filters
+											</button>
+										) : (
+											<div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+												<Link href="/projects/explore?tab=ideas">
+													<Button size="sm" variant="outline">Browse ideas</Button>
+												</Link>
+												<Button size="sm" onClick={() => setGenerateOpen(true)}>
+													<Plus className="mr-1.5 h-4 w-4" />
+													Generate one
+												</Button>
+											</div>
+										)
+									}
+								</div>
 							)
 						}
 					</motion.div>
+
+					{/* The sheet opens in place. `/projects/generate` is not a route -
+					    the link that used to be here navigated away and did nothing. */}
+					<ProjectGenerateSheet isOpen={generateOpen} onOpenChange={setGenerateOpen} />
 				</div>
 			</div>
-		</SmoothScroll>
 	)
 }

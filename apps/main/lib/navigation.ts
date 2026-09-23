@@ -80,9 +80,11 @@ export const mainNavigation: NavigationConfig = {
             status: "active",
             children: [
                 { name: 'Overview', path: 'projects', icon: LayoutDashboard },
-                { name: 'Ideas', path: 'projects/ideas', icon: Heading },
-                { name: 'My Projects', path: 'projects/myprojects', icon: User },
-                { name: 'All Projects', path: 'projects/allprojects', icon: User2 }
+                // One Explore page with tabs replaced Ideas, My Projects and All
+                // Projects (plan/projects, PJ-4). The sidebar links to the tabs.
+                { name: 'Explore', path: 'projects/explore?tab=ideas', icon: Heading },
+                { name: 'My Projects', path: 'projects/explore?tab=mine', icon: User },
+                { name: 'Community', path: 'projects/explore?tab=community', icon: User2 }
             ]
         },
         {
@@ -290,6 +292,6 @@ export interface SidebarPreset {
 export const SIDEBAR_PRESETS: SidebarPreset[] = [
     { key: "default", label: "Everything", description: "Every module", paths: null },
     { key: "prep", label: "Interview prep", description: "Practice, mock, jobs", paths: ["/home", "/practice", "/practice/dsa", "/mock", "/jobs", "/ai/resume"] },
-    { key: "build", label: "Building", description: "Projects and goals", paths: ["/home", "/projects", "/projects/myprojects", "/pathfinder", "/knowme"] },
+    { key: "build", label: "Building", description: "Projects and goals", paths: ["/home", "/projects", "/projects/explore", "/pathfinder", "/knowme"] },
     { key: "minimal", label: "Minimal", description: "Just the essentials", paths: ["/home", "/practice", "/projects"] },
 ]

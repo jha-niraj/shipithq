@@ -39,6 +39,16 @@ import { ScrollArea } from "./scroll-area"
  * `--tw-ring-offset-color` between the box and the ring, nothing here sets that variable, and its
  * initial value is white: every focused textarea wore a white hairline, glaring in dark mode. The
  * border darkens and a 40% ring shows instead, matching `input.tsx`.
+ *
+ * ── The radius ──
+ *
+ * `rounded-lg`, like `Input`, set here rather than at each call site (Niraj,
+ * 2026-09-23). This wrapper IS the visible field - it carries the border and the
+ * background, and the textarea inside it is transparent - so the radius belongs
+ * to it. Said here and not in the template literal, which `cn()` joins verbatim.
+ *
+ * The VIEWPORT stays square: `ScrollArea` puts `rounded-[inherit]` on it, and
+ * inside this wrapper's padding that draws a second, tighter rounded box.
  */
 export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
     /** Classes for the scrolling viewport. Rarely needed - heights belong on `className`. */
@@ -77,7 +87,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
                 className={cn(
                     `
                         max-h-64 min-h-[96px] w-full
-                        rounded-xl border
+                        rounded-lg border
                         border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900
                         px-3 py-2 text-sm
                         text-neutral-900 dark:text-neutral-100
@@ -89,7 +99,21 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
                     `,
                     className,
                 )}
-                viewportClassName={viewportClassName}
+                /*
+                 * The viewport is SQUARE, whatever the field's radius is.
+                 *
+                 * `ScrollArea` puts `rounded-[inherit]` on its viewport, which is
+                 * right for a panel whose scroller fills it edge to edge. Here it
+                 * is wrong twice over: the radius belongs to this wrapper, which
+                 * draws the border, and the viewport sits INSIDE its `px-3 py-2`
+                 * padding - so an inherited radius draws a second, inset rounded
+                 * box with a tighter curve than the one you can see. That is the
+                 * inner rounded rectangle Niraj found in the inspector
+                 * (2026-09-23). The wrapper is `overflow-hidden`, so it already
+                 * clips its content to its own corners; nothing needs a radius in
+                 * here at all.
+                 */
+                viewportClassName={cn("rounded-none", viewportClassName)}
             >
                 <textarea
                     ref={inner}

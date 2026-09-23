@@ -38,6 +38,16 @@ export const CREDIT_PRICES = {
     cover_letter_questions: 5,
 
     // ── Projects & practice (moved here unchanged) ───────────────────────────
+    /**
+     * Enrolling in somebody else's public project. It was the literal `13`
+     * inside `enrollInProject` and again in two client files, which is how the
+     * dialog and the server could have disagreed.
+     *
+     * A PLATFORM-SEEDED project is free, decided by Niraj on 2026-09-23: the
+     * sprints and tasks are already written, and credits pay for the model.
+     * That exception lives in `enrollInProject`, not here.
+     */
+    project_enroll: 13,
     project_quiz: 25,
     project_mock: 30,
     practice_set: 5,
@@ -95,5 +105,6 @@ export function priceLabel(operation: PricedOperation): string | null {
 
 export const PRACTICE_SET_CREDIT_COST = CREDIT_PRICES.practice_set
 export const EXAM_SET_CREDIT_COST = CREDIT_PRICES.exam_set
+export const ENROLL_CREDIT_COST = CREDIT_PRICES.project_enroll
 export const QUIZ_CREDIT_COST = CREDIT_PRICES.project_quiz
 export const MOCK_CREDIT_COST = CREDIT_PRICES.project_mock

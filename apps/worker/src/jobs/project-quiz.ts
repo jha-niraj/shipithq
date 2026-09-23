@@ -50,7 +50,12 @@ export class ProjectQuiz extends JobDurableObject<QuizInput> {
 		if (!project.includeAssessment) throw new Error("This project does not include assessments")
 		// Re-checked here, not just at dispatch: two tabs can both pass the app's
 		// check before either job runs, and a project may only have one quiz.
-		if (project.quiz) return { quizId: project.quiz.id, alreadyExisted: true }
+		//
+		// THROWN, not returned. Returning a result completes the job, and a
+		// completed job settles the 25-credit hold the app took at dispatch - so
+		// the loser of that race paid 25 credits for a quiz that already existed
+		// and that they had already paid for once. A failed job releases the hold.
+		if (project.quiz) throw new Error("This project already has a quiz.")
 
 		const stacks = project.stacks as Record<string, string | undefined> | null
 

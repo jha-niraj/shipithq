@@ -21,6 +21,7 @@ import { eq, and, sql, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { toErrorMessage } from "@/lib/errors"
 import { debitCredits, insufficientCreditsMessage } from '@/lib/credits/debit'
+import { ENROLL_CREDIT_COST } from '@/lib/credits/pricing'
 
 interface ActionResponse {
     success: boolean;
@@ -34,6 +35,21 @@ async function getCurrentUser() {
     const [user] = await db.select().from(users).where(eq(users.email, session.user.email));
     if (!user) throw new Error("User not found");
     return user;
+}
+
+/**
+ * The same lookup, for a read that an anonymous visitor is allowed to make.
+ *
+ * `getCurrentUser` THROWS, and `getProjectBySlug` called it first thing, so
+ * every signed-out visitor to a PUBLIC project got "Project not found" - a
+ * shared link has never worked (plan/projects, PJ-12). Reads that a stranger may
+ * legitimately make use this and gate on the result instead.
+ */
+async function getOptionalUser() {
+    const session = await getSession(headers());
+    if (!session?.user?.email) return null;
+    const [user] = await db.select().from(users).where(eq(users.email, session.user.email));
+    return user ?? null;
 }
 
 // Helper functions for credits and XP
@@ -68,7 +84,7 @@ function _generateSlug(title: string): string {
 
 export async function getProjectBySlug(slug: string): Promise<ActionResponse> {
     try {
-        const user = await getCurrentUser();
+        const user = await getOptionalUser();
 
         const project = await db.query.projectsV2.findFirst({
             where: eq(projectsV2.slug, slug),
@@ -108,7 +124,9 @@ export async function getProjectBySlug(slug: string): Promise<ActionResponse> {
                 },
                 knowledgeBase: true,
                 userProgress: {
-                    where: eq(userProjectV2Progress.userId, user.id),
+                    // Nobody signed in has no progress. `false` rather than
+                    // omitting the relation, which is not optional here.
+                    where: user ? eq(userProjectV2Progress.userId, user.id) : sql`false`,
                     with: {
                         taskStatuses: {
                             columns: {
@@ -125,7 +143,33 @@ export async function getProjectBySlug(slug: string): Promise<ActionResponse> {
             return { success: false, error: "Project not found" };
         }
 
-        return { success: true, data: project };
+        /*
+         * A PRIVATE project is private.
+         *
+         * There was no visibility check here, so anybody with the slug could read
+         * a project somebody paid the 25-credit private tier for, including its
+         * sprints and tasks. Its creator and anyone enrolled still see it; to
+         * everyone else it does not exist, which is also the right answer to give.
+         */
+        const isPrivate = project.visibility !== "PUBLIC";
+        if (isPrivate && project.createdBy !== user?.id) {
+            // A stranger cannot be enrolled, so there is nothing to look up.
+            if (!user) return { success: false, error: "Project not found" };
+            const enrolled = await db.query.userProjectV2Progress.findFirst({
+                where: and(eq(userProjectV2Progress.userId, user.id), eq(userProjectV2Progress.projectId, project.id)),
+                columns: { id: true },
+            });
+            if (!enrolled) return { success: false, error: "Project not found" };
+        }
+
+        /*
+         * The schema calls the relation `userProgress`; `ProjectV2` and every
+         * reader call it `progress`. Returned as-is, `project.progress` was always
+         * undefined, so the page never knew you had enrolled and kept offering
+         * "Enroll Now" (PJ-16 item 1). Renamed here, once, rather than in readers.
+         */
+        const { userProgress, ...rest } = project;
+        return { success: true, data: { ...rest, progress: userProgress } };
     } catch (error: unknown) {
         console.log(error);
         return { success: false, error: toErrorMessage(error) };
@@ -149,6 +193,17 @@ export async function startProject(projectId: string): Promise<ActionResponse> {
 
         if (!project) {
             return { success: false, error: "Project not found" };
+        }
+
+        /*
+         * The CREATOR's own start. Everyone else enrols, and enrolling is charged.
+         *
+         * This had no owner check at all, so calling it directly enrolled anybody
+         * in any project for nothing, while `enrollInProject` beside it charges 13
+         * credits for exactly the same outcome.
+         */
+        if (project.createdBy !== user.id) {
+            return { success: false, error: "Enrol in this project to start it." };
         }
 
         // Check if already started
@@ -691,7 +746,8 @@ export async function getUserProjects(page: number = 1, limit: number = 20): Pro
         return {
             success: true,
             data: {
-                projects,
+                // Same rename as getProjectBySlug: the readers expect `progress`.
+                projects: projects.map(({ userProgress, ...p }) => ({ ...p, progress: userProgress })),
                 pagination: {
                     page,
                     limit,
@@ -1072,7 +1128,12 @@ export async function enrollInProject(projectId: string): Promise<ActionResponse
             return { success: false, error: "This project is not available for enrollment" };
         }
 
-        const enrollmentCost = 13;
+        /*
+         * Free for a project the platform wrote (plan/projects, PJ-11 decision,
+         * 2026-09-23). Credits pay for a model run, and a curated project has
+         * already been written - nothing runs when somebody starts one.
+         */
+        const enrollmentCost = project.isPlatformSeeded ? 0 : ENROLL_CREDIT_COST;
 
         if (user.credits < enrollmentCost) {
             return {
@@ -1084,25 +1145,30 @@ export async function enrollInProject(projectId: string): Promise<ActionResponse
         const allTasks = project.sprints.flatMap((s) => s.tasks);
 
         const result = await withTransaction(async (tx) => {
-            // 1. Deduct credits.
+            // 1. Deduct credits, unless it is free.
             // Guarded in SQL, not by the balance read above: two concurrent enrols
             // both pass a read-then-write check and both debit. Zero rows updated
             // means the balance moved under us, and throwing rolls the whole
             // enrolment back rather than seating someone who did not pay.
-            const debited = await tx.update(users)
-                .set({ credits: sql`${users.credits} - ${enrollmentCost}` })
-                .where(and(eq(users.id, user.id), sql`${users.credits} >= ${enrollmentCost}`))
-                .returning({ credits: users.credits });
-            if (debited.length === 0) throw new Error("Insufficient credits");
+            //
+            // A free enrolment writes NOTHING to the ledger: a row for 0 credits
+            // is noise in the one place a user goes to understand their spending.
+            if (enrollmentCost > 0) {
+                const debited = await tx.update(users)
+                    .set({ credits: sql`${users.credits} - ${enrollmentCost}` })
+                    .where(and(eq(users.id, user.id), sql`${users.credits} >= ${enrollmentCost}`))
+                    .returning({ credits: users.credits });
+                if (debited.length === 0) throw new Error("Insufficient credits");
 
-            // 2. Create credit transaction
-            await tx.insert(creditTransactions).values({
-                userId: user.id,
-                amount: -enrollmentCost,
-                type: "SPEND",
-                currency: "INR",
-                description: `Enrolled in: ${project.title}`,
-            });
+                // 2. Create credit transaction
+                await tx.insert(creditTransactions).values({
+                    userId: user.id,
+                    amount: -enrollmentCost,
+                    type: "SPEND",
+                    currency: "INR",
+                    description: `Enrolled in: ${project.title}`,
+                });
+            }
 
             // 3. Create user progress
             const [progress] = await tx.insert(userProjectV2Progress).values({

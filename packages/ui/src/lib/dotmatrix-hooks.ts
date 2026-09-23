@@ -29,9 +29,14 @@ export interface UseCyclePhaseOptions {
   active: boolean;
   cycleMsBase: number;
   speed?: number;
+  /**
+   * Seconds to push this instance ahead in its cycle. The clock starts at mount,
+   * so loaders that mount together would otherwise move in lockstep.
+   */
+  delay?: number;
 }
 
-export function useCyclePhase({ active, cycleMsBase, speed = 1 }: UseCyclePhaseOptions): number {
+export function useCyclePhase({ active, cycleMsBase, speed = 1, delay = 0 }: UseCyclePhaseOptions): number {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
@@ -43,7 +48,7 @@ export function useCyclePhase({ active, cycleMsBase, speed = 1 }: UseCyclePhaseO
     const safeSpeed = speed > 0 ? speed : 1;
     const raw = cycleMsBase / safeSpeed;
     const cycleMs = raw > 0 && Number.isFinite(raw) ? raw : 1000;
-    const start = performance.now();
+    const start = performance.now() - delay * 1000;
     let rafId = 0;
 
     const tick = (now: number) => {
@@ -54,7 +59,7 @@ export function useCyclePhase({ active, cycleMsBase, speed = 1 }: UseCyclePhaseO
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [active, cycleMsBase, speed]);
+  }, [active, cycleMsBase, speed, delay]);
 
   return phase;
 }

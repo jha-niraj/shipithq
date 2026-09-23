@@ -702,4 +702,96 @@ export const PROJECTS: SeedProject[] = [
         totalViews: 421,
         totalStarted: 62,
     },
+    {
+        slug: "habit-tracker-weekly-review",
+        title: "Habit Tracker with a Weekly Review",
+        shortDescription: "Track a few habits a day, and get a weekly page that tells the truth.",
+        description:
+            "Tick off a handful of habits each day and get a weekly review that shows what actually held. The interesting problem is the roll-up: a streak that silently forgives a missed day is a lie, and a tracker nobody believes is a tracker nobody opens.",
+        technologies: ["React", "TypeScript", "localStorage"],
+        generationType: "FRONTEND",
+        difficulty: "BEGINNER",
+        estimatedHours: 15,
+        blueprintOverview:
+            "A local-first habit log with a weekly roll-up, built so the numbers survive a missed day and a refresh.",
+        recruiterSignal:
+            "Small enough to finish, and it shows you can design a data model and an honest summary rather than only wiring a form.",
+        keyOutcomes: [
+            "Model a habit and its daily entries so a gap is a gap, not a zero",
+            "Compute a weekly roll-up that stays honest about missed days",
+            "Persist and restore state without a backend",
+        ],
+        stacks: { frontend: "React", backend: "None", database: "localStorage" },
+        totalViews: 180,
+        totalStarted: 34,
+    },
+    {
+        slug: "url-shortener-with-analytics",
+        title: "URL Shortener with Click Analytics",
+        shortDescription: "Shorten a link, redirect in milliseconds, and still know where the clicks came from.",
+        description:
+            "Take a long URL, give back a short one, and send anybody who follows it on its way. The constraint is that the redirect has to stay fast while you are also recording the click, which is what makes the counting the interesting half rather than the shortening.",
+        technologies: ["Node.js", "Redis", "PostgreSQL", "TypeScript"],
+        generationType: "BACKEND",
+        difficulty: "BEGINNER",
+        estimatedHours: 18,
+        blueprintOverview:
+            "A redirect service with a cache in front of it and click recording that never sits on the request path.",
+        recruiterSignal:
+            "Shows you understand that a write can be moved off the hot path, which is the first real performance idea most people meet.",
+        keyOutcomes: [
+            "Generate short codes that do not collide",
+            "Serve a redirect from cache in single-digit milliseconds",
+            "Record clicks without making the redirect wait for the write",
+        ],
+        stacks: { frontend: "None", backend: "Node.js", database: "PostgreSQL" },
+        totalViews: 260,
+        totalStarted: 41,
+    },
+    {
+        slug: "expense-splitter",
+        title: "Expense Splitter for a Shared House",
+        shortDescription: "Record who paid for what, and settle up in the fewest transfers.",
+        description:
+            "Four people, a month of shopping, and nobody can remember who owes whom. Recording the expenses is the easy half. Settling up in the fewest possible transfers is a graph problem, and the naive answer - everybody pays everybody - is exactly the thing this project exists to beat.",
+        technologies: ["Next.js", "TypeScript", "PostgreSQL", "Prisma"],
+        generationType: "FULL_STACK",
+        difficulty: "INTERMEDIATE",
+        estimatedHours: 25,
+        blueprintOverview:
+            "A shared ledger with uneven splits and a settle-up that minimises the number of transfers.",
+        recruiterSignal:
+            "A real algorithm behind an ordinary-looking app, and you can explain the trade-off you took to keep it fast.",
+        keyOutcomes: [
+            "Model expenses with uneven splits without losing a penny to rounding",
+            "Reduce a web of debts to the fewest transfers that settle it",
+            "Show the working, so the house can check the maths",
+        ],
+        stacks: { frontend: "Next.js", backend: "Next.js API", database: "PostgreSQL" },
+        totalViews: 210,
+        totalStarted: 27,
+    },
+    {
+        slug: "rate-limiter-service",
+        title: "Rate Limiter as a Service",
+        shortDescription: "Answer \"is this caller over their limit?\" in under a millisecond, and prove it.",
+        description:
+            "One endpoint, one question, a very tight budget: given a key, is this request allowed? The naive counter resets on the minute and lets through twice the limit across the boundary, so the real work is a sliding window - and then proving it holds while several instances answer at once.",
+        technologies: ["Go", "Redis", "Docker"],
+        generationType: "BACKEND",
+        difficulty: "ADVANCED",
+        estimatedHours: 30,
+        blueprintOverview:
+            "A sliding-window limiter behind an HTTP API, with a load test that demonstrates the boundary case the fixed window gets wrong.",
+        recruiterSignal:
+            "Infrastructure work with a measurable claim attached, which is rarer in a portfolio than another CRUD app.",
+        keyOutcomes: [
+            "Implement a sliding window and show why the fixed window is not enough",
+            "Keep the decision correct when several instances share one Redis",
+            "Measure the latency, and defend the number",
+        ],
+        stacks: { frontend: "None", backend: "Go", database: "Redis" },
+        totalViews: 190,
+        totalStarted: 16,
+    },
 ];

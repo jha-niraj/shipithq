@@ -1261,39 +1261,50 @@ function ChatPanel({
 
             <div className="border-t border-neutral-200 dark:border-neutral-800 p-3">
                 {/*
-                  * ONE box, and the box IS the control.
+                  * ONE ROW: the field, the mic, the send.
                   *
-                  * It was a two-row textarea with the mic and send beside it, so the
-                  * typing area was a strip inside a much taller bordered box and the
-                  * caret landed in a corner of it (Niraj, 2026-09-22: "why it is
-                  * focusing a small part"). Now the border belongs to the whole thing,
-                  * the field fills it, and the buttons sit under the text.
+                  * It was a two-row textarea with the buttons beside it, and the
+                  * caret landed in a corner of a much taller box (Niraj,
+                  * 2026-09-22: "why it is focusing a small part"). Moving the
+                  * buttons UNDER the text fixed the caret and made the composer a
+                  * 120px slab with two icons floating below it. One row was the
+                  * instruction both times: the border belongs to the row, the
+                  * field fills the rest of it, and the buttons sit at the end.
+                  *
+                  * `items-end` rather than `items-center`: as the field grows the
+                  * buttons stay beside the LAST line, where the caret is, instead
+                  * of drifting to the middle of a four-line box.
                   */}
-                <div className="flex flex-col gap-1 rounded-xl border border-neutral-300 bg-white px-1 py-1 transition-colors focus-within:border-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:focus-within:border-neutral-500">
+                <div className="flex items-end gap-1 rounded-xl border border-neutral-300 bg-white px-1.5 py-1 transition-colors focus-within:border-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:focus-within:border-neutral-500">
                     <Textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={dictation.isListening ? "Listening. Speak, then check the words before you send." : guided ? "Answer the mentor, or ask anything" : "Ask for a hint..."}
+                        placeholder={dictation.isListening ? "Listening. Speak, then check the words." : guided ? "Answer the mentor, or ask anything" : "Ask for a hint..."}
                         rows={1}
-                        className="min-h-[76px] max-h-56 w-full resize-none border-0 bg-transparent px-2.5 py-2 text-sm leading-relaxed text-neutral-900 shadow-none focus-visible:ring-0 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-400"
+                        // min-w-0 is load-bearing: without it a long line pushes the
+                        // two buttons out of the row instead of wrapping.
+                        className="min-h-[38px] max-h-40 w-full min-w-0 flex-1 resize-none border-0 bg-transparent px-1.5 py-2 text-sm leading-relaxed text-neutral-900 shadow-none focus-visible:ring-0 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-400"
                     />
-                    <div className="flex items-center justify-end gap-1 px-1 pb-0.5">
                     <Button
                         size="icon"
                         variant="ghost"
                         onClick={toggleVoice}
                         className={cn(
-                            "h-9 w-9 flex-shrink-0 transition-colors",
+                            "mb-0.5 h-8 w-8 flex-shrink-0 transition-colors",
                             dictation.isListening
-                                ? "text-red-600 dark:text-red-400 hover:text-red-300 bg-red-50 dark:bg-red-900/20"
-                                : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white",
-                            dictation.unavailable && "opacity-40",
+                                ? "bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+                                : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white",
+                            // Disabled still has to READ as disabled at this size,
+                            // so unavailable shows the crossed-out mic, not a
+                            // faded one: 40% opacity on a grey icon in a grey row
+                            // says nothing.
+                            dictation.unavailable && "opacity-60",
                         )}
                         disabled={dictation.unavailable || dictation.status === "transcribing"}
                         title={dictation.unavailable ? "Voice is unavailable right now. You can still type." : dictation.isListening ? "Stop and check the words" : "Speak your answer"}
                     >
-                        {dictation.isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                        {dictation.isListening || dictation.unavailable ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                     </Button>
                     <Button
                         size="icon"
@@ -1302,11 +1313,10 @@ function ChatPanel({
                         disabled={!input.trim() || store.isChatLoading}
                         aria-label="Send message"
                         title="Send"
-                        className="h-9 w-9 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex-shrink-0"
+                        className="mb-0.5 h-8 w-8 flex-shrink-0 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
                     >
                         <Send className="h-4 w-4" />
                     </Button>
-                    </div>
                 </div>
             </div>
         </div>

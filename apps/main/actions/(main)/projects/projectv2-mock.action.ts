@@ -12,10 +12,11 @@ import {
     projectV2KnowledgeBases,
     withTransaction
 } from "@repo/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, lt, sql } from "drizzle-orm";
 import { openai } from '@/lib/openai-client'
 
 import { MOCK_CREDIT_COST } from "@/lib/credits/pricing"
+import { reserveCredits, settleCredits, releaseCredits } from "@/lib/credits/hold"
 
 interface MockKnowledgeBase {
     overview: string
@@ -222,6 +223,132 @@ ${knowledgeBase.practicalScenarios.map((s, i) => `${i + 1}. ${s}`).join('\n')}
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Paying for a mock interview (plan/projects, sweep-2026-09-23).
+//
+// The 30 credits are reserved when the session row is created and the hold is
+// left OPEN for the length of the call:
+//
+//   transcript saved      -> settle   (the interview happened)
+//   nothing recorded      -> release  (the call never connected: full refund)
+//   connected, no transcript -> settle (minutes were spent, keep the charge)
+//
+// The hold id is derived from the session id rather than stored, so a refund
+// needs no extra column, and `releaseCredits` is a no-op on a hold that was
+// already settled, released, or never taken - which is what makes the sweep
+// safe to run on rows that predate this.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const mockHoldId = (sessionId: string) => `mock-${sessionId}`
+
+/** How long an unfinished session is given before it is treated as abandoned. */
+const MOCK_STALE_AFTER_MS = 60 * 60 * 1000
+
+interface AbandonableSession {
+    id: string
+    conversationId: string | null
+    transcript: string | null
+}
+
+/**
+ * Close a session that will never finish, and decide what happens to its money.
+ *
+ * Returns the number of credits refunded, which is 0 for a call that connected.
+ */
+async function closeAbandonedMockSession(row: AbandonableSession): Promise<number> {
+    const producedNothing = !row.conversationId && !row.transcript
+
+    await db.update(projectV2MockSessions)
+        .set({ status: 'CANCELLED', completedAt: new Date() })
+        .where(eq(projectV2MockSessions.id, row.id))
+
+    if (producedNothing) {
+        const released = await releaseCredits(mockHoldId(row.id), "The interview never connected.")
+        return released.refunded
+    }
+
+    // It connected, so there were minutes to pay for even if the transcript was
+    // never fetched. Settle so the hold does not sit open forever.
+    await settleCredits(mockHoldId(row.id))
+    return 0
+}
+
+/**
+ * Close every session this user left hanging for over an hour.
+ *
+ * Without it a dropped call leaves a row IN_PROGRESS for good: the interview
+ * looks live on every later visit and the credits look spent. Cheap enough to
+ * run on the paths that already touch this table.
+ */
+async function sweepStaleProjectMockSessions(userId: string): Promise<void> {
+    try {
+        const cutoff = new Date(Date.now() - MOCK_STALE_AFTER_MS)
+        const stale = await db
+            .select({
+                id: projectV2MockSessions.id,
+                conversationId: projectV2MockSessions.conversationId,
+                transcript: projectV2MockSessions.transcript,
+            })
+            .from(projectV2MockSessions)
+            .where(and(
+                eq(projectV2MockSessions.userId, userId),
+                inArray(projectV2MockSessions.status, ['SCHEDULED', 'IN_PROGRESS']),
+                lt(projectV2MockSessions.createdAt, cutoff),
+            ))
+
+        for (const row of stale) await closeAbandonedMockSession(row)
+    } catch (error: unknown) {
+        // Best effort: a sweep that fails must not stop somebody starting an
+        // interview.
+        console.error("Error sweeping stale mock sessions:", error)
+    }
+}
+
+/**
+ * The call ended without producing anything - close the session and refund.
+ *
+ * Called by the interview page when the connection drops or the user leaves
+ * before a word is said. Safe to call twice: the second call finds the session
+ * already CANCELLED and refunds nothing.
+ */
+export async function abandonProjectMockSession(sessionId: string): Promise<{
+    success: boolean
+    refunded?: number
+    error?: string
+}> {
+    try {
+        const session = await getSession(headers());
+        if (!session?.user?.id) {
+            return { success: false, error: "Not authenticated" }
+        }
+
+        const [row] = await db
+            .select({
+                id: projectV2MockSessions.id,
+                status: projectV2MockSessions.status,
+                conversationId: projectV2MockSessions.conversationId,
+                transcript: projectV2MockSessions.transcript,
+            })
+            .from(projectV2MockSessions)
+            .where(and(
+                eq(projectV2MockSessions.id, sessionId),
+                eq(projectV2MockSessions.userId, session.user.id),
+            ))
+            .limit(1)
+
+        if (!row) return { success: false, error: "Session not found" }
+        if (row.status === 'COMPLETED' || row.status === 'CANCELLED') {
+            return { success: true, refunded: 0 }
+        }
+
+        const refunded = await closeAbandonedMockSession(row)
+        return { success: true, refunded }
+    } catch (error: unknown) {
+        console.error("Error abandoning mock session:", error)
+        return { success: false, error: "Failed to close the session" }
+    }
+}
+
 /**
  * Create a project mock interview session
  */
@@ -250,13 +377,48 @@ export async function createProjectMockSession(projectSlug: string) {
             .from(users)
             .where(eq(users.id, session.user.id));
 
-        const [mockSession] = await db.insert(projectV2MockSessions).values({
+        // Anything this user abandoned earlier is closed and refunded before we
+        // take money for a new one, so a dropped call never leaves a session that
+        // looks live and credits that look spent.
+        await sweepStaleProjectMockSessions(session.user.id)
+
+        /*
+         * A session is what costs money, so a session is what is charged.
+         *
+         * The 30 credits were taken once, when the knowledge base was built, and
+         * that call returns early once one exists. Every interview after the first
+         * was therefore free: minutes of speech plus a completion for the
+         * feedback, unlimited, per project. The charge belongs here.
+         *
+         * The hold is held OPEN for the length of the call rather than settled at
+         * once, and its id is derived from the session id, so the refund path has
+         * something to release without a column to store it in. It settles when a
+         * transcript is saved (`processProjectMockCompletion`) and releases when
+         * the call produced nothing (`abandonProjectMockSession`, or the sweep).
+         */
+        const [row] = await db.insert(projectV2MockSessions).values({
             userId: session.user.id,
             projectId: project.id,
             agentId: process.env.NEXT_PUBLIC_ELEVENLABS_MOCKVOICE!,
             status: 'SCHEDULED',
             scheduledAt: new Date()
         }).returning();
+        if (!row) return { success: false, error: "Could not start the interview." }
+
+        const hold = await reserveCredits({
+            userId: session.user.id,
+            amount: MOCK_CREDIT_COST,
+            reason: `Mock interview: ${project.title}`,
+            holdId: mockHoldId(row.id),
+        })
+        if (!hold.ok) {
+            // Nothing happened and nothing is owed: drop the row rather than leave
+            // an unpaid session sitting in SCHEDULED.
+            await db.delete(projectV2MockSessions).where(eq(projectV2MockSessions.id, row.id))
+            return { success: false, error: hold.error, code: hold.code, required: hold.required, available: hold.available }
+        }
+
+        const mockSession = row;
 
         const mockKnowledgeBase = knowledgeData.mockKnowledgeBase as string
 
@@ -291,6 +453,13 @@ export async function updateProjectMockSessionStatus(
         const session = await getSession(headers());
         if (!session?.user?.id) {
             return { success: false, error: "Not authenticated" }
+        }
+
+        // A cancellation is an abandonment, and an abandonment has money attached
+        // to it - one path for both, so a cancel can never leave a hold open.
+        if (status === 'CANCELLED') {
+            const result = await abandonProjectMockSession(sessionId)
+            return result.success ? { success: true } : { success: false, error: result.error }
         }
 
         await db.update(projectV2MockSessions)
@@ -352,7 +521,9 @@ export async function processProjectMockCompletion(
         const transcript = conversation.data.transcript ?? []
         const duration = conversationDurationSecs(conversation.data)
 
-        await db.update(projectV2MockSessions)
+        // Scoped to the caller: the id alone let anyone overwrite somebody else's
+        // transcript, score and feedback.
+        const saved = await db.update(projectV2MockSessions)
             .set({
                 status: 'COMPLETED',
                 completedAt: new Date(),
@@ -360,7 +531,22 @@ export async function processProjectMockCompletion(
                 transcript: JSON.stringify(transcript),
                 duration
             })
-            .where(eq(projectV2MockSessions.id, sessionId));
+            .where(and(
+                eq(projectV2MockSessions.id, sessionId),
+                eq(projectV2MockSessions.userId, session.user.id),
+            ))
+            .returning({ id: projectV2MockSessions.id });
+
+        // Scoped, and CHECKED. The update above matches zero rows for a session
+        // id that is not this user's - and the code then went on to settle that
+        // session's hold and write feedback onto it with no user scope, so a
+        // guessed id overwrote somebody else's interview and charged their hold
+        // (sweep 2026-09-23, finding 16).
+        if (saved.length === 0) return { success: false, error: "That interview session no longer exists." }
+
+        // The interview happened and its transcript is saved: keep the charge.
+        // Until this point the hold is still open, so an abandoned call refunds.
+        await settleCredits(mockHoldId(sessionId))
 
         if (transcript.length > 0) {
             const transcriptText = transcript
@@ -402,7 +588,10 @@ Return JSON: {"overallScore": 0-100, "communication": {"score": 0-100, "feedback
                             strengths: feedback.strengths || [],
                             improvements: feedback.improvements || []
                         })
-                        .where(eq(projectV2MockSessions.id, sessionId));
+                        .where(and(
+                            eq(projectV2MockSessions.id, sessionId),
+                            eq(projectV2MockSessions.userId, session.user.id),
+                        ));
 
                     try {
                         const mockSessionRow = await db.query.projectV2MockSessions.findFirst({
@@ -411,7 +600,7 @@ Return JSON: {"overallScore": 0-100, "communication": {"score": 0-100, "feedback
                         });
                         if (mockSessionRow) {
                             const { updateProjectScore } = await import("./project-score.action")
-                            await updateProjectScore(mockSessionRow.projectId, session.user.id)
+                            await updateProjectScore(mockSessionRow.projectId)
                         }
                     } catch (e) {
                         console.error("Failed to update leaderboard:", e)
@@ -440,6 +629,10 @@ export async function getProjectMockAttempts(projectSlug: string) {
         if (!session?.user?.id) {
             return { success: false, error: "Not authenticated" }
         }
+
+        // Opening the page is as good a moment as any to close what was left
+        // hanging - and it is the moment the user is looking at their credits.
+        await sweepStaleProjectMockSessions(session.user.id)
 
         const project = await db.query.projectsV2.findFirst({
             where: eq(projectsV2.slug, projectSlug),

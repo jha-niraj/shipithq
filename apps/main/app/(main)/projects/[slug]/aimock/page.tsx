@@ -1,4 +1,5 @@
 import { getSession } from '@repo/auth'
+import { MOCK_UNLOCK_PERCENT, mockUnlocked } from '@/lib/projects/gates'
 import { headers } from 'next/headers'
 import { redirect } from "next/navigation"
 import {
@@ -18,7 +19,7 @@ export default async function AIMockPage({ params }: { params: Promise<{ slug: s
     const { slug } = await params
 
     if (!session?.user?.id) {
-        redirect(`/login?callbackUrl=/projects/${slug}/aimock`)
+        redirect(`/signin?callbackUrl=/projects/${slug}/aimock`)
     }
 
     // Get project
@@ -68,12 +69,12 @@ export default async function AIMockPage({ params }: { params: Promise<{ slug: s
     const userProgress = progressRows[0]
     const currentProgress = userProgress?.progressPercentage || 0
 
-    if (!userProgress || currentProgress < 75) {
+    if (!userProgress || !mockUnlocked(currentProgress)) {
         return (
             <ProgressGate
                 type="mock"
                 currentProgress={currentProgress}
-                requiredProgress={75}
+                requiredProgress={MOCK_UNLOCK_PERCENT}
                 projectSlug={slug}
                 projectTitle={project.title}
             />

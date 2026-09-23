@@ -13,7 +13,7 @@ import {
 	PaginationNext, PaginationPrevious
 } from "@repo/ui/components/ui/pagination"
 import {
-	Search, Filter, Code2, Sparkles
+	Search, Filter, Sparkles
 } from "lucide-react"
 import Link from "next/link"
 import { getAllPublicProjects } from "@/actions/(main)/projects/project.action"
@@ -22,10 +22,8 @@ import { getAllPublicProjects } from "@/actions/(main)/projects/project.action"
 type PublicProject = NonNullable<
 	Awaited<ReturnType<typeof getAllPublicProjects>>["data"]
 >["projects"][number]
-import { 
-	ProjectCard, ProjectCardSkeleton 
-} from "@/components/projects/project-card"
-import SmoothScroll from "@/components/smoothscroll"
+import { ProjectCardSkeleton } from "@/components/projects/project-card"
+import { CatalogueCard } from "@/components/projects/catalogue-card"
 import { ProjectV2Basic } from "@/types/project"
 
 const DIFFICULTY_OPTIONS = [
@@ -40,7 +38,7 @@ const TECHNOLOGY_OPTIONS = [
 	"MongoDB", "PostgreSQL", "Express", "Django", "Vue.js", "HTML", "CSS"
 ]
 
-export default function AllProjectsPage() {
+export default function AllProjectsPage({ embedded = false }: { embedded?: boolean } = {}) {
 	// DERIVED from the action's actual return type, not hand-written.
 	//
 	// This was `ProjectV2Basic[]`, which declares generationType, visibility,
@@ -120,35 +118,33 @@ export default function AllProjectsPage() {
 	// const sortedProjects = filteredProjects
 
 	return (
-		<SmoothScroll>
 			<div>
-				<div className="w-full px-4 py-12">
+				<div className={embedded ? "w-full space-y-5" : "w-full space-y-5 px-page py-6"}>
+					{!embedded && (
 					<motion.div
-						className="text-center mb-6"
+						className="text-center"
 						initial={{ opacity: 0, y: 20 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.6 }}
 					>
 						<Badge className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black border border-neutral-200 dark:border-neutral-800 rounded-full backdrop-blur-sm mb-4">
-							<Sparkles className="w-4 h-4 mr-2" />
+							<Sparkles className="w-4 h-4 mr-2"									/>
 							Public Projects
 						</Badge>
-						<h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-neutral-900 to-neutral-500 dark:from-neutral-50 dark:to-neutral-400 mb-4">
-							Explore Community
-							<br />
-							<span className="text-neutral-900 dark:text-neutral-50">AI Projects</span>
+						<h1 className="text-xl font-semibold text-neutral-900 dark:text-white">
+							Community projects
 						</h1>
-						<p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+						<p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
 							Discover amazing projects created by our community. Get inspired, learn from others, and start building!
 						</p>
 					</motion.div>
+					)}
 					<motion.div
-						className="mb-8"
 						initial={{ opacity: 0, y: 20 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ delay: 0.2, duration: 0.6 }}
 					>
-						<div className="bg-white dark:bg-neutral-900 shadow-2xl p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 space-y-6">
+						<div className="rounded-2xl border border-neutral-200 bg-white p-4 space-y-4 dark:border-neutral-800 dark:bg-neutral-900">
 							<div className="flex flex-col md:flex-row gap-4">
 								<div className="relative flex-1">
 									<Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-600 dark:text-neutral-400 w-5 h-5" />
@@ -160,7 +156,7 @@ export default function AllProjectsPage() {
 									/>
 								</div>
 								<Select value={difficulty} onValueChange={setDifficulty}>
-									<SelectTrigger className="w-full md:w-48 h-12 rounded-xl border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
+									<SelectTrigger className="w-full md:w-48 h-12 border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
 										<SelectValue placeholder="Select difficulty" />
 									</SelectTrigger>
 									<SelectContent>
@@ -174,7 +170,7 @@ export default function AllProjectsPage() {
 									</SelectContent>
 								</Select>
 								<Select value={sortBy} onValueChange={setSortBy}>
-									<SelectTrigger className="w-full md:w-48 h-12 rounded-xl border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
+									<SelectTrigger className="w-full md:w-48 h-12 border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
 										<SelectValue placeholder="Sort by" />
 									</SelectTrigger>
 									<SelectContent>
@@ -232,51 +228,45 @@ export default function AllProjectsPage() {
 								))}
 							</div>
 						) : filteredProjects.length === 0 ? (
-							<motion.div
-								className="text-center py-20"
-								initial={{ opacity: 0, scale: 0.9 }}
-								animate={{ opacity: 1, scale: 1 }}
-								transition={{ duration: 0.6 }}
-							>
-								<Code2 className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-400 mb-4" />
-								<h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">
-									No projects found
+							<div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center dark:border-neutral-700 dark:bg-neutral-900/50">
+								<h3 className="text-sm font-medium text-neutral-900 dark:text-white">
+									No community projects match that.
 								</h3>
-								<p className="text-gray-500 dark:text-gray-400 mb-6">
-									Try adjusting your search criteria or explore different technologies
+								<p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+									Try a different search, or fewer technologies.
 								</p>
-								<Link href="/projects/generate">
-									<Button className="bg-black text-white dark:bg-white dark:text-black hover:opacity-90 rounded-xl">
-										Generate A Project
-									</Button>
+								<Link href="/projects/explore?tab=ideas" className="mt-3 inline-block text-sm font-semibold text-neutral-900 underline underline-offset-4 dark:text-white">
+									Browse the curated ideas instead
 								</Link>
-							</motion.div>
+							</div>
 						) : (
 							<>
-								<div className="mb-6">
-									<p className="text-sm text-gray-600 dark:text-gray-400">
+								<div className="mb-3">
+									<p className="text-sm text-neutral-600 dark:text-neutral-400">
 										Showing {((currentPage - 1) * limit) + 1}-{Math.min(currentPage * limit, totalProjects)} of {totalProjects} projects
 									</p>
 								</div>
-								<motion.div
-									className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"
-									initial={{ opacity: 0 }}
-									animate={{ opacity: 1 }}
-									transition={{ delay: 0.3, duration: 0.6 }}
-								>
+								{/* The SAME card the Ideas tab draws (Niraj, 2026-09-23).
+								    It was a different one: tags on top, the title
+								    buried under them, the author in a footer. */}
+								<ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
 									{
-										filteredProjects.map((project, index) => (
-											<motion.div
+										filteredProjects.map((project) => (
+											<CatalogueCard
 												key={project.id}
-												initial={{ opacity: 0, y: 20 }}
-												animate={{ opacity: 1, y: 0 }}
-												transition={{ delay: index * 0.05, duration: 0.5 }}
-											>
-												<ProjectCard project={project} />
-											</motion.div>
+												title={project.title}
+												description={project.shortDescription || project.description || ""}
+												difficulty={project.difficulty ?? ""}
+												technologies={project.technologies ?? []}
+												estimatedHours={project.estimatedHours ?? null}
+												views={project.totalViews ?? null}
+												author={project.creator}
+												href={`/projects/${project.slug}`}
+												actionLabel="View project"
+											/>
 										))
 									}
-								</motion.div>
+								</ul>
 								{
 									totalPages > 1 && (
 										<div className="flex justify-center mt-8">
@@ -336,6 +326,5 @@ export default function AllProjectsPage() {
 					}
 				</div>
 			</div>
-		</SmoothScroll>
 	)
 }

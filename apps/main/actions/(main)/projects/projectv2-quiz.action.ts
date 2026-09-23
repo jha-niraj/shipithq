@@ -125,6 +125,12 @@ export async function startProjectQuizGeneration(projectSlug: string): Promise<{
             {
                 cost: QUIZ_CREDIT_COST,
                 reason: `Quiz assessment generated for project: ${project.title}`,
+                // The `project.quiz` check above is a read-then-write: two tabs
+                // both see no quiz, both dispatch, both hold 25 credits. Single
+                // flight per project is what sprint generation already does
+                // (sweep 2026-09-23, finding 1).
+                singleFlight: true,
+                singleFlightKey: project.id,
             },
         )
         if (!started.success) {
@@ -191,6 +197,14 @@ export async function submitQuizAttempt(
         const totalQuestions = project.quiz.questions.length
         const score = Math.round((correctAnswers / totalQuestions) * 100)
 
+        /*
+         * A RETAKE overwrites the attempt; there is one row per user and quiz.
+         *
+         * The insert was unconditional against
+         * `uq_project_v2_quiz_attempt_user_id_quiz_id`, while the quiz page offers
+         * a Retake button: the second submit hit a duplicate key, was caught as
+         * "Failed to submit quiz", and the retake could never be finished.
+         */
         const [attempt] = await db.insert(projectV2QuizAttempts).values({
             userId: session.user.id,
             projectId: project.id,
@@ -201,7 +215,15 @@ export async function submitQuizAttempt(
             timeSpent,
             isCompleted: true,
             completedAt: new Date(),
-        }).returning();
+        })
+            .onConflictDoUpdate({
+                target: [projectV2QuizAttempts.userId, projectV2QuizAttempts.quizId],
+                set: { score, totalQuestions, correctAnswers, timeSpent, isCompleted: true, completedAt: new Date() },
+            })
+            .returning();
+
+        // The previous attempt's answers belong to that attempt, not this one.
+        await db.delete(projectV2QuizAnswers).where(eq(projectV2QuizAnswers.attemptId, attempt!.id));
 
         if (questionAnswers.length > 0) {
             await db.insert(projectV2QuizAnswers).values(
@@ -227,7 +249,7 @@ export async function submitQuizAttempt(
 
         try {
             const { updateProjectScore } = await import("./project-score.action")
-            await updateProjectScore(project.id, session.user.id)
+            await updateProjectScore(project.id)
         } catch (error) {
             console.error("Failed to update leaderboard scores:", error)
         }

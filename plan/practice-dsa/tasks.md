@@ -856,3 +856,15 @@ returns nothing under `apps/main`, `apps/worker`, `packages/db` and
 
 **Done when.** No route from the browser can set a score or award XP, and a check calling the action directly with invented numbers changes nothing.
 
+---
+
+## PD-19 Left Rotate Array by One, and what it taught the mentor
+
+- [x] Status: done (2026-09-23). Seeded (76 problems now), judge assets generated locally: 5 samples, 12 hidden. `scripts/practice-checks/mentor-left-rotate.ts` 12/12.
+
+**Why.** Niraj added the problem to test the mentor against a ChatGPT transcript of the same problem, where the tutor corrects the "copy everything into a temp array" idea, makes the learner work out the index relationship, traces their loop, and only then asks for code.
+
+**What the check found.** Our mentor held the line: it opened with a question, refused the solution when asked outright, questioned the extra array on O(1) space without printing the fix, and explained the `n - 1` boundary without writing the loop.
+
+**What was wrong.** It would not move on. A correct restatement WITH a concrete example ("[10,20,30,40,50] becomes [20,30,40,50,10]") did not complete the understand stage, because the verdict demanded a step-by-step trace; a complete, correct plan did not complete approach either. Both fact questions in `lib/practice/mentor-verdict.ts` now say what counts: naming an input and its correct output IS a worked example, and a plan that names the steps in order IS a plan, without loop bounds, syntax or complexity. Both stages advance in the rerun.
+

@@ -126,7 +126,7 @@ export function ProjectPicks({
                                     Build this
                                     <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                                 </Button>
-                                <Link href="/projects/ideas" className={cn("text-xs font-medium underline-offset-4 hover:underline", INK_DIM)}>
+                                <Link href="/projects/explore?tab=ideas" className={cn("text-xs font-medium underline-offset-4 hover:underline", INK_DIM)}>
                                     Browse the catalogue
                                 </Link>
                             </div>

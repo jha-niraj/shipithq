@@ -52,8 +52,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
 					toast: [
 						"group/toast relative flex w-full items-start gap-3",
 						"rounded-xl border p-4 pr-10",
-						"bg-white border-neutral-200/90",
-						"dark:bg-neutral-950 dark:border-neutral-800",
+						// GLASS (Niraj, 2026-09-23). A translucent surface with a blur
+						// behind it, so the toast reads as floating above the page
+						// rather than as a flat box dropped on top of it. The opacity
+						// is high enough that body text still clears AA over whatever
+						// is underneath.
+						"bg-white/80 backdrop-blur-xl border-neutral-200/80",
+						"dark:bg-neutral-950/75 dark:border-white/10",
 						// A wide, low-opacity shadow reads as depth rather than as a
 						// drop shadow, which is what makes it feel considered.
 						"shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)]",
@@ -61,7 +66,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
 					].join(" "),
 					title: "text-[13.5px] font-medium leading-5 text-neutral-900 dark:text-neutral-50",
 					description:
-						"!text-[13px] leading-5 !text-neutral-500 dark:!text-neutral-600 dark:text-neutral-400 mt-0.5",
+						"!text-[13px] leading-5 !text-neutral-600 dark:!text-neutral-300 mt-0.5",
 					icon: "shrink-0 mt-px",
 					content: "flex-1 min-w-0",
 					// Monochrome, matching the primary button used elsewhere.
@@ -70,13 +75,24 @@ const Toaster = ({ ...props }: ToasterProps) => {
 					cancelButton:
 						"!bg-transparent !text-neutral-500 hover:!text-neutral-900 dark:hover:!text-white !rounded-lg !px-2.5 !h-7 !text-xs !font-medium",
 					closeButton:
-						"!bg-transparent !border-0 !text-neutral-600 dark:text-neutral-400 hover:!text-neutral-900 dark:!text-neutral-500 dark:hover:!text-white !transition-colors",
-					// State is carried by the icon alone.
-					success: "[&_[data-icon]]:text-emerald-600 dark:[&_[data-icon]]:text-emerald-400",
+						"!bg-transparent !border-0 !text-neutral-600 hover:!text-neutral-900 dark:!text-neutral-400 dark:hover:!text-white !transition-colors",
+					/*
+					 * State is carried by the GLYPH, not by colour.
+					 *
+					 * Success was emerald, which is the one bit of colour most people
+					 * notice and the one the palette rules out (Niraj, 2026-09-23:
+					 * "remove this green colour"). A tick already means it worked; it
+					 * does not need to be green to say so.
+					 *
+					 * Error keeps its red, because that is the one state where colour
+					 * is doing work rather than decoration - something failed and the
+					 * user has to act on it.
+					 */
+					success: "[&_[data-icon]]:text-neutral-900 dark:[&_[data-icon]]:text-white",
 					error: "[&_[data-icon]]:text-rose-600 dark:[&_[data-icon]]:text-rose-400",
 					warning: "[&_[data-icon]]:text-neutral-900 dark:[&_[data-icon]]:text-neutral-100",
-					info: "[&_[data-icon]]:text-neutral-500 dark:[&_[data-icon]]:text-neutral-600 dark:text-neutral-400",
-					loading: "[&_[data-icon]]:text-neutral-500 dark:[&_[data-icon]]:text-neutral-600 dark:text-neutral-400",
+					info: "[&_[data-icon]]:text-neutral-500 dark:[&_[data-icon]]:text-neutral-400",
+					loading: "[&_[data-icon]]:text-neutral-500 dark:[&_[data-icon]]:text-neutral-400",
 				},
 			}}
 			{...props}

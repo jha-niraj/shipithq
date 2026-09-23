@@ -38,7 +38,7 @@ export default async function ProjectSprintsPage({ params }: { params: Promise<{
             redirect(`/projects/${slug}`)
         }
     } else {
-        redirect(`/auth/signin?callbackUrl=/projects/${slug}/sprints`)
+        redirect(`/signin?callbackUrl=/projects/${slug}/sprints`)
     }
 
     // Get user credits

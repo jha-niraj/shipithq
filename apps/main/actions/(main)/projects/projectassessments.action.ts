@@ -13,6 +13,7 @@ import {
     userProjectV2Progress,
 } from "@repo/db";
 import { eq, and, inArray, lte, sql } from "drizzle-orm";
+import { requireProjectAccess, requireTaskAccess } from "@/lib/projects/access";
 import { revalidatePath } from "next/cache";
 
 
@@ -70,6 +71,8 @@ export async function generateTaskQuizQuestions(
     taskId: string
 ): Promise<ActionResponse<QuizQuestion[]>> {
     try {
+        const access = await requireTaskAccess(taskId);
+        if (!access.ok) return { success: false, error: access.error };
         const user = await getCurrentUser();
 
         // Get task with its sprint and project
@@ -292,6 +295,8 @@ export async function getCodeChallengeInstructions(
     taskId: string
 ): Promise<ActionResponse<{ instructions: string; starterCode: string; language: string }>> {
     try {
+        const access = await requireTaskAccess(taskId);
+        if (!access.ok) return { success: false, error: access.error };
         const user = await getCurrentUser();
 
         const taskRows = await db
@@ -420,6 +425,8 @@ export async function submitCodeForValidation(
     language: string
 ): Promise<ActionResponse<CodeValidationResult>> {
     try {
+        const access = await requireTaskAccess(taskId);
+        if (!access.ok) return { success: false, error: access.error };
         const user = await getCurrentUser();
 
         const taskRows = await db
@@ -526,6 +533,16 @@ export async function prepareSprintMockKnowledge(
     sprintId: string
 ): Promise<ActionResponse<{ knowledgeBase: string; topics: string[] }>> {
     try {
+        /*
+         * There was no session lookup here AT ALL, and the function returns the
+         * project's whole knowledge base - every sprint name and goal, every task
+         * description, every success criterion. An unauthenticated caller with a
+         * project id could read the paid content of a private project
+         * (sweep 2026-09-23, finding 11).
+         */
+        const access = await requireProjectAccess(projectId);
+        if (!access.ok) return { success: false, error: access.error };
+
         const targetSprintRows = await db
             .select({ sprintNumber: projectV2Sprints.sprintNumber, name: projectV2Sprints.name })
             .from(projectV2Sprints)
@@ -642,6 +659,8 @@ export async function startSprintMockSession(
     sprintId: string
 ): Promise<ActionResponse<{ sessionId: string; knowledgeBase: string }>> {
     try {
+        const access = await requireProjectAccess(projectId);
+        if (!access.ok) return { success: false, error: access.error };
         const user = await getCurrentUser();
 
         const existingSessionRows = await db
@@ -792,6 +811,8 @@ export async function getTaskAssessmentStatus(
     score: number | null;
 }>> {
     try {
+        const access = await requireTaskAccess(taskId);
+        if (!access.ok) return { success: false, error: access.error };
         const user = await getCurrentUser();
 
         const taskRows = await db
@@ -846,6 +867,8 @@ export async function getSprintMockStatus(
     lastAttempt: Date | null;
 }>> {
     try {
+        const access = await requireProjectAccess(projectId);
+        if (!access.ok) return { success: false, error: access.error };
         const user = await getCurrentUser();
 
         const sessionRows = await db
@@ -891,6 +914,8 @@ export async function saveSprintMockResult(
     conversationId: string
 ): Promise<ActionResponse<{ score: number }>> {
     try {
+        const access = await requireProjectAccess(projectId);
+        if (!access.ok) return { success: false, error: access.error };
         const user = await getCurrentUser();
 
         const existingSessionRows = await db
@@ -997,6 +1022,124 @@ interface SprintCompletionStatus {
 }
 
 /**
+ * Every sprint's completion status for a project, in one round trip.
+ *
+ * The sprints page used to call `getSprintCompletionStatus` once per sprint, in
+ * series, inside a mount effect: a ten-sprint project opened with ten sequential
+ * server actions, each one its own session lookup and four queries, and the
+ * sprint locks flickered open one at a time as they landed. This reads the same
+ * facts with five queries total, whatever the sprint count.
+ *
+ * `isLastSprint` is decided here from the highest sprint number on the project,
+ * rather than from the length of the list the browser happens to be holding -
+ * personal sprints make those two disagree.
+ */
+export async function getSprintCompletionStatuses(
+    projectId: string,
+): Promise<ActionResponse<Record<string, SprintCompletionStatus>>> {
+    try {
+        const access = await requireProjectAccess(projectId);
+        if (!access.ok) return { success: false, error: access.error };
+        const user = await getCurrentUser();
+
+        const sprints = await db
+            .select({ id: projectV2Sprints.id, sprintNumber: projectV2Sprints.sprintNumber })
+            .from(projectV2Sprints)
+            .where(eq(projectV2Sprints.projectId, projectId));
+
+        if (sprints.length === 0) return { success: true, data: {} };
+
+        const lastSprintNumber = Math.max(...sprints.map((s) => s.sprintNumber));
+        const sprintIds = sprints.map((s) => s.id);
+
+        const tasks = await db
+            .select({
+                id: projectV2Tasks.id,
+                sprintId: projectV2Tasks.sprintId,
+                assessmentType: projectV2Tasks.assessmentType,
+            })
+            .from(projectV2Tasks)
+            .where(inArray(projectV2Tasks.sprintId, sprintIds));
+
+        const taskIds = tasks.map((t) => t.id);
+        const assessmentTaskIds = tasks.filter((t) => t.assessmentType !== "NONE").map((t) => t.id);
+
+        const { userTaskV2Statuses } = await import("@repo/db");
+        const completedTaskStatuses = taskIds.length > 0
+            ? await db
+                .select({ taskId: userTaskV2Statuses.taskId })
+                .from(userTaskV2Statuses)
+                .where(and(
+                    eq(userTaskV2Statuses.userId, user.id),
+                    inArray(userTaskV2Statuses.taskId, taskIds),
+                    eq(userTaskV2Statuses.status, "COMPLETED"),
+                ))
+            : [];
+        const completedTaskIds = new Set(completedTaskStatuses.map((s) => s.taskId));
+
+        const assessments = assessmentTaskIds.length > 0
+            ? await db
+                .select({ taskId: userTaskV2Assessments.taskId, passed: userTaskV2Assessments.passed })
+                .from(userTaskV2Assessments)
+                .where(and(
+                    eq(userTaskV2Assessments.userId, user.id),
+                    inArray(userTaskV2Assessments.taskId, assessmentTaskIds),
+                ))
+            : [];
+        const passedAssessmentTaskIds = new Set(
+            assessments.filter((a) => a.passed).map((a) => a.taskId),
+        );
+
+        const mocks = await db
+            .select({ sprintId: projectV2MockSessions.sprintId, score: projectV2MockSessions.score })
+            .from(projectV2MockSessions)
+            .where(and(
+                eq(projectV2MockSessions.userId, user.id),
+                eq(projectV2MockSessions.projectId, projectId),
+                eq(projectV2MockSessions.status, "COMPLETED"),
+            ));
+        const mockBySprint = new Map<string, number | null>();
+        for (const m of mocks) {
+            if (m.sprintId && !mockBySprint.has(m.sprintId)) mockBySprint.set(m.sprintId, m.score ?? null);
+        }
+
+        const data: Record<string, SprintCompletionStatus> = {};
+        for (const sprint of sprints) {
+            const sprintTasks = tasks.filter((t) => t.sprintId === sprint.id);
+            const totalTasks = sprintTasks.length;
+            const completedTasks = sprintTasks.filter((t) => completedTaskIds.has(t.id)).length;
+            const tasksCompleted = totalTasks === 0 || completedTasks === totalTasks;
+
+            const withAssessments = sprintTasks.filter((t) => t.assessmentType !== "NONE");
+            const passedAssessments = withAssessments.filter((t) => passedAssessmentTaskIds.has(t.id)).length;
+            const allAssessmentsPassed = withAssessments.length === 0 || passedAssessments === withAssessments.length;
+
+            const mockRequired = sprint.sprintNumber !== lastSprintNumber;
+            const mockInterviewCompleted = mockRequired ? mockBySprint.has(sprint.id) : true;
+            const mockScore = mockRequired ? (mockBySprint.get(sprint.id) ?? null) : null;
+
+            data[sprint.id] = {
+                isFullyCompleted: tasksCompleted && allAssessmentsPassed && mockInterviewCompleted,
+                tasksCompleted,
+                allAssessmentsPassed,
+                mockInterviewCompleted,
+                taskStats: { total: totalTasks, completed: completedTasks },
+                assessmentStats: { total: withAssessments.length, passed: passedAssessments },
+                mockStatus: { required: mockRequired, completed: mockInterviewCompleted, score: mockScore },
+            };
+        }
+
+        return { success: true, data };
+    } catch (error: unknown) {
+        console.error("[GET SPRINT COMPLETION STATUSES ERROR]:", error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Failed to get sprint completion status",
+        };
+    }
+}
+
+/**
  * Get comprehensive sprint completion status for determining if next sprint should be unlocked.
  */
 export async function getSprintCompletionStatus(
@@ -1005,6 +1148,8 @@ export async function getSprintCompletionStatus(
     isLastSprint: boolean = false
 ): Promise<ActionResponse<SprintCompletionStatus>> {
     try {
+        const access = await requireProjectAccess(projectId);
+        if (!access.ok) return { success: false, error: access.error };
         const user = await getCurrentUser();
 
         const sprintTasks = await db

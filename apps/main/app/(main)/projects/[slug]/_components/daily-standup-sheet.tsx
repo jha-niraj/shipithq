@@ -46,6 +46,15 @@ interface StandupConfig {
     totalStandups?: number;
 }
 
+/**
+ * Whether the paid standup configuration is offered.
+ *
+ * A flag rather than deleted code: the scheduling half works, and the reason it
+ * is off is that the submission screen does not exist yet. Flip this and the
+ * copy in `daily-standup-tab.tsx` when it does.
+ */
+const STANDUPS_FOR_SALE = false
+
 export default function DailyStandupSheet({
     isOpen,
     onClose,
@@ -171,7 +180,25 @@ export default function DailyStandupSheet({
                 </SheetHeader>
 
                 {
-                    isChecking ? (
+                    /*
+                     * NOT FOR SALE YET (Niraj, 2026-09-23).
+                     *
+                     * This sheet charged 5 credits a day - 20 to 35 for a week -
+                     * and the screen it unlocked says "the submission interface is
+                     * being built". We were taking money for a feature that does
+                     * not exist. The configure-and-pay form below is left intact
+                     * and unreachable; when submissions ship, delete this branch
+                     * and it comes back.
+                     */
+                    STANDUPS_FOR_SALE === false && !hasConfig ? (
+                        <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center dark:border-neutral-700 dark:bg-neutral-900/50">
+                            <h3 className="text-sm font-medium text-neutral-900 dark:text-white">Daily standups are not ready yet.</h3>
+                            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                                Scheduling works, but there is nowhere to submit one, so there is nothing worth charging
+                                for. It will open here when the submission screen lands.
+                            </p>
+                        </div>
+                    ) : isChecking ? (
                         <div className="flex items-center justify-center py-12">
                             <InlineLoader size="lg" className="text-neutral-600 dark:text-neutral-400" />
                         </div>

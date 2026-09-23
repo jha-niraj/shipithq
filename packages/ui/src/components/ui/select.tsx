@@ -45,13 +45,16 @@ const SelectTrigger = React.forwardRef<
 	 *
 	 * The comment sits HERE and not inside the template literal below, because `cn()` joins that
 	 * literal verbatim - a comment written inside it ships as class names in the DOM.
+	 *
+	 * `rounded-lg`, like `Input` and `Textarea` (Niraj, 2026-09-23): a trigger is a form control
+	 * and sits in rows beside them, so they share one radius, set in one place.
 	 */
 	<SelectPrimitive.Trigger
 		ref={ref}
 		className={cn(
 			`
       flex w-full items-center justify-between
-      rounded-xl border
+      rounded-lg border
       bg-white dark:bg-neutral-900
       border-neutral-200 dark:border-neutral-700
       px-3 font-medium

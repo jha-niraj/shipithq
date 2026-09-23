@@ -246,7 +246,7 @@ export function NotificationsPanel({
 
 						<div className="flex items-center gap-2">
 							<Select value={moduleFilter} onValueChange={setModuleFilter}>
-								<SelectTrigger className="h-8 w-auto min-w-[7.5rem] gap-1.5 rounded-lg text-xs">
+								<SelectTrigger className="h-8 w-auto min-w-[7.5rem] gap-1.5 text-xs">
 									<SelectValue placeholder="All modules" />
 								</SelectTrigger>
 								<SelectContent emptyMessage="No modules">
@@ -257,7 +257,7 @@ export function NotificationsPanel({
 								</SelectContent>
 							</Select>
 							<Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-								<SelectTrigger className="h-8 w-auto min-w-[7.5rem] gap-1.5 rounded-lg text-xs">
+								<SelectTrigger className="h-8 w-auto min-w-[7.5rem] gap-1.5 text-xs">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>

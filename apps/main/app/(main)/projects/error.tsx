@@ -58,7 +58,7 @@ export default function ProjectsError({
                         Try again
                     </Button>
                     <Button asChild variant="outline" className="w-full gap-2 sm:w-auto">
-                        <Link href="/projects/myprojects">
+                        <Link href="/projects/explore?tab=mine">
                             <ArrowLeft className="h-4 w-4" />
                             My projects
                         </Link>

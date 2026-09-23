@@ -290,8 +290,11 @@ export interface QuizQuestion {
     difficulty: QuizV2Difficulty
     prompt: string
     options: string[]
-    correctAnswer: number
-    explanation: string
+    /** The answer key, SERVER SIDE ONLY. The quiz page never sends these to the
+     *  browser before the attempt is submitted; submitting returns them with the
+     *  result. Optional here because the client's copy does not carry them. */
+    correctAnswer?: number
+    explanation?: string
     orderIndex: number
 }
 
@@ -563,4 +566,35 @@ export interface Suggestion {
         id: string
         title: string
     } | null
+}
+/**
+ * A task as the project detail page and the task board hold it.
+ *
+ * Lived in `components/projects/task-list-progress.tsx`, which was 738 lines of
+ * task list that nothing rendered - a near-verbatim copy of the one in
+ * `tasks-page-client.tsx`. The file is deleted (approved by Niraj, 2026-09-23);
+ * only the shape it exported was ever used.
+ */
+export interface TaskItem {
+    id: string
+    title: string
+    description: string[]
+    criteria: string[]
+    hints: string[]
+    badges: string[]
+    tags: string[]
+    difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
+    terminalCommand: string | null
+    status: 'TO_DO' | 'IN_PROGRESS' | 'COMPLETED'
+    completedAt: Date | null
+    notes: string | null
+    orderIndex: number
+    sprintId?: string
+    sprintName?: string
+    sprintNumber?: number
+    category?: string | null
+    estimatedTime?: string | null
+    checkpoints?: string[]
+    relatedPages?: string[]
+    dependencies?: string[]
 }

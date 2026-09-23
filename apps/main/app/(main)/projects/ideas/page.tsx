@@ -1,11 +1,7 @@
-import type { Metadata } from 'next'
-import ProjectIdeasClient from './_components/ProjectIdeasClient'
+import { redirect } from "next/navigation"
 
-export const metadata: Metadata = {
-  title: 'Project Ideas | ShipItHQ',
-  description: 'Discover AI-generated project ideas tailored to your skill level and interests.',
-}
-
-export default function ProjectIdeasPage() {
-  return <ProjectIdeasClient />
+// Moved into the Explore page's "ideas" tab (plan/projects, PJ-4). Kept as a
+// redirect because these URLs are in people's history and in older links.
+export default function Page() {
+    redirect("/projects/explore?tab=ideas")
 }
