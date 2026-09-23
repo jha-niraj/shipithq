@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import type { DB } from "./db"
 import { schema } from "./db"
@@ -215,6 +216,14 @@ Make it buildable, sprint-based, and portfolio-worthy. Return the JSON blueprint
 			)
 			totalTasks += tasks.length
 		}
+	}
+
+	// Generated public = published at birth (plan/projects PJ-18). Written
+	// AFTER the sprints and tasks: non-owners see rows created at or before
+	// `published_at`, so stamping it on the project insert above would hide
+	// everything inserted a few milliseconds later.
+	if (input.visibility === "PUBLIC") {
+		await db.update(projectsV2).set({ publishedAt: new Date() }).where(eq(projectsV2.id, projectId))
 	}
 
 	// Seed the creator's progress row.

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "uq_project_v2_fork_per_user" ON "project_v2" USING btree ("forked_from_id","created_by");

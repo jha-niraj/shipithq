@@ -4,12 +4,11 @@ import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
     ArrowLeft, Sparkles, Clock, Code2, Brain, Trophy, CheckCircle2, Lock,
-    Unlock, Play, Users, Target, Lightbulb, Layers, ListChecks,
+    Unlock, Play, Users, Target, Lightbulb, Layers, ListChecks, Check, Globe,
     Coins, Zap
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import { Button } from '@repo/ui/components/ui/button'
 import { Badge } from '@repo/ui/components/ui/badge'
 import {
@@ -31,7 +30,7 @@ import {
 } from '@repo/ui/components/ui/tooltip'
 import toast from '@repo/ui/components/ui/sonner'
 import {
-    startProject, submitProject
+    startProject, submitProject, publishProject
 } from '@/actions/(main)/projects/project.action'
 import {
     ProjectDetailsClientProps, ProjectV2Page, ProjectV2Sprint
@@ -41,17 +40,6 @@ import DailyStandupSheet from './daily-standup-sheet'
 import { cn } from '@repo/ui/lib/utils'
 import { MOCK_UNLOCK_PERCENT, QUIZ_UNLOCK_PERCENT, mockUnlocked, quizUnlocked } from '@/lib/projects/gates'
 import { ENROLL_CREDIT_COST } from '@/lib/credits/pricing'
-// `loading:` is not optional on a chunk this size. Without it the flowchart is a
-// blank hole in the middle of the page while React Flow downloads
-// (sweep 2026-09-23, loading P3).
-const BlueprintFlowchart = dynamic(() => import('@/components/projects/blueprintflowchart'), {
-    ssr: false,
-    loading: () => (
-        <div className="flex h-72 items-center justify-center rounded-2xl border border-neutral-200 dark:border-neutral-800">
-            <InlineLoader size="lg" label="Drawing the blueprint" />
-        </div>
-    ),
-})
 
 // New extracted components
 import { ProjectAssistantButtons } from './project-assistant-buttons'
@@ -63,70 +51,65 @@ import { SetupGuideTab } from './setup-guide-tab'
 
 
 
-import type { TaskItem } from '@/types/project'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 
-function MilestoneTracker({ progressPercentage }: { progressPercentage: number, includeAssessment?: boolean }) {
-    const milestones = [
-        { threshold: 0, label: 'Start', icon: Play, unlocked: true },
-        { threshold: 50, label: 'Quiz Available', icon: Brain, unlocked: progressPercentage >= 50 },
-        { threshold: 75, label: 'Mock Interview', icon: Sparkles, unlocked: progressPercentage >= 75 },
-        { threshold: 100, label: 'Complete', icon: Trophy, unlocked: progressPercentage >= 100 },
-    ]
+/*
+ * Milestones are the sprints (Niraj, 2026-09-23, PJ-17 step 7).
+ *
+ * This was four fixed dots - Start, Quiz, Mock, Complete - at 0/50/75/100
+ * percent, with Start "unlocked" from the first second, so it said nothing about
+ * where you actually were. It also showed the quiz and mock on projects with no
+ * assessment. Now it is one step per sprint with its own done/total, and the two
+ * gates follow only when the project has them, at the thresholds in `gates.ts`.
+ */
+interface SprintStep { id: string; number: number; name: string; done: number; total: number }
+
+function SprintMilestones({ sprints, progressPercentage, includeAssessment }: {
+    sprints: SprintStep[]
+    progressPercentage: number
+    includeAssessment: boolean
+}) {
+    if (sprints.length === 0) return null
+    const gates = includeAssessment ? [
+        { key: 'quiz', label: 'Quiz', icon: Brain, at: QUIZ_UNLOCK_PERCENT, open: quizUnlocked(progressPercentage) },
+        { key: 'mock', label: 'Mock', icon: Sparkles, at: MOCK_UNLOCK_PERCENT, open: mockUnlocked(progressPercentage) },
+    ] : []
 
     return (
-        <div className="bg-gradient-to-r from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-950 rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800">
-            <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-4">Milestones</h3>
-            <div className="relative">
-                <div className="absolute top-5 left-0 right-0 h-1 bg-neutral-200 dark:bg-neutral-800 rounded-full">
-                    <motion.div
-                        className="h-full bg-gradient-to-r from-neutral-900 to-neutral-800 rounded-full"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progressPercentage}%` }}
-                        transition={{ duration: 0.8, ease: 'easeOut' }}
-                    />
-                </div>
-                <div className="relative flex justify-between">
-                    {
-                        milestones.map((milestone, index) => {
-                            const Icon = milestone.icon
-                            return (
-                                <TooltipProvider key={index}>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <div className="flex flex-col items-center">
-                                                <div className={cn(
-                                                    'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
-                                                    milestone.unlocked
-                                                        ? 'bg-gradient-to-br from-neutral-900 to-neutral-800 border-neutral-800 text-white shadow-lg shadow-neutral-900/30'
-                                                        : 'bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
-                                                )}>
-                                                    <Icon className="w-4 h-4" />
-                                                </div>
-                                                <span className={cn(
-                                                    'mt-2 text-xs font-medium',
-                                                    milestone.unlocked ? 'text-neutral-800 dark:text-neutral-100' : 'text-neutral-600'
-                                                )}>
-                                                    {milestone.label}
-                                                </span>
-                                            </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            {
-                                                milestone.unlocked ? (
-                                                    <p className="text-neutral-800 dark:text-neutral-200">✓ Unlocked</p>
-                                                ) : (
-                                                    <p>Complete {milestone.threshold}% to unlock</p>
-                                                )
-                                            }
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            )
-                        })
-                    }
-                </div>
+        <div className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-800">
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Milestones</h3>
+                <span className="text-xs tabular-nums text-neutral-500 dark:text-neutral-400">{Math.round(progressPercentage)}% of tasks</span>
             </div>
+            <ol className="flex gap-3 overflow-x-auto pb-1">
+                {sprints.map((sp) => {
+                    const pct = sp.total ? Math.round((sp.done / sp.total) * 100) : 0
+                    const complete = sp.total > 0 && sp.done === sp.total
+                    return (
+                        <li key={sp.id} className="min-w-[140px] flex-1" title={sp.name}>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                                <div className="h-full rounded-full bg-neutral-900 transition-[width] duration-500 dark:bg-white" style={{ width: `${pct}%` }} />
+                            </div>
+                            <div className="mt-2 flex items-center gap-1.5">
+                                {complete && <Check className="h-3.5 w-3.5 shrink-0 text-neutral-900 dark:text-white" />}
+                                <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100">Sprint {sp.number}</span>
+                                <span className="ml-auto text-xs tabular-nums text-neutral-500 dark:text-neutral-400">{sp.done}/{sp.total}</span>
+                            </div>
+                            <p className="mt-0.5 truncate text-xs text-neutral-600 dark:text-neutral-400">{sp.name}</p>
+                        </li>
+                    )
+                })}
+                {gates.map(({ key, label, icon: Icon, at, open }) => (
+                    <li key={key} className="flex min-w-[88px] flex-col items-start">
+                        <div className={cn('flex h-1.5 w-full rounded-full', open ? 'bg-neutral-900 dark:bg-white' : 'bg-neutral-200 dark:bg-neutral-800')} />
+                        <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-neutral-900 dark:text-neutral-100">
+                            {open ? <Icon className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5 text-neutral-500" />}
+                            {label}
+                        </div>
+                        <p className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-400">{open ? 'Open' : `At ${at}%`}</p>
+                    </li>
+                ))}
+            </ol>
         </div>
     )
 }
@@ -159,15 +142,6 @@ function QuickActions({
      */
     const actions = [
         {
-            key: "sprints",
-            icon: ListChecks,
-            label: "Sprints Board",
-            lockedLabel: "Start to unlock",
-            href: `/projects/${projectSlug}/sprints`,
-            unlocked: hasStarted,
-            shown: true,
-        },
-        {
             key: "quiz",
             icon: Brain,
             label: "Quiz",
@@ -186,6 +160,10 @@ function QuickActions({
             shown: includeAssessment,
         },
     ].filter((a) => a.shown)
+
+    // The Sprints tile moved to the top of the page (PJ-17 step 8), so without
+    // an assessment there is nothing left to show.
+    if (actions.length === 0) return null
 
     return (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -217,6 +195,52 @@ function QuickActions({
                     </Button>
                 )
             })}
+        </div>
+    )
+}
+
+/*
+ * "Make public" (PJ-18). One way, so it asks first - in place, not in a browser
+ * confirm() dialog. What it does is stated where the button is: others see the
+ * project as it is now, and later additions stay yours.
+ */
+function MakePublicButton({ projectId }: { projectId: string }) {
+    const router = useRouter()
+    const [confirming, setConfirming] = useState(false)
+    const [busy, setBusy] = useState(false)
+
+    const publish = async () => {
+        setBusy(true)
+        const result = await publishProject(projectId)
+        setBusy(false)
+        if (result.success) {
+            toast.success('Your project is public.')
+            router.refresh()
+        } else {
+            toast.error(result.error || 'Could not publish')
+            setConfirming(false)
+        }
+    }
+
+    if (!confirming) {
+        return (
+            <Button variant="outline" className="w-full gap-2" onClick={() => setConfirming(true)}>
+                <Globe className="h-4 w-4" />
+                Make public
+            </Button>
+        )
+    }
+    return (
+        <div className="space-y-2 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
+            <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                Others will see the sprints and tasks as they are now and can enrol in their own copy. Anything you add later stays yours. This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => setConfirming(false)} disabled={busy}>Cancel</Button>
+                <Button size="sm" className="flex-1" onClick={publish} disabled={busy}>
+                    {busy ? <InlineLoader size="sm" /> : 'Publish'}
+                </Button>
+            </div>
         </div>
     )
 }
@@ -268,50 +292,16 @@ export default function ProjectDetailsClient({
         }, 0)
     }, [project.sprints])
 
-    // Transform tasks for components (tasks are now nested in sprints)
-    const tasksWithStatus: TaskItem[] = useMemo(() => {
-        if (!project.sprints || project.sprints.length === 0) return []
-
-        // Access taskStatuses directly from userProgress
-        const taskStatuses = userProgress?.taskStatuses || []
-
-        // Flatten tasks from all sprints
-        const allTasks: TaskItem[] = []
-        let globalIndex = 0
-
-        for (const sprint of project.sprints) {
-            const sprintTasks = sprint.tasks || []
-            for (const task of sprintTasks) {
-                const statusEntry = taskStatuses.find((s) => s.taskId === task.id)
-                allTasks.push({
-                    id: task.id,
-                    title: task.title,
-                    description: task.description || [],
-                    criteria: task.criteria || [],
-                    hints: task.hints || [],
-                    badges: task.badges || [],
-                    tags: task.tags || [],
-                    difficulty: task.difficulty as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED',
-                    terminalCommand: task.terminalCommand || null,
-                    status: (statusEntry?.status || 'TO_DO') as 'TO_DO' | 'IN_PROGRESS' | 'COMPLETED',
-                    completedAt: statusEntry?.completedAt || null,
-                    notes: statusEntry?.notes || null,
-                    orderIndex: task.orderIndex ?? globalIndex,
-                    // Add sprint info
-                    sprintId: sprint.id,
-                    sprintName: sprint.name,
-                    sprintNumber: sprint.sprintNumber,
-                    category: task.category,
-                    estimatedTime: task.estimatedTime,
-                    checkpoints: task.checkpoints || [],
-                    relatedPages: task.relatedPages || [],
-                    dependencies: task.dependencies || [],
-                })
-                globalIndex++
-            }
-        }
-
-        return allTasks
+    // Per-sprint done/total for the milestone row.
+    const sprintSteps = useMemo(() => {
+        const done = new Set((userProgress?.taskStatuses || []).filter((t) => t.status === 'COMPLETED').map((t) => t.taskId))
+        return (project.sprints || []).map((sp: ProjectV2Sprint) => ({
+            id: sp.id,
+            number: sp.sprintNumber,
+            name: sp.name,
+            total: sp.tasks?.length || 0,
+            done: (sp.tasks || []).filter((t) => done.has(t.id)).length,
+        }))
     }, [project.sprints, userProgress])
 
 
@@ -404,6 +394,18 @@ export default function ProjectDetailsClient({
                         Projects
                     </Link>
                     <div className="flex items-center gap-2">
+                        {/* Beside Resources and Errors, where the eye already is
+                            (Niraj, 2026-09-23, PJ-17 step 8). */}
+                        {
+                            (hasStarted || isCreator) && (
+                                <Button asChild variant="outline" size="sm" className="gap-2">
+                                    <Link href={`/projects/${project.slug}/sprints`}>
+                                        <ListChecks className="h-4 w-4" />
+                                        <span className="hidden sm:inline">Sprints</span>
+                                    </Link>
+                                </Button>
+                            )
+                        }
                         <ProjectAssistantButtons
                             projectId={project.id}
                             projectSlug={project.slug}
@@ -455,6 +457,16 @@ export default function ProjectDetailsClient({
                                     )
                                 }
                             </div>
+                            {
+                                project.forkedFrom && (
+                                    <p className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">
+                                        Your copy of{' '}
+                                        <Link href={`/projects/${project.forkedFrom.slug}`} className="font-medium text-neutral-900 underline-offset-4 hover:underline dark:text-white">
+                                            {project.forkedFrom.title}
+                                        </Link>
+                                    </p>
+                                )
+                            }
                             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-neutral-900 via-neutral-700 to-neutral-500 dark:from-neutral-50 dark:via-neutral-200 dark:to-neutral-400 mb-4">
                                 {project.title}
                             </h1>
@@ -490,7 +502,24 @@ export default function ProjectDetailsClient({
                             <Card className="h-full bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
                                 <CardContent className="flex h-full flex-col justify-center p-6 space-y-4">
                                     {
-                                        hasStarted ? (
+                                        project.myCopySlug && !isCreator ? (
+                                            /* Enrolling made them a copy (PJ-18); this page is
+                                               the public original, so send them to theirs. */
+                                            <>
+                                                <div className="text-center py-2">
+                                                    <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">You have your own copy</h3>
+                                                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                                                        Your progress and anything you add live there.
+                                                    </p>
+                                                </div>
+                                                <Button asChild className="w-full" size="lg">
+                                                    <Link href={`/projects/${project.myCopySlug}/sprints`}>
+                                                        <Play className="w-4 h-4 mr-2" />
+                                                        Open your copy
+                                                    </Link>
+                                                </Button>
+                                            </>
+                                        ) : hasStarted ? (
                                             <>
                                                 <div>
                                                     <div className="flex items-center justify-between text-sm mb-2">
@@ -567,11 +596,14 @@ export default function ProjectDetailsClient({
                                                         <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Enrollment</span>
                                                         <Badge className="bg-neutral-100 text-neutral-700 dark:bg-neutral-800/50 dark:text-neutral-100">
                                                             <Coins className="w-3 h-3 mr-1" />
-                                                            {ENROLL_CREDIT_COST} Credits
+                                                            {/* Curated projects are free (overview, prices); this
+                                                                said 13 on every one of them. */}
+                                                            {project.isPlatformSeeded ? 'Free' : `${ENROLL_CREDIT_COST} Credits`}
                                                         </Badge>
                                                     </div>
                                                     <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                                        Your balance: {userCredits} credits
+                                                        You get your own copy to build on and extend.
+                                                        {!project.isPlatformSeeded && ` Your balance: ${userCredits} credits.`}
                                                     </p>
                                                 </div>
                                                 {/* One price and one balance, said once.
@@ -615,6 +647,11 @@ export default function ProjectDetailsClient({
                                         )
 
                                     }
+                                    {
+                                        isCreator && !isPublic && !project.forkedFromId && (
+                                            <MakePublicButton projectId={project.id} />
+                                        )
+                                    }
                                 </CardContent>
                             </Card>
                         </div>
@@ -625,43 +662,11 @@ export default function ProjectDetailsClient({
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="mb-8"
-                        >
-                            <BlueprintFlowchart
-                                tasks={tasksWithStatus.map(t => ({
-                                    id: t.id,
-                                    title: t.title,
-                                    description: t.description,
-                                    difficulty: t.difficulty,
-                                    tags: t.tags,
-                                    status: t.status,
-                                    orderIndex: t.orderIndex,
-                                }))}
-                                projectTitle={project.title}
-                                progressPercentage={progressPercentage}
-                                /*
-                                 * The tabs on this page are overview / pages /
-                                 * setup - there is no 'tasks' tab, so clicking a
-                                 * node set `activeTab` to a value no TabsContent
-                                 * matches and the whole panel went blank
-                                 * (sweep 2026-09-23). The tasks live on the
-                                 * sprints board, so that is where a node goes.
-                                 */
-                                onTaskClick={() => router.push(`/projects/${project.slug}/sprints`)}
-                            />
-                        </motion.div>
-                    )
-                }
-                {
-                    hasStarted && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
                             className="mb-8 space-y-4"
                         >
-                            <MilestoneTracker
+                            <SprintMilestones
+                                sprints={sprintSteps}
                                 progressPercentage={progressPercentage}
                                 includeAssessment={project.includeAssessment}
                             />
@@ -872,6 +877,7 @@ export default function ProjectDetailsClient({
                         </TabsContent>
                         <TabsContent value="setup" className="mt-6">
                             <SetupGuideTab
+                                storageKey={project.id}
                                 setupGuide={project.setupGuide ? {
                                     prerequisites: project.setupGuide.prerequisites || [],
                                     environmentVariables: project.setupGuide.environmentVariables || [],

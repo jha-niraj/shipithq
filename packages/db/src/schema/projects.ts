@@ -10,6 +10,7 @@ import {
     uniqueIndex,
     real,
     varchar,
+    type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
@@ -171,6 +172,11 @@ export const projectsV2 = pgTable(
         primaryLanguageOrFramework: text("primary_language_or_framework"),
         difficulty: projectV2DifficultyEnum("difficulty").notNull(),
         visibility: projectV2VisibilityEnum("visibility").notNull().default("PRIVATE"),
+        // When it became public. Non-owners see only sprints and tasks created at
+        // or before this moment (plan/projects overview, "Public is a snapshot").
+        publishedAt: timestamp("published_at"),
+        // Set on an enrolee's copy: the public project it was copied from.
+        forkedFromId: text("forked_from_id").references((): AnyPgColumn => projectsV2.id, { onDelete: "set null" }),
         estimatedHours: integer("estimated_hours").notNull().default(20),
         includeAssessment: boolean("include_assessment").notNull().default(false),
         isPlatformSeeded: boolean("is_platform_seeded").notNull().default(false),
@@ -208,6 +214,10 @@ export const projectsV2 = pgTable(
     },
     (table) => [
         index("idx_project_v2_created_by").on(table.createdBy),
+        index("idx_project_v2_forked_from_id").on(table.forkedFromId),
+        // One copy per person per project: the database refuses the second of two
+        // quick enrol clicks. NULLs are distinct, so ordinary projects are unaffected.
+        uniqueIndex("uq_project_v2_fork_per_user").on(table.forkedFromId, table.createdBy),
         index("idx_project_v2_visibility").on(table.visibility),
         index("idx_project_v2_difficulty").on(table.difficulty),
         index("idx_project_v2_created_at").on(table.createdAt),

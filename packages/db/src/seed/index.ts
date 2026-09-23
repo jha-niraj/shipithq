@@ -465,6 +465,12 @@ async function seedProjectBlueprints(): Promise<{ projects: number; sprints: num
             }
         }
 
+        // Published as of NOW, after the sprints above were re-inserted. A public
+        // project shows non-owners only what existed at `published_at`, so a
+        // timestamp older than these rows would hide the whole curriculum
+        // (plan/projects PJ-18).
+        await db.update(projectsV2).set({ publishedAt: new Date() }).where(eq(projectsV2.id, project.id));
+
         // No task total to write on the project: `total_tasks` lives on
         // `user_project_v2_progress`, per user, and is set when somebody starts.
         projectCount++;

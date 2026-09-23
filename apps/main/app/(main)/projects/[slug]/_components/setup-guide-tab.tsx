@@ -23,6 +23,67 @@ export interface SetupGuideData {
 
 interface SetupGuideTabProps {
     setupGuide: SetupGuideData | null
+    /** Keys this viewer's ticks in localStorage; the project id. */
+    storageKey?: string
+}
+
+// ============================================================================
+// Ticks, remembered per viewer (PJ-17 step 9)
+// ============================================================================
+
+/*
+ * The boxes were drawn as plain spans, so clicking one did nothing (Niraj,
+ * 2026-09-23). They toggle now and are kept in localStorage: a per-viewer
+ * convenience, not progress - nothing else reads them - so browser storage is
+ * the right home. Every access is guarded, because storage can be missing or
+ * throw (private windows, blocked site data), and the list must still work.
+ */
+function useTicks(storageKey?: string) {
+    const key = storageKey ? `setup-guide:${storageKey}` : null
+    const [ticks, setTicks] = useState<Record<string, boolean>>({})
+
+    useEffect(() => {
+        if (!key) return
+        try {
+            const raw = window.localStorage.getItem(key)
+            if (raw) setTicks(JSON.parse(raw) as Record<string, boolean>)
+        } catch { /* unreadable storage: start empty */ }
+    }, [key])
+
+    const toggle = (id: string) => setTicks((prev) => {
+        const next = { ...prev, [id]: !prev[id] }
+        if (key) {
+            try { window.localStorage.setItem(key, JSON.stringify(next)) } catch { /* not persisted */ }
+        }
+        return next
+    })
+    return { ticks, toggle }
+}
+
+function TickItem({ checked, onToggle, children }: { checked: boolean; onToggle: () => void; children: React.ReactNode }) {
+    return (
+        <li>
+            <button
+                type="button"
+                role="checkbox"
+                aria-checked={checked}
+                onClick={onToggle}
+                className="group flex w-full items-start gap-2.5 rounded-md py-0.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+                <span className={cn(
+                    'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
+                    checked
+                        ? 'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900'
+                        : 'border-neutral-400 group-hover:border-neutral-600 dark:border-neutral-600 dark:group-hover:border-neutral-400'
+                )}>
+                    {checked && <Check className="h-3 w-3" strokeWidth={3} />}
+                </span>
+                <span className={cn('min-w-0', checked ? 'text-neutral-500 line-through dark:text-neutral-500' : 'text-neutral-700 dark:text-neutral-300')}>
+                    {children}
+                </span>
+            </button>
+        </li>
+    )
 }
 
 // ============================================================================
@@ -125,8 +186,9 @@ function Step({ n, title, hint, action, last, children }: {
  * The terminal is dark in BOTH themes, so its ink is constant too (CLAUDE.md:
  * a surface that does not change with the theme gets ink that does not either).
  */
-export function SetupGuideTab({ setupGuide }: SetupGuideTabProps) {
+export function SetupGuideTab({ setupGuide, storageKey }: SetupGuideTabProps) {
     const { copied, copy } = useCopy()
+    const { ticks, toggle } = useTicks(storageKey)
 
     const prerequisites = setupGuide?.prerequisites ?? []
     const envVars = setupGuide?.environmentVariables ?? []
@@ -155,10 +217,7 @@ export function SetupGuideTab({ setupGuide }: SetupGuideTabProps) {
             <Step key="prereq" n={n} last={last} title="Before you start" hint="Have these installed.">
                 <ul className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
                     {prerequisites.map((item, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
-                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-neutral-500 dark:text-neutral-400" />
-                            <span className="min-w-0">{item}</span>
-                        </li>
+                        <TickItem key={i} checked={!!ticks[`pre:${i}`]} onToggle={() => toggle(`pre:${i}`)}>{item}</TickItem>
                     ))}
                 </ul>
             </Step>
@@ -242,10 +301,7 @@ export function SetupGuideTab({ setupGuide }: SetupGuideTabProps) {
             <Step key="verify" n={n} last={last} title="Check it works" hint="You are set up when all of these hold.">
                 <ul className="space-y-2">
                     {checks.map((item, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
-                            <span aria-hidden className="mt-1 h-3.5 w-3.5 shrink-0 rounded border border-neutral-400 dark:border-neutral-600" />
-                            <span className="min-w-0">{item}</span>
-                        </li>
+                        <TickItem key={i} checked={!!ticks[`ok:${i}`]} onToggle={() => toggle(`ok:${i}`)}>{item}</TickItem>
                     ))}
                 </ul>
             </Step>

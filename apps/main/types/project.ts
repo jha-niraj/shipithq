@@ -184,6 +184,14 @@ export interface ProjectV2Basic {
 
 export interface ProjectV2Full extends ProjectV2Basic {
     blueprintOverview: string
+    isPlatformSeeded?: boolean
+    // Public is a snapshot, enrolling is a copy (plan/projects PJ-18).
+    publishedAt?: Date | string | null
+    forkedFromId?: string | null
+    /** Set by getProjectBySlug on a copy: the public original. */
+    forkedFrom?: { slug: string; title: string } | null
+    /** Set by getProjectBySlug: the viewer's own copy of this project, if any. */
+    myCopySlug?: string | null
     // Enhanced Project Context
     vision?: string | null
     targetAudience?: string | null

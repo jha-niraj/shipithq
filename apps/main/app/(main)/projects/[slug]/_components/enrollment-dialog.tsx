@@ -51,6 +51,10 @@ export function EnrollmentDialog({
 
 	const [enrollmentData, setEnrollmentData] = useState<EnrollmentData | null>(null);
 	const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Where "Start Building" goes. Enrolling makes a COPY with its own slug
+	// (PJ-18), so this is replaced by the copy's slug once the server returns it.
+	// A ref, because `goToBoard` also runs from the timer below.
+	const boardSlug = useRef<string | undefined>(projectSlug);
 	useEffect(() => () => { if (redirectTimer.current) clearTimeout(redirectTimer.current); }, []);
 
 	// The server decides the price (`enrollInProject`), and a platform-seeded
@@ -72,6 +76,7 @@ export function EnrollmentDialog({
 			const result = await enrollInProject(projectId);
 
 			if (result.success) {
+				boardSlug.current = result.data?.projectSlug ?? projectSlug;
 				setEnrollmentData(result.data);
 				setStep("success");
 				toast.success("Successfully enrolled in project!");
@@ -80,6 +85,11 @@ export function EnrollmentDialog({
 				// can be cleared: it used to fire into an unmounted dialog if the
 				// user navigated away inside the three seconds.
 				redirectTimer.current = setTimeout(goToBoard, 2500);
+			} else if (result.data?.projectSlug) {
+				// They already have a copy: take them to it rather than failing.
+				boardSlug.current = result.data.projectSlug;
+				toast.info("You already have a copy of this project.");
+				goToBoard();
 			} else {
 				setError(result.error || "Failed to enroll");
 				setStep("error");
@@ -107,7 +117,7 @@ export function EnrollmentDialog({
 	 */
 	const goToBoard = () => {
 		onOpenChange(false);
-		if (projectSlug) router.push(`/projects/${projectSlug}/sprints`);
+		if (boardSlug.current) router.push(`/projects/${boardSlug.current}/sprints`);
 		else router.refresh();
 	};
 
@@ -157,7 +167,7 @@ export function EnrollmentDialog({
 									<ul className="space-y-2 text-sm text-muted-foreground ml-6">
 										<li className="flex items-start gap-2">
 											<FileCode className="h-4 w-4 mt-0.5 text-neutral-900 dark:text-neutral-100" />
-											<span>Complete project blueprint with all tasks</span>
+											<span>Every sprint and task, ready to start</span>
 										</li>
 										<li className="flex items-start gap-2">
 											<ListChecks className="h-4 w-4 mt-0.5 text-neutral-900 dark:text-neutral-100" />
@@ -165,7 +175,7 @@ export function EnrollmentDialog({
 										</li>
 										<li className="flex items-start gap-2">
 											<Sparkles className="h-4 w-4 mt-0.5 text-neutral-900 dark:text-neutral-100" />
-											<span>Access to suggest and vote on features</span>
+											<span>A resource library and an error log for the project</span>
 										</li>
 										<li className="flex items-start gap-2">
 											<CheckCircle2 className="h-4 w-4 mt-0.5 text-neutral-900 dark:text-neutral-100" />

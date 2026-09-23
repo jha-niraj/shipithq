@@ -8,6 +8,9 @@ import {
     creditTransactions,
     projectsV2,
     projectV2Tasks,
+    projectV2Sprints,
+    projectV2TaskDetails,
+    projectV2KnowledgeBases,
     userProjectV2Progress,
     userTaskV2Statuses,
     projectV2Quizzes,
@@ -169,7 +172,47 @@ export async function getProjectBySlug(slug: string): Promise<ActionResponse> {
          * "Enroll Now" (PJ-16 item 1). Renamed here, once, rather than in readers.
          */
         const { userProgress, ...rest } = project;
-        return { success: true, data: { ...rest, progress: userProgress } };
+
+        /*
+         * Public is a snapshot (plan/projects PJ-18). Anyone but the owner sees
+         * the sprints and tasks that existed when it was published; what the
+         * owner added afterwards is theirs. A PRIVATE project reaching here for a
+         * non-owner is a legacy enrolment, which keeps the full view.
+         */
+        const isOwner = project.createdBy === user?.id;
+        const cutoff = !isOwner && project.visibility === "PUBLIC" ? project.publishedAt : null;
+        const sprints = cutoff
+            ? rest.sprints
+                .filter((sp) => sp.createdAt <= cutoff)
+                .map((sp) => ({ ...sp, tasks: sp.tasks.filter((t) => t.createdAt <= cutoff) }))
+            : rest.sprints;
+
+        // The viewer's own copy of this project, if they have one: the page sends
+        // them there instead of offering to enrol again.
+        const myCopy = user && !isOwner
+            ? await db.query.projectsV2.findFirst({
+                where: and(eq(projectsV2.forkedFromId, project.id), eq(projectsV2.createdBy, user.id)),
+                columns: { slug: true },
+            })
+            : null;
+        // On a copy, where it came from.
+        const forkedFrom = project.forkedFromId
+            ? await db.query.projectsV2.findFirst({
+                where: eq(projectsV2.id, project.forkedFromId),
+                columns: { slug: true, title: true, visibility: true },
+            })
+            : null;
+
+        return {
+            success: true,
+            data: {
+                ...rest,
+                sprints,
+                progress: userProgress,
+                myCopySlug: myCopy?.slug ?? null,
+                forkedFrom: forkedFrom && forkedFrom.visibility === "PUBLIC" ? { slug: forkedFrom.slug, title: forkedFrom.title } : null,
+            },
+        };
     } catch (error: unknown) {
         console.log(error);
         return { success: false, error: toErrorMessage(error) };
@@ -1088,6 +1131,22 @@ export async function searchSimilarProjects({
 // PROJECT ENROLLMENT (PURCHASE)
 // ========================================
 
+/**
+ * Enrolling makes the enrolee their own copy (plan/projects PJ-18, decided by
+ * Niraj 2026-09-23).
+ *
+ * It used to write a progress row against the creator's own sprints, so every
+ * enrolee shared one set of rows: anything the owner added appeared for all of
+ * them, and none of them could add anything of their own. Now the published
+ * snapshot - sprints, tasks, task details, quiz and mock knowledge base as they
+ * stood at `published_at` - is copied into a new PRIVATE project owned by the
+ * enrolee, with `forked_from_id` pointing back. From then on it is simply their
+ * project, and every owner path (generate a sprint, add a task) works on it.
+ *
+ * All in one transaction with the debit. The unique index on
+ * (forked_from_id, created_by) is what stops two quick clicks making two copies;
+ * the read below only produces the friendlier message.
+ */
 export async function enrollInProject(projectId: string): Promise<ActionResponse> {
     try {
         const user = await getCurrentUser();
@@ -1096,36 +1155,35 @@ export async function enrollInProject(projectId: string): Promise<ActionResponse
             where: eq(projectsV2.id, projectId),
             with: {
                 sprints: {
+                    orderBy: (sprints, { asc }) => [asc(sprints.orderIndex)],
                     with: {
                         tasks: {
                             orderBy: (tasks, { asc }) => [asc(tasks.orderIndex)],
+                            with: { taskDetail: true },
                         },
                     },
                 },
-                creator: {
-                    columns: { id: true, name: true },
-                },
+                quiz: { with: { questions: true } },
+                knowledgeBase: true,
             },
         });
 
         if (!project) {
             return { success: false, error: "Project not found" };
         }
-
         if (project.createdBy === user.id) {
             return { success: false, error: "You cannot enroll in your own project" };
         }
-
-        const existingProgress = await db.query.userProjectV2Progress.findFirst({
-            where: and(eq(userProjectV2Progress.userId, user.id), eq(userProjectV2Progress.projectId, projectId)),
-        });
-
-        if (existingProgress) {
-            return { success: false, error: "You are already enrolled in this project" };
+        if (project.visibility !== 'PUBLIC' || project.forkedFromId) {
+            return { success: false, error: "This project is not available for enrollment" };
         }
 
-        if (project.visibility !== 'PUBLIC') {
-            return { success: false, error: "This project is not available for enrollment" };
+        const existingCopy = await db.query.projectsV2.findFirst({
+            where: and(eq(projectsV2.forkedFromId, projectId), eq(projectsV2.createdBy, user.id)),
+            columns: { slug: true },
+        });
+        if (existingCopy) {
+            return { success: false, error: "You already have a copy of this project", data: { projectSlug: existingCopy.slug } };
         }
 
         /*
@@ -1134,7 +1192,6 @@ export async function enrollInProject(projectId: string): Promise<ActionResponse
          * already been written - nothing runs when somebody starts one.
          */
         const enrollmentCost = project.isPlatformSeeded ? 0 : ENROLL_CREDIT_COST;
-
         if (user.credits < enrollmentCost) {
             return {
                 success: false,
@@ -1142,25 +1199,27 @@ export async function enrollInProject(projectId: string): Promise<ActionResponse
             };
         }
 
-        const allTasks = project.sprints.flatMap((s) => s.tasks);
+        // The snapshot: what existed when it was published.
+        const cutoff = project.publishedAt ?? project.createdAt;
+        const sprints = project.sprints
+            .filter((sp) => sp.createdAt <= cutoff)
+            .map((sp) => ({ ...sp, tasks: sp.tasks.filter((t) => t.createdAt <= cutoff) }));
+        const totalTasks = sprints.reduce((n, sp) => n + sp.tasks.length, 0);
+
+        const copyId = crypto.randomUUID();
+        const copySlug = `${project.slug.slice(0, 50)}-${copyId.slice(0, 6)}`;
+        const now = new Date();
 
         const result = await withTransaction(async (tx) => {
-            // 1. Deduct credits, unless it is free.
-            // Guarded in SQL, not by the balance read above: two concurrent enrols
-            // both pass a read-then-write check and both debit. Zero rows updated
-            // means the balance moved under us, and throwing rolls the whole
-            // enrolment back rather than seating someone who did not pay.
-            //
-            // A free enrolment writes NOTHING to the ledger: a row for 0 credits
-            // is noise in the one place a user goes to understand their spending.
+            // 1. Debit, unless it is free. Guarded in SQL, not by the balance read
+            // above: two concurrent enrols both pass a read-then-write check. A
+            // free enrolment writes nothing to the ledger.
             if (enrollmentCost > 0) {
                 const debited = await tx.update(users)
                     .set({ credits: sql`${users.credits} - ${enrollmentCost}` })
                     .where(and(eq(users.id, user.id), sql`${users.credits} >= ${enrollmentCost}`))
                     .returning({ credits: users.credits });
                 if (debited.length === 0) throw new Error("Insufficient credits");
-
-                // 2. Create credit transaction
                 await tx.insert(creditTransactions).values({
                     userId: user.id,
                     amount: -enrollmentCost,
@@ -1170,28 +1229,95 @@ export async function enrollInProject(projectId: string): Promise<ActionResponse
                 });
             }
 
-            // 3. Create user progress
-            const [progress] = await tx.insert(userProjectV2Progress).values({
-                userId: user.id,
-                projectId,
-                status: "IN_PROGRESS",
-                totalTasks: allTasks.length,
-                startedAt: new Date(),
-            }).returning();
+            // 2. The copy itself. Everything describing the project comes across;
+            // ownership, visibility, counters and the university fields do not.
+            const {
+                id: _id, slug: _slug, createdBy: _createdBy, visibility: _visibility, publishedAt: _publishedAt,
+                forkedFromId: _forkedFromId, isPlatformSeeded: _seeded, totalStarted: _ts, totalCompleted: _tc,
+                totalSubmissions: _tsub, totalViews: _tv, createdAt: _ca, updatedAt: _ua,
+                isUniversityProject: _uni, universityId: _uid, teacherMemberId: _tm, classIds: _cls,
+                assignmentDeadline: _ad, assignmentCredits: _ac, assignmentInstructions: _ai,
+                sprints: _sprints, quiz, knowledgeBase,
+                ...described
+            } = project;
+            await tx.insert(projectsV2).values({
+                ...described,
+                id: copyId,
+                slug: copySlug,
+                createdBy: user.id,
+                visibility: "PRIVATE",
+                forkedFromId: project.id,
+                isPlatformSeeded: false,
+                createdAt: now,
+            });
 
-            // 4. Create task progress for all tasks
-            if (allTasks.length > 0) {
-                const taskStatuses = allTasks.map((task) => ({
-                    userId: user.id,
-                    projectId,
-                    taskId: task.id,
-                    progressId: progress!.id,
-                    status: "TO_DO" as const,
-                }));
-                await tx.insert(userTaskV2Statuses).values(taskStatuses);
+            // 3. Sprints, tasks and task details, with fresh ids.
+            const statusRows: { taskId: string }[] = [];
+            for (const sp of sprints) {
+                const sprintId = crypto.randomUUID();
+                await tx.insert(projectV2Sprints).values({
+                    id: sprintId,
+                    projectId: copyId,
+                    sprintNumber: sp.sprintNumber,
+                    name: sp.name,
+                    goal: sp.goal,
+                    duration: sp.duration,
+                    orderIndex: sp.orderIndex,
+                    createdBy: user.id,
+                    isApproved: true,
+                    isPersonal: false,
+                });
+                if (sp.tasks.length === 0) continue;
+
+                const taskRows = sp.tasks.map((t) => {
+                    const { id: _tid, sprintId: _sid, projectV2Id: _pid, createdBy: _cb, createdAt: _tca, updatedAt: _tua, taskDetail: _td, ...task } = t;
+                    return { ...task, id: crypto.randomUUID(), sprintId, projectV2Id: copyId, createdBy: user.id };
+                });
+                await tx.insert(projectV2Tasks).values(taskRows);
+                statusRows.push(...taskRows.map((t) => ({ taskId: t.id })));
+
+                const details = sp.tasks.flatMap((t, i) => {
+                    if (!t.taskDetail) return [];
+                    const { id: _did, taskId: _dtid, createdAt: _dca, updatedAt: _dua, ...detail } = t.taskDetail;
+                    return [{ ...detail, taskId: taskRows[i]!.id }];
+                });
+                if (details.length > 0) await tx.insert(projectV2TaskDetails).values(details);
             }
 
-            // 5. Increment project started count
+            // 4. The assessment, if the project has one.
+            if (quiz) {
+                const quizId = crypto.randomUUID();
+                await tx.insert(projectV2Quizzes).values({ id: quizId, projectId: copyId, totalQuestions: quiz.totalQuestions });
+                if (quiz.questions.length > 0) {
+                    await tx.insert(projectV2QuizQuestions).values(
+                        quiz.questions.map(({ id: _qid, quizId: _qz, ...q }) => ({ ...q, quizId }))
+                    );
+                }
+            }
+            if (knowledgeBase) {
+                const { id: _kid, projectId: _kp, createdAt: _kca, updatedAt: _kua, ...kb } = knowledgeBase;
+                await tx.insert(projectV2KnowledgeBases).values({ ...kb, projectId: copyId });
+            }
+
+            // 5. Progress on the copy, and a status row per task.
+            const [progress] = await tx.insert(userProjectV2Progress).values({
+                userId: user.id,
+                projectId: copyId,
+                status: "IN_PROGRESS",
+                totalTasks,
+                startedAt: now,
+            }).returning();
+            if (statusRows.length > 0) {
+                await tx.insert(userTaskV2Statuses).values(statusRows.map(({ taskId }) => ({
+                    userId: user.id,
+                    projectId: copyId,
+                    taskId,
+                    progressId: progress!.id,
+                    status: "TO_DO" as const,
+                })));
+            }
+
+            // 6. The original counts one more start.
             await tx.update(projectsV2).set({ totalStarted: sql`${projectsV2.totalStarted} + 1` }).where(eq(projectsV2.id, projectId));
 
             return progress!;
@@ -1206,17 +1332,55 @@ export async function enrollInProject(projectId: string): Promise<ActionResponse
             data: {
                 progress: result,
                 creditsSpent: enrollmentCost,
-                tasksCount: result.totalTasks,
+                tasksCount: totalTasks,
                 projectTitle: project.title,
-                projectSlug: project.slug
+                // The COPY: this is where the enrolee works from now on.
+                projectSlug: copySlug,
             }
         };
-
     } catch (error: unknown) {
         console.error("[ENROLL PROJECT ERROR]:", error);
-        return {
-            success: false,
-            error: toErrorMessage(error) || "Failed to enroll in project"
-        };
+        const message = toErrorMessage(error);
+        // The unique index caught a second click that raced the first.
+        if (message.includes("uq_project_v2_fork_per_user")) {
+            return { success: false, error: "You already have a copy of this project" };
+        }
+        return { success: false, error: message || "Failed to enroll in project" };
+    }
+}
+
+/**
+ * Make a private project public (plan/projects PJ-18, decided by Niraj
+ * 2026-09-23).
+ *
+ * Records `published_at`: from this moment others see the sprints and tasks
+ * that exist now, and anything added later stays the owner's. One way - there
+ * is no unpublish, because people may already hold copies. The private-tier
+ * price is not refunded. A copy cannot be published: publishing someone else's
+ * project under your own name is the one thing a copy should not do.
+ */
+export async function publishProject(projectId: string): Promise<ActionResponse> {
+    try {
+        const user = await getCurrentUser();
+        const project = await db.query.projectsV2.findFirst({
+            where: eq(projectsV2.id, projectId),
+            columns: { id: true, slug: true, createdBy: true, visibility: true, forkedFromId: true },
+        });
+        if (!project || project.createdBy !== user.id) return { success: false, error: "Project not found" };
+        if (project.forkedFromId) return { success: false, error: "A copy of someone else's project cannot be published." };
+        if (project.visibility === "PUBLIC") return { success: false, error: "This project is already public." };
+
+        // Guarded on PRIVATE so a double click cannot move `published_at` forward.
+        const updated = await db.update(projectsV2)
+            .set({ visibility: "PUBLIC", publishedAt: new Date() })
+            .where(and(eq(projectsV2.id, projectId), eq(projectsV2.visibility, "PRIVATE")))
+            .returning({ id: projectsV2.id });
+        if (updated.length === 0) return { success: false, error: "This project is already public." };
+
+        revalidatePath('/projects');
+        revalidatePath(`/projects/${project.slug}`);
+        return { success: true };
+    } catch (error: unknown) {
+        return { success: false, error: toErrorMessage(error) };
     }
 }

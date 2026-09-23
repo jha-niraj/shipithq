@@ -1003,3 +1003,51 @@ The code review is the one that will fail first, because its input size is whate
 **Still open.**
 - One browser pass over items 1-9, as creator and as an enrolled user.
 
+
+## PJ-17 The 2026-09-23 browser pass, third round
+- [ ] Status: all ten steps built 2026-09-23, `tsc` clean; awaiting Niraj's browser pass. The flowchart component and `@xyflow/react` are deleted; no schema change was needed for it (it had no storage).
+
+**Why.** Niraj's pass over the board and the project page (habit-tracker-weekly-review). The board wastes words and a whole header row, the URL forgets where you are, the project page carries a flowchart nobody needs and a milestone bar that says nothing true, and the setup guide's checkboxes do nothing.
+
+**Files.** `sprints/_components/sprints-page-client.tsx`, `sprints/loading.tsx`, `[slug]/_components/project-details-client.tsx`, `project-assistant-buttons.tsx`, `setup-guide-tab.tsx`, `enrollment-dialog.tsx`, `components/projects/blueprintflowchart.tsx` (delete), `apps/main/package.json` (`@xyflow/react`, if nothing else uses it).
+
+**Steps.**
+1. **Rail says less.** Drop the "Sprints / N sprints available" block; the back link becomes a compact row. Sprint rows: number, title, "1w · 5 tasks". Mock rows: one line, "Mock interview", no "Sprints 1-1".
+2. **Task rows say less.** Title plus one small meta line; the difficulty chip and the emoji "Quiz" chip go (every seeded task is Beginner, so the chip carried nothing).
+3. **The header row goes.** Final Quiz and Final Mock move into the tab row, right-aligned, icon plus short label; below `md` the Sprints button moves into that row too.
+4. **The URL holds the state.** `?sprint=`, `?task=`, `?tab=`, `?mock=`, written with `router.replace` (no scroll, no history spam) and read on load, so a refresh or a shared link lands on the same sprint, task and tab.
+5. **Status buttons are legible.** The selected "To Do" pill was dark ink on a dark fill.
+6. **The Blueprint section and its component go.** It has no storage (the flowchart is drawn from tasks in the browser), so there is no schema change for it. `tasksWithStatus` goes with it; `blueprintOverview` (the Overview card text) stays. Enrolment copy that promises a "blueprint" is rewritten.
+7. **Milestones are the sprints.** One step per sprint with its own done/total, then the quiz and mock markers only if the project has an assessment, using `gates.ts`.
+8. **Sprints sits at the top**, beside Resources and Errors, for anyone who can open the board.
+9. **Setup guide checks tick.** The verification items and prerequisites become toggles, remembered per viewer in `localStorage` (a convenience, wrapped in try/catch).
+10. `sprints/loading.tsx` follows the new board (no header row).
+
+**Edge cases.** A URL naming a sprint that is locked or a task not in that sprint falls back to the first unlocked sprint. A `?mock=` for a sprint whose mock is locked is ignored. Removing the header must not strand the Add Task dialog (creator only); it moves into the task list's column header.
+
+**Done when.** The board has no header row; a refresh on a selected task in sprint 2 with the Errors tab open comes back to exactly that; the project page has no Blueprint section and `grep -rn BlueprintFlowchart apps/main` is empty; the milestone row shows one step per sprint; a ticked setup check survives a reload.
+
+## PJ-18 Public is a snapshot, enrolling is a copy
+- [ ] Status: built 2026-09-23, `tsc` clean in main, worker and db; migrations 0022 (columns, FK, index, backfill of the 10 public projects) and 0023 (one copy per user, unique) applied to dev. Awaiting a browser pass: enrol in a curated project not yet started, confirm the copy's board, generate a sprint on it. The worker change (`published_at` stamped after the inserts) needs a worker release before the app release. Decisions in `overview.md`, "Public is a snapshot; enrolling is a copy".
+
+**Why.** Enrolment wrote a progress row against the creator's own sprints, so every enrolee shared one set of rows: anything the owner added appeared for everyone, and an enrolee could add nothing of their own (PJ-16 item 9 hid the buttons for that reason). Niraj: a public project is the state at the moment it was published, and each enrolee works on their own copy they can extend.
+
+**Files.** `packages/db/src/schema/projects.ts` (+ migration), `packages/db/src/seed/index.ts`, `actions/(main)/projects/project.action.ts` (`getProjectBySlug`, `enrollInProject`, new `publishProject`), `enrollment-dialog.tsx`, `project-details-client.tsx`, `sprints-page-client.tsx`, `types/project.ts`.
+
+**Steps.**
+1. Schema: `projects_v2.published_at timestamp null`, `projects_v2.forked_from_id uuid null -> projects_v2.id on delete set null`, index on `forked_from_id`. Migration backfills `published_at = created_at` for PUBLIC rows. Generate, report, migrate.
+2. Everywhere a project is made public (worker generation, seed) sets `published_at`. The seed sets it AFTER re-inserting blueprints, or the curated sprints would all post-date it.
+3. `getProjectBySlug`: a non-owner sees sprints and tasks with `created_at <= published_at` only.
+4. `enrollInProject` forks: in one transaction, debit, insert the copy (PRIVATE, owned by the enrolee, `forked_from_id`, a unique slug), copy the snapshot's sprints, tasks, task details, quiz with questions and knowledge base, write the progress row and task statuses, bump the original's `total_started`. Returns the copy's slug; the dialog lands on the copy's board.
+5. "Already enrolled" means "already has a copy of this": the original's page sends them to it.
+6. `publishProject(projectId)`: owner only, not a copy, PRIVATE to PUBLIC, `published_at = now()`. A "Make public" control on the owner's page, with the one-way warning.
+7. On a copy, the board's creator-only actions (Generate Sprint, Add Task) are available, because the enrolee IS the owner. The page shows "Your copy of <original>".
+
+**Edge cases.**
+- Legacy enrolments (progress rows on someone else's project, two in dev) keep working read-only; they are not migrated silently.
+- The slug for a copy must be unique and stable: `<original>-<6 chars>`.
+- A copy of a curated project is still free, as today.
+- Two quick clicks must not make two copies: the "already has a copy" check runs inside the transaction.
+- Quiz attempts, standups, resources and errors are per project, so they follow the copy with no change.
+
+**Done when.** Enrolling in a public project creates a private copy owned by the enrolee and lands on its board; a sprint the owner adds after publishing does not appear on the public page or in a new copy; the enrolee can generate a sprint on their copy; a private project can be made public and then shows up in the catalogue.

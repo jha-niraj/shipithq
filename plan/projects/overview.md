@@ -95,6 +95,28 @@ Both gates were restated in four places and two of them used `<=`, so at exactly
 50 and 75 percent the board and the page disagreed about whether you were let
 in. That is why they are a helper now and not a literal.
 
+### Public is a snapshot; enrolling is a copy
+
+Decided by Niraj on 2026-09-23 (PJ-18).
+
+- **Publishing records a moment.** `projects_v2.published_at` is set when a
+  project becomes public: at generation if it was generated public, or when the
+  owner presses "Make public" later. Anyone who is not the owner sees only the
+  sprints and tasks created at or before that moment. What the owner adds
+  afterwards stays theirs.
+- **The owner can publish later.** A private project gets a "Make public" action.
+  It is one way: there is no unpublish, because people may already hold copies.
+  The private-tier price is not refunded.
+- **Enrolling makes the enrolee their own copy.** The published snapshot
+  (sprints, tasks, task details, quiz, mock knowledge base) is copied into a new
+  private project owned by the enrolee, with `forked_from_id` pointing back.
+  From then on it is their project: they generate sprints, add tasks and tick
+  them exactly as an owner does, and nobody else sees those changes.
+- **A copy cannot be published.** Publishing someone else's project under your
+  name is the one thing a copy should not do. (Default taken while building;
+  Niraj can reverse it.)
+- The enrolment price and the curated-project exemption are unchanged.
+
 ## Out of scope
 
 - **`apps/uni`.** The university app has its own assignment and class model, and
