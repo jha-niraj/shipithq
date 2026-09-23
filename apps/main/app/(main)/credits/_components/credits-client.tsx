@@ -10,7 +10,8 @@ import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
 import { Badge } from '@repo/ui/components/ui/badge'
 import { AnimatedIcon } from '@repo/ui/components/animated-icons'
 import { cn } from '@repo/ui/lib/utils'
-import { Plus, Receipt, Gift, X } from 'lucide-react'
+import { Plus, Receipt, Gift, X, Wallet, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import { StatBand } from '@repo/ui/components/ui/stat-band'
 import type { CreditsOverview } from '@/actions/(main)/credits/credits.action'
 
 /**
@@ -43,7 +44,7 @@ function when(d: Date | string) {
 export function CreditsClient({ data, error }: { data: CreditsOverview | null; error: string | null }) {
     // ── History panel ──
     //
-    // Same shape as the AI rail in app/(main)/layout.tsx, and the same lesson:
+    // Same shape as the AI rail in app/(main)/_components/main-shell.tsx, and the same lesson:
     // the width is applied with NO transition while dragging. Animating it
     // during a drag starts a new transition on every mousemove, so the panel
     // chases the cursor and settles late, which reads as it moving on its own.
@@ -144,11 +145,15 @@ export function CreditsClient({ data, error }: { data: CreditsOverview | null; e
                     </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <Stat label="Available" value={balance.toLocaleString()} emphasis />
-                    <Stat label="Total added" value={totalAdded.toLocaleString()} />
-                    <Stat label="Total spent" value={totalSpent.toLocaleString()} />
-                </div>
+                <StatBand
+                    cols={3}
+                    className="mt-5"
+                    items={[
+                        { icon: Wallet, label: "Available", value: balance.toLocaleString() },
+                        { icon: ArrowDownLeft, label: "Total added", value: totalAdded.toLocaleString() },
+                        { icon: ArrowUpRight, label: "Total spent", value: totalSpent.toLocaleString() },
+                    ]}
+                />
             </header>
 
             <ScrollArea reflow className="min-h-0 min-w-0 flex-1">
@@ -466,17 +471,6 @@ export function CreditsClient({ data, error }: { data: CreditsOverview | null; e
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
-    )
-}
-
-function Stat({ label, value, emphasis }: { label: string; value: string; emphasis?: boolean }) {
-    return (
-        <div className="rounded-xl border border-neutral-200 px-4 py-3 dark:border-neutral-800">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">{label}</p>
-            <p className={cn('mt-1 font-semibold text-neutral-900 dark:text-neutral-100', emphasis ? 'text-2xl' : 'text-lg')}>
-                {value}
-            </p>
         </div>
     )
 }

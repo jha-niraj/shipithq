@@ -6,8 +6,7 @@ import { usePathname } from "next/navigation"
 import { Logo } from "@repo/ui/components/logo"
 import Link from "next/link"
 import { ThemeToggle } from "@repo/ui/components/themetoggle"
-import { AuthVisual } from "@repo/ui/components/auth-visual"
-import { AuthBackdropMobile, AuthBackdropPanel, AuthBackdropSurround } from "./auth-backdrop"
+import { AUTH_PHOTO_CREDIT, AuthBackdropMobile, AuthBackdropPanel, AuthBackdropSurround } from "./auth-backdrop"
 import { copyForPath } from "./auth-copy"
 
 /**
@@ -46,118 +45,85 @@ import { copyForPath } from "./auth-copy"
  */
 export function AuthShell({ children }: { children: ReactNode }) {
     const pathname = usePathname()
-    const { variant, headline, sub, quote } = copyForPath(pathname)
+    const { headline, sub } = copyForPath(pathname)
 
     return (
-        <div className="relative flex h-dvh w-full justify-center overflow-hidden bg-neutral-100 dark:bg-neutral-900 xl:p-6">
+        <div className="relative flex h-dvh w-full justify-center overflow-hidden bg-neutral-50 dark:bg-black xl:p-6">
             <AuthBackdropSurround />
 
-            {/* `relative` so the card stacks above the backdrop. The shadow is
-                heavier at xl than a flat `shadow-sm`, because a card floating on a
-                photograph needs to look like it is floating. */}
+            {/* The card floats on the app's plain backdrop at xl, as the app's own
+                cards do. */}
             <div className="relative flex h-full w-full max-w-7xl overflow-hidden bg-white ring-neutral-200 xl:rounded-3xl xl:shadow-2xl xl:shadow-neutral-900/10 xl:ring-1 dark:bg-neutral-950 dark:ring-neutral-800 dark:xl:shadow-black/40">
-                {/* ── Brand column. Light in both themes; see the note above. ── */}
+                {/* ── Brand column: the forest photograph, identical in both themes. ── */}
                 {/* CONSTANT INK. Every `dark:text-*` inside this panel is a bug, and they have been
-                    removed twice now - once when this was `bg-neutral-950` with white type, and
-                    again when an automated pass that pairs unpaired inks added them back.
-
-                    The surface is `bg-neutral-100` with no `dark:` variant, so it is LIGHT in
-                    both themes. Near-white ink on it in dark mode is invisible, which is
-                    exactly what the screenshots showed. The rule from CLAUDE.md: if a surface
-                    is constant across themes, its ink must be constant too.
+                    removed twice before. The surface is a photograph that does not change with
+                    the theme, so the ink cannot either: dark ink on the sky band at the top,
+                    white on the forest at the foot, each measured (see auth-backdrop.tsx). The
+                    rule from CLAUDE.md: if a surface is constant across themes, its ink must be
+                    constant too.
 
                     A sweep that reads only the element's own className cannot see this,
                     because the background lives on this aside and the text lives on its
                     descendants. Anything automated touching ink needs to skip this subtree. */}
                 <aside
                     data-constant-surface
-                    className="relative hidden h-full w-1/2 flex-col overflow-hidden bg-neutral-100 p-10 lg:flex xl:p-12"
+                    className="relative hidden h-full w-1/2 flex-col justify-between overflow-hidden p-10 lg:flex xl:p-12"
                 >
                     <AuthBackdropPanel />
 
-                    {/* A soft wash at the foot of the panel, under the artwork rather
-                        than under the copy - it settles the photo without lifting the
-                        headline's background toward the text colour. */}
-                    <div
-                        aria-hidden
-                        className="absolute inset-x-0 bottom-0 h-2/3"
-                        style={{
-                            background:
-                                "radial-gradient(60% 60% at 50% 70%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.2) 45%, transparent 75%)",
-                        }}
-                    />
+                    {/* Copy in the sky band only: the top 41% of the panel measures
+                        >= 4.5:1 for every ink used here (auth-backdrop.tsx). Sized to
+                        end by ~250px so it fits a 640px-tall panel; the larger
+                        headline only appears once the viewport is tall enough. */}
+                    <div className="relative z-10">
+                        <Link href="/" className="flex w-fit items-center gap-2.5">
+                            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-900/10 ring-1 ring-neutral-900/15">
+                                <Logo className="h-5 w-5 text-neutral-900" />
+                            </span>
+                            <span className="text-lg font-semibold tracking-tight text-neutral-900">ShipItHQ</span>
+                        </Link>
 
-                    <Link href="/" className="relative z-10 flex w-fit shrink-0 items-center gap-2.5">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-900/10 ring-1 ring-neutral-900/15">
-                            <Logo className="h-5 w-5 text-neutral-900" />
-                        </span>
-                        <span className="text-lg font-semibold tracking-tight text-neutral-900">ShipItHQ</span>
-                    </Link>
-
-                    {/* Copy block - high in the panel, left aligned. Keyed on the
-                        pathname so React cross-fades the text when the route changes
-                        instead of the browser repainting the whole panel. */}
-                    <div key={pathname} className="relative z-10 mt-10 max-w-sm shrink-0 xl:mt-12 xl:max-w-md">
-                        {/* Each line enters a beat after the one above it. The
-                            wrapper used to animate as a single block, which is what
-                            made the change feel abrupt - the whole panel's text
-                            appeared at once rather than composing itself. */}
-                        <h2
-                            className="auth-copy-enter text-3xl font-bold leading-tight tracking-tight text-neutral-900 xl:text-4xl"
-                            style={{ ["--enter-delay" as string]: "0ms" }}
-                        >
-                            {headline}
-                        </h2>
-                        {sub && (
-                            <p
-                                className="auth-copy-enter mt-4 text-base leading-relaxed text-neutral-700"
-                                style={{ ["--enter-delay" as string]: "70ms" }}
+                        {/* Keyed on the pathname so the copy cross-fades between routes. */}
+                        <div key={pathname} className="mt-8 max-w-md [@media(min-height:860px)]:mt-10">
+                            <h2
+                                className="auth-copy-enter text-3xl font-bold leading-tight tracking-tight text-neutral-900 [@media(min-height:860px)]:text-4xl"
+                                style={{ ["--enter-delay" as string]: "0ms" }}
                             >
-                                {sub}
-                            </p>
-                        )}
-                        {quote && (
-                            <p
-                                className="auth-copy-enter mt-6 border-l border-neutral-900/20 pl-4 text-sm italic leading-relaxed text-neutral-600 dark:text-neutral-400"
-                                style={{ ["--enter-delay" as string]: "140ms" }}
-                            >
-                                {quote}
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Artwork - takes whatever height is left under the copy. `min-h-0`
-                        lets it shrink inside the flex column on short viewports rather
-                        than pushing the footer off the bottom. */}
-                    <div className="relative z-0 flex min-h-0 flex-1 items-center justify-center py-6">
-                        {/* Wrapped rather than styled directly: AuthVisual takes only
-                            `variant` and `className`, and the delay has to ride on a
-                            custom property. */}
-                        <div
-                            key={variant}
-                            className="auth-art-enter flex h-full w-full items-center justify-center"
-                            style={{ ["--enter-delay" as string]: "180ms" }}
-                        >
-                            <AuthVisual
-                                variant={variant}
-                                className="h-full max-h-[340px] w-full max-w-[420px] text-neutral-900"
-                            />
+                                {headline}
+                            </h2>
+                            {sub && (
+                                <p
+                                    className="auth-copy-enter mt-3 line-clamp-2 text-[15px] leading-6 text-neutral-800"
+                                    style={{ ["--enter-delay" as string]: "70ms" }}
+                                >
+                                    {sub}
+                                </p>
+                            )}
                         </div>
                     </div>
 
-                    <div className="relative z-10 flex shrink-0 items-center justify-between">
-                        <p className="font-mono text-xs text-neutral-600 dark:text-neutral-400">
-                            Learn · Build · Get hired
-                        </p>
-                        <ThemeToggle />
-                    </div>
+                    {/* White on the dark forest: >= 14.5:1 at every panel size. */}
+                    <a
+                        href={AUTH_PHOTO_CREDIT.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="relative z-10 w-fit text-xs text-white/85 underline-offset-4 hover:underline"
+                    >
+                        Photo: {AUTH_PHOTO_CREDIT.name}, Unsplash
+                    </a>
                 </aside>
 
                 {/* ── Form column. Scrolls internally so the shell never grows. ── */}
                 <ScrollArea className="relative flex h-full w-full flex-col lg:w-1/2" reflow>
                     <AuthBackdropMobile />
 
-                    <div className="relative flex min-h-full items-center justify-center px-6 py-10 sm:px-10">
+                    {/* The theme toggle lives here at every width now: the brand panel
+                        carries no footer (its middle band cannot hold text). */}
+                    <div className="absolute right-6 top-6 z-10 hidden lg:block">
+                        <ThemeToggle />
+                    </div>
+
+                    <div className="relative flex min-h-[calc(100%-9rem)] items-center justify-center px-6 py-10 sm:min-h-[calc(100%-11rem)] sm:px-10 lg:min-h-full">
                         <div className="w-full max-w-md">
                             {/* Mobile brand + theme toggle - the aside is hidden below lg. */}
                             <div className="mb-8 flex items-center justify-between lg:hidden">

@@ -21,10 +21,8 @@ import {
     SheetHeader,
     SheetTitle, SheetTrigger
 } from '@repo/ui/components/ui/sheet'
-import {
-    Card, CardContent
-} from '@repo/ui/components/ui/card'
 import { cn } from '@repo/ui/lib/utils'
+import { StatBand } from '@repo/ui/components/ui/stat-band'
 import toast from '@repo/ui/components/ui/sonner'
 import {
     getProjectErrors, createProjectError,
@@ -500,32 +498,16 @@ export default function ErrorsTab({ projectId, isEnrolled, isCreator }: ErrorsTa
             </div>
             {
                 stats && stats.totalErrors > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <Card className="bg-gradient-to-br from-neutral-50 to-neutral-50 dark:from-neutral-800/20 dark:to-neutral-800/20 border-neutral-200 dark:border-neutral-800">
-                            <CardContent className="p-4">
-                                <div className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">{stats.totalErrors}</div>
-                                <div className="text-xs text-neutral-800 dark:text-neutral-200">Total Errors</div>
-                            </CardContent>
-                        </Card>
-                        <Card className="bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-red-200 dark:border-red-800">
-                            <CardContent className="p-4">
-                                <div className="text-2xl font-bold text-red-700 dark:text-red-400">{stats.bySeverity?.HIGH || 0}</div>
-                                <div className="text-xs text-red-600 dark:text-red-500">Common</div>
-                            </CardContent>
-                        </Card>
-                        <Card className="bg-gradient-to-br from-neutral-50 to-neutral-50 dark:from-neutral-800/20 dark:to-neutral-800/20 border-neutral-200 dark:border-neutral-800">
-                            <CardContent className="p-4">
-                                <div className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">{stats.bySeverity?.MEDIUM || 0}</div>
-                                <div className="text-xs text-neutral-800 dark:text-neutral-200">Occasional</div>
-                            </CardContent>
-                        </Card>
-                        <Card className="bg-gradient-to-br from-neutral-50 to-neutral-50 dark:from-neutral-800/20 dark:to-neutral-800/20 border-neutral-200 dark:border-neutral-800">
-                            <CardContent className="p-4">
-                                <div className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">{stats.bySeverity?.LOW || 0}</div>
-                                <div className="text-xs text-neutral-800 dark:text-neutral-200">Rare</div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                    <StatBand
+                        size="sm"
+                        cols={4}
+                        items={[
+                            { icon: Bug, label: "Total Errors", value: stats.totalErrors },
+                            { icon: AlertTriangle, label: "Common", value: stats.bySeverity?.HIGH || 0, tone: "rose" },
+                            { icon: AlertCircle, label: "Occasional", value: stats.bySeverity?.MEDIUM || 0 },
+                            { icon: Layers, label: "Rare", value: stats.bySeverity?.LOW || 0 },
+                        ]}
+                    />
                 )
             }
             <div className="flex flex-wrap items-center gap-3">

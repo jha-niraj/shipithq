@@ -146,6 +146,13 @@ export interface PracticeChatMessage {
      * the transcript per visit, and the memory job would read it as a real turn.
      */
     ephemeral?: boolean;
+    /**
+     * Which guided stage this turn belongs to (PD-16). The mentor panel shows one
+     * stage at a time, so going back to Understand shows what was said there rather
+     * than the whole run. Absent on older rows and on the unguided chat, which are
+     * treated as belonging to whatever stage is open.
+     */
+    stage?: PracticeStage;
 }
 
 // ── Progress & Leaderboard ──

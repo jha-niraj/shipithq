@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
     ArrowLeft, Clock, Send, CheckCircle2, AlertCircle, Play,
-    Mic, MicOff, Volume2, Square,
+    Mic, MicOff, Volume2, VolumeX, Square,
 } from "lucide-react";
 import { Button } from "@repo/ui/components/ui/button";
 import { Badge } from "@repo/ui/components/ui/badge";
@@ -17,12 +18,13 @@ import {
     usePracticeStore, type PracticeWorkspaceState,
 } from "@/app/store/practiceStore";
 import {
-    saveSessionProgress, updateSessionAfterAssess,
+    saveSessionProgress,
 } from "@/actions/(main)/practice";
 import {
     assessPracticeWork, getMentorResponse,
 } from "@/actions/(main)/practice";
-import { getScribeToken, generateTTSAudio } from "@/actions/(main)/practice";
+import { speakMentorReply } from "@/actions/(main)/practice";
+import { useDictation } from "@/hooks/useDictation";
 import {
     executeCode, type ExecuteCodeResult, type TestCase,
 } from "@/actions/(main)/practice/execute-code.action";
@@ -33,7 +35,6 @@ import type {
 } from "@/types/practice";
 import { getPathFromModule } from "@/types/practice";
 import { MarkdownRenderer } from "@/components/common/markdown-renderer";
-import { useScribe } from "@elevenlabs/react";
 import { TextSelectionToolbar } from "@/components/common/text-selection-toolbar";
 import toast from "@repo/ui/components/ui/sonner";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
@@ -50,7 +51,7 @@ import type { PracticeJudgeResult } from "@/types/practice";
 import { LANGUAGE_LABELS, hasTestsFor } from "@/lib/practice/starters";
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import type { PracticeStage } from "@repo/db";
-import { STAGE_LABELS, classOutline } from "@/lib/practice/mentor-prompt";
+import { STAGE_GOALS, STAGE_LABELS, classOutline } from "@/lib/practice/mentor-prompt";
 import { StageTracker } from "./stage-tracker";
 
 const ExcalidrawCanvas = dynamic(
@@ -58,7 +59,7 @@ const ExcalidrawCanvas = dynamic(
     {
         ssr: false,
         loading: () => (
-            <div className="h-full flex items-center justify-center bg-neutral-900 text-neutral-500 dark:text-neutral-400 text-sm">
+            <div className="h-full flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 text-neutral-500 dark:text-neutral-400 text-sm">
                 Loading canvas...
             </div>
         ),
@@ -70,9 +71,9 @@ const ExcalidrawCanvas = dynamic(
 // ─────────────────────────────────────────────
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-    EASY: "text-neutral-900",
-    MEDIUM: "text-neutral-900",
-    HARD: "text-red-500",
+    EASY: "text-neutral-700 dark:text-neutral-300",
+    MEDIUM: "text-neutral-900 dark:text-neutral-100",
+    HARD: "text-red-600 dark:text-red-400",
 };
 
 const DSA_LANGUAGES = ["javascript", "typescript", "python", "java", "cpp"];
@@ -85,7 +86,8 @@ interface PracticeWorkspaceProps {
 
 export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceProps) {
     const router = useRouter();
-    const { theme } = useTheme();
+    // resolvedTheme, not theme: "system" must follow the OS for the canvas too.
+    const { resolvedTheme } = useTheme();
     const store = usePracticeStore();
     const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -144,6 +146,7 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
                 role: "assistant",
                 content: applied.feedback,
                 timestamp: new Date().toISOString(),
+                stage: "reflect",
                 isAssessment: true,
             });
             if (applied.firstCompletion) toast.success(applied.score === 100 ? "Solved optimally. XP added." : "Problem finished. XP added.");
@@ -154,8 +157,11 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [session?.id]);
+    // "done" is in the list on purpose: a reflect job that failed leaves the stage
+    // at done with the session still IN_PROGRESS, and the way out of that has to be
+    // the same button, not a support message.
     const canFinish = mode === "ASSIST" && problem.module === "DSA" && session?.status !== "COMPLETED"
-        && (store.stage === "optimise" || store.stage === "reflect");
+        && (store.stage === "optimise" || store.stage === "reflect" || store.stage === "done");
 
     const runJudge = useCallback(async (kind: "run" | "submit") => {
         if (!session || judgeBusy) return;
@@ -205,34 +211,58 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [store.isTimerRunning]);
 
-    // Auto-save every 30s
+    /*
+     * Auto-save every 30 seconds, reading LIVE store state.
+     *
+     * This used to close over the store snapshot taken when the effect ran, so
+     * `isDirty` was forever false and `code` forever "": the timer fired every 30
+     * seconds and saved nothing. Twenty minutes of system-design canvas, or exam
+     * code on a problem with no judge, went with the tab. Everything inside the
+     * interval now comes from `getState()`, which is the current value by
+     * definition.
+     */
     useEffect(() => {
         if (!session) return;
-        autoSaveRef.current = setInterval(async () => {
-            if (store.isDirty) {
-                store.setSaving(true);
-                await saveSessionProgress(session.id, {
-                    code: store.code,
-                    cssCode: store.cssCode,
-                    canvasData: store.canvasData as object,
-                    language: store.language,
-                    chatHistory: store.chatHistory,
-                    totalTimeSeconds: store.elapsedSeconds,
-                });
-                store.markClean();
-                store.setSaving(false);
-            }
-        }, 30000);
+        const save = async () => {
+            const live = usePracticeStore.getState();
+            if (!live.isDirty) return;
+            live.setSaving(true);
+            const ok = await saveSessionProgress(session.id, {
+                code: live.code,
+                cssCode: live.cssCode,
+                canvasData: live.canvasData as object,
+                language: live.language,
+                chatHistory: live.chatHistory,
+                totalTimeSeconds: live.elapsedSeconds,
+            });
+            // A failed save must not mark the work clean, or the next tick skips it.
+            if (ok) live.markClean();
+            live.setSaving(false);
+        };
+        autoSaveRef.current = setInterval(() => { void save(); }, 30000);
+        // Leaving the page is the moment the unsaved work is about to be lost.
+        const onHide = () => { if (document.visibilityState === "hidden") void save(); };
+        document.addEventListener("visibilitychange", onHide);
+        window.addEventListener("pagehide", onHide);
         return () => {
+            document.removeEventListener("visibilitychange", onHide);
+            window.removeEventListener("pagehide", onHide);
+            void save();
             if (autoSaveRef.current) clearInterval(autoSaveRef.current);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [session?.id]);
 
-    const handleBack = () => {
-        const path = getPathFromModule(problem.module);
-        router.push(`/practice/${path}`);
-    };
+    // A link, not a push: back to the list is a navigation, so it should be
+    // middle-clickable and announce itself as a link (CLAUDE.md, Conventions).
+    const backHref = `/practice/${getPathFromModule(problem.module)}`;
+    const handleBack = () => router.push(backHref);
+
+    /**
+     * How long an exam attempt gets, by difficulty, in minutes. A decision, not a
+     * constant to tune quietly: plan/practice-dsa, PD-17.
+     */
+    const EXAM_MINUTES: Record<string, number> = { EASY: 20, MEDIUM: 35, HARD: 50 };
 
     const formatTime = (seconds: number): string => {
         const m = Math.floor(seconds / 60);
@@ -242,9 +272,9 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
 
     if (!session) {
         return (
-            <div className="h-dvh flex items-center justify-center bg-neutral-950 text-white">
+            <div className="h-dvh flex items-center justify-center bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
                 <div className="text-center">
-                    <AlertCircle className="h-8 w-8 text-red-400 mx-auto mb-3" />
+                    <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400 mx-auto mb-3" />
                     <p className="text-sm">Please sign in to start practicing.</p>
                     <Button variant="outline" onClick={handleBack} className="mt-4">
                         Go Back
@@ -254,33 +284,85 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
         );
     }
 
+    /*
+     * Below lg the three columns STACK.
+     *
+     * They were always horizontal, so on a 380px screen the statement got about
+     * 95px and the mentor about 130px: the workspace simply did not work on a
+     * phone. Vertical keeps all three, each scrolling and each resizable, which is
+     * what a narrow screen can actually hold.
+     */
+    const [isNarrow, setIsNarrow] = useState(false);
+    useEffect(() => {
+        const mq = window.matchMedia("(max-width: 1023px)");
+        const update = () => setIsNarrow(mq.matches);
+        update();
+        mq.addEventListener("change", update);
+        return () => mq.removeEventListener("change", update);
+    }, []);
+
+    // Recomputed every render; the store's one-second tick is what re-renders us.
+    const examSeconds = (EXAM_MINUTES[problem.difficulty] ?? 35) * 60;
+    const startedAtMs = session?.startedAt ? new Date(session.startedAt).getTime() : Date.now();
+    const remainingSeconds = Math.round(examSeconds - (Date.now() - startedAtMs) / 1000);
+    const overtime = remainingSeconds < 0;
+
     const isWebModule = problem.module === "WEB_FRONTEND" || problem.module === "WEB_BACKEND";
     const isSystemDesign = problem.module === "SYSTEM_DESIGN";
 
     return (
-        <div className="h-dvh flex flex-col bg-neutral-950 text-white">
-            <header className="h-12 border-b border-neutral-800 flex items-center justify-between px-4 flex-shrink-0 bg-neutral-950/90 backdrop-blur-sm">
+        // `--page-h` is the viewport minus the mobile bottom bar; `h-dvh` put the
+        // composer and the Submit row underneath that bar.
+        <div className="flex h-[var(--page-h,100dvh)] flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
+            <header className="h-12 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between px-4 flex-shrink-0 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-sm">
                 <div className="flex items-center gap-3">
-                    <button onClick={handleBack} className="cursor-pointer text-neutral-600 dark:text-neutral-400 hover:text-white transition-colors">
+                    <Link
+                        href={backHref}
+                        aria-label="Back to the problem list"
+                        title="Back to the problem list"
+                        className="cursor-pointer text-neutral-600 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                    >
                         <ArrowLeft className="h-4 w-4" />
-                    </button>
-                    <div className="h-4 w-px bg-neutral-700" />
+                    </Link>
+                    <div className="h-4 w-px bg-neutral-900 dark:bg-neutral-700" />
                     <h1 className="text-sm font-medium truncate max-w-[300px]">{problem.title}</h1>
-                    <Badge variant="outline" className={cn("text-xs border-neutral-700", DIFFICULTY_COLORS[problem.difficulty])}>
+                    <Badge variant="outline" className={cn("text-xs border-neutral-300 dark:border-neutral-700", DIFFICULTY_COLORS[problem.difficulty])}>
                         {problem.difficulty}
                     </Badge>
                     <Badge variant="outline" className={cn(
-                        "text-xs border-neutral-700",
-                        mode === "EXAM" ? "text-red-400 border-red-800" : "text-neutral-800 dark:text-neutral-200 border-neutral-800"
+                        "text-xs border-neutral-300 dark:border-neutral-700",
+                        mode === "EXAM" ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800" : "text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-neutral-800"
                     )}>
                         {mode === "EXAM" ? "🔒 Exam" : "💡 Assist"}
                     </Badge>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 text-neutral-600 dark:text-neutral-400 text-xs">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span className="font-mono">{formatTime(store.elapsedSeconds)}</span>
-                    </div>
+                    {/*
+                     * The clock belongs to the exam, and to nothing else.
+                     *
+                     * Assist mode had one too, which turned learning into a race nobody
+                     * asked for. And it counted the session's saved seconds, so a reload
+                     * showed a number that had nothing to do with this attempt.
+                     *
+                     * The remaining time is worked out from the session's `startedAt`,
+                     * which the server owns, so a reload, a second tab and a closed
+                     * laptop all agree. Running out changes the reading, never the work:
+                     * it says how far over you are and both buttons keep working.
+                     */}
+                    {mode === "EXAM" && (
+                        <span
+                            className={cn(
+                                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium tabular-nums",
+                                overtime
+                                    ? "border-red-300 text-red-600 dark:border-red-900 dark:text-red-400"
+                                    : "border-neutral-300 text-neutral-700 dark:border-neutral-700 dark:text-neutral-200",
+                            )}
+                            title={`${EXAM_MINUTES[problem.difficulty] ?? 35} minutes for a ${problem.difficulty.toLowerCase()} problem`}
+                        >
+                            <Clock className="h-3.5 w-3.5" aria-hidden />
+                            {overtime ? `over by ${formatTime(-remainingSeconds)}` : `${formatTime(remainingSeconds)} left`}
+                        </span>
+                    )}
                     {
                         store.isSaving && (
                             <span className="text-xs text-neutral-500 dark:text-neutral-400 animate-pulse">Saving...</span>
@@ -292,7 +374,7 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
                                 size="sm"
                                 variant="outline"
                                 disabled={isRunning || judgeBusy !== null}
-                                className="text-xs h-8 border-neutral-700 hover:bg-neutral-800 disabled:opacity-50"
+                                className="text-xs h-8 border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
                                 onClick={async () => {
                                     if (usesJudge) {
                                         await runJudge("run");
@@ -346,7 +428,7 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
                                 onClick={finishSession}
                                 disabled={finishing}
                                 title={store.stage === "optimise" ? "Finish now at the brute-force score, or keep going for the optimal solution" : undefined}
-                                className="text-xs h-8 border-neutral-700 hover:bg-neutral-800 disabled:opacity-50"
+                                className="text-xs h-8 border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
                             >
                                 {finishing ? <><InlineLoader size="sm" className="mr-1.5" />Reviewing...</> : <><Flag className="h-3.5 w-3.5 mr-1.5" />Finish</>}
                             </Button>
@@ -358,7 +440,7 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
                                 size="sm"
                                 onClick={() => runJudge("submit")}
                                 disabled={judgeBusy !== null}
-                                className="bg-neutral-100 hover:bg-white text-neutral-900 text-xs h-8"
+                                className="bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white text-xs h-8"
                             >
                                 {judgeBusy === "submit" ? (
                                     <><InlineLoader size="sm" className="mr-1.5" />Submitting...</>
@@ -372,8 +454,8 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
                     }
                 </div>
             </header>
-            <PanelGroup orientation="horizontal" className="h-[calc(100dvh-48px)]">
-                <Panel defaultSize="25%" minSize="15%" maxSize="40%">
+            <PanelGroup orientation={isNarrow ? "vertical" : "horizontal"} className="h-[calc(var(--page-h,100dvh)-48px)]">
+                <Panel defaultSize={isNarrow ? "30%" : "25%"} minSize="15%" maxSize={isNarrow ? "60%" : "40%"}>
                     <div className="h-full overflow-hidden relative" ref={problemPanelRef}>
                         <ProblemPanel problem={problem} requirementsMet={store.requirementsMet} />
                         {
@@ -393,8 +475,8 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
                         }
                     </div>
                 </Panel>
-                <PanelResizeHandle className="w-1 bg-neutral-800 hover:bg-neutral-900 transition-colors cursor-col-resize" />
-                <Panel defaultSize={mode === "ASSIST" ? "40%" : "75%"} minSize="30%">
+                <PanelResizeHandle className={cn("bg-neutral-200 transition-colors dark:bg-neutral-800", isNarrow ? "h-1 w-full cursor-row-resize" : "w-1 cursor-col-resize")} />
+                <Panel defaultSize={mode === "ASSIST" ? (isNarrow ? "40%" : "40%") : "70%"} minSize={isNarrow ? "20%" : "30%"}>
                     <div className="h-full overflow-hidden flex flex-col">
                         {
                             isSystemDesign ? (
@@ -408,7 +490,7 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
                                         <ExcalidrawCanvas
                                             initialData={store.canvasData}
                                             onChange={(data: { elements: unknown[]; appState: unknown }) => store.setCanvasData(data)}
-                                            darkMode={theme === "dark"}
+                                            darkMode={resolvedTheme === "dark"}
                                         />
                                     </div>
                                 </div>
@@ -427,7 +509,10 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
                                     }
                                     <div className={cn(
                                         "overflow-hidden",
-                                        isWebModule ? "h-[55%]" :
+                                        // Frontend gets the live preview under it, backend the API
+                                        // tester; the two used to add up to 140% of the column.
+                                        problem.module === "WEB_FRONTEND" ? "h-[55%]" :
+                                        problem.module === "WEB_BACKEND" ? "h-[60%]" :
                                         usesJudge ? "min-h-0 flex-1" :
                                         showOutput && execResult ? "h-[60%]" : "min-h-0 flex-1"
                                     )}>
@@ -467,15 +552,17 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
                                         />
                                     )}
                                     {
-                                        isWebModule && (
-                                            <div className="h-[45%] border-t border-neutral-800">
+                                        // A rendered HTML preview of server-side code says nothing;
+                                        // the preview belongs to the frontend module only.
+                                        problem.module === "WEB_FRONTEND" && (
+                                            <div className="h-[45%] border-t border-neutral-200 dark:border-neutral-800">
                                                 <WebPreview code={store.code} css={store.cssCode} />
                                             </div>
                                         )
                                     }
                                     {
                                         problem.module === "WEB_BACKEND" && problem.testCases && (
-                                            <div className="h-[40%] border-t border-neutral-800">
+                                            <div className="h-[40%] min-h-0 border-t border-neutral-200 dark:border-neutral-800">
                                                 <APITester
                                                     testCases={problem.testCases}
                                                     code={store.code}
@@ -503,8 +590,8 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
                 {
                     mode === "ASSIST" && (
                         <>
-                            <PanelResizeHandle className="w-1 bg-neutral-800 hover:bg-neutral-900 transition-colors cursor-col-resize" />
-                            <Panel defaultSize="35%" minSize="20%" maxSize="50%">
+                            <PanelResizeHandle className={cn("bg-neutral-200 transition-colors dark:bg-neutral-800", isNarrow ? "h-1 w-full cursor-row-resize" : "w-1 cursor-col-resize")} />
+                            <Panel defaultSize={isNarrow ? "30%" : "35%"} minSize="20%" maxSize={isNarrow ? "60%" : "50%"}>
                                 <div className="h-full overflow-hidden">
                                     <ChatPanel problem={problem} store={store} session={session} sendToChatRef={sendToChatRef} onStageDone={finishSession} />
                                 </div>
@@ -519,8 +606,8 @@ export function PracticeWorkspace({ problem, session, mode }: PracticeWorkspaceP
 
 /**
  * One line above the DSA editor: the signature when the language has tests,
- * and an honest notice when it does not (PD-5). The workspace surface is a
- * constant dark, so the ink is constant too.
+ * and an honest notice when it does not (PD-5). Themed like the rest of the
+ * workspace (plan/practice-ui, UI-4).
  */
 function EditorStrip({
     usesJudge,
@@ -535,16 +622,11 @@ function EditorStrip({
     judgeStatus: PracticeProblemDetail["judge"]["judgeStatus"];
     testedLanguages: string[];
 }) {
-    if (usesJudge) {
-        return (
-            <div className="flex h-9 shrink-0 items-center gap-2 overflow-hidden border-b border-neutral-800 bg-neutral-950 px-3">
-                <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Write</span>
-                <code className="truncate font-mono text-xs text-neutral-200" title={signature ? classOutline(signature) : undefined}>
-                    {signature ? classOutline(signature) : ""}
-                </code>
-            </div>
-        );
-    }
+    // Nothing above the editor when the language has tests (Niraj, 2026-09-22:
+    // "remove this element from here"). The signature was already the first line
+    // of the starter code in the editor below it, so the strip repeated it and
+    // cost a row of the editor's height.
+    if (usesJudge) return null;
     const label = LANGUAGE_LABELS[language] ?? language;
     const tested = testedLanguages.map((l) => LANGUAGE_LABELS[l] ?? l).join(" or ");
     const message =
@@ -554,7 +636,7 @@ function EditorStrip({
                 ? "Tests could not be prepared for this problem. Run prints your program's output and the mentor reads it."
                 : "Tests for this problem are still being prepared. Run prints your program's output for now.";
     return (
-        <div role="note" className="flex min-h-9 shrink-0 items-center border-b border-neutral-800 bg-neutral-900 px-3 py-2 text-xs leading-snug text-neutral-300">
+        <div role="note" className="flex min-h-9 shrink-0 items-center border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-3 py-2 text-xs leading-snug text-neutral-700 dark:text-neutral-300">
             {message}
         </div>
     );
@@ -576,10 +658,19 @@ function ProblemPanel({
                         {problem.difficulty}
                     </Badge>
                 </div>
-                <div className="prose prose-invert prose-sm max-w-none">
+                <div className="prose dark:prose-invert prose-sm max-w-none">
                     <MarkdownRenderer
                         content={problem.description}
-                        className="[&>*:first-child]:mt-0 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-3 [&_p]:text-neutral-600 dark:text-neutral-400 [&_p]:text-sm [&_p]:leading-relaxed [&_code]:text-xs [&_li]:text-sm [&_li]:text-neutral-600"
+                        /*
+                         * Body ink, not grey-on-black.
+                         *
+                         * `[&_li]:text-neutral-600` had no dark variant, so every bullet
+                         * in the statement rendered #525252 on black - about 2.8:1, under
+                         * half the 4.5:1 AA needs (Niraj, 2026-09-22: "the text are not
+                         * showing properly"). Paragraphs were neutral-400, readable but
+                         * washed out for the page's primary content.
+                         */
+                        className="[&>*:first-child]:mt-0 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-4 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-3 [&_p]:text-sm [&_p]:leading-relaxed [&_p]:text-neutral-800 dark:[&_p]:text-neutral-200 [&_code]:text-xs [&_li]:text-sm [&_li]:leading-relaxed [&_li]:text-neutral-800 dark:[&_li]:text-neutral-200 [&_strong]:text-neutral-900 dark:[&_strong]:text-white"
                     />
                 </div>
                 <div>
@@ -596,10 +687,10 @@ function ProblemPanel({
                                             met ? (
                                                 <CheckCircle2 className="h-4 w-4 text-neutral-900 dark:text-neutral-100 flex-shrink-0 mt-0.5" />
                                             ) : (
-                                                <div className="h-4 w-4 rounded-full border border-neutral-600 flex-shrink-0 mt-0.5" />
+                                                <div className="h-4 w-4 rounded-full border border-neutral-300 dark:border-neutral-600 flex-shrink-0 mt-0.5" />
                                             )
                                         }
-                                        <span className={cn("text-sm", met ? "text-neutral-600" : "text-neutral-500 dark:text-neutral-400")}>
+                                        <span className={cn("text-sm", met ? "text-neutral-600 dark:text-neutral-400" : "text-neutral-500 dark:text-neutral-400")}>
                                             {req}
                                         </span>
                                     </div>
@@ -616,7 +707,7 @@ function ProblemPanel({
                         <div className="flex flex-wrap gap-1.5 pt-2">
                             {
                                 problem.tags.map((tag) => (
-                                    <Badge key={tag} variant="outline" className="text-xs border-neutral-700 text-neutral-600 dark:text-neutral-400">
+                                    <Badge key={tag} variant="outline" className="text-xs border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400">
                                         {tag}
                                     </Badge>
                                 ))
@@ -637,7 +728,7 @@ function HintsSection({ hints }: { hints: string[] }) {
             <div className="space-y-2">
                 {
                     hints.slice(0, revealed).map((hint, i) => (
-                        <p key={i} className="text-sm text-neutral-400 bg-neutral-900 rounded-lg p-3 border border-neutral-800">
+                        <p key={i} className="text-sm text-neutral-600 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-900 rounded-lg p-3 border border-neutral-200 dark:border-neutral-800">
                             💡 {hint}
                         </p>
                     ))
@@ -666,7 +757,7 @@ function WebPreview({ code, css }: { code: string; css: string }) {
 
     return (
         <div className="h-full flex flex-col">
-            <div className="h-8 bg-neutral-900 border-b border-neutral-800 flex items-center px-3">
+            <div className="h-8 bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 flex items-center px-3">
                 <span className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Live Preview</span>
             </div>
             <iframe srcDoc={srcDoc} className="flex-1 bg-white" sandbox="allow-scripts" title="Live Preview" />
@@ -684,16 +775,16 @@ function OutputPanel({
     onClose: () => void;
 }) {
     return (
-        <div className="h-[40%] border-t border-neutral-800 flex flex-col bg-neutral-950">
-            <div className="h-8 flex items-center justify-between px-3 border-b border-neutral-800 flex-shrink-0">
+        <div className="h-[40%] border-t border-neutral-200 dark:border-neutral-800 flex flex-col bg-white dark:bg-neutral-950">
+            <div className="h-8 flex items-center justify-between px-3 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Output</span>
                     {result && !isRunning && (
                         <span className={cn(
                             "text-xs font-medium px-1.5 py-0.5 rounded",
                             result.exitCode === 0
-                                ? "bg-neutral-900/50 text-neutral-800 dark:text-neutral-200"
-                                : "bg-red-900/50 text-red-400"
+                                ? "bg-neutral-100 dark:bg-neutral-900/50 text-neutral-800 dark:text-neutral-200"
+                                : "bg-red-50 dark:bg-red-900/50 text-red-600 dark:text-red-400"
                         )}>
                             {result.exitCode === 0 ? "✓ Exited 0" : `✗ Exit ${result.exitCode ?? "err"}`}
                         </span>
@@ -713,7 +804,7 @@ function OutputPanel({
                 ) : result ? (
                     <div className="space-y-3">
                         {result.error && !result.stdout && !result.stderr && (
-                            <div className="text-red-400">{result.error}</div>
+                            <div className="text-red-600 dark:text-red-400">{result.error}</div>
                         )}
                         {result.stdout && (
                             <div>
@@ -724,7 +815,7 @@ function OutputPanel({
                         {result.stderr && (
                             <div>
                                 <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">STDERR</div>
-                                <pre className="text-red-400 whitespace-pre-wrap break-all">{result.stderr}</pre>
+                                <pre className="text-red-600 dark:text-red-400 whitespace-pre-wrap break-all">{result.stderr}</pre>
                             </div>
                         )}
                         {result.testResults && result.testResults.length > 0 && (
@@ -737,11 +828,11 @@ function OutputPanel({
                                         <div key={i} className={cn(
                                             "rounded px-2.5 py-1.5 border",
                                             tc.passed
-                                                ? "border-neutral-800 bg-neutral-950/30"
-                                                : "border-red-800 bg-red-950/30"
+                                                ? "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950/30"
+                                                : "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30"
                                         )}>
                                             <div className="flex items-center gap-1.5">
-                                                <span className={tc.passed ? "text-neutral-800 dark:text-neutral-200" : "text-red-400"}>
+                                                <span className={tc.passed ? "text-neutral-800 dark:text-neutral-200" : "text-red-600 dark:text-red-400"}>
                                                     {tc.passed ? "✓" : "✗"}
                                                 </span>
                                                 <span className="text-neutral-600 dark:text-neutral-400 text-xs">
@@ -760,7 +851,7 @@ function OutputPanel({
                                                     </div>
                                                     <div>
                                                         <span className="text-neutral-500 dark:text-neutral-400">Got: </span>
-                                                        <span className="text-red-400">{tc.actualOutput || "(none)"}</span>
+                                                        <span className="text-red-600 dark:text-red-400">{tc.actualOutput || "(none)"}</span>
                                                     </div>
                                                 </div>
                                             )}
@@ -797,22 +888,24 @@ function ChatPanel({
     const scrollRef = useRef<HTMLDivElement>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    // ── ElevenLabs Scribe (official real-time STT) ──
-    const scribe = useScribe({
-        onPartialTranscript: (data) => {
-            // Live partial transcript → show in input box in real time
-            store.setVoiceTranscript(data.text);
-            setInput(data.text);
-        },
-        onCommittedTranscript: (data) => {
-            // Final committed transcript → set in input
-            const committed = data.text.trim();
-            if (committed) {
-                setInput(committed);
-                store.setVoiceTranscript(committed);
-            }
+    /*
+     * Speaking to the mentor (plan/practice-workspace, PW-5).
+     *
+     * Sarvam AI, through our own route: the browser records and the words so far
+     * land in the composer every couple of seconds. The person presses Send, so a
+     * misheard word is theirs to fix before the mentor ever sees it.
+     */
+    const spokeThisTurn = useRef(false);
+    const dictation = useDictation({
+        onText: (text) => {
+            spokeThisTurn.current = true;
+            setInput(text);
+            store.setVoiceTranscript(text);
         },
     });
+
+    /** The mentor answers out loud only when it was spoken to (Niraj, 2026-09-22). */
+    const [muted, setMuted] = useState(false);
 
     // Auto-scroll to bottom on new messages.
     //
@@ -827,37 +920,19 @@ function ChatPanel({
         if (viewport) viewport.scrollTop = viewport.scrollHeight;
     }, [store.chatHistory.length, store.isChatLoading]);
 
-    // ── Start/Stop voice recording ──
-    const toggleVoice = async () => {
-        if (scribe.isConnected) {
-            // Stop recording
-            scribe.disconnect();
+    // ── Start/Stop speaking ──
+    // Stopping does NOT send: the words go into the box and wait, because a
+    // transcript nobody checked is a turn the mentor answers wrongly.
+    const toggleVoice = () => {
+        if (dictation.isListening) {
             store.setVoiceActive(false);
-
-            // Auto-send the transcript if we have content
-            const transcript = input.trim();
-            if (transcript) {
-                handleSend(transcript);
-            }
-        } else {
-            // Start recording - fetch single-use token from server
-            const tokenResult = await getScribeToken();
-            if (!tokenResult.success) {
-                console.error("Failed to get scribe token:", tokenResult.error);
-                return;
-            }
-
-            store.setVoiceActive(true);
-            setInput(""); // Clear input for fresh transcript
-
-            await scribe.connect({
-                token: tokenResult.token,
-                microphone: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                },
-            });
+            void dictation.stop();
+            return;
         }
+        store.setVoiceActive(true);
+        setInput("");
+        store.setVoiceTranscript("");
+        void dictation.start();
     };
 
     // Guided mentor (DSA, ASSIST): the stage-aware route with memory (PD-6/7).
@@ -956,6 +1031,18 @@ function ChatPanel({
                     }
                 }
             }
+            /*
+             * Spoken to, spoken back (PW-5).
+             *
+             * The reply is read out only when the turn that prompted it was spoken,
+             * and only while the panel is unmuted. Someone typing gets a silent
+             * mentor, which is what they asked for by typing.
+             */
+            if (spokeThisTurn.current && !muted && accumulated.trim()) {
+                void playTTS(accumulated);
+            }
+            spokeThisTurn.current = false;
+
             // A stage boundary is when memory is consolidated (PD-8). Save first:
             // the job reads the transcript from the database, not from here.
             if (stageMoved) {
@@ -983,7 +1070,49 @@ function ChatPanel({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [problem.slug, problem.module, session.id, session.attempts]);
 
-    // ── Send message (streaming) ──
+
+    /*
+     * ONE STAGE AT A TIME (PD-16).
+     *
+     * The transcript is one array, but the panel belongs to the stage you are in:
+     * going back to Understand should show what was said there, not the whole run.
+     * Turns saved before this shipped have no stage, so they are treated as part of
+     * whatever stage is open - which is where they were written.
+     */
+    const stageMessages = useMemo(
+        () => (guided ? store.chatHistory.filter((m) => (m.stage ?? store.stage) === store.stage) : store.chatHistory),
+        [guided, store.chatHistory, store.stage],
+    );
+
+    /*
+     * The stage's question, ASKED rather than printed.
+     *
+     * The stage's goal used to sit under the tracker as a caption, so the panel
+     * opened with nobody having said anything (Niraj, 2026-09-22: "this line needs
+     * to be as something the model is asking"). It is written into the transcript
+     * once per stage instead, so it reads as the mentor's turn, it is saved with the
+     * rest, and coming back to the stage shows the conversation from its first line.
+     */
+    const seeded = useRef<string | null>(null);
+    useEffect(() => {
+        if (!guided || store.isChatLoading) return;
+        const stage = store.stage;
+        if (stage === "done" || seeded.current === stage) return;
+        const has = store.chatHistory.some((m) => (m.stage ?? stage) === stage);
+        if (has) {
+            seeded.current = stage;
+            return;
+        }
+        seeded.current = stage;
+        store.addChatMessage({
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: STAGE_GOALS[stage],
+            timestamp: new Date().toISOString(),
+            stage,
+        });
+    }, [guided, store.stage, store.chatHistory, store.isChatLoading, store]);
+
     const handleSend = useCallback(async (messageText?: string) => {
         const trimmed = (messageText ?? input).trim();
         if (!trimmed || usePracticeStore.getState().isChatLoading) return;
@@ -992,6 +1121,7 @@ function ChatPanel({
             role: "user",
             content: trimmed,
             timestamp: new Date().toISOString(),
+            stage: usePracticeStore.getState().stage,
         });
         setInput("");
         store.setVoiceTranscript("");
@@ -1037,9 +1167,9 @@ function ChatPanel({
 
         setIsSpeaking(true);
         try {
-            const result = await generateTTSAudio(text);
+            const result = await speakMentorReply(text);
             if (result.success) {
-                const audio = new Audio(`data:audio/mp3;base64,${result.audioBase64}`);
+                const audio = new Audio(`data:${result.mimeType};base64,${result.audioBase64}`);
                 audioRef.current = audio;
                 audio.onended = () => {
                     setIsSpeaking(false);
@@ -1060,16 +1190,33 @@ function ChatPanel({
 
     return (
         <div className="h-full flex flex-col">
-            <div className="h-10 shrink-0 border-b border-neutral-800 flex items-center justify-between px-4">
-                <span className="text-xs font-semibold text-neutral-300">{guided ? "Mentor" : "AI Mentor"}</span>
-                {
-                    scribe.isConnected && (
-                        <span className="text-xs text-red-400 animate-pulse flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                            Listening...
+            <div className="h-10 shrink-0 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between px-4">
+                <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">{guided ? "Mentor" : "AI Mentor"}</span>
+                <div className="flex items-center gap-3">
+                    {dictation.status === "listening" && (
+                        <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400" role="status">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+                            Listening
                         </span>
-                    )
-                }
+                    )}
+                    {dictation.status === "transcribing" && (
+                        <span className="text-xs text-neutral-600 dark:text-neutral-400" role="status">Writing that down</span>
+                    )}
+                    {/* The mentor reads its reply out when it was spoken to; this turns
+                        that off for someone working somewhere quiet. */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setMuted((m) => !m);
+                            if (!muted && audioRef.current) { audioRef.current.pause(); audioRef.current = null; setIsSpeaking(false); }
+                        }}
+                        aria-pressed={muted}
+                        title={muted ? "The mentor stays silent" : "The mentor reads its reply when you speak"}
+                        className="cursor-pointer text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                    >
+                        {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                    </button>
+                </div>
             </div>
             {guided && <StageTracker stage={store.stage} />}
             <ScrollArea ref={scrollRef} className="min-h-0 flex-1" viewportClassName="p-4 space-y-3" reflow>
@@ -1083,7 +1230,7 @@ function ChatPanel({
                     )
                 }
                 {
-                    store.chatHistory.map((msg: PracticeChatMessage) => (
+                    stageMessages.map((msg: PracticeChatMessage) => (
                         <ChatBubble
                             key={msg.id}
                             message={msg}
@@ -1103,7 +1250,7 @@ function ChatPanel({
             </ScrollArea>
 
             {
-                scribe.isConnected && store.voiceTranscript && (
+                dictation.isListening && store.voiceTranscript && (
                     <div className="px-4 pb-1">
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 italic truncate">
                             🎙️ {store.voiceTranscript}
@@ -1112,38 +1259,54 @@ function ChatPanel({
                 )
             }
 
-            <div className="border-t border-neutral-800 p-3">
-                <div className="flex items-end gap-2">
+            <div className="border-t border-neutral-200 dark:border-neutral-800 p-3">
+                {/*
+                  * ONE box, and the box IS the control.
+                  *
+                  * It was a two-row textarea with the mic and send beside it, so the
+                  * typing area was a strip inside a much taller bordered box and the
+                  * caret landed in a corner of it (Niraj, 2026-09-22: "why it is
+                  * focusing a small part"). Now the border belongs to the whole thing,
+                  * the field fills it, and the buttons sit under the text.
+                  */}
+                <div className="flex flex-col gap-1 rounded-xl border border-neutral-300 bg-white px-1 py-1 transition-colors focus-within:border-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:focus-within:border-neutral-500">
                     <Textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={scribe.isConnected ? "Listening... speak now" : guided ? "Answer the mentor, or ask anything" : "Ask for a hint..."}
-                        rows={2}
-                        className="bg-neutral-900 dark:bg-white border-neutral-700 text-sm resize-none text-white dark:text-neutral-900 placeholder:text-neutral-500 focus-visible:ring-neutral-600"
+                        placeholder={dictation.isListening ? "Listening. Speak, then check the words before you send." : guided ? "Answer the mentor, or ask anything" : "Ask for a hint..."}
+                        rows={1}
+                        className="min-h-[76px] max-h-56 w-full resize-none border-0 bg-transparent px-2.5 py-2 text-sm leading-relaxed text-neutral-900 shadow-none focus-visible:ring-0 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-400"
                     />
+                    <div className="flex items-center justify-end gap-1 px-1 pb-0.5">
                     <Button
                         size="icon"
                         variant="ghost"
                         onClick={toggleVoice}
                         className={cn(
                             "h-9 w-9 flex-shrink-0 transition-colors",
-                            scribe.isConnected
-                                ? "text-red-400 hover:text-red-300 bg-red-900/20"
-                                : "text-neutral-600 dark:text-neutral-400 hover:text-white"
+                            dictation.isListening
+                                ? "text-red-600 dark:text-red-400 hover:text-red-300 bg-red-50 dark:bg-red-900/20"
+                                : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white",
+                            dictation.unavailable && "opacity-40",
                         )}
+                        disabled={dictation.unavailable || dictation.status === "transcribing"}
+                        title={dictation.unavailable ? "Voice is unavailable right now. You can still type." : dictation.isListening ? "Stop and check the words" : "Speak your answer"}
                     >
-                        {scribe.isConnected ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                        {dictation.isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                     </Button>
                     <Button
                         size="icon"
                         variant="ghost"
                         onClick={() => handleSend()}
                         disabled={!input.trim() || store.isChatLoading}
-                        className="h-9 w-9 text-neutral-600 dark:text-neutral-400 hover:text-white flex-shrink-0"
+                        aria-label="Send message"
+                        title="Send"
+                        className="h-9 w-9 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex-shrink-0"
                     >
                         <Send className="h-4 w-4" />
                     </Button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1163,9 +1326,9 @@ function ChatBubble({
     if (message.role === "system") {
         return (
             <div className="flex items-center gap-3 py-1" role="status">
-                <span className="h-px flex-1 bg-neutral-800" />
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">{message.content}</span>
-                <span className="h-px flex-1 bg-neutral-800" />
+                <span className="h-px flex-1 bg-neutral-100 dark:bg-neutral-800" />
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">{message.content}</span>
+                <span className="h-px flex-1 bg-neutral-100 dark:bg-neutral-800" />
             </div>
         );
     }
@@ -1177,8 +1340,8 @@ function ChatBubble({
                 className={cn(
                     "max-w-[90%] rounded-lg px-3 py-2 text-sm",
                     isUser
-                        ? "bg-neutral-700 text-white"
-                        : "bg-neutral-900 text-neutral-300 border border-neutral-800"
+                        ? "bg-neutral-900 text-white dark:bg-neutral-700"
+                        : "bg-neutral-50 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800"
                 )}
             >
                 {
@@ -1187,7 +1350,7 @@ function ChatBubble({
                     ) : (
                         <MarkdownRenderer
                             content={message.content}
-                            className="prose-invert prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:mb-2 [&_code]:text-xs [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:space-y-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:space-y-1 [&_li]:pl-1 [&_li]:leading-relaxed"
+                            className="dark:prose-invert prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:mb-2 [&_code]:text-xs [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:space-y-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:space-y-1 [&_li]:pl-1 [&_li]:leading-relaxed"
                         />
                     )
                 }
@@ -1278,12 +1441,8 @@ function SubmitButton({
                 result.result.requirementsMet
             );
 
-            await updateSessionAfterAssess(session.id, {
-                score: result.result.score,
-                feedback: result.result.feedback,
-                requirementsMet: result.result.requirementsMet,
-                xpAwarded: result.result.xpAwarded,
-            });
+            // The session was written by `assessPracticeWork` itself (PD-18). The
+            // client shows the result; it no longer reports it.
         } else {
             store.setAssessing(false);
         }
@@ -1294,7 +1453,7 @@ function SubmitButton({
             size="sm"
             onClick={handleSubmit}
             disabled={store.isAssessing}
-            className="bg-neutral-800 hover:bg-neutral-700 text-white text-xs h-8"
+            className="bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white text-xs h-8"
         >
             {
                 store.isAssessing ? (

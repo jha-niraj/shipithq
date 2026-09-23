@@ -18,15 +18,15 @@ const Input = React.forwardRef<
 					px-3 text-sm
 
 					text-neutral-900 dark:text-neutral-100
-					placeholder:text-neutral-400 dark:placeholder:text-neutral-500
+					placeholder:text-neutral-500 dark:placeholder:text-neutral-400
 
 					transition-colors
 					hover:bg-neutral-50 dark:hover:bg-neutral-800
 
-					focus:outline-none
-					focus:ring-2
-					focus:ring-ring
-					focus:ring-offset-2
+					focus-visible:outline-none
+					focus-visible:border-neutral-400 dark:focus-visible:border-neutral-500
+					focus-visible:ring-2
+					focus-visible:ring-ring/40
 
 					disabled:cursor-not-allowed
 					disabled:opacity-50

@@ -14,7 +14,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { users } from "./schema";
 import type {
     DeletedConcept, JudgeLanguage, JudgeStatus, JudgeTest, LearnerConcept, LearnerMistake,
-    PracticeMentorState, PracticeStage,
+    PathStage, PracticeMentorState, PracticeStage, RecommendedProblem,
 } from "../practice-types";
 
 // ===========================
@@ -201,6 +201,47 @@ export const practiceLearnerProfile = pgTable(
     },
     (table) => [
         uniqueIndex("uq_practice_learner_profile_user_id_module").on(table.userId, table.module),
+    ],
+);
+
+export const practiceRecommendation = pgTable(
+    "practice_recommendation",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        module: practiceModuleEnum("module").notNull(),
+        // Ordered: the model's own order is the recommendation. Slugs are checked
+        // against the live catalogue on every read, so a problem retired later
+        // simply drops out (PD-15).
+        items: jsonb("items").$type<RecommendedProblem[]>().notNull().default([]),
+        /** The onboarding this was built from, so a retake can be seen to be newer. */
+        onboardingVersion: integer("onboarding_version"),
+        level: text("level"),
+        generatedAt: timestamp("generated_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("uq_practice_recommendation_user_id_module").on(table.userId, table.module),
+    ],
+);
+
+export const practicePath = pgTable(
+    "practice_path",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        module: practiceModuleEnum("module").notNull(),
+        // The whole plan: stages in order, each with its problems and its checkpoint's
+        // state. Re-planning rewrites the stages a user has not reached and keeps the
+        // ones they have (plan/practice-path, PP-2).
+        stages: jsonb("stages").$type<PathStage[]>().notNull().default([]),
+        /** The onboarding this was planned from, so a retake can be seen to be newer. */
+        onboardingVersion: integer("onboarding_version"),
+        level: text("level"),
+        generatedAt: timestamp("generated_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow().$onUpdateFn(() => new Date()),
+    },
+    (table) => [
+        uniqueIndex("uq_practice_path_user_id_module").on(table.userId, table.module),
     ],
 );
 

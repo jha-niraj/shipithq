@@ -860,7 +860,7 @@ h1, h2, h3, h4, h5, h6,
 }
 
 /* ── Full-height pages inside an inset app shell ──────────────────────────────
-   The app shell (apps/main app/(main)/layout.tsx) floats the page as a card with
+   The app shell (apps/main app/(main)/_components/main-shell.tsx) floats the page as a card with
    a 0.5rem margin, so the box a page actually occupies is `100vh - 1rem`, not
    `100vh`. A page written with `h-screen` / `min-h-screen` therefore overflows
    its own card by exactly 16px and shows a scrollbar over a strip of nothing.

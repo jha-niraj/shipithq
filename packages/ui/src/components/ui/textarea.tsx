@@ -33,7 +33,12 @@ import { ScrollArea } from "./scroll-area"
  * ── The focus ring ──
  *
  * The ring has to move to the wrapper, because the textarea inside it is borderless and
- * transparent. `has-[textarea:focus]` is what puts it there without a state hook.
+ * transparent. `has-[textarea:focus-visible]` is what puts it there without a state hook.
+ *
+ * No ring OFFSET (taken from gurukulhq, 2026-09-22). `ring-offset-2` paints a band of
+ * `--tw-ring-offset-color` between the box and the ring, nothing here sets that variable, and its
+ * initial value is white: every focused textarea wore a white hairline, glaring in dark mode. The
+ * border darkens and a 40% ring shows instead, matching `input.tsx`.
  */
 export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
     /** Classes for the scrolling viewport. Rarely needed - heights belong on `className`. */
@@ -78,7 +83,8 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
                         text-neutral-900 dark:text-neutral-100
                         transition-colors
                         hover:bg-neutral-50 dark:hover:bg-neutral-800
-                        has-[textarea:focus]:ring-2 has-[textarea:focus]:ring-ring has-[textarea:focus]:ring-offset-2
+                        has-[textarea:focus-visible]:border-neutral-400 dark:has-[textarea:focus-visible]:border-neutral-500
+                        has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/40
                         has-[textarea:disabled]:cursor-not-allowed has-[textarea:disabled]:opacity-50
                     `,
                     className,
@@ -93,7 +99,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
                     }}
                     className={cn(`
                         block w-full resize-none border-0 bg-transparent p-0
-                        text-inherit placeholder:text-neutral-400 dark:placeholder:text-neutral-500
+                        text-inherit placeholder:text-neutral-500 dark:placeholder:text-neutral-400
                         focus:outline-none focus:ring-0
                         disabled:cursor-not-allowed
                     `)}

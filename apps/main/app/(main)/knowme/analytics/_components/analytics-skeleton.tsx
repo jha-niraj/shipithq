@@ -7,6 +7,7 @@
  */
 
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function AnalyticsSkeleton() {
     return (
@@ -25,18 +26,7 @@ export default function AnalyticsSkeleton() {
                 </div>
             </div>
 
-            <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-                {[0, 1, 2, 3].map((i) => (
-                    <div
-                        key={i}
-                        className="rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900"
-                    >
-                        <Skeleton className="mb-3 h-9 w-9 rounded-xl" />
-                        <Skeleton className="h-7 w-14" />
-                        <Skeleton className="mt-1.5 h-4 w-24" />
-                    </div>
-                ))}
-            </div>
+            <StatBandSkeleton count={4} cols={4} className="mb-6" />
 
             <div className="mb-6 grid gap-4 lg:grid-cols-2">
                 {[0, 1].map((i) => (

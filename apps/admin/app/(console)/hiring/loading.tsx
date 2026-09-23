@@ -1,9 +1,10 @@
-// Hand-matched to the Hiring overview: header with no action button, 4 stat
-// tiles, and a 2-up grid of module cards (icon/title/desc + a 2-stat sub-
+// Hand-matched to the Hiring overview: header with no action button, a 4-cell
+// StatBand, and a 2-up grid of module cards (icon/title/desc + a 2-stat sub-
 // grid each) - not 4 module cards with a 3-tag row, which is what the
 // previous skeleton assumed before the dead Jobs/Members/Applications/
 // Invitations/Analytics cards were removed this session (ADM-22).
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
 export default function Loading() {
     return (
@@ -18,14 +19,7 @@ export default function Loading() {
                     </div>
                 </div>
 
-                <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950 p-4">
-                            <Shimmer className="h-3.5 w-20" delay={i * 0.05} />
-                            <Shimmer className="mt-2 h-7 w-16" delay={i * 0.05} />
-                        </div>
-                    ))}
-                </div>
+                <StatBandSkeleton count={4} cols={4} className="mb-8" />
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {Array.from({ length: 2 }).map((_, i) => (

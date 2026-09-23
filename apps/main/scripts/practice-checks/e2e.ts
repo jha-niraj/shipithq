@@ -20,7 +20,7 @@ const createId = () => `e2e${crypto.randomUUID().replace(/-/g, "")}`
 import {
   db, users, practiceProblem, practiceUserSession, practiceLearnerProfile, backgroundJobs, moduleOnboarding, creditTransactions, creditHolds,
 } from "@repo/db"
-import { startOnboardingRun, answerOnboardingTurn, reopenOnboardingTurn, getCurrentOnboarding } from "@/actions/(main)/onboarding/module-onboarding.action"
+import { startOnboardingRun, answerOnboardingTurn, editOnboardingAnswer, getCurrentOnboarding } from "@/actions/(main)/onboarding/module-onboarding.action"
 import { POST as onboardingNext } from "@/app/api/onboarding/next/route"
 import { POST as mentorPost } from "@/app/api/practice/mentor/route"
 import { getGuidedSession, startGuidedSession, getOrCreateSession, saveSessionProgress, getProblemBySlug, finishGuidedSession, applyGuidedCompletion } from "@/actions/(main)/practice/practice.action"
@@ -80,13 +80,24 @@ try {
     const a = await answerOnboardingTurn(runId, t.index, values, false)
     if (!a.success) { check(`answer Q${t.index + 1}`, false, a.error); break }
     if (!reopened && t.index === 2) {
+      // Changing an earlier answer edits it IN PLACE and keeps everything after it
+      // (MO-8, rebuilt 2026-09-22). The old action truncated the run; it is gone.
       reopened = true
-      const ro = await reopenOnboardingTurn(runId, 1)
-      check("reopen Q2 truncates later turns", ro.success && ro.run.turns.length === 2 && ro.run.turns[1]!.answer === null)
+      const before = (await getCurrentOnboarding("practice:dsa")).inProgress!.turns
+      const target = before[1]!
+      const newValues = target.question.kind === "open"
+        ? ["Changed: about 120 problems now."]
+        : [target.question.options[target.question.options.length - 1]!]
+      const ro = await editOnboardingAnswer(runId, 1, newValues, false)
+      check("editing Q2 keeps every later turn", ro.success && ro.run.turns.length === before.length,
+        ro.success ? `${before.length} -> ${ro.run.turns.length}` : ro.error)
+      check("editing Q2 changes only that answer", ro.success
+        && JSON.stringify(ro.run.turns[1]!.answer!.values) === JSON.stringify(newValues)
+        && JSON.stringify(ro.run.turns[0]) === JSON.stringify(before[0]))
     }
     r = await next()
   }
-  check("run finishes between 6 and 10 answers", r.done === true && n >= 6, `${n} answered after the reopen`)
+  check("run finishes between 6 and 10 answers", r.done === true && n >= 6, `${n} answered after the edit`)
   check("at most two open questions", opens <= 2, `${opens}`)
   const ob = await getCurrentOnboarding("practice:dsa")
   check("completed profile stored", Boolean(ob.completed?.profile?.summary?.length === 3), ob.completed?.level ?? "none")

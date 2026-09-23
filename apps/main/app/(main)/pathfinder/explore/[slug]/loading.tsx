@@ -1,10 +1,11 @@
-// Matches `goal-preview-content.tsx`: full-width pane, header row, 3 stat tiles,
+// Matches `goal-preview-content.tsx`: full-width pane, header row, a 3-cell StatBand,
 // a progress bar, the Copy button, then a 2-up study plan grid.
 //
 // It was `max-w-3xl mx-auto p-6` with a `lg:grid-cols-3` block - the centred
 // column the preview used to have and a grid shape it never had. The preview is
 // now `w-full`, so the old skeleton narrowed the pane and then jumped wide.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
 export default function Loading() {
     return (
@@ -24,14 +25,7 @@ export default function Loading() {
 
             <Shimmer className="mt-4 h-4 w-3/4" delay={0.12} />
 
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-                        <Shimmer className="h-3.5 w-20" delay={i * 0.05} />
-                        <Shimmer className="mt-2 h-6 w-12" delay={i * 0.05} />
-                    </div>
-                ))}
-            </div>
+            <StatBandSkeleton count={3} cols={3} className="mt-5" />
 
             <Shimmer className="mt-4 h-1.5 w-full rounded-full" delay={0.2} />
             <Shimmer className="mt-4 h-10 w-44 rounded-lg" delay={0.22} />

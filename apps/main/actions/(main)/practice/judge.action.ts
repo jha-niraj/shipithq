@@ -31,6 +31,9 @@ export async function requestJudgeAssets(problemId: string): Promise<StartJobRes
     if (!problem) return { success: false, error: "That problem does not exist." }
     if (problem.module !== "DSA") return { success: false, error: "Only DSA problems have judge tests." }
     if (problem.judgeStatus === "ready") return { success: false, error: "This problem already has tests." }
+    // Already running: a second dispatch is a second Durable Object doing the same
+    // six model calls and container runs, and both write the same row.
+    if (problem.judgeStatus === "generating") return { success: false, error: "Tests for this problem are already being prepared." }
 
     return startBackgroundJob("practice_tests_generate", { problemId }, { cost: 0 })
 }

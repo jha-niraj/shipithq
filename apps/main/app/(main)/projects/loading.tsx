@@ -6,6 +6,7 @@
 // skeleton that no longer matches is worse than none - the page visibly reflows
 // the moment the data lands.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -36,19 +37,8 @@ export default function Loading() {
                 </div>
             </div>
 
-            {/* Four stat cards. */}
-            <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {[0, 1, 2, 3].map((i) => (
-                    <div
-                        key={i}
-                        className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-                    >
-                        <Shimmer className="h-8 w-8 rounded-lg" delay={0.18 + i * 0.02} />
-                        <Shimmer className="mt-3 h-7 w-16" delay={0.2 + i * 0.02} />
-                        <Shimmer className="mt-1.5 h-4 w-24" delay={0.22 + i * 0.02} />
-                    </div>
-                ))}
-            </div>
+            {/* Four-cell stat band. */}
+            <StatBandSkeleton count={4} cols={4} className="mb-6" />
 
             {/* In progress. */}
             <div className="mb-8">

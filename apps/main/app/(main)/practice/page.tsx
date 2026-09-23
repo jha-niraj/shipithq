@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Skeleton } from "@repo/ui/components/ui/skeleton";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 import { getUserPracticeStats, getDailyChallenge } from "@/actions/(main)/practice";
 import { getModuleActivity } from "@/actions/(common)/stats/module-activity.action";
 import { PracticeDashboard } from "./_components/practice-dashboard";
@@ -7,13 +8,7 @@ import { PracticeDashboard } from "./_components/practice-dashboard";
 function DashboardSkeleton() {
     return (
         <div className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {
-                    [...Array(4)].map((_, i) => (
-                        <Skeleton key={i} className="h-28 w-full rounded-xl" />
-                    ))
-                }
-            </div>
+            <StatBandSkeleton count={4} cols={4} />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Skeleton className="h-64 w-full rounded-xl" />
                 <Skeleton className="h-64 w-full rounded-xl" />

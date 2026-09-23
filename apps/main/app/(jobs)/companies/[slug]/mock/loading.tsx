@@ -1,5 +1,6 @@
 // Hand-matched to the company mock hub.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -13,6 +14,9 @@ export default function Loading() {
                 </div>
                 <Shimmer className="h-10 w-36 rounded-xl" delay={0.12} />
             </div>
+
+            {/* The hub header's three-cell stat band (Sessions, Avg. Score, Rounds). */}
+            <StatBandSkeleton count={3} cols={3} size="sm" className="mb-8" />
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (

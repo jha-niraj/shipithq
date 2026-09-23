@@ -4,6 +4,7 @@ interface PageProps {
     searchParams: Promise<{
         topic?: string;
         resume?: string;
+        onboarding?: string;
     }>;
 }
 
@@ -16,7 +17,7 @@ export default async function SystemDesignPracticePage({ searchParams }: PagePro
             onboardingKey="practice:system-design"
             topic={params.topic ?? null}
             resume={params.resume === "1"}
-            skeletonCards={6}
+            onboardingParam={params.onboarding === "1"}
         />
     );
 }

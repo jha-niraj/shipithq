@@ -6,6 +6,7 @@ import {
     CheckCircle2, AlertCircle, Building, UserPlus
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
 import Link from "next/link"
 
 interface DepartmentHeadDashboardProps {
@@ -20,72 +21,34 @@ interface DepartmentHeadDashboardProps {
     }
 }
 
-interface StatCardProps {
-    title: string
-    value: string | number
-    change?: string
-    changeType?: "positive" | "negative" | "neutral"
-    icon: React.ReactNode
-    href: string
-}
-
-const StatCard = ({ title, value, change, changeType = "neutral", icon, href }: StatCardProps) => (
-    <Link href={href}>
-        <motion.div
-            whileHover={{ y: -2 }}
-            className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer group"
-        >
-            <div className="flex items-start justify-between mb-4">
-                <div className="p-3 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 group-hover:scale-105 transition-transform">
-                    {icon}
-                </div>
-                <ArrowRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors" />
-            </div>
-            <div className="space-y-1">
-                <p className="text-3xl font-bold text-neutral-900 dark:text-white">{value}</p>
-                <p className="text-sm text-neutral-500">{title}</p>
-            </div>
-            {change && (
-                <div className={`mt-3 text-xs font-medium ${
-                    changeType === "positive" ? "text-neutral-800 dark:text-neutral-100" :
-                    changeType === "negative" ? "text-red-600 dark:text-red-400" :
-                    "text-neutral-500"
-                }`}>
-                    {change}
-                </div>
-            )}
-        </motion.div>
-    </Link>
-)
-
 export function DepartmentHeadDashboard({ userName, departmentName, stats }: DepartmentHeadDashboardProps) {
-    const dashboardStats = [
+    const dashboardStats: StatBandItem[] = [
         { 
-            title: "Department Students", 
+            label: "Department Students", 
             value: stats?.totalStudents || 0, 
-            change: "View all students",
-            icon: <Users className="w-5 h-5 text-neutral-800" />, 
+            hint: "View all students",
+            icon: Users, 
             href: "/students" 
         },
         { 
-            title: "Faculty Members", 
+            label: "Faculty Members", 
             value: stats?.totalFaculty || 0, 
-            change: "Manage faculty",
-            icon: <GraduationCap className="w-5 h-5 text-neutral-800" />, 
+            hint: "Manage faculty",
+            icon: GraduationCap, 
             href: "/faculty" 
         },
         { 
-            title: "Active Classes", 
+            label: "Active Classes", 
             value: stats?.totalClasses || 0, 
-            change: "View classes",
-            icon: <School className="w-5 h-5 text-neutral-800" />, 
+            hint: "View classes",
+            icon: School, 
             href: "/classes" 
         },
         { 
-            title: "Assignments", 
+            label: "Assignments", 
             value: stats?.totalAssignments || 0, 
-            change: stats?.pendingSubmissions ? `${stats.pendingSubmissions} pending review` : "No pending",
-            icon: <BookOpen className="w-5 h-5 text-neutral-800" />, 
+            hint: stats?.pendingSubmissions ? `${stats.pendingSubmissions} pending review` : "No pending",
+            icon: BookOpen, 
             href: "/assignments" 
         },
     ]
@@ -135,11 +98,9 @@ export function DepartmentHeadDashboard({ userName, departmentName, stats }: Dep
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+                className="mb-8"
             >
-                {dashboardStats.map((stat, index) => (
-                    <StatCard key={index} {...stat} />
-                ))}
+                <StatBand items={dashboardStats} cols={4} />
             </motion.div>
 
             {/* Main Content Grid */}

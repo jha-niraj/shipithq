@@ -8,6 +8,7 @@ import {
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import Link from "next/link"
 import { useState } from "react"
 import type { AssignmentStats, JobWithAssignment } from "@/types"
@@ -19,38 +20,6 @@ import type { AssignmentStats, JobWithAssignment } from "@/types"
 interface AssignmentsContentProps {
     stats: AssignmentStats | null
     jobs: JobWithAssignment[]
-}
-
-// ============================================
-// STAT CARD COMPONENT
-// ============================================
-
-function StatCard({
-    icon,
-    label,
-    value,
-    color
-}: {
-    icon: React.ReactNode
-    label: string
-    value: number | string
-    color: string
-}) {
-    return (
-        <div className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5">
-            <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-                    {icon}
-                </div>
-                <div>
-                    <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                        {typeof value === "number" ? value.toLocaleString() : value}
-                    </p>
-                    <p className="text-sm text-neutral-500">{label}</p>
-                </div>
-            </div>
-        </div>
-    )
 }
 
 // ============================================
@@ -161,38 +130,17 @@ export default function AssignmentsContent({ stats, jobs }: AssignmentsContentPr
 
             {
                 stats && (
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-                        <StatCard
-                            icon={<Briefcase className="w-5 h-5 text-neutral-800" />}
-                            label="Jobs with Assignments"
-                            value={stats.totalJobsWithAssignments}
-                            color="bg-neutral-100 dark:bg-neutral-800/30"
-                        />
-                        <StatCard
-                            icon={<Send className="w-5 h-5 text-neutral-800" />}
-                            label="Assignments Sent"
-                            value={stats.totalAssignmentsSent}
-                            color="bg-neutral-100 dark:bg-neutral-800/30"
-                        />
-                        <StatCard
-                            icon={<CheckCircle2 className="w-5 h-5 text-neutral-800" />}
-                            label="Submissions"
-                            value={stats.totalSubmissions}
-                            color="bg-neutral-100 dark:bg-neutral-800/30"
-                        />
-                        <StatCard
-                            icon={<Clock className="w-5 h-5 text-neutral-800" />}
-                            label="Pending Review"
-                            value={stats.pendingReview}
-                            color="bg-neutral-100 dark:bg-neutral-800/30"
-                        />
-                        <StatCard
-                            icon={<Star className="w-5 h-5 text-neutral-800" />}
-                            label="Avg. Score"
-                            value={`${Math.round(stats.averageScore)}%`}
-                            color="bg-neutral-100 dark:bg-neutral-800/30"
-                        />
-                    </div>
+                    <StatBand
+                        className="mb-8"
+                        cols={5}
+                        items={[
+                            { icon: Briefcase, label: "Jobs with Assignments", value: stats.totalJobsWithAssignments.toLocaleString() },
+                            { icon: Send, label: "Assignments Sent", value: stats.totalAssignmentsSent.toLocaleString() },
+                            { icon: CheckCircle2, label: "Submissions", value: stats.totalSubmissions.toLocaleString() },
+                            { icon: Clock, label: "Pending Review", value: stats.pendingReview.toLocaleString() },
+                            { icon: Star, label: "Avg. Score", value: `${Math.round(stats.averageScore)}%` },
+                        ]}
+                    />
                 )
             }
 

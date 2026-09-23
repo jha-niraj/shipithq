@@ -60,9 +60,16 @@ export function APITester({ testCases, onRunTest, code }: APITesterProps) {
         setRunningTest(tc.id);
         try {
             const response = await onRunTest(tc, code);
-            const passed = response.toLowerCase().includes("pass") ||
-                response.toLowerCase().includes("correct") ||
-                response.toLowerCase().includes("✅");
+            /*
+             * The VERDICT is the first word, not a word somewhere in the reply.
+             *
+             * This used to be `includes("pass")`, so "this does not pass" and
+             * "passing this would need..." both lit up green. The mentor prompt asks
+             * for PASS or FAIL first; anything else is read as a failure, because a
+             * test whose result cannot be read is not a test that passed.
+             */
+            const verdict = response.trim().toUpperCase();
+            const passed = /^(PASS|✅)\b/.test(verdict) || verdict.startsWith("PASS:");
             setResults((prev) => ({
                 ...prev,
                 [tc.id]: { testId: tc.id, passed, message: response },
@@ -87,7 +94,7 @@ export function APITester({ testCases, onRunTest, code }: APITesterProps) {
 
     return (
         <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-neutral-800">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-neutral-200 dark:border-neutral-800">
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-400">API Tests</span>
                     {totalRun > 0 && (
@@ -99,7 +106,7 @@ export function APITester({ testCases, onRunTest, code }: APITesterProps) {
                 <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 text-xs border-neutral-700 hover:bg-neutral-800"
+                    className="h-7 text-xs border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                     onClick={handleRunAll}
                     disabled={runningTest !== null}
                 >
@@ -115,10 +122,10 @@ export function APITester({ testCases, onRunTest, code }: APITesterProps) {
                         const isRunning = runningTest === tc.id;
 
                         return (
-                            <div key={tc.id} className="rounded-lg border border-neutral-800 overflow-hidden">
+                            <div key={tc.id} className="rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
                                 <button
                                     onClick={() => setExpandedTest(isExpanded ? null : tc.id)}
-                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-neutral-900/50 transition-colors"
+                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
                                 >
                                     {result ? (
                                         result.passed ? (
@@ -127,7 +134,7 @@ export function APITester({ testCases, onRunTest, code }: APITesterProps) {
                                             <XCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
                                         )
                                     ) : (
-                                        <div className="h-3.5 w-3.5 rounded-full border border-neutral-600 flex-shrink-0" />
+                                        <div className="h-3.5 w-3.5 rounded-full border border-neutral-300 dark:border-neutral-600 flex-shrink-0" />
                                     )}
                                     <Badge
                                         className={cn(
@@ -168,7 +175,7 @@ export function APITester({ testCases, onRunTest, code }: APITesterProps) {
                                             initial={{ height: 0, opacity: 0 }}
                                             animate={{ height: "auto", opacity: 1 }}
                                             exit={{ height: 0, opacity: 0 }}
-                                            className="overflow-hidden border-t border-neutral-800"
+                                            className="overflow-hidden border-t border-neutral-200 dark:border-neutral-800"
                                         >
                                             <div className="px-3 py-2 space-y-1.5 text-xs">
                                                 <p className="text-neutral-600 dark:text-neutral-400">{tc.description}</p>
@@ -179,7 +186,7 @@ export function APITester({ testCases, onRunTest, code }: APITesterProps) {
                                                     )}
                                                 </p>
                                                 {tc.body && (
-                                                    <pre className="bg-neutral-900 rounded p-2 text-neutral-400 font-mono text-xs overflow-x-auto">
+                                                    <pre className="bg-neutral-50 dark:bg-neutral-900 rounded p-2 text-neutral-600 dark:text-neutral-400 font-mono text-xs overflow-x-auto">
                                                         {JSON.stringify(tc.body, null, 2)}
                                                     </pre>
                                                 )}
@@ -188,11 +195,11 @@ export function APITester({ testCases, onRunTest, code }: APITesterProps) {
                                                         "rounded-md p-2 mt-1",
                                                         result.passed
                                                             ? "bg-neutral-900/20 border border-neutral-800/30"
-                                                            : "bg-red-900/20 border border-red-800/30"
+                                                            : "bg-red-50 dark:bg-red-900/20 border border-red-800/30"
                                                     )}>
                                                         <p className={cn(
                                                             "text-xs",
-                                                            result.passed ? "text-neutral-800 dark:text-neutral-200" : "text-red-400"
+                                                            result.passed ? "text-neutral-800 dark:text-neutral-200" : "text-red-600 dark:text-red-400"
                                                         )}>
                                                             {result.message}
                                                         </p>

@@ -1,7 +1,7 @@
 // Hand-matched to the admin dashboard, in the order dashboard-client.tsx
 // actually renders (ADM-27/ADM-28):
 //
-//   welcome header -> Quick Links strip (6 tiles) -> 4-KPI row ->
+//   welcome header -> Quick Links strip (6 tiles) -> 4-cell StatBand ->
 //   2 trend charts -> "Platform Overview" heading over 3 platform cards
 //   (icon + title/desc + 2x2 sub-stat grid each) -> full-width pending actions
 //
@@ -14,6 +14,7 @@
 // line reads as a real chart reporting zero, which is a different and wrong
 // claim from "this is still loading".
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
 export default function Loading() {
     return (
@@ -37,15 +38,7 @@ export default function Loading() {
                 </div>
             </div>
 
-            <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-                        <Shimmer className="h-10 w-10 rounded-lg" delay={i * 0.05} />
-                        <Shimmer className="mt-3 h-7 w-16" delay={i * 0.05} />
-                        <Shimmer className="mt-1.5 h-3.5 w-20" delay={i * 0.05} />
-                    </div>
-                ))}
-            </div>
+            <StatBandSkeleton count={4} cols={4} className="mb-8" />
 
             <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
                 {Array.from({ length: 2 }).map((_, i) => (

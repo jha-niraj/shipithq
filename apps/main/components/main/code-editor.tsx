@@ -151,7 +151,9 @@ export default function CodeEditor({
     enableExecution = false,
     onExecutionComplete,
 }: CodeEditorProps) {
-    const { theme } = useTheme();
+    // resolvedTheme, not theme: with "system" selected, `theme` is the string
+    // "system" and a dark OS got a light editor inside a dark page.
+    const { resolvedTheme } = useTheme();
     const [currentLanguage, setCurrentLanguage] = useState(language);
     const [currentCode, setCurrentCode] = useState(code ?? "");
     const [copied, setCopied] = useState(false);
@@ -176,6 +178,38 @@ export default function CodeEditor({
     useEffect(() => {
         setCurrentLanguage(language);
     }, [language]);
+
+    /**
+     * The editor's own black, not Monaco's `vs-dark` grey (#1e1e1e).
+     *
+     * The workspace around it is black, and a grey editor sitting in it reads as a
+     * panel that failed to load (Niraj, 2026-09-22: "the code editor UI colour needs
+     * to be black"). Only the surfaces change; the token colours are `vs-dark`'s,
+     * which are already tuned for a dark ground.
+     */
+    const defineShipItTheme = useCallback((monaco: {
+        editor: { defineTheme: (name: string, theme: Record<string, unknown>) => void }
+    }) => {
+        monaco.editor.defineTheme("shipithq-dark", {
+            base: "vs-dark",
+            inherit: true,
+            rules: [],
+            colors: {
+                "editor.background": "#000000",
+                "editorGutter.background": "#000000",
+                "minimap.background": "#000000",
+                "editorLineNumber.foreground": "#525252",
+                "editorLineNumber.activeForeground": "#a3a3a3",
+                "editor.lineHighlightBackground": "#0a0a0a",
+                "editor.lineHighlightBorder": "#00000000",
+                "editorWidget.background": "#0a0a0a",
+                "editorWidget.border": "#262626",
+                "editorSuggestWidget.background": "#0a0a0a",
+                "scrollbarSlider.background": "#26262699",
+                "scrollbarSlider.hoverBackground": "#404040cc",
+            },
+        })
+    }, [])
 
     const handleEditorDidMount = useCallback((editor: unknown) => {
         editorRef.current = editor;
@@ -272,12 +306,12 @@ export default function CodeEditor({
     return (
         <div
             className={cn(
-                "flex flex-col border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden bg-white dark:bg-neutral-900",
+                "flex flex-col border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden bg-white dark:bg-black",
                 isExpanded && "fixed inset-4 z-50",
                 className
             )}
         >
-            <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
                 <div className="flex items-center gap-2">
                     <div className="flex gap-1.5 mr-2">
                         <div className="h-3 w-3 rounded-full bg-red-500" />
@@ -413,10 +447,14 @@ export default function CodeEditor({
                 <Editor
                     height="100%"
                     language={getMonacoLanguage(currentLanguage)}
-                    value={currentCode || placeholder}
+                    // The placeholder is NOT the value: putting it in made Run answer
+                    // "Write some code first" against text the user could see in the
+                    // editor. An empty editor stays empty.
+                    value={currentCode}
                     onChange={handleCodeChange}
+                    beforeMount={defineShipItTheme}
                     onMount={handleEditorDidMount}
-                    theme={theme === "dark" ? "vs-dark" : "light"}
+                    theme={resolvedTheme === "dark" ? "shipithq-dark" : "light"}
                     options={{
                         readOnly,
                         minimap: { enabled: false },

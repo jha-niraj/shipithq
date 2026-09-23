@@ -24,6 +24,18 @@ export const AI_TASKS = {
     practiceJudgeAssets: DEFAULT_CHAT_MODEL,
     /** DSA judge: hidden test inputs (outputs are computed, never written). */
     practiceJudgeInputs: DEFAULT_CHAT_MODEL,
+    /** Projects: which ideas to suggest from the catalogue (plan/projects, PJ-1). */
+    projectRecommendations: DEFAULT_CHAT_MODEL,
+    /** Practice: laying the catalogue out as a path of stages (plan/practice-path). */
+    practicePath: DEFAULT_CHAT_MODEL,
+    /** Practice: a stage checkpoint's quiz. */
+    practiceCheckpointQuiz: DEFAULT_CHAT_MODEL,
+    /** Practice: which problems to recommend from a module's catalogue (PD-15). */
+    practiceRecommendations: DEFAULT_CHAT_MODEL,
+    /** ShipItHQ AI panel: tool rounds and the streamed reply (plan/ai-chat). */
+    assistantChat: DEFAULT_CHAT_MODEL,
+    /** ShipItHQ AI panel: a short title for a conversation after its first exchange. */
+    assistantChatTitle: DEFAULT_CHAT_MODEL,
 } as const satisfies Record<string, ModelId>
 
 export type AiTask = keyof typeof AI_TASKS

@@ -3,7 +3,7 @@
 import { getSession } from "@repo/auth"
 import { headers } from "next/headers"
 import { db, backgroundJobs, isTerminalJobStatus, type JobType } from "@repo/db"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import crypto from "crypto"
 import { reserveCredits, releaseCredits, settleCredits } from "@/lib/credits/hold"
 import { toErrorMessage } from "@/lib/errors"
@@ -56,6 +56,13 @@ export interface StartJobOptions {
      * scoped to a specific row and two of them in parallel are legitimate.
      */
     singleFlight?: boolean
+    /**
+     * What "the same job" means for `singleFlight`. Without it, a memory update
+     * for session B while A's was running returned A's job id and B's window was
+     * never consolidated - including the one dispatched when a session finishes,
+     * which has no later stage change to pick it up.
+     */
+    singleFlightKey?: string
 }
 
 export interface StartJobResult {
@@ -103,6 +110,9 @@ export async function startBackgroundJob(
                         eq(backgroundJobs.userId, userId),
                         eq(backgroundJobs.type, type),
                         inArray(backgroundJobs.status, ["waiting", "active"]),
+                        ...(options.singleFlightKey
+                            ? [sql`${backgroundJobs.input}->>'singleFlightKey' = ${options.singleFlightKey}`]
+                            : []),
                     ),
                 )
                 .limit(1)
@@ -134,7 +144,9 @@ export async function startBackgroundJob(
             type,
             status: "waiting",
             progress: 0,
-            input,
+            // The key rides along in the input so the in-flight check above can match
+            // on it. The worker ignores a field it does not read.
+            input: options.singleFlightKey ? { ...input, singleFlightKey: options.singleFlightKey } : input,
             userId,
         })
 

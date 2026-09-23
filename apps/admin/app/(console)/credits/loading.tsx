@@ -1,9 +1,10 @@
-// Hand-matched to the credits overview: header (no action button), 4 stat
-// tiles, a 3-tab strip, and the overview tab's 2-column split (recent
+// Hand-matched to the credits overview: header (no action button), a 4-cell
+// StatBand, a 3-tab strip, and the overview tab's 2-column split (recent
 // transactions list beside pending requests list) - not a single ledger
 // table, which is what the previous version of this skeleton assumed
 // (ADM-22).
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
 export default function Loading() {
     return (
@@ -15,15 +16,7 @@ export default function Loading() {
                     <Shimmer className="h-4 w-72" delay={0.06} />
                 </div>
 
-                <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900 p-6">
-                            <Shimmer className="mb-2 h-10 w-10 rounded-lg" delay={i * 0.05} />
-                            <Shimmer className="h-7 w-20" delay={i * 0.05} />
-                            <Shimmer className="mt-1.5 h-3.5 w-28" delay={i * 0.05} />
-                        </div>
-                    ))}
-                </div>
+                <StatBandSkeleton count={4} cols={4} className="mb-8" />
 
                 <div className="mb-6 flex gap-6 border-b border-neutral-200 dark:border-neutral-800">
                     {Array.from({ length: 3 }).map((_, i) => (

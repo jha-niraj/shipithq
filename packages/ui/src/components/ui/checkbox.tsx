@@ -14,12 +14,17 @@ const Checkbox = React.forwardRef<
 		ref={ref}
 		className={cn(
 			"peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
+			// The box fills in rather than flipping colour on the spot; active gives the press
+			// a physical response, which matters most on touch where there is no hover state.
+			"transition-[background-color,border-color,box-shadow] duration-150 active:scale-95",
 			className
 		)}
 		{...props}
 	>
+		{/* Radix mounts the indicator only while checked, so this plays on the tick itself.
+		    zoom-in-50 makes it spring in from small rather than blink into place. */}
 		<CheckboxPrimitive.Indicator
-			className={cn("flex items-center justify-center text-current")}
+			className={cn("flex items-center justify-center text-current animate-in fade-in-0 zoom-in-50 duration-150")}
 		>
 			<Check className="h-4 w-4" />
 		</CheckboxPrimitive.Indicator>

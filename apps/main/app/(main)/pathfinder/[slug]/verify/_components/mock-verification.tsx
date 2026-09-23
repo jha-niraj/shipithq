@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { Button } from '@repo/ui/components/ui/button'
 import { Badge } from '@repo/ui/components/ui/badge'
 import {
-    CheckCircle2, Lock, Mic, Play
+    CheckCircle2, Clock, ListChecks, Lock, Mic, Play, Target
 } from 'lucide-react'
+import { StatBand } from '@repo/ui/components/ui/stat-band'
 import { VerificationSectionStatus } from '@repo/db'
 import Link from 'next/link'
 import { CreateMockSheet } from '@/app/(main)/mock/_components/create-mock-sheet'
@@ -79,24 +80,16 @@ export function MockVerification({
                 <p className="text-neutral-500 dark:text-neutral-400 mb-6">
                     {mockConfig?.description || 'Complete an AI-powered voice interview to demonstrate your knowledge.'}
                 </p>
-                <div className="grid grid-cols-3 gap-4 mb-8">
-                    <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                        <div className="text-2xl font-bold text-neutral-900 dark:text-white">
-                            {mockConfig?.duration || 15}m
-                        </div>
-                        <div className="text-xs text-neutral-500 dark:text-neutral-400">Duration</div>
-                    </div>
-                    <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                        <div className="text-2xl font-bold text-neutral-900 dark:text-white">
-                            {mockConfig?.questionsCount || 5}
-                        </div>
-                        <div className="text-xs text-neutral-500 dark:text-neutral-400">Questions</div>
-                    </div>
-                    <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                        <div className="text-2xl font-bold text-neutral-900 dark:text-white">70%</div>
-                        <div className="text-xs text-neutral-500 dark:text-neutral-400">To Pass</div>
-                    </div>
-                </div>
+                <StatBand
+                    size="sm"
+                    cols={3}
+                    className="mb-8"
+                    items={[
+                        { icon: Clock, label: 'Duration', value: `${mockConfig?.duration || 15}m` },
+                        { icon: ListChecks, label: 'Questions', value: mockConfig?.questionsCount || 5 },
+                        { icon: Target, label: 'To Pass', value: '70%' },
+                    ]}
+                />
                 <div className="space-y-4">
                     <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 border border-neutral-200 dark:border-neutral-800 text-left">
                         <h4 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">Before you start:</h4>

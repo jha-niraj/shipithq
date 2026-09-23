@@ -15,7 +15,7 @@ const ScrollArea = React.forwardRef<
 		/** Which axes get a visible scrollbar. Defaults to vertical only, which is what
 		 *  every existing call site expects. Pass "both" for horizontally scrolling
 		 *  content such as a wide code block or a table. */
-		orientation?: "vertical" | "both"
+		orientation?: "vertical" | "horizontal" | "both"
 		/**
 		 * Let the content REFLOW to the viewport width instead of sizing to itself.
 		 *
@@ -59,7 +59,9 @@ const ScrollArea = React.forwardRef<
 		>
 			{children}
 		</ScrollAreaPrimitive.Viewport>
-		<ScrollBar />
+		{/* `horizontal` alone is for a row that only ever scrolls sideways (StatBand on a
+		    phone): no vertical bar to reserve or show. */}
+		{orientation !== "horizontal" && <ScrollBar />}
 		{/* Horizontal too, opt-in via `orientation`.
 		    Radix's Viewport is `overflow: scroll` on BOTH axes with the native bars
 		    hidden, so content that overflows sideways scrolls whether or not a bar is

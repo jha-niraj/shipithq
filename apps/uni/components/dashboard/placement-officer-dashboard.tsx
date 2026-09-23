@@ -6,6 +6,7 @@ import {
     AlertCircle, TrendingUp, UserCheck
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
 import Link from "next/link"
 
 interface PlacementOfficerDashboardProps {
@@ -19,77 +20,37 @@ interface PlacementOfficerDashboardProps {
     }
 }
 
-interface StatCardProps {
-    title: string
-    value: string | number
-    change?: string
-    changeType?: "positive" | "negative" | "neutral"
-    icon: React.ReactNode
-    href: string
-}
-
-const StatCard = ({ title, value, change, changeType = "neutral", icon, href }: StatCardProps) => (
-    <Link href={href}>
-        <motion.div
-            whileHover={{ y: -2 }}
-            className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer group"
-        >
-            <div className="flex items-start justify-between mb-4">
-                <div className="p-3 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 group-hover:scale-105 transition-transform">
-                    {icon}
-                </div>
-                <ArrowRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors" />
-            </div>
-            <div className="space-y-1">
-                <p className="text-3xl font-bold text-neutral-900 dark:text-white">{value}</p>
-                <p className="text-sm text-neutral-500">{title}</p>
-            </div>
-            {change && (
-                <div className={`mt-3 text-xs font-medium ${
-                    changeType === "positive" ? "text-neutral-800 dark:text-neutral-100" :
-                    changeType === "negative" ? "text-red-600 dark:text-red-400" :
-                    "text-neutral-500"
-                }`}>
-                    {change}
-                </div>
-            )}
-        </motion.div>
-    </Link>
-)
-
 export function PlacementOfficerDashboard({ userName, stats }: PlacementOfficerDashboardProps) {
     const placementRate = stats?.totalStudents ? 
         Math.round((stats.placedStudents || 0) / stats.totalStudents * 100) : 0
 
-    const dashboardStats = [
+    const dashboardStats: StatBandItem[] = [
         { 
-            title: "Total Students", 
+            label: "Total Students", 
             value: stats?.totalStudents || 0, 
-            change: `${placementRate}% placement rate`,
-            changeType: placementRate > 50 ? "positive" as const : "neutral" as const,
-            icon: <Users className="w-5 h-5 text-neutral-800" />, 
+            hint: `${placementRate}% placement rate`,
+            icon: Users, 
             href: "/students" 
         },
         { 
-            title: "Placed Students", 
+            label: "Placed Students", 
             value: stats?.placedStudents || 0, 
-            change: "Successfully placed",
-            changeType: "positive" as const,
-            icon: <UserCheck className="w-5 h-5 text-neutral-800" />, 
+            hint: "Successfully placed",
+            icon: UserCheck, 
             href: "/placements/placed" 
         },
         { 
-            title: "Active Jobs", 
+            label: "Active Jobs", 
             value: stats?.activeJobPostings || 0, 
-            change: "Open positions",
-            icon: <Briefcase className="w-5 h-5 text-neutral-800" />, 
+            hint: "Open positions",
+            icon: Briefcase, 
             href: "/placements/jobs" 
         },
         { 
-            title: "Partner Companies", 
+            label: "Partner Companies", 
             value: stats?.partnerCompanies || 0, 
-            change: "View partnerships",
-            icon: <Building2 className="w-5 h-5 text-neutral-800" />, 
+            hint: "View partnerships",
+            icon: Building2, 
             href: "/placements/companies" 
         },
     ]
@@ -139,11 +100,9 @@ export function PlacementOfficerDashboard({ userName, stats }: PlacementOfficerD
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+                className="mb-8"
             >
-                {dashboardStats.map((stat, index) => (
-                    <StatCard key={index} {...stat} />
-                ))}
+                <StatBand items={dashboardStats} cols={4} />
             </motion.div>
 
             {/* Main Content Grid */}

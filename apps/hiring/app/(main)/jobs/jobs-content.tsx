@@ -10,6 +10,7 @@ import {
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
     DropdownMenuSeparator, DropdownMenuTrigger
@@ -160,79 +161,19 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
 
             {
                 stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <Briefcase className="w-4 h-4 text-neutral-400" />
-                                <span className="text-xs text-neutral-500">Total Jobs</span>
-                            </div>
-                            <span className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.total}</span>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.05 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle className="w-4 h-4 text-neutral-900" />
-                                <span className="text-xs text-neutral-500">Active</span>
-                            </div>
-                            <span className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{stats.active}</span>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <Pause className="w-4 h-4 text-neutral-900" />
-                                <span className="text-xs text-neutral-500">Paused</span>
-                            </div>
-                            <span className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{stats.paused}</span>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.15 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <Edit className="w-4 h-4 text-neutral-400" />
-                                <span className="text-xs text-neutral-500">Drafts</span>
-                            </div>
-                            <span className="text-2xl font-bold text-neutral-600 dark:text-neutral-400">{stats.draft}</span>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <Eye className="w-4 h-4 text-neutral-900" />
-                                <span className="text-xs text-neutral-500">Total Views</span>
-                            </div>
-                            <span className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{stats.totalViews}</span>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.25 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <Users className="w-4 h-4 text-neutral-900" />
-                                <span className="text-xs text-neutral-500">Applications</span>
-                            </div>
-                            <span className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{stats.totalApplications}</span>
-                        </motion.div>
-                    </div>
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                        <StatBand
+                            cols={6}
+                            items={[
+                                { icon: Briefcase, label: "Total Jobs", value: stats.total },
+                                { icon: CheckCircle, label: "Active", value: stats.active },
+                                { icon: Pause, label: "Paused", value: stats.paused },
+                                { icon: Edit, label: "Drafts", value: stats.draft },
+                                { icon: Eye, label: "Total Views", value: stats.totalViews },
+                                { icon: Users, label: "Applications", value: stats.totalApplications },
+                            ]}
+                        />
+                    </motion.div>
                 )
             }
 

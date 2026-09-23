@@ -9,6 +9,7 @@ import {
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter,
     DialogHeader, DialogTitle, DialogTrigger
@@ -228,55 +229,17 @@ export function TeamContent({ initialMembers, initialInvites, stats }: TeamConte
 
             {
                 stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <Users className="w-4 h-4 text-neutral-400" />
-                                <span className="text-xs text-neutral-500">Team Size</span>
-                            </div>
-                            <span className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.totalMembers}</span>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.05 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <Clock className="w-4 h-4 text-neutral-900" />
-                                <span className="text-xs text-neutral-500">Pending</span>
-                            </div>
-                            <span className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{stats.pendingInvites}</span>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <Briefcase className="w-4 h-4 text-neutral-900" />
-                                <span className="text-xs text-neutral-500">Jobs Posted</span>
-                            </div>
-                            <span className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{stats.jobsPosted}</span>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.15 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4"
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle className="w-4 h-4 text-neutral-900" />
-                                <span className="text-xs text-neutral-500">Processed</span>
-                            </div>
-                            <span className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{stats.candidatesProcessed}</span>
-                        </motion.div>
-                    </div>
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                        <StatBand
+                            cols={4}
+                            items={[
+                                { icon: Users, label: "Team Size", value: stats.totalMembers },
+                                { icon: Clock, label: "Pending", value: stats.pendingInvites },
+                                { icon: Briefcase, label: "Jobs Posted", value: stats.jobsPosted },
+                                { icon: CheckCircle, label: "Processed", value: stats.candidatesProcessed },
+                            ]}
+                        />
+                    </motion.div>
                 )
             }
             {

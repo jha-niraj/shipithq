@@ -96,3 +96,38 @@ export function isOnboardingModuleKey(value: unknown): value is OnboardingModule
 export function onboardingModule(key: OnboardingModuleKey): OnboardingModuleConfig {
     return ONBOARDING_MODULES[key]
 }
+
+/**
+ * The URL param a page carries while it shows the onboarding (gate or flow)
+ * instead of its dashboard (MO-10). The server page keeps it in step with what
+ * it renders, so the URL always says which of the two is on screen: a refresh
+ * keeps the onboarding, a layout can hide chrome that does not belong to it
+ * (the practice tabs), and a stale link cannot force the flow open.
+ */
+export const ONBOARDING_PARAM = "onboarding"
+
+/** Where a module's onboarding lives. `retake` also skips the gate for someone
+ *  who already has a completed profile. */
+export function onboardingHref(key: OnboardingModuleKey, opts: { retake?: boolean } = {}): string {
+    const params = new URLSearchParams({ [ONBOARDING_PARAM]: "1" })
+    if (opts.retake) params.set("resume", "1")
+    return `${ONBOARDING_MODULES[key].gatePath}?${params.toString()}`
+}
+
+/** A module's dashboard URL, keeping a topic filter if there was one. */
+export function dashboardHref(key: OnboardingModuleKey, topic?: string | null): string {
+    const path = ONBOARDING_MODULES[key].gatePath
+    return topic ? `${path}?${new URLSearchParams({ topic }).toString()}` : path
+}
+
+/**
+ * The practice module behind each onboarding, where there is one. Projects has
+ * no problem catalogue, so it has no entry. Used to start the recommended list
+ * as soon as an onboarding finishes (plan/practice-dsa, PD-15).
+ */
+export const PRACTICE_MODULE_OF: Partial<Record<OnboardingModuleKey, "DSA" | "SYSTEM_DESIGN" | "WEB_FRONTEND" | "WEB_BACKEND">> = {
+    "practice:dsa": "DSA",
+    "practice:system-design": "SYSTEM_DESIGN",
+    "practice:web-frontend": "WEB_FRONTEND",
+    "practice:web-backend": "WEB_BACKEND",
+}

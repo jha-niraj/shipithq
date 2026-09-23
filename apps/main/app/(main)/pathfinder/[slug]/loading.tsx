@@ -2,10 +2,11 @@
 //
 // It was `mx-auto max-w-7xl px-6 py-8` over a `lg:grid-cols-3` block - a centred
 // three-column page. The real screen is a fixed 350px left panel (header, Add
-// Task, three stat tiles, the task list, and a pinned Start Mock Interview
+// Task, a three-cell stat band, the task list, and a pinned Start Mock Interview
 // button) beside a flexible right pane. The skeleton drew a different page
 // entirely, so the whole layout reflowed the moment it was replaced.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
 export default function Loading() {
     return (
@@ -28,13 +29,9 @@ export default function Loading() {
                     <Shimmer className="h-9 w-full rounded-lg" delay={0.1} />
                 </div>
 
-                <div className="grid shrink-0 grid-cols-3 gap-2 px-3 pb-3">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="rounded-lg border border-neutral-200 p-2 text-center dark:border-neutral-800">
-                            <Shimmer className="mx-auto h-5 w-10" delay={i * 0.04} />
-                            <Shimmer className="mx-auto mt-1.5 h-3 w-12" delay={i * 0.04} />
-                        </div>
-                    ))}
+                {/* SessionStats: a three-cell StatBand, size sm, under a hairline. */}
+                <div className="shrink-0 border-b border-neutral-200 p-3 dark:border-neutral-800">
+                    <StatBandSkeleton count={3} cols={3} size="sm" />
                 </div>
 
                 {/* Task list - takes the remaining height, as the real scroller does */}

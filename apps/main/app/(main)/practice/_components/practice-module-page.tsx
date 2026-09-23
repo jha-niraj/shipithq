@@ -1,29 +1,13 @@
 import { Suspense } from "react";
-import { Skeleton } from "@repo/ui/components/ui/skeleton";
+import { redirect } from "next/navigation";
 import {
-    getProblemsForModule, getCategoriesForModule, getLeaderboard,
+    getProblemsForModule, getCategoriesForModule, getLeaderboard, getPath,
 } from "@/actions/(main)/practice";
 import { getCurrentOnboarding } from "@/actions/(main)/onboarding/module-onboarding.action";
 import { ModuleOnboardingEntry } from "@/components/onboarding/module-onboarding-entry";
-import { OnboardingWidget } from "@/components/onboarding/onboarding-widget";
-import type { OnboardingModuleKey } from "@/lib/onboarding/modules";
+import { dashboardHref, onboardingHref, type OnboardingModuleKey } from "@/lib/onboarding/modules";
 import type { PracticeModule } from "@/types/practice";
-import { ModuleContent } from "./module-content";
-
-function ContentSkeleton({ cards }: { cards: number }) {
-    return (
-        <div className="p-6 space-y-6">
-            <Skeleton className="h-8 w-48" />
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {
-                    [...Array(cards)].map((_, i) => (
-                        <Skeleton key={i} className="h-36 w-full rounded-xl" />
-                    ))
-                }
-            </div>
-        </div>
-    );
-}
+import { ModuleContent, ModuleContentSkeleton } from "./module-content";
 
 interface PracticeModulePageProps {
     module: PracticeModule;
@@ -32,7 +16,8 @@ interface PracticeModulePageProps {
     topic: string | null;
     /** `?resume=1`: go straight into the onboarding (resume, or a retake). */
     resume: boolean;
-    skeletonCards?: number;
+    /** `?onboarding=1` is on the URL (MO-10). */
+    onboardingParam: boolean;
 }
 
 /**
@@ -48,13 +33,20 @@ export async function PracticeModulePage({
     onboardingKey,
     topic,
     resume,
-    skeletonCards = 9,
+    onboardingParam,
 }: PracticeModulePageProps) {
     const onboarding = await getCurrentOnboarding(onboardingKey);
     const showFlow = !onboarding.completed || resume;
 
+    // Keep the URL in step with what renders (MO-10): `?onboarding=1` while the gate
+    // or flow is up, so a refresh stays here and the layout drops the practice tabs;
+    // never on the dashboard, so a stale link cannot hide them.
+    if (showFlow && !onboardingParam) redirect(onboardingHref(onboardingKey, { retake: resume }));
+    if (!showFlow && onboardingParam) redirect(dashboardHref(onboardingKey, topic));
+
     if (showFlow) {
         return (
+            // The whole page: the practice tabs are hidden while `?onboarding=1` is set.
             <div className="h-[var(--page-h,100vh)] min-h-0">
                 <ModuleOnboardingEntry
                     moduleKey={onboardingKey}
@@ -66,18 +58,25 @@ export async function PracticeModulePage({
         );
     }
 
-    const [problems, categories, leaderboard] = await Promise.all([
-        getProblemsForModule(module, topic ?? undefined),
+    const [problems, categories, leaderboard, path] = await Promise.all([
+        // The whole module: topics are filtered on the client now, so several can be
+        // ticked at once without a round trip (UI-11).
+        getProblemsForModule(module),
         getCategoriesForModule(module),
         getLeaderboard(module, 10),
+        // Cached only: the planning call is the Path tab's own, through
+        // /api/practice/path, so the page never waits on a model (plan/practice-path).
+        getPath(module),
     ]);
 
-    // No scroller here. This div is a block child of the wrapper's <main>, which is
-    // the real scroller - `flex-1` does nothing outside a flex parent and
-    // `overflow-auto` never fires without a height cap. See JB-1.
+    // The "where you stand" summary used to sit on top of this page. It moved to the
+    // mentor memory page, one tab per sub-module (MO-11): the module page opens with
+    // the module's own name, and everything the system thinks about you is in one
+    // place. This div is a block child of the wrapper's <main>; on lg+ the content
+    // inside sizes itself to the page and scrolls its own list (UI-9).
     return (
         <div>
-            <Suspense fallback={<ContentSkeleton cards={skeletonCards} />}>
+            <Suspense fallback={<ModuleContentSkeleton />}>
                 <ModuleContent
                     module={module}
                     moduleLabel={moduleLabel}
@@ -85,15 +84,8 @@ export async function PracticeModulePage({
                     categories={categories}
                     leaderboard={leaderboard}
                     activeCategory={topic}
-                    headerSlot={
-                        onboarding.completed ? (
-                            <OnboardingWidget
-                                moduleKey={onboardingKey}
-                                completed={onboarding.completed}
-                                inProgress={onboarding.inProgress}
-                            />
-                        ) : null
-                    }
+                    path={path.stages}
+                    canPlan={Boolean(onboarding.completed)}
                 />
             </Suspense>
         </div>

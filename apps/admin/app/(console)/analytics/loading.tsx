@@ -1,7 +1,7 @@
 // Hand-matched to the analytics page, in the order analytics-client.tsx renders
 // (ADM-30):
 //
-//   title + Refresh -> 4 stat cards -> 2 trend charts (xl:2-up) ->
+//   title + Refresh -> 4-cell StatBand -> 2 trend charts (xl:2-up) ->
 //   Engagement beside Module Usage (lg:2-up)
 //
 // The revenue summary row between the charts and the two panels is NOT in this
@@ -14,6 +14,7 @@
 // reads as a real chart reporting zero, which is a different claim from "still
 // loading".
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
 export default function Loading() {
     return (
@@ -28,20 +29,7 @@ export default function Loading() {
                 <Shimmer className="h-9 w-28 rounded-lg" delay={0.1} />
             </div>
 
-            <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-                        <div className="flex items-center gap-3">
-                            <Shimmer className="h-10 w-10 rounded-lg" delay={i * 0.05} />
-                            <div className="space-y-1.5">
-                                <Shimmer className="h-7 w-20" delay={i * 0.05} />
-                                <Shimmer className="h-3.5 w-24" delay={i * 0.05} />
-                            </div>
-                        </div>
-                        <Shimmer className="mt-2 h-3 w-32" delay={i * 0.05} />
-                    </div>
-                ))}
-            </div>
+            <StatBandSkeleton count={4} cols={4} className="mb-8" />
 
             <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
                 {Array.from({ length: 2 }).map((_, i) => (

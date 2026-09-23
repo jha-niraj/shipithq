@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
     Calendar, Clock, CheckCircle2, AlertCircle, Trophy, Play,
-    Mic
+    Mic, Timer
 } from 'lucide-react'
 import { Button } from '@repo/ui/components/ui/button'
 import { Badge } from '@repo/ui/components/ui/badge'
@@ -13,6 +13,7 @@ import {
     checkStandupConfig, createStandupConfig, getUpcomingStandups, submitStandup
 } from '@/actions/(main)/projects/standup.action'
 import { cn } from '@repo/ui/lib/utils'
+import { StatBand } from '@repo/ui/components/ui/stat-band'
 import { Slider } from '@repo/ui/components/ui/slider'
 import { Voice, VoiceConfig } from '@/components/main/voice'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
@@ -314,32 +315,16 @@ Keep responses brief and natural.`,
                 </div>
 
                 {/* Quick stats */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div className="bg-neutral-50 dark:bg-neutral-900/50 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">Days/Week</p>
-                        <p className="text-xl font-bold text-neutral-900 dark:text-white">
-                            {config.daysPerWeek}
-                        </p>
-                    </div>
-                    <div className="bg-neutral-50 dark:bg-neutral-900/50 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">Time</p>
-                        <p className="text-xl font-bold text-neutral-900 dark:text-white">
-                            {config.standupTime}
-                        </p>
-                    </div>
-                    <div className="bg-neutral-50 dark:bg-neutral-900/50 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">Duration</p>
-                        <p className="text-xl font-bold text-neutral-900 dark:text-white">
-                            {config.durationMinutes}min
-                        </p>
-                    </div>
-                    <div className="bg-neutral-50 dark:bg-neutral-900/50 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">Completed</p>
-                        <p className="text-xl font-bold text-neutral-900 dark:text-white">
-                            {config.completedStandups || 0}/{config.totalStandups || 0}
-                        </p>
-                    </div>
-                </div>
+                <StatBand
+                    size="sm"
+                    cols={4}
+                    items={[
+                        { icon: Calendar, label: "Days/Week", value: config.daysPerWeek },
+                        { icon: Clock, label: "Time", value: config.standupTime },
+                        { icon: Timer, label: "Duration", value: `${config.durationMinutes}min` },
+                        { icon: CheckCircle2, label: "Completed", value: `${config.completedStandups || 0}/${config.totalStandups || 0}` },
+                    ]}
+                />
 
                 {/* Selected days */}
                 <div>

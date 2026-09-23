@@ -9,14 +9,12 @@ import {
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { Input } from "@repo/ui/components/ui/input"
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@repo/ui/components/ui/select"
 import { Alert, AlertDescription } from "@repo/ui/components/ui/alert"
-import {
-    Card, CardContent, CardDescription, CardHeader,
-} from "@repo/ui/components/ui/card"
 import {
     Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@repo/ui/components/ui/dialog"
@@ -445,43 +443,15 @@ export default function InvoicesPage() {
             )}
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Total Invoiced</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold">
-                            {overview?.currency === "INR" ? "₹" : "$"}
-                            {totalAmount.toLocaleString()}
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Total Invoices</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold">{invoices.length}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Paid</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold text-neutral-800">{paidInvoices.length}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Pending</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold text-neutral-800">{pendingInvoices.length}</p>
-                    </CardContent>
-                </Card>
-            </div>
+            <StatBand
+                cols={4}
+                items={[
+                    { icon: Receipt, label: "Total Invoiced", value: `${overview?.currency === "INR" ? "₹" : "$"}${totalAmount.toLocaleString()}` },
+                    { icon: FileText, label: "Total Invoices", value: invoices.length },
+                    { icon: CheckCircle, label: "Paid", value: paidInvoices.length },
+                    { icon: Clock, label: "Pending", value: pendingInvoices.length },
+                ]}
+            />
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-4">

@@ -8,6 +8,7 @@ import {
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { TrendChart } from "../../_components/trend-chart"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { cn } from "@/lib/utils"
 import type { StatsData } from "@/types/admin"
 
@@ -74,35 +75,16 @@ function PlatformCard({ title, description, icon: Icon, color, bgColor, href, st
     )
 }
 
-interface QuickStatProps {
-    title: string
-    value: string
-    change?: number
-    icon: React.ElementType
-    color: string
-}
-
-function QuickStat({ title, value, change, icon: Icon, color }: QuickStatProps) {
+/**
+ * The growth delta the old KPI tiles carried as a pill, now a StatBand `hint`.
+ * Rose only when negative, as before; `undefined` renders no hint at all.
+ */
+function changeHint(change: number | undefined) {
+    if (change === undefined) return undefined
     return (
-        <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
-            <div className="flex items-center justify-between">
-                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", color)}>
-                    <Icon className="w-5 h-5 text-white" />
-                </div>
-                {change !== undefined && (
-                    <span className={cn(
-                        "text-xs font-medium px-2 py-0.5 rounded-full",
-                        change >= 0
-                            ? "bg-neutral-50 dark:bg-neutral-800/20 text-neutral-800 dark:text-neutral-100"
-                            : "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400",
-                    )}>
-                        {change >= 0 ? "+" : ""}{change}%
-                    </span>
-                )}
-            </div>
-            <p className="text-2xl font-semibold text-neutral-900 dark:text-white mt-3">{value}</p>
-            <p className="text-sm text-neutral-500">{title}</p>
-        </div>
+        <span className={change < 0 ? "text-rose-700 dark:text-rose-400" : undefined}>
+            {change >= 0 ? "+" : ""}{change}%
+        </span>
     )
 }
 
@@ -244,12 +226,16 @@ export function DashboardClient({ initialStats }: { initialStats: AllStats }) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <QuickStat title="Total Users" value={main?.totalUsers?.toLocaleString() ?? "0"} change={main?.growthRate as number} icon={Users} color="bg-neutral-900" />
-                <QuickStat title="Active Admins" value={main?.totalAdmins?.toString() ?? "0"} icon={Shield} color="bg-neutral-900" />
-                <QuickStat title="Total Credits" value={main?.totalCredits?.toLocaleString() ?? "0"} icon={CreditCard} color="bg-neutral-900" />
-                <QuickStat title="New This Month" value={main?.newUsersThisMonth?.toLocaleString() ?? "0"} change={main?.growthRate as number} icon={TrendingUp} color="bg-neutral-900" />
-            </div>
+            <StatBand
+                className="mb-8"
+                cols={4}
+                items={[
+                    { icon: Users, label: "Total Users", value: main?.totalUsers?.toLocaleString() ?? "0", hint: changeHint(main?.growthRate as number) },
+                    { icon: Shield, label: "Active Admins", value: main?.totalAdmins?.toString() ?? "0" },
+                    { icon: CreditCard, label: "Total Credits", value: main?.totalCredits?.toLocaleString() ?? "0" },
+                    { icon: TrendingUp, label: "New This Month", value: main?.newUsersThisMonth?.toLocaleString() ?? "0", hint: changeHint(main?.growthRate as number) },
+                ]}
+            />
 
             {/* Trends. Two series, both real - see page.tsx for why hiring and
                 university get no chart. */}

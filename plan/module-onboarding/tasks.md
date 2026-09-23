@@ -379,35 +379,31 @@ and shipping rather than solving problems.
 
 ## MO-8 Change an earlier answer
 
-- [ ] Status: in progress (2026-09-22). Server side verified end to end: reopening question 2 truncates the later turns and clears its answer, and the run continues to a completed profile. The rail click and confirm dialog in a browser still owed.
+- [ ] Status: built (2026-09-22). `scripts/practice-checks/onboarding-edit.ts` 18/18 against the dev database and the real model: edit on question 5 keeps all turns, changes only answer 1, the same question 5 comes back unregenerated, the finished profile keeps the edit; unanswered, invalid, out-of-range, foreign and finished edits refused. `onboarding-render.tsx` 8/8 for the rail's edit states. The click-through in a browser is still owed. The first version (confirm dialog, discard every later question, regenerate) was built and verified server side, then replaced at Niraj's request after using it: "It just needs to take me back to that particular question number 1 and there I change it. When I save it, it should take me to the latest question."
 - Blocked by: MO-4
 
-**Why.** Item 10. The rail lists answered questions; clicking one must do
-something honest.
+**Why.** Item 10, revised. Fixing a wrong early answer must not cost the user every question after it, and a browser `confirm()` is not a dialog this product uses.
 
 **Files.**
-- `apps/main/actions/(main)/onboarding/module-onboarding.action.ts`
-  (`reopenOnboardingTurn(runId, index)`)
-- `apps/main/components/onboarding/onboarding-rail.tsx`
-- `apps/main/components/onboarding/module-onboarding.tsx`
+- `apps/main/actions/(main)/onboarding/module-onboarding.action.ts` (`editOnboardingAnswer(runId, index, values, viaVoice)`)
+- `apps/main/components/onboarding/{module-onboarding,onboarding-rail}.tsx`
+- `packages/ui/src/components/adaptive-flow.tsx` (a `notice` slot above the question)
 
 **Steps.**
-1. Clicking an answered row shows a confirm: "Changing this discards the N
-   questions after it." On confirm, `reopenOnboardingTurn` truncates
-   `turns` to `index + 1`, clears that turn's answer, recomputes
-   `openQuestionCount` from the remaining turns, and returns the run.
-2. The flow shows that turn again with the previous answer preselected.
-3. On answer, `next` generates from the truncated history as usual.
+1. Clicking an answered row in the rail shows that question in the flow with its answer preselected, headed by a notice "Editing question N" with a "Back to question M" control. No dialog.
+2. Saving calls `editOnboardingAnswer`, which replaces only that turn's answer in place (validated like any answer) and keeps every later turn.
+3. The flow returns to the question the user was on. Nothing is regenerated. The final profile is built from the edited answers.
+4. Back (or clicking the current question in the rail) leaves without saving.
 
 **Edge cases.**
-- Reopening the current unanswered turn is a no-op.
-- Reopening on a completed run is refused; the user retakes instead.
-- The conditional append in MO-2 must use the truncated length, which it
-  does automatically because it reads the row first.
+- Only answered turns can be edited, and only on an in-progress run.
+- An edit is written with `jsonb_set` on that index, guarded by the question text, so a question appended meanwhile is not overwritten or lost.
+- The rail is not clickable while a question is loading.
+- Later questions were shaped by the old answer. That is accepted: Niraj chose keeping answers over regenerating them.
 
-**Done when.** Changing answer 2 in a 7-turn run leaves 2 turns, shows
-question 2 with the old answer selected, and the regenerated question 3
-differs from the original when the answer differs.
+**Done when.** In a run on question 8, changing answer 1 shows question 1 with its old answer, saving returns to question 8 with the same text, `turns` keeps its length, and only turn 1's answer changed. A foreign user, an unanswered turn and an invalid option are refused.
+
+**Deleted (approved, 2026-09-22):** `reopenOnboardingTurn`. The practice e2e script now exercises the edit-in-place path instead of the old truncating one.
 
 ---
 
@@ -450,3 +446,42 @@ module.
 **Done when.** `manual-pass-1.md` holds ten runs with verdicts, the
 latency numbers, and the contrast table; both checks pass; the dash grep
 returns nothing.
+
+---
+
+## MO-10 The onboarding page's own chrome
+
+- [ ] Status: built (2026-09-22). Redirect rules verified by `onboarding-edit.ts` (param added while onboarding, stripped on the dashboard with a topic kept, retake goes to `?onboarding=1&resume=1`); rail layout by `onboarding-render.tsx`. Tabs hiding and the full-height page need a browser look.
+
+**Why.** Niraj, after using it (2026-09-22): the practice tabs appeared above the onboarding when the page shifted; "Answered so far" should not be all capitals; the answered list should scroll inside the rail instead of pushing the page and overflowing; the rail needs its own readable surface; and a refresh must land on the same onboarding view. "Do add a param so that we can detect if we need to show the tabs."
+
+**Files.** `apps/main/lib/onboarding/modules.ts`; `app/(main)/practice/_components/{practice-module-page,practice-layout-wrapper}.tsx`; `app/(main)/projects/page.tsx`; `components/onboarding/{onboarding-rail,onboarding-widget}.tsx`; `packages/ui/src/components/adaptive-flow.tsx`.
+
+**Steps.**
+1. `?onboarding=1` marks a page that is showing the gate or the flow. The server page adds it (redirect) whenever it renders onboarding, and strips it when it renders the dashboard, so the URL always says what the page shows, a refresh keeps it, and a stale link cannot force the flow.
+2. The practice layout hides its tabs when the param is present, and the onboarding then takes the full page height.
+3. The retake link goes straight to `?onboarding=1&resume=1`.
+4. The rail: a surface of its own, section headings in sentence case, the header and "What happens next" fixed, and only the answered list scrolling, in a ScrollArea.
+
+**Edge cases.** The app sidebar is untouched (it stays pinned or unpinned as the user left it). Projects has no tabs but gets the same param for consistency. A topic filter on the dashboard URL survives.
+
+**Done when.** On a practice page with an unfinished onboarding, the URL has `?onboarding=1`, there are no tabs, a refresh shows the same question with no tabs, ten answered rows scroll inside the rail without moving the page, and finishing lands on the dashboard URL without the param.
+
+---
+
+## MO-11 The rail follows the question, and the summary moves
+
+- [ ] Status: built (2026-09-22). The summary card is off the module page and on the memory tabs (render checks cover both). The rail's scroll-into-view needs a browser: it measures real element positions, which a server render has none of.
+
+**Why.** Niraj, 2026-09-22: "The left side questions should scroll as well with the number going ahead", and the finished summary card on top of the module page "needs to be removed" - it moves to the mentor memory page (his choice), which is where the rest of what the system thinks about you lives.
+
+**Files.** `apps/main/components/onboarding/{onboarding-rail,onboarding-widget}.tsx`, `app/(main)/practice/_components/practice-module-page.tsx`, `app/(main)/practice/memory/_components/memory-view.tsx`.
+
+**Steps.**
+1. The rail scrolls the current question into view when it changes, and when an edit opens an earlier one. Only when the row is out of sight, so it never yanks a list the reader is looking at.
+2. The module page stops rendering the summary widget; the memory page's module tab renders it, Retake included.
+
+**Edge cases.** Reduced motion gets an instant jump, not a smooth scroll. A rail shorter than its list must not scroll the page instead of itself.
+
+**Done when.** On question 10 of 10 the rail shows question 10 without being touched, and the DSA page starts with its own heading.
+

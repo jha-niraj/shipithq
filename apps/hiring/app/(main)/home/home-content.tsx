@@ -6,6 +6,7 @@ import {
     CheckCircle2, AlertCircle, Eye, GitBranch, Zap
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
 import Link from "next/link"
 
 interface CandidateStats {
@@ -24,45 +25,6 @@ interface HomeContentProps {
     candidateStats: CandidateStats | null
     interviewProcessCount: number
 }
-
-interface StatCardProps {
-    title: string
-    value: string | number
-    change?: string
-    changeType?: "positive" | "negative" | "neutral"
-    icon: React.ReactNode
-    href: string
-}
-
-const StatCard = ({ title, value, change, changeType = "neutral", icon, href }: StatCardProps) => (
-    <Link href={href}>
-        <motion.div
-            whileHover={{ y: -2 }}
-            className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer group"
-        >
-            <div className="flex items-start justify-between mb-4">
-                <div className="p-3 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 group-hover:scale-105 transition-transform">
-                    {icon}
-                </div>
-                <ArrowRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white transition-colors" />
-            </div>
-            <div className="space-y-1">
-                <p className="text-3xl font-bold text-neutral-900 dark:text-white">{value}</p>
-                <p className="text-sm text-neutral-500">{title}</p>
-            </div>
-            {
-                change && (
-                    <div className={`mt-3 text-xs font-medium ${changeType === "positive" ? "text-neutral-800 dark:text-neutral-100" :
-                            changeType === "negative" ? "text-red-600 dark:text-red-400" :
-                                "text-neutral-500"
-                        }`}>
-                        {change}
-                    </div>
-                )
-            }
-        </motion.div>
-    </Link>
-)
 
 interface _ActivityItemProps {
     type: "application" | "review" | "interview" | "offer"
@@ -102,34 +64,33 @@ const _ActivityItem = ({ type, title, subtitle, time }: _ActivityItemProps) => {
 }
 
 export default function HomeContent({ userName, candidateStats, interviewProcessCount }: HomeContentProps) {
-    const stats = [
+    const stats: StatBandItem[] = [
         {
-            title: "Total Candidates",
+            label: "Total Candidates",
             value: candidateStats?.total || 0,
-            change: candidateStats?.thisWeek ? `+${candidateStats.thisWeek} this week` : "No candidates yet",
-            changeType: candidateStats?.thisWeek ? "positive" as const : "neutral" as const,
-            icon: <Users className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />,
+            hint: candidateStats?.thisWeek ? `+${candidateStats.thisWeek} this week` : "No candidates yet",
+            icon: Users,
             href: "/candidates"
         },
         {
-            title: "In Screening",
+            label: "In Screening",
             value: candidateStats?.screening || 0,
-            change: "Candidates under review",
-            icon: <Eye className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />,
+            hint: "Candidates under review",
+            icon: Eye,
             href: "/candidates?status=UNDER_REVIEW,SHORTLISTED"
         },
         {
-            title: "Interviewing",
+            label: "Interviewing",
             value: candidateStats?.interviewing || 0,
-            change: "Active interviews",
-            icon: <Clock className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />,
+            hint: "Active interviews",
+            icon: Clock,
             href: "/candidates?status=INTERVIEW_SCHEDULED,INTERVIEWED"
         },
         {
-            title: "Interview Processes",
+            label: "Interview Processes",
             value: interviewProcessCount,
-            change: interviewProcessCount > 0 ? "Configured pipelines" : "Set up your first process",
-            icon: <GitBranch className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />,
+            hint: interviewProcessCount > 0 ? "Configured pipelines" : "Set up your first process",
+            icon: GitBranch,
             href: "/interview-config"
         },
     ]
@@ -180,13 +141,9 @@ export default function HomeContent({ userName, candidateStats, interviewProcess
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+                className="mb-8"
             >
-                {
-                    stats.map((stat, index) => (
-                        <StatCard key={index} {...stat} />
-                    ))
-                }
+                <StatBand cols={4} items={stats} />
             </motion.div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <motion.div

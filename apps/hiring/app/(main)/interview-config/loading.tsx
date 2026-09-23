@@ -1,5 +1,6 @@
 // Hand-matched to interview-config-content: same wrapper, grids and card chrome as the real page.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -13,6 +14,8 @@ export default function Loading() {
                 </div>
                 <Shimmer className="h-10 w-36 rounded-xl" delay={0.12} />
             </div>
+
+            <StatBandSkeleton count={3} cols={3} className="mb-8" />
 
             <div className="mb-6 flex flex-col gap-3 sm:flex-row">
                 <Shimmer className="h-10 flex-1 rounded-lg" />

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { cn } from "@repo/ui/lib/utils";
+import { StatBand } from "@repo/ui/components/ui/stat-band";
 import { ActivityChart, type ActivityPoint } from "@/components/common/activity-chart";
 import type {
     PracticeUserStats, PracticeModule, PracticeProgressData,
@@ -64,34 +65,24 @@ export function PracticeDashboard({ stats, dailyChallenge, activity }: PracticeD
                 </p>
             </div>
             {dailyChallenge && <DailyChallengeCard challenge={dailyChallenge} />}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                    icon={Target}
-                    label="Problems Solved"
-                    value={stats.totalSolved}
-                    subtitle={`of ${stats.difficultyBreakdown.easy.total + stats.difficultyBreakdown.medium.total + stats.difficultyBreakdown.hard.total}`}
-                />
-                <StatCard
-                    icon={Zap}
-                    label="Total XP"
-                    value={stats.totalXP.toLocaleString()}
-                />
-                <StatCard
-                    icon={Flame}
-                    label="Current Streak"
-                    value={stats.currentStreak}
-                    subtitle={`Best: ${stats.longestStreak}`}
-                />
-                <StatCard
-                    icon={Trophy}
-                    label="Avg Score"
-                    value={`${stats.averageScore}%`}
-                />
-            </div>
+            <StatBand
+                cols={4}
+                items={[
+                    {
+                        icon: Target,
+                        label: "Problems Solved",
+                        value: stats.totalSolved,
+                        hint: `of ${stats.difficultyBreakdown.easy.total + stats.difficultyBreakdown.medium.total + stats.difficultyBreakdown.hard.total}`,
+                    },
+                    { icon: Zap, label: "Total XP", value: stats.totalXP.toLocaleString() },
+                    { icon: Flame, label: "Current Streak", value: stats.currentStreak, hint: `Best: ${stats.longestStreak}` },
+                    { icon: Trophy, label: "Avg Score", value: `${stats.averageScore}%` },
+                ]}
+            />
             {/* Sessions per day, over the same 30-day window every module uses, so
                 the reader can compare across the product rather than learning a new
                 axis on each page. */}
-            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-5">
+            <div className="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
                 <div className="mb-1 flex items-baseline justify-between gap-3">
                     <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">
                         Practice sessions
@@ -106,7 +97,7 @@ export function PracticeDashboard({ stats, dailyChallenge, activity }: PracticeD
                 <ActivityChart data={activity.series} unit={activity.unit} />
             </div>
 
-            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-5">
+            <div className="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
                 <h2 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
                     Difficulty Progress
                 </h2>
@@ -132,7 +123,7 @@ export function PracticeDashboard({ stats, dailyChallenge, activity }: PracticeD
                 </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-5">
+                <div className="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
                     <h2 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
                         Modules
                     </h2>
@@ -144,7 +135,7 @@ export function PracticeDashboard({ stats, dailyChallenge, activity }: PracticeD
                         }
                     </div>
                 </div>
-                <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-5">
+                <div className="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
                     <h2 className="text-sm font-semibold text-neutral-900 dark:text-white mb-4">
                         Recent Sessions
                     </h2>
@@ -249,33 +240,6 @@ function EmptyDashboard({ dailyChallenge }: { dailyChallenge?: DailyChallengeDat
                     })
                 }
             </div>
-        </div>
-    );
-}
-
-function StatCard({
-    icon: Icon,
-    label,
-    value,
-    subtitle,
-}: {
-    icon: typeof Target;
-    label: string;
-    value: string | number;
-    subtitle?: string;
-}) {
-    return (
-        <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
-            <div className="flex items-center gap-2 mb-2">
-                <Icon className="h-4 w-4 text-neutral-600 dark:text-neutral-400" />
-                <span className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">{label}</span>
-            </div>
-            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{value}</p>
-            {
-                subtitle && (
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">{subtitle}</p>
-                )
-            }
         </div>
     );
 }

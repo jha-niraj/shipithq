@@ -10,6 +10,7 @@ import {
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@repo/ui/components/ui/select"
@@ -108,77 +109,18 @@ export function MockInterviewsContent({ initialSessions, stats }: MockInterviews
 
             {
                 stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-white dark:bg-neutral-900 rounded-2xl p-5 border border-neutral-200 dark:border-neutral-800"
-                        >
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800/30">
-                                    <Video className="w-4 h-4 text-neutral-800 dark:text-neutral-100" />
-                                </div>
-                            </div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.totalSessions}</p>
-                            <p className="text-xs text-neutral-500">Total Sessions</p>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="bg-white dark:bg-neutral-900 rounded-2xl p-5 border border-neutral-200 dark:border-neutral-800"
-                        >
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800/30">
-                                    <CheckCircle className="w-4 h-4 text-neutral-800 dark:text-neutral-100" />
-                                </div>
-                            </div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.completedSessions}</p>
-                            <p className="text-xs text-neutral-500">Completed</p>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="bg-white dark:bg-neutral-900 rounded-2xl p-5 border border-neutral-200 dark:border-neutral-800"
-                        >
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800/30">
-                                    <BarChart3 className="w-4 h-4 text-neutral-800 dark:text-neutral-100" />
-                                </div>
-                            </div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.averageScore}%</p>
-                            <p className="text-xs text-neutral-500">Avg. Score</p>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className="bg-white dark:bg-neutral-900 rounded-2xl p-5 border border-neutral-200 dark:border-neutral-800"
-                        >
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800/30">
-                                    <Award className="w-4 h-4 text-neutral-800 dark:text-neutral-100" />
-                                </div>
-                            </div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.topPerformers}</p>
-                            <p className="text-xs text-neutral-500">Top Performers (80%+)</p>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.4 }}
-                            className="bg-white dark:bg-neutral-900 rounded-2xl p-5 border border-neutral-200 dark:border-neutral-800"
-                        >
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800/30">
-                                    <TrendingUp className="w-4 h-4 text-neutral-800 dark:text-neutral-100" />
-                                </div>
-                            </div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.sessionsThisWeek}</p>
-                            <p className="text-xs text-neutral-500">This Week</p>
-                        </motion.div>
-                    </div>
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                        <StatBand
+                            cols={5}
+                            items={[
+                                { icon: Video, label: "Total Sessions", value: stats.totalSessions },
+                                { icon: CheckCircle, label: "Completed", value: stats.completedSessions },
+                                { icon: BarChart3, label: "Avg. Score", value: `${stats.averageScore}%` },
+                                { icon: Award, label: "Top Performers (80%+)", value: stats.topPerformers },
+                                { icon: TrendingUp, label: "This Week", value: stats.sessionsThisWeek },
+                            ]}
+                        />
+                    </motion.div>
                 )
             }
 
@@ -191,16 +133,17 @@ export function MockInterviewsContent({ initialSessions, stats }: MockInterviews
                         className="bg-white dark:bg-neutral-900 rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 mb-8"
                     >
                         <h3 className="font-semibold text-neutral-900 dark:text-white mb-4">Sessions by Round Type</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {
-                                stats.sessionsByRound.map((item) => (
-                                    <div key={item.roundType} className="text-center p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800">
-                                        <div className="text-2xl font-bold text-neutral-900 dark:text-white">{item.count}</div>
-                                        <div className="text-xs text-neutral-500 capitalize">{item.roundType.replace(/_/g, ' ').toLowerCase()}</div>
-                                    </div>
-                                ))
-                            }
-                        </div>
+                        <StatBand
+                            size="sm"
+                            flush
+                            cols={4}
+                            items={stats.sessionsByRound.map((item) => ({
+                                key: item.roundType,
+                                icon: Target,
+                                label: item.roundType.replace(/_/g, ' ').toLowerCase(),
+                                value: item.count,
+                            }))}
+                        />
                     </motion.div>
                 )
             }

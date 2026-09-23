@@ -2,13 +2,14 @@
 
 import { motion } from "framer-motion"
 import { BarChart3, Users, BookOpen, GraduationCap, Award, TrendingUp, Clock } from "lucide-react"
+import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
 
 export default function AnalyticsPage() {
-    const stats = [
-        { label: "Active Students", value: "0", change: "+0%", icon: <Users className="w-5 h-5 text-neutral-800" /> },
-        { label: "Assignments", value: "0", change: "+0%", icon: <BookOpen className="w-5 h-5 text-neutral-800" /> },
-        { label: "Completion Rate", value: "0%", change: "+0%", icon: <TrendingUp className="w-5 h-5 text-neutral-800" /> },
-        { label: "Placements", value: "0", change: "+0%", icon: <Award className="w-5 h-5 text-neutral-800" /> },
+    const stats: StatBandItem[] = [
+        { label: "Active Students", value: "0", hint: "+0%", icon: Users },
+        { label: "Assignments", value: "0", hint: "+0%", icon: BookOpen },
+        { label: "Completion Rate", value: "0%", hint: "+0%", icon: TrendingUp },
+        { label: "Placements", value: "0", hint: "+0%", icon: Award },
     ]
 
     return (
@@ -24,28 +25,13 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                {stats.map((stat, i) => (
-                    <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                    >
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/30">
-                                {stat.icon}
-                            </div>
-                            <span className="text-sm text-neutral-500">{stat.label}</span>
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-bold text-neutral-900 dark:text-white">{stat.value}</span>
-                            <span className="text-sm text-neutral-800 dark:text-neutral-100">{stat.change}</span>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-8"
+            >
+                <StatBand items={stats} cols={4} />
+            </motion.div>
 
             {/* Quick Stats */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

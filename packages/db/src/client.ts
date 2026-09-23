@@ -28,6 +28,18 @@ import * as schema from "./schema/index";
 // Use `withTransaction` for any multi-statement write that must be atomic.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// A browser bundle that reaches this file fails in `neon()` with "No database
+// connection string was provided", which reads like a missing env var and sends
+// people to check .env. The real cause is a client component importing a VALUE
+// from the `@repo/db` root, which drags this module in. Say so.
+if (typeof window !== "undefined") {
+    throw new Error(
+        "@repo/db's database client was imported in the browser. A client component (or something it imports) " +
+        "takes a value from the `@repo/db` root; import from a database-free entry instead: `@repo/db/onboarding`, " +
+        "`@repo/db/practice` or `@repo/db/resume`, or use `import type`.",
+    );
+}
+
 const connectionString = process.env.DATABASE_URL!;
 
 // ── Default client: HTTP, stateless, no transactions ─────────────────────────

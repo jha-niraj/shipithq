@@ -11,11 +11,17 @@ import { cn } from "../../lib/utils"
  */
 function Skeleton({
 	className,
+	delay,
+	style,
 	...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+}: React.HTMLAttributes<HTMLDivElement> & {
+	/** Seconds to offset the shimmer, so a row of blocks sweeps in sequence. */
+	delay?: number
+}) {
 	return (
 		<div
 			className={cn("sk-shimmer rounded-md", className)}
+			style={delay ? { animationDelay: `${delay}s`, ...style } : style}
 			{...props}
 		/>
 	)

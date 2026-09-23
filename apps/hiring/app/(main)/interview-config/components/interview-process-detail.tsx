@@ -3,10 +3,11 @@
 import { motion } from "framer-motion"
 import {
     Clock, Users, Mic, Video, Phone, MapPin, Code, Layout, MessageSquare,
-    FileText, ChevronRight, Star, Edit2, LinkIcon, TrendingUp
+    FileText, ChevronRight, Star, Edit2, LinkIcon, TrendingUp, Layers, CalendarDays, Briefcase
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 
 interface InterviewRound {
     id: string
@@ -117,26 +118,15 @@ export function InterviewProcessDetail({ process, onClose }: InterviewProcessDet
                         Edit
                     </Button>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center p-3 rounded-xl bg-white dark:bg-neutral-800">
-                        <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                            {process.rounds.length}
-                        </p>
-                        <p className="text-xs text-neutral-500">Rounds</p>
-                    </div>
-                    <div className="text-center p-3 rounded-xl bg-white dark:bg-neutral-800">
-                        <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                            {process.estimatedDurationWeeks || "-"}
-                        </p>
-                        <p className="text-xs text-neutral-500">Weeks</p>
-                    </div>
-                    <div className="text-center p-3 rounded-xl bg-white dark:bg-neutral-800">
-                        <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                            {process.jobs?.length || 0}
-                        </p>
-                        <p className="text-xs text-neutral-500">Jobs</p>
-                    </div>
-                </div>
+                <StatBand
+                    size="sm"
+                    cols={3}
+                    items={[
+                        { icon: Layers, label: "Rounds", value: process.rounds.length },
+                        { icon: CalendarDays, label: "Weeks", value: process.estimatedDurationWeeks || "-" },
+                        { icon: Briefcase, label: "Jobs", value: process.jobs?.length || 0 },
+                    ]}
+                />
             </div>
             <div>
                 <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">

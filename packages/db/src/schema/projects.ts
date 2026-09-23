@@ -14,6 +14,7 @@ import {
 import { relations } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { users, resourceTypeEnum } from "./schema";
+import type { RecommendedIdea } from "../practice-types";
 
 // ===========================
 // Enums
@@ -1010,6 +1011,24 @@ export const projectV2StandupEntriesRelations = relations(projectV2StandupEntrie
         references: [projectV2StandupConfigs.id],
     }),
 }));
+
+export const projectRecommendation = pgTable(
+    "project_recommendation",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        // Ordered: the model's order is the recommendation. Ids are checked against
+        // the live catalogue on every read, so an idea retired later drops out.
+        items: jsonb("items").$type<RecommendedIdea[]>().notNull().default([]),
+        /** The onboarding this was built from, so a retake can be seen to be newer. */
+        onboardingVersion: integer("onboarding_version"),
+        level: text("level"),
+        generatedAt: timestamp("generated_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("uq_project_recommendation_user_id").on(table.userId),
+    ],
+);
 
 export const projectIdeasRelations = relations(projectIdeas, ({ one, many }) => ({
     submittedBy: one(users, {

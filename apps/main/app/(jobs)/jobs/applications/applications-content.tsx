@@ -29,6 +29,7 @@ import { withdrawApplication } from "@/actions/jobs"
 import toast from "@repo/ui/components/ui/sonner"
 import Image from "next/image"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 
 interface Application {
     id: string
@@ -313,71 +314,16 @@ export function ApplicationsContent({ applications: initialApplications }: Appli
                     </div>
                 </div>
             </div>
-            <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center">
-                            <Briefcase className="w-5 h-5 text-neutral-800 dark:text-neutral-100" />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-neutral-900 dark:text-white">{applications.length}</div>
-                            <div className="text-xs text-neutral-500 dark:text-neutral-400">Total</div>
-                        </div>
-                    </div>
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.05 }}
-                    className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center">
-                            <TrendingUp className="w-5 h-5 text-neutral-800 dark:text-neutral-100" />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-neutral-900 dark:text-white">{activeCount}</div>
-                            <div className="text-xs text-neutral-500 dark:text-neutral-400">Active</div>
-                        </div>
-                    </div>
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center">
-                            <Star className="w-5 h-5 text-neutral-800 dark:text-neutral-100" />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-neutral-900 dark:text-white">{offersCount}</div>
-                            <div className="text-xs text-neutral-500 dark:text-neutral-400">Offers</div>
-                        </div>
-                    </div>
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15 }}
-                    className="p-4 rounded-2xl bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800/50 dark:to-neutral-900/50 border border-neutral-200 dark:border-neutral-700"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-                            <XCircle className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-neutral-900 dark:text-white">{closedCount}</div>
-                            <div className="text-xs text-neutral-500 dark:text-neutral-400">Closed</div>
-                        </div>
-                    </div>
-                </motion.div>
-            </div>
+            <StatBand
+                cols={4}
+                className="mb-6"
+                items={[
+                    { icon: Briefcase, label: "Total", value: applications.length },
+                    { icon: TrendingUp, label: "Active", value: activeCount },
+                    { icon: Star, label: "Offers", value: offersCount },
+                    { icon: XCircle, label: "Closed", value: closedCount },
+                ]}
+            />
             <AnimatePresence mode="popLayout">
                 {
                     filteredApplications.length > 0 ? (

@@ -7,6 +7,7 @@ import {
     Loader2, RefreshCw, ToggleLeft, ToggleRight 
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -137,30 +138,23 @@ export default function FacultyPage() {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6"
+                className="mb-6"
             >
-                {[
-                    { role: "HEAD" as const, icon: Shield },
-                    { role: "DEPARTMENT_HEAD" as const, icon: GraduationCap },
-                    { role: "FACULTY" as const, icon: BookOpen },
-                    { role: "TEACHING_ASSISTANT" as const, icon: Users },
-                    { role: "PLACEMENT_OFFICER" as const, icon: Users },
-                ].map((item) => (
-                    <div
-                        key={item.role}
-                        className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800"
-                    >
-                        <div className="flex items-center gap-3">
-                            <item.icon className="w-5 h-5 text-neutral-800" />
-                            <div>
-                                <p className="text-xl font-bold text-neutral-900 dark:text-white">
-                                    {roleCounts[item.role] || 0}
-                                </p>
-                                <p className="text-xs text-neutral-500">{roleLabels[item.role]}</p>
-                            </div>
-                        </div>
-                    </div>
-                ))}
+                <StatBand
+                    cols={5}
+                    items={[
+                        { role: "HEAD" as const, icon: Shield },
+                        { role: "DEPARTMENT_HEAD" as const, icon: GraduationCap },
+                        { role: "FACULTY" as const, icon: BookOpen },
+                        { role: "TEACHING_ASSISTANT" as const, icon: Users },
+                        { role: "PLACEMENT_OFFICER" as const, icon: Users },
+                    ].map((item) => ({
+                        key: item.role,
+                        icon: item.icon,
+                        label: roleLabels[item.role],
+                        value: roleCounts[item.role] || 0,
+                    }))}
+                />
             </motion.div>
 
             {/* Faculty List */}

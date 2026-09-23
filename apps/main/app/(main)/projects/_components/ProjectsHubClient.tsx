@@ -31,6 +31,8 @@
  */
 
 import Link from "next/link"
+import { ProjectPicks } from "./project-picks"
+import type { RecommendedIdeaView } from "@/actions/(main)/projects/recommendations.action"
 import { motion } from "framer-motion"
 import {
 	ArrowRight, CheckCircle2, Compass, Lightbulb, ListTodo, Plus, Sparkles,
@@ -38,6 +40,7 @@ import {
 import { Button } from "@repo/ui/components/ui/button"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { cn } from "@repo/ui/lib/utils"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import ProjectGenerateSheet from "@/components/projects/project-generate-sheet"
 import { PublicProjectsGrid } from "@/app/(main)/projects/_components/public-projects-grid"
 import { ActivityChart, type ActivityPoint } from "@/components/common/activity-chart"
@@ -49,9 +52,13 @@ interface ProjectsHubClientProps {
 	activity: { series: ActivityPoint[]; unit: string; total: number }
 	/** Rendered above the header. The onboarding "where you stand" widget lives here. */
 	widget?: React.ReactNode
+	/** Ideas chosen from the onboarding profile (plan/projects, PJ-1). */
+	picks: RecommendedIdeaView[]
+	/** False until the projects onboarding is finished. */
+	canRecommend: boolean
 }
 
-export default function ProjectsHubClient({ overview, activity, widget }: ProjectsHubClientProps) {
+export default function ProjectsHubClient({ overview, activity, widget, picks, canRecommend }: ProjectsHubClientProps) {
 	const active = overview?.active ?? []
 	const finished = overview?.finished ?? []
 	const totals = overview?.totals
@@ -96,6 +103,10 @@ export default function ProjectsHubClient({ overview, activity, widget }: Projec
 
 			{/* Pick up where you left off. Above everything, because it is the one
 				thing a returning user almost always wants. */}
+			{/* What to build next, from the onboarding. Above the catalogue and below
+				"pick up where you left off": someone mid-project wants that first. */}
+			<ProjectPicks initial={picks} canRecommend={canRecommend} />
+
 			{nextTask && (
 				<motion.section
 					initial={{ opacity: 0, y: 12 }}
@@ -133,16 +144,21 @@ export default function ProjectsHubClient({ overview, activity, widget }: Projec
 					initial={{ opacity: 0, y: 12 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ delay: 0.08 }}
-					className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4"
+					className="mb-6"
 				>
-					<Stat label="Projects" value={totals.projects} icon={<Compass className="h-4 w-4" />} />
-					<Stat label="In progress" value={totals.active} icon={<ListTodo className="h-4 w-4" />} />
-					<Stat label="Finished" value={totals.finished} icon={<CheckCircle2 className="h-4 w-4" />} />
-					<Stat
-						label="Tasks done"
-						value={totals.tasksCompleted}
-						hint={totals.totalTasks > 0 ? `of ${totals.totalTasks}` : undefined}
-						icon={<CheckCircle2 className="h-4 w-4" />}
+					<StatBand
+						cols={4}
+						items={[
+							{ icon: Compass, label: "Projects", value: totals.projects.toLocaleString() },
+							{ icon: ListTodo, label: "In progress", value: totals.active.toLocaleString() },
+							{ icon: CheckCircle2, label: "Finished", value: totals.finished.toLocaleString() },
+							{
+								icon: CheckCircle2,
+								label: "Tasks done",
+								value: totals.tasksCompleted.toLocaleString(),
+								hint: totals.totalTasks > 0 ? `of ${totals.totalTasks}` : undefined,
+							},
+						]}
 					/>
 				</motion.div>
 			)}
@@ -241,35 +257,6 @@ export default function ProjectsHubClient({ overview, activity, widget }: Projec
 				</div>
 				<PublicProjectsGrid />
 			</motion.section>
-		</div>
-	)
-}
-
-function Stat({
-	label,
-	value,
-	hint,
-	icon,
-}: {
-	label: string
-	value: number
-	hint?: string
-	icon: React.ReactNode
-}) {
-	return (
-		<div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-			<span className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-				{icon}
-			</span>
-			<p className="mt-3 text-2xl font-bold tabular-nums text-neutral-900 dark:text-white">
-				{value.toLocaleString()}
-				{hint && (
-					<span className="ml-1.5 text-sm font-normal text-neutral-500 dark:text-neutral-400">
-						{hint}
-					</span>
-				)}
-			</p>
-			<p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">{label}</p>
 		</div>
 	)
 }

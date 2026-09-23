@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, ChevronDown, ChevronUp, Clock, X } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader";
+import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
 import type { JudgeTest } from "@repo/db";
 import type { PracticeJudgeCase, PracticeJudgeResult } from "@/types/practice";
 
@@ -16,12 +17,12 @@ import type { PracticeJudgeCase, PracticeJudgeResult } from "@/types/practice";
 // hidden tests and, when one failed, that case with its input and expected
 // output (this is a learning tool, not a contest).
 //
-// The workspace surface is a constant dark (bg-neutral-950 in both themes), so
-// every ink here is constant too: no dark: variants.
+// Follows the theme like the rest of the workspace (plan/practice-ui, UI-4):
+// every ink is a light/dark pair, measured on its own surface.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const INK = "text-neutral-100";
-const INK_DIM = "text-neutral-400";
+const INK = "text-neutral-900 dark:text-neutral-100";
+const INK_DIM = "text-neutral-600 dark:text-neutral-400";
 
 function Block({ label, value, tone }: { label: string; value: string; tone?: "fail" }) {
     return (
@@ -30,7 +31,7 @@ function Block({ label, value, tone }: { label: string; value: string; tone?: "f
             <pre
                 className={cn(
                     "max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border px-3 py-2 font-mono text-xs leading-relaxed",
-                    tone === "fail" ? "border-red-900/60 bg-red-950/30 text-red-300" : "border-neutral-800 bg-neutral-900 text-neutral-200",
+                    tone === "fail" ? "border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300" : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200",
                 )}
             >
                 {value === "" ? <span className={INK_DIM}>(empty)</span> : value}
@@ -93,19 +94,19 @@ export function CasesPanel({
     })();
 
     return (
-        <div className={cn("flex min-h-0 flex-col border-t border-neutral-800 bg-neutral-950", collapsed ? "h-10" : "h-[42%]")}>
+        <div className={cn("flex min-h-0 flex-col border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950", collapsed ? "h-10" : "h-[42%]")}>
             <button
                 type="button"
                 onClick={onToggle}
                 aria-expanded={!collapsed}
-                className="flex h-10 shrink-0 cursor-pointer items-center justify-between border-b border-neutral-800 px-3 text-left"
+                className="flex h-10 shrink-0 cursor-pointer items-center justify-between border-b border-neutral-200 dark:border-neutral-800 px-3 text-left"
             >
                 <span className="flex items-center gap-2">
                     <span className={cn("text-xs font-semibold", INK)}>Test cases</span>
                     <span
                         className={cn(
                             "flex items-center gap-1.5 text-xs",
-                            result?.status === "ok" && result.passed ? INK : result && !(result.status === "ok" && result.passed) ? "text-red-300" : INK_DIM,
+                            result?.status === "ok" && result.passed ? INK : result && !(result.status === "ok" && result.passed) ? "text-red-700 dark:text-red-300" : INK_DIM,
                         )}
                     >
                         {busy && <InlineLoader size="sm" />}
@@ -120,15 +121,15 @@ export function CasesPanel({
                     {result?.status === "compile_error" ? (
                         <Block label="Compiler output" value={result.message} tone="fail" />
                     ) : result?.status === "unavailable" ? (
-                        <p className="text-sm text-red-300">{result.message}</p>
+                        <p className="text-sm text-red-700 dark:text-red-300">{result.message}</p>
                     ) : (
                         <>
                             {okResult?.kind === "submit" && okResult.hiddenTotal > 0 && (
-                                <div className="mb-3 flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs">
+                                <div className="mb-3 flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-3 py-2 text-xs">
                                     {okResult.hiddenPassed === okResult.hiddenTotal ? (
-                                        <Check className="h-3.5 w-3.5 text-neutral-100" />
+                                        <Check className="h-3.5 w-3.5 text-neutral-900 dark:text-neutral-100" />
                                     ) : (
-                                        <X className="h-3.5 w-3.5 text-red-300" />
+                                        <X className="h-3.5 w-3.5 text-red-700 dark:text-red-300" />
                                     )}
                                     <span className={INK}>
                                         Hidden tests: {okResult.hiddenPassed} of {okResult.hiddenTotal} passed
@@ -137,31 +138,29 @@ export function CasesPanel({
                                 </div>
                             )}
 
-                            <div className="mb-3 flex flex-wrap gap-2" role="tablist">
-                                {tabs.map((t) => (
-                                    <button
-                                        key={t.key}
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={t.key === current?.key}
-                                        onClick={() => setActive(t.key)}
-                                        className={cn(
-                                            "flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                                            t.key === current?.key ? "border-neutral-500 bg-neutral-800 text-neutral-100" : "border-neutral-800 text-neutral-300 hover:border-neutral-600",
-                                        )}
-                                    >
-                                        {t.state === "pass" && <Check className="h-3 w-3 text-neutral-100" />}
-                                        {t.state === "fail" && <X className="h-3 w-3 text-red-300" />}
-                                        {t.state === "timeout" && <Clock className="h-3 w-3 text-red-300" />}
-                                        {t.label}
-                                    </button>
-                                ))}
-                            </div>
+                            <Tabs value={current?.key ?? ""} onValueChange={setActive} className="mb-3">
+                                <TabsList variant="segmented" size="sm" fit aria-label="Test cases">
+                                    {tabs.map((t) => (
+                                        <TabsTrigger
+                                            key={t.key}
+                                            value={t.key}
+                                            icon={
+                                                t.state === "pass" ? <Check className="text-neutral-900 dark:text-neutral-100" />
+                                                : t.state === "fail" ? <X className="text-red-700 dark:text-red-300" />
+                                                : t.state === "timeout" ? <Clock className="text-red-700 dark:text-red-300" />
+                                                : undefined
+                                            }
+                                        >
+                                            {t.label}
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
+                            </Tabs>
 
                             {current && (
                                 <div className="space-y-3">
                                     {current.state === "timeout" && (
-                                        <p className="text-xs text-red-300">
+                                        <p className="text-xs text-red-700 dark:text-red-300">
                                             Time limit: this case ran for over 10 seconds. Look for an infinite loop, or an approach much slower than the input size allows.
                                         </p>
                                     )}

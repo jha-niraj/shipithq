@@ -8,7 +8,7 @@ import {
     Bot, Database, Shield, Key, Settings, ArrowLeft, Github, Code2,
     Award, User, ToggleRight, ToggleLeft, Copy, Check, Eye, EyeOff, 
     RefreshCw, Trash2, Globe, Lock, Users, Briefcase,
-    Clock, ExternalLink
+    Clock, ExternalLink, CalendarDays, Activity, Gauge
 } from "lucide-react";
 import { Button } from "@repo/ui/components/ui/button";
 import { Input } from "@repo/ui/components/ui/input";
@@ -23,6 +23,7 @@ import {
 } from "@repo/ui/components/ui/select";
 import { Separator } from "@repo/ui/components/ui/separator";
 import { cn } from "@repo/ui/lib/utils";
+import { StatBand } from "@repo/ui/components/ui/stat-band";
 import toast from "@repo/ui/components/ui/sonner";
 import type { KnowMeProfileFull, KnowMeApiConfig } from "@/types/knowme";
 import {
@@ -543,26 +544,15 @@ export default function KnowMeSettings({ profile, apiConfig, initialTab }: KnowM
                                                 Keep this key secret! Anyone with it can access your AI.
                                             </p>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-4">
-                                            <div className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl">
-                                                <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                                                    {apiConfig.apiUsageToday}
-                                                </p>
-                                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Today</p>
-                                            </div>
-                                            <div className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl">
-                                                <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                                                    {apiConfig.apiUsageTotal}
-                                                </p>
-                                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Total</p>
-                                            </div>
-                                            <div className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-xl">
-                                                <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                                                    {apiConfig.apiRateLimit}
-                                                </p>
-                                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Daily Limit</p>
-                                            </div>
-                                        </div>
+                                        <StatBand
+                                            size="sm"
+                                            cols={3}
+                                            items={[
+                                                { icon: CalendarDays, label: "Today", value: apiConfig.apiUsageToday },
+                                                { icon: Activity, label: "Total", value: apiConfig.apiUsageTotal },
+                                                { icon: Gauge, label: "Daily Limit", value: apiConfig.apiRateLimit },
+                                            ]}
+                                        />
                                         <div className="bg-neutral-900 dark:bg-neutral-800 rounded-xl p-4 text-white">
                                             <h3 className="font-medium mb-3 flex items-center gap-2">
                                                 <Code2 className="w-4 h-4" />

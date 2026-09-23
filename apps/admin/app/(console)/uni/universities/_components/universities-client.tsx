@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@repo/ui/components/ui/dropdown-menu"
@@ -148,36 +149,16 @@ export function UniversitiesClient({
                 </Select>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 mb-6">
-                <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
-                    <div className="flex items-center gap-2 text-neutral-500 text-sm mb-1">
-                        <GraduationCap className="w-4 h-4" />
-                        Total
-                    </div>
-                    <p className="text-2xl font-semibold text-neutral-900 dark:text-white">{pagination.total}</p>
-                </div>
-                <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
-                    <div className="flex items-center gap-2 text-neutral-900 dark:text-neutral-100 text-sm mb-1">
-                        <CheckCircle className="w-4 h-4" />
-                        Verified
-                    </div>
-                    <p className="text-2xl font-semibold text-neutral-900 dark:text-white">{verifiedCount}</p>
-                </div>
-                <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
-                    <div className="flex items-center gap-2 text-neutral-900 dark:text-neutral-100 text-sm mb-1">
-                        <Users className="w-4 h-4" />
-                        Students
-                    </div>
-                    <p className="text-2xl font-semibold text-neutral-900 dark:text-white">{totalStudents.toLocaleString()}</p>
-                </div>
-                <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
-                    <div className="flex items-center gap-2 text-neutral-900 dark:text-neutral-100 text-sm mb-1">
-                        <Building2 className="w-4 h-4" />
-                        Departments
-                    </div>
-                    <p className="text-2xl font-semibold text-neutral-900 dark:text-white">{totalDepartments}</p>
-                </div>
-            </div>
+            <StatBand
+                className="mb-6"
+                cols={4}
+                items={[
+                    { icon: GraduationCap, label: "Total", value: pagination.total },
+                    { icon: CheckCircle, label: "Verified", value: verifiedCount },
+                    { icon: Users, label: "Students", value: totalStudents.toLocaleString() },
+                    { icon: Building2, label: "Departments", value: totalDepartments },
+                ]}
+            />
 
             <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
                 {isLoading ? (

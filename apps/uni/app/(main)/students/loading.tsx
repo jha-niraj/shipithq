@@ -1,6 +1,7 @@
 // Hand-matched to students: same min-h-full p-6 lg:p-8 wrapper, same grids and
 // card chrome, so nothing reflows when the real content mounts.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -15,19 +16,11 @@ export default function Loading() {
                 <Shimmer className="h-10 w-36 rounded-xl" delay={0.12} />
             </div>
 
-            <div className="mb-8 grid grid-cols-3 gap-4">
-                {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-                        <Shimmer className="h-3.5 w-20" delay={i * 0.05} />
-                        <Shimmer className="mt-2 h-7 w-16" delay={i * 0.05} />
-                    </div>
-                ))}
+            <div className="mb-6">
+                <Shimmer className="h-10 max-w-md rounded-xl" />
             </div>
 
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row">
-                <Shimmer className="h-10 flex-1 rounded-lg" />
-                <Shimmer className="h-10 w-full rounded-lg sm:w-44" delay={0.06} />
-            </div>
+            <StatBandSkeleton count={3} cols={3} className="mb-8" />
 
             <div className="space-y-3">
                 {Array.from({ length: 10 }).map((_, i) => (

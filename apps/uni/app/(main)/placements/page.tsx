@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import { Plus, Search, Filter, Briefcase, Building2, Users, TrendingUp, ExternalLink, Award } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import Link from "next/link"
 
 export default function PlacementsPage() {
@@ -47,52 +48,17 @@ export default function PlacementsPage() {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+                className="mb-8"
             >
-                <div className="bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 flex items-center justify-center">
-                            <Briefcase className="w-6 h-6 text-neutral-800" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">0</p>
-                            <p className="text-sm text-neutral-800/80">Active Jobs</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 flex items-center justify-center">
-                            <Building2 className="w-6 h-6 text-neutral-800" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">0</p>
-                            <p className="text-sm text-neutral-800/80">Partner Companies</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 flex items-center justify-center">
-                            <Users className="w-6 h-6 text-neutral-800" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">0</p>
-                            <p className="text-sm text-neutral-800/80">Applications</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800/50 flex items-center justify-center">
-                            <Award className="w-6 h-6 text-neutral-800" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">0</p>
-                            <p className="text-sm text-neutral-800/80">Placed Students</p>
-                        </div>
-                    </div>
-                </div>
+                <StatBand
+                    cols={4}
+                    items={[
+                        { icon: Briefcase, label: "Active Jobs", value: 0 },
+                        { icon: Building2, label: "Partner Companies", value: 0 },
+                        { icon: Users, label: "Applications", value: 0 },
+                        { icon: Award, label: "Placed Students", value: 0 },
+                    ]}
+                />
             </motion.div>
 
             {/* Filters */}

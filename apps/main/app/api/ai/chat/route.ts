@@ -1,21 +1,32 @@
 import { NextRequest } from "next/server";
 import { getSession } from "@repo/auth";
+import { modelFor } from "@repo/ai";
 import { db, users } from "@repo/db";
+import type { AssistantChatAction, AssistantChatAttachment, AssistantChatStep } from "@repo/db/assistant";
 import { eq } from "drizzle-orm";
 import { openai } from "@/lib/openai-client";
 import { TOOL_SPECS, WRITE_TOOLS, runTool } from "@/lib/ai/tools";
 import { encodeFrame, type ChatFrame } from "@/lib/ai/protocol";
+import {
+    CHAT_HISTORY_LIMIT, CHAT_TITLE_MAX, createSession, fallbackTitle, getOwnedSession,
+    insertMessage, modelContent, recentMessages, touchSession,
+} from "@/lib/ai/chat-store";
 
 export const runtime = "nodejs";
 // The response is a token stream, so it can never be cached or prerendered.
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
+// The chat model and the title model (plan/ai-chat/overview.md, Limits).
+const MODEL = modelFor("assistantChat");
+const TITLE_MODEL = modelFor("assistantChatTitle");
 
-/** Newest-last, and capped: the panel keeps unlimited local history, but only the
- *  tail is worth the tokens - and an unbounded client array is untrusted input. */
-const MAX_HISTORY_MESSAGES = 20;
+/** Each turn is capped before it reaches the model (overview, Limits). The history
+ *  itself is capped at CHAT_HISTORY_LIMIT messages by the chat store. */
 const MAX_MESSAGE_CHARS = 8000;
+/** Attachment text, per document, and documents per turn. /api/ai/upload-doc already
+ *  caps text at 20k; this is the same cap enforced on what comes back to us. */
+const MAX_ATTACHMENT_CHARS = 20_000;
+const MAX_ATTACHMENTS = 5;
 
 /** How many times the model may call tools before it must answer in prose.
  *  Two rounds covers "look me up, then search on what you found"; anything
@@ -25,6 +36,57 @@ const MAX_TOOL_ROUNDS = 2;
 interface IncomingMessage {
     role: "user" | "assistant";
     content: string;
+}
+
+const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+/** Attachments come straight off the client: shape-checked and capped. */
+function readAttachments(raw: unknown): AssistantChatAttachment[] {
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .filter((a): a is AssistantChatAttachment =>
+            !!a && typeof a === "object" &&
+            typeof (a as { id?: unknown }).id === "string" &&
+            typeof (a as { name?: unknown }).name === "string" &&
+            typeof (a as { text?: unknown }).text === "string")
+        .slice(0, MAX_ATTACHMENTS)
+        .map((a) => ({
+            id: a.id.slice(0, 64),
+            name: a.name.slice(0, 200),
+            chars: Math.min(Number(a.chars) || a.text.length, MAX_ATTACHMENT_CHARS),
+            truncated: Boolean(a.truncated) || a.text.length > MAX_ATTACHMENT_CHARS,
+            text: a.text.slice(0, MAX_ATTACHMENT_CHARS),
+        }));
+}
+
+/** A short title for a conversation from its first exchange. Never throws: a failed
+ *  title call falls back to the question itself. */
+async function titleFor(question: string, reply: string): Promise<string> {
+    try {
+        const res = (await openai.chat.completions.create({
+            model: TITLE_MODEL,
+            temperature: 0.3,
+            max_tokens: 24,
+            messages: [
+                {
+                    role: "system",
+                    content:
+                        "Write a title of 2 to 6 words for this conversation, the way a person would name a chat in a sidebar. " +
+                        "Name the topic, not the request (\"4-week DSA plan\", not \"User asks for a plan\"). " +
+                        "Plain words only: no quotes, no trailing punctuation, no emoji.",
+                },
+                { role: "user", content: `Question: ${question.slice(0, 1000)}\n\nReply: ${reply.slice(0, 1000)}` },
+            ],
+        })) as CompletionResponse;
+        const raw = res?.choices?.[0]?.message?.content ?? "";
+        const title = raw.replace(/^["'\s]+|["'.\s]+$/g, "").replace(/\s+/g, " ").trim();
+        if (!title) return fallbackTitle(question);
+        return title.length > CHAT_TITLE_MAX ? fallbackTitle(title) : title;
+    } catch (error: unknown) {
+        console.error("[ai/chat] title failed:", error);
+        return fallbackTitle(question);
+    }
 }
 
 /** One entry in the message array we hand to the model. Wider than
@@ -64,6 +126,11 @@ function systemPrompt(ctx: {
         "- Be direct and concrete. Lead with the answer, then the reasoning.",
         "- Prefer short paragraphs and tight bullet lists over walls of text.",
         "- Use fenced code blocks with a language tag for any code.",
+        "- Punctuation: a plain hyphen (-), never an em dash or en dash.",
+        "- When numbers compare or change over time (practice solved per week, progress across modules), you may draw a small chart:",
+        "  a fenced block with the language `chart` holding JSON like",
+        '  {"type":"bar","title":"<a short title for THIS data>","labels":["<label>","<label>"],"series":[{"name":"<series name>","data":[4,7]}],"unit":"<unit>"}.',
+        '  `type` is "bar", "line" or "pie"; every series has one number per label. Only chart real numbers from a tool; never invent data for a chart. Keep prose around it short.',
         "- If a question is outside engineering/career help, answer briefly and steer back.",
         "- Never invent ShipItHQ features, prices, or user data you weren't given.",
         "",
@@ -128,41 +195,23 @@ function systemPrompt(ctx: {
 
 export async function POST(request: NextRequest) {
     const session = await getSession(request.headers);
-    if (!session?.user?.id) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-        });
-    }
+    if (!session?.user?.id) return json(401, { error: "Unauthorized" });
+    const userId = session.user.id;
 
-    let body: { messages?: unknown; page?: unknown; tags?: unknown };
+    let body: { sessionId?: unknown; content?: unknown; attachments?: unknown; page?: unknown; tags?: unknown };
     try {
         body = (await request.json()) as typeof body;
     } catch {
-        return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-        });
+        return json(400, { error: "Invalid JSON body" });
     }
 
-    // Shape-check rather than cast: this array comes straight off the client.
-    const rawMessages = Array.isArray(body.messages) ? body.messages : [];
-    const history: IncomingMessage[] = rawMessages
-        .filter((m): m is IncomingMessage =>
-            !!m &&
-            typeof m === "object" &&
-            typeof (m as IncomingMessage).content === "string" &&
-            ((m as IncomingMessage).role === "user" || (m as IncomingMessage).role === "assistant"))
-        .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_CHARS) }))
-        .filter((m) => m.content.trim().length > 0)
-        .slice(-MAX_HISTORY_MESSAGES);
-
-    if (history.length === 0) {
-        return new Response(JSON.stringify({ error: "No messages provided" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-        });
-    }
+    // ONE new turn, not a history. The conversation lives in the database now
+    // (plan/ai-chat, AC-3): the client used to send its whole local array, which was
+    // untrusted input the route had to cap and shape-check on every request.
+    const content = typeof body.content === "string" ? body.content.trim().slice(0, MAX_MESSAGE_CHARS) : "";
+    const attachments = readAttachments(body.attachments);
+    // An attachment alone is a valid turn - "here, read this".
+    if (!content && attachments.length === 0) return json(400, { error: "Empty message" });
 
     // Context tags the user pinned, plus whatever page they are on. Shape-checked
     // like everything else off the client, and capped: this goes into the system
@@ -190,6 +239,30 @@ export async function POST(request: NextRequest) {
             }
             : null;
 
+    // ── The conversation ──────────────────────────────────────────────────────
+    // Someone else's session id is answered exactly like a missing one, so the
+    // response never confirms that an id exists.
+    const requestedId = typeof body.sessionId === "string" && body.sessionId ? body.sessionId.slice(0, 64) : null;
+    const chat = requestedId ? await getOwnedSession(userId, requestedId) : await createSession(userId);
+    if (!chat) return json(404, { error: "Conversation not found" });
+
+    const prior = (await recentMessages(chat.id, CHAT_HISTORY_LIMIT - 1))
+        .map((m): IncomingMessage => ({
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: modelContent(m).slice(0, MAX_MESSAGE_CHARS),
+        }))
+        .filter((m) => m.content.length > 0);
+    const needsTitle = !chat.title;
+
+    // Saved BEFORE answering: if the model call fails, the question is still in the
+    // conversation when the user retries or reopens it.
+    const userMeta = attachments.length ? { attachments } : null;
+    const userMessageId = await insertMessage({ sessionId: chat.id, role: "user", content, metadata: userMeta });
+    const history: IncomingMessage[] = [
+        ...prior,
+        { role: "user", content: modelContent({ content, metadata: userMeta }).slice(0, MAX_MESSAGE_CHARS) },
+    ];
+
     const [user] = await db
         .select({
             name: users.name,
@@ -199,7 +272,7 @@ export async function POST(request: NextRequest) {
             learningPreferences: users.learningPreferences,
         })
         .from(users)
-        .where(eq(users.id, session.user.id))
+        .where(eq(users.id, userId))
         .limit(1);
 
     const system = systemPrompt({
@@ -218,22 +291,38 @@ export async function POST(request: NextRequest) {
     ];
 
     // ── One stream, tool rounds included ──────────────────────────────────────
-    // Tool rounds used to run to completion BEFORE the response opened, and the
-    // body was plain prose. That is why the agent looked idle: the user watched a
-    // motionless spinner for the whole database round trip, then text appeared
-    // with no sign that anything had been read. Now the response opens first and
-    // every tool call is announced as it happens - see `lib/ai/protocol.ts`.
+    // The response opens first and every tool call is announced as it happens -
+    // see `lib/ai/protocol.ts`. What streams is also collected, because the
+    // assistant turn is saved from it at the end.
     const encoder = new TextEncoder();
+    let cancelled = false;
     const body$ = new ReadableStream<Uint8Array>({
         async start(controller) {
-            const send = (frame: ChatFrame) => controller.enqueue(encoder.encode(encodeFrame(frame)));
+            // After the reader goes away (the user pressed stop, or closed the tab),
+            // enqueue throws. Nothing may throw past this point: the turn still has to
+            // be saved.
+            const send = (frame: ChatFrame) => {
+                if (cancelled) return;
+                try {
+                    controller.enqueue(encoder.encode(encodeFrame(frame)));
+                } catch {
+                    cancelled = true;
+                }
+            };
+
+            let reply = "";
+            let failed = false;
+            const steps = new Map<string, AssistantChatStep>();
+            const actions: AssistantChatAction[] = [];
+
+            send({ t: "session", id: chat.id });
 
             try {
                 // Fingerprints of write-tool calls already executed in THIS turn. See the note
-            // beside the check below.
-            const writesThisTurn = new Set<string>();
+                // beside the check below.
+                const writesThisTurn = new Set<string>();
 
-            for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+                for (let round = 0; round < MAX_TOOL_ROUNDS && !cancelled; round++) {
                     const decision = (await openai.chat.completions.create({
                         model: MODEL,
                         messages: conversation,
@@ -297,7 +386,7 @@ export async function POST(request: NextRequest) {
                             }
 
                             try {
-                                return await runTool(name, args, session.user.id);
+                                return await runTool(name, args, userId);
                             } catch (error: unknown) {
                                 console.error(`[ai/chat] tool ${name} failed:`, error);
                                 return null;
@@ -312,6 +401,7 @@ export async function POST(request: NextRequest) {
 
                         if (outcome === null) {
                             send({ t: "tool", phase: "error", id, name });
+                            steps.set(id, { id, name, status: "error" });
                             conversation.push({
                                 role: "tool",
                                 tool_call_id: call.id,
@@ -329,6 +419,7 @@ export async function POST(request: NextRequest) {
                                 ? payload._summary
                                 : undefined;
                         send({ t: "tool", phase: "result", id, name, ...(summary ? { summary } : {}) });
+                        steps.set(id, { id, name, status: "done", ...(summary ? { summary } : {}) });
 
                         // A control the tool produced - a link to the thing it made. Emitted
                         // here, from the tool's own return value, so the href never passes
@@ -337,12 +428,9 @@ export async function POST(request: NextRequest) {
                             ...(outcome.action ? [outcome.action] : []),
                             ...(outcome.actions ?? []),
                         ]) {
-                            send({
-                                t: "action",
-                                label: a.label,
-                                href: a.href,
-                                ...(a.kind ? { kind: a.kind } : {}),
-                            });
+                            const action = { label: a.label, href: a.href, ...(a.kind ? { kind: a.kind } : {}) };
+                            send({ t: "action", ...action });
+                            actions.push(action);
                         }
 
                         conversation.push({
@@ -352,7 +440,7 @@ export async function POST(request: NextRequest) {
                         });
                     });
                 }
-            } catch (error) {
+            } catch (error: unknown) {
                 // A failed tool round is recoverable: drop back to the plain history
                 // and let the model answer from what it already knows.
                 console.error("[ai/chat] tool round failed:", error);
@@ -361,35 +449,77 @@ export async function POST(request: NextRequest) {
             }
 
             try {
-                const stream = (await openai.chat.completions.create({
-                    model: MODEL,
-                    messages: conversation,
-                    temperature: 0.6,
-                    max_tokens: 1600,
-                    stream: true,
-                })) as AsyncGenerator<unknown>;
+                if (!cancelled) {
+                    const stream = (await openai.chat.completions.create({
+                        model: MODEL,
+                        messages: conversation,
+                        temperature: 0.6,
+                        max_tokens: 1600,
+                        stream: true,
+                    })) as AsyncGenerator<unknown>;
 
-                for await (const chunk of stream) {
-                    const delta = (chunk as {
-                        choices?: Array<{ delta?: { content?: string } }>;
-                    })?.choices?.[0]?.delta?.content;
-                    if (delta) send({ t: "text", v: delta });
+                    for await (const chunk of stream) {
+                        // Stop paying for tokens nobody is reading.
+                        if (cancelled) break;
+                        const delta = (chunk as {
+                            choices?: Array<{ delta?: { content?: string } }>;
+                        })?.choices?.[0]?.delta?.content;
+                        if (delta) {
+                            reply += delta;
+                            send({ t: "text", v: delta });
+                        }
+                    }
                 }
-                send({ t: "done" });
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error("[ai/chat] stream error:", error);
+                failed = true;
                 // The status code is long gone by here, so the failure has to travel
                 // in band or the user just gets a truncated answer with no reason.
                 send({ t: "error", message: "The response was cut short. Please try again." });
-            } finally {
-                controller.close();
             }
+
+            // ── Save the turn ──────────────────────────────────────────────────
+            // Whatever streamed is kept, including a reply the user stopped halfway:
+            // it is what they saw, and reopening the chat should show the same thing.
+            let messageId: string | null = null;
+            try {
+                if (reply.trim() || actions.length) {
+                    messageId = await insertMessage({
+                        sessionId: chat.id,
+                        role: "assistant",
+                        content: reply,
+                        metadata: {
+                            ...(steps.size ? { steps: [...steps.values()] } : {}),
+                            ...(actions.length ? { actions } : {}),
+                            ...(cancelled || failed ? { partial: true } : {}),
+                        },
+                    });
+                }
+                let title: string | undefined;
+                if (needsTitle) {
+                    title = reply.trim() ? await titleFor(content || attachments[0]?.name || "", reply) : fallbackTitle(content || attachments[0]?.name || "New chat");
+                    send({ t: "title", v: title });
+                }
+                await touchSession(chat.id, title);
+            } catch (error: unknown) {
+                console.error("[ai/chat] saving the turn failed:", error);
+            }
+
+            send({
+                t: "done",
+                ...(messageId ? { messageId } : {}),
+                ...(userMessageId ? { userMessageId } : {}),
+            });
+            try { controller.close(); } catch { /* already cancelled */ }
+        },
+        cancel() {
+            cancelled = true;
         },
     });
 
     return new Response(body$, {
         headers: {
-            // NDJSON, not text/plain: the body is now framed. See lib/ai/protocol.ts.
+            // NDJSON, not text/plain: the body is framed. See lib/ai/protocol.ts.
             "Content-Type": "application/x-ndjson; charset=utf-8",
             "Cache-Control": "no-store, no-transform",
             "X-Accel-Buffering": "no",

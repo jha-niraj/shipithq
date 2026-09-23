@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from "react"
 import { Mic, MicOff } from "lucide-react"
 import { useScribe } from "@elevenlabs/react"
 import { Button } from "@repo/ui/components/ui/button"
+import { Textarea } from "@repo/ui/components/ui/textarea"
 import { cn } from "@repo/ui/lib/utils"
 import type { OpenInputProps } from "@repo/ui/components/adaptive-flow"
 import { getScribeToken } from "@/actions/(main)/practice"
 
-const INK = "text-neutral-900 dark:text-neutral-50"
 const INK_DIM = "text-neutral-600 dark:text-neutral-400"
 
 /**
@@ -71,7 +71,7 @@ export function OpenAnswerInput({ value, onChange, onSubmit, disabled, setViaVoi
     return (
         <div>
             <div className="flex items-start gap-2">
-                <textarea
+                <Textarea
                     value={value}
                     onChange={(e) => onChange(e.target.value.slice(0, maxChars))}
                     onKeyDown={(e) => {
@@ -84,10 +84,7 @@ export function OpenAnswerInput({ value, onChange, onSubmit, disabled, setViaVoi
                     rows={3}
                     autoFocus
                     placeholder={scribe.isConnected ? "Listening. Speak, then review the text." : "Type your answer, or use the mic"}
-                    className={cn(
-                        "w-full resize-none rounded-xl border-2 border-neutral-200 bg-white px-4 py-3 text-base outline-none transition-colors placeholder:text-neutral-500 focus:border-neutral-900 disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-900 dark:placeholder:text-neutral-400 dark:focus:border-neutral-100",
-                        INK,
-                    )}
+                    className="min-h-[88px] flex-1 text-base"
                 />
                 <Button
                     type="button"

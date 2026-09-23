@@ -5,11 +5,12 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
     Search, Users, MoreVertical, Mail, Calendar, Briefcase,
     ChevronRight, CheckCircle2, XCircle, Eye, MessageSquare, List,
-    Columns
+    Columns, UserPlus, Send
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { Checkbox } from "@repo/ui/components/ui/checkbox"
 import {
     Sheet, SheetContent
@@ -170,40 +171,20 @@ export function CandidatesContent({ initialCandidates, stats, jobs }: Candidates
 
             {
                 stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-8">
-                        <div className="p-4 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.total}</p>
-                            <p className="text-xs text-neutral-500">Total</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800">
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">{stats.new}</p>
-                            <p className="text-xs text-neutral-800 dark:text-neutral-200">New</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800">
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">{stats.screening}</p>
-                            <p className="text-xs text-neutral-800 dark:text-neutral-200">Screening</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800">
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">{stats.interviewing}</p>
-                            <p className="text-xs text-neutral-800 dark:text-neutral-200">Interviewing</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800">
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">{stats.offered}</p>
-                            <p className="text-xs text-neutral-800 dark:text-neutral-200">Offered</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800">
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">{stats.hired}</p>
-                            <p className="text-xs text-neutral-800 dark:text-neutral-200">Hired</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                            <p className="text-2xl font-bold text-red-700 dark:text-red-400">{stats.rejected}</p>
-                            <p className="text-xs text-red-600 dark:text-red-500">Rejected</p>
-                        </div>
-                        <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.thisWeek}</p>
-                            <p className="text-xs text-neutral-500">This Week</p>
-                        </div>
-                    </div>
+                    <StatBand
+                        className="mb-8"
+                        cols={8}
+                        items={[
+                            { icon: Users, label: "Total", value: stats.total },
+                            { icon: UserPlus, label: "New", value: stats.new },
+                            { icon: Eye, label: "Screening", value: stats.screening },
+                            { icon: MessageSquare, label: "Interviewing", value: stats.interviewing },
+                            { icon: Send, label: "Offered", value: stats.offered },
+                            { icon: CheckCircle2, label: "Hired", value: stats.hired },
+                            { icon: XCircle, label: "Rejected", value: stats.rejected, tone: "rose" },
+                            { icon: Calendar, label: "This Week", value: stats.thisWeek },
+                        ]}
+                    />
                 )
             }
 

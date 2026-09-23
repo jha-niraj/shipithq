@@ -20,6 +20,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { Check, CornerDownLeft, RefreshCw } from "lucide-react"
 import { Shimmer, ShimmerStyles } from "./skeleton-kit"
 import { Button } from "./ui/button"
+import { Textarea } from "./ui/textarea"
 import { cn } from "../lib/utils"
 
 export type AdaptiveQuestionKind = "single" | "multi" | "open"
@@ -68,6 +69,8 @@ export interface AdaptiveFlowProps {
 	renderOpenInput?: (props: OpenInputProps) => React.ReactNode
 	/** Shown in the question slot instead of a question, for example the finished summary. */
 	slot?: React.ReactNode
+	/** A line above the question, for example "Editing question 1 - back to question 8". */
+	notice?: React.ReactNode
 	/** 1-based, shown as "Question N". No total: the flow does not know it. */
 	questionNumber: number
 	/** Character cap for open answers. Defaults to 500. */
@@ -103,6 +106,7 @@ export function AdaptiveFlow({
 	onRetry,
 	renderOpenInput,
 	slot,
+	notice,
 	questionNumber,
 	openMaxChars = 500,
 	className,
@@ -119,7 +123,9 @@ export function AdaptiveFlow({
 	return (
 		<div className={cn("flex h-full min-h-0 w-full flex-col lg:flex-row", THEME_VARS, className)}>
 			<ShimmerStyles />
-			<aside className="hidden min-h-0 shrink-0 border-neutral-200 lg:block lg:w-1/3 lg:max-w-sm lg:border-r dark:border-neutral-800">
+			{/* A flex column so the rail can give its own list a scroller: a rail taller than the
+			    page scrolls inside itself instead of pushing the page (MO-10). */}
+			<aside className="hidden min-h-0 shrink-0 flex-col border-neutral-200 lg:flex lg:w-1/3 lg:max-w-sm lg:border-r dark:border-neutral-800">
 				{rail}
 			</aside>
 			{railCompact && (
@@ -127,6 +133,7 @@ export function AdaptiveFlow({
 			)}
 			<section className="flex min-h-0 flex-1 flex-col overflow-y-auto">
 				<div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-8 sm:px-8">
+					{notice && !slot && <div className="mb-5">{notice}</div>}
 					<AnimatePresence mode="wait" initial={false}>
 						{slot ? (
 							<motion.div key="slot" {...variants} transition={{ duration: 0.35, ease: EASE }}>
@@ -330,7 +337,7 @@ function QuestionCard({
 function DefaultOpenInput({ value, onChange, onSubmit, disabled, maxChars }: OpenInputProps) {
 	return (
 		<div>
-			<textarea
+			<Textarea
 				value={value}
 				onChange={(e) => onChange(e.target.value.slice(0, maxChars))}
 				onKeyDown={(e) => {
@@ -343,11 +350,7 @@ function DefaultOpenInput({ value, onChange, onSubmit, disabled, maxChars }: Ope
 				rows={3}
 				autoFocus
 				placeholder="Type your answer"
-				className={cn(
-					"w-full resize-none rounded-xl border-2 bg-white px-4 py-3 text-base outline-none transition-colors placeholder:text-neutral-500 focus:border-neutral-900 disabled:opacity-60 dark:bg-neutral-900 dark:placeholder:text-neutral-400 dark:focus:border-neutral-100",
-					"border-neutral-200 dark:border-neutral-800",
-					INK,
-				)}
+				className="min-h-[88px] text-base"
 			/>
 			<div className={cn("mt-1 text-right text-xs", INK_DIM)}>{value.length}/{maxChars}</div>
 		</div>

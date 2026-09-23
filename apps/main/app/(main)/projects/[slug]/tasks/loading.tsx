@@ -1,5 +1,6 @@
 // Hand-matched to the project task board.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -12,6 +13,24 @@ export default function Loading() {
                     <Shimmer className="h-4 w-80" delay={0.06} />
                 </div>
                 <Shimmer className="h-10 w-36 rounded-xl" delay={0.12} />
+            </div>
+
+            {/* Progress card: heading + percentage, the bar, the three-count band, the milestones. */}
+            <div className="mb-6 rounded-xl border border-neutral-200 p-6 dark:border-neutral-800">
+                <div className="mb-4 flex items-center justify-between">
+                    <div className="space-y-2">
+                        <Shimmer className="h-5 w-24" />
+                        <Shimmer className="h-4 w-44" delay={0.04} />
+                    </div>
+                    <Shimmer className="h-9 w-16" delay={0.06} />
+                </div>
+                <Shimmer className="mb-4 h-3 w-full rounded-full" delay={0.08} />
+                <StatBandSkeleton count={3} cols={3} size="sm" />
+                <div className="mt-4 flex justify-between">
+                    {[0, 1, 2, 3].map((i) => (
+                        <Shimmer key={i} className="h-3 w-16" delay={0.1 + i * 0.02} />
+                    ))}
+                </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

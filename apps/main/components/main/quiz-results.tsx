@@ -13,11 +13,12 @@ import { Progress } from "@repo/ui/components/ui/progress";
 import { Badge } from "@repo/ui/components/ui/badge";
 import {
     Check, X, ArrowLeft, Flag,
-    Trophy, RotateCcw, ChevronLeft, ChevronRight
+    Trophy, RotateCcw, ChevronLeft, ChevronRight, Clock
 } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import type { QuizQuestion, QuizResult } from "./quiz";
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 
 export interface QuizResultsProps {
     result: QuizResult;
@@ -202,32 +203,16 @@ export default function QuizResults({
                                 }
                             </TabsList>
                             <TabsContent value="overall" className="space-y-4">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg text-center">
-                                        <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                                            {result.correctCount}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">Correct</p>
-                                    </div>
-                                    <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg text-center">
-                                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                                            {result.totalQuestions - result.correctCount}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">Incorrect</p>
-                                    </div>
-                                    <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg text-center">
-                                        <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                                            {result.flaggedQuestions.length}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">Flagged</p>
-                                    </div>
-                                    <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg text-center">
-                                        <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                                            {formatTime(result.totalTimeTaken)}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">Time Taken</p>
-                                    </div>
-                                </div>
+                                <StatBand
+                                    size="sm"
+                                    cols={4}
+                                    items={[
+                                        { icon: Check, label: "Correct", value: result.correctCount },
+                                        { icon: X, label: "Incorrect", value: result.totalQuestions - result.correctCount, tone: "rose" },
+                                        { icon: Flag, label: "Flagged", value: result.flaggedQuestions.length },
+                                        { icon: Clock, label: "Time Taken", value: formatTime(result.totalTimeTaken) },
+                                    ]}
+                                />
                                 <div className="space-y-2">
                                     <h4 className="font-medium text-neutral-900 dark:text-white">Question Summary</h4>
                                     <div className="flex flex-wrap gap-2">

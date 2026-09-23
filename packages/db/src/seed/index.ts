@@ -4,7 +4,8 @@
  *     pnpm db:seed                  # companies, jobs, projects
  *     pnpm db:seed --applications=you@example.com
  *     pnpm db:seed --clear          # remove everything this script created
- *     pnpm db:seed --only=practice  # just the DSA practice catalogue
+ *     pnpm db:seed --only=practice       # just the DSA practice catalogue
+ *     pnpm db:seed --only=project-ideas  # just the curated project catalogue
  *
  * ── Why this exists ──────────────────────────────────────────────────────────
  * Every layout decision in this product has been made against an empty database:
@@ -38,6 +39,8 @@
 import { db } from "../client";
 import { practiceProblem } from "../schema/practice";
 import { DSA_CATALOGUE, SEEDED_SORT_ORDER_FLOOR } from "./practice-dsa";
+import { PROJECT_IDEAS } from "./project-ideas";
+import { projectIdeas } from "../schema/projects";
 import {
     companies,
     companyMembers,
@@ -417,6 +420,44 @@ async function clear() {
     console.log("Cleared every row this seed created.");
 }
 
+/**
+ * The curated project catalogue the ideas page browses (plan/projects, PJ-2).
+ *
+ * Upserts on the title, so re-running edits the copy and never duplicates a row
+ * or disturbs an idea somebody submitted. Not part of `--clear`: a generated
+ * project points back at the idea it came from.
+ */
+async function seedProjectIdeas(): Promise<{ written: number }> {
+    const existing = await db
+        .select({ id: projectIdeas.id, title: projectIdeas.projectTitle })
+        .from(projectIdeas);
+    const byTitle = new Map(existing.map((r) => [r.title, r.id]));
+
+    let written = 0;
+    for (const idea of PROJECT_IDEAS) {
+        const values = {
+            projectTitle: idea.projectTitle,
+            projectDescription: idea.projectDescription,
+            difficulty: idea.difficulty,
+            technologies: idea.technologies,
+            categories: idea.categories,
+            primaryLanguageOrFramework: idea.primaryLanguageOrFramework,
+            // Curated, approved and visible; `generationType` is what the generator
+            // reads when a user builds from it.
+            generationType: "CURATED",
+            ideaType: "TECHNOLOGY_SPECIFIC" as const,
+            isPlatformCurated: true,
+            status: "APPROVED" as const,
+            overview: idea.projectDescription,
+        };
+        const id = byTitle.get(idea.projectTitle);
+        if (id) await db.update(projectIdeas).set(values).where(eq(projectIdeas.id, id));
+        else await db.insert(projectIdeas).values(values);
+        written++;
+    }
+    return { written };
+}
+
 // ── Entry point ──────────────────────────────────────────────────────────────
 
 /**
@@ -469,6 +510,12 @@ async function main() {
     const args = process.argv.slice(2);
     if (args.includes("--clear")) {
         await clear();
+        return;
+    }
+
+    if (args.includes("--only=project-ideas")) {
+        const r = await seedProjectIdeas();
+        console.log(`  projects   ${r.written} curated ideas`);
         return;
     }
 

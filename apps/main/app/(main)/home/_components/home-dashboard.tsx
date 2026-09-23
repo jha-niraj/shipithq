@@ -8,9 +8,10 @@ import {
 } from "recharts"
 import {
 	FolderKanban, Target, Mic, Sparkles, Flame, Zap, ArrowRight, Activity,
-	AlertTriangle, Clock, Plus, TrendingUp, GraduationCap,
+	AlertTriangle, Clock, Plus, TrendingUp, GraduationCap, CalendarDays, Trophy, CheckCircle2,
 } from "lucide-react"
 import { cn } from "@repo/ui/lib/utils"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 
 // ─── Types (mirror of the getHomeData payload the page passes down) ──────────
 
@@ -92,31 +93,11 @@ const OK = "var(--home-muted)"
 // (green = positive, red = attention) that still carry meaning elsewhere.
 const MIX_COLORS = ["#171717", "#404040", "#525252", "#737373", "#8a8a8a", "#a3a3a3", "#bdbdbd", "#d4d4d4"]
 
-type Tone = "default" | "ok" | "warn" | "bad"
-const toneCls = (t?: Tone) =>
-	// "ok" no longer means green. A completed count is not a status the reader has
-	// to act on, and colouring it made every zero on this page read as a failure.
-	t === "ok" ? "text-neutral-900 dark:text-white"
-		: t === "warn" ? "text-neutral-800 dark:text-neutral-100"
-			: t === "bad" ? "text-red-600 dark:text-red-400"
-				: "text-neutral-900 dark:text-white"
+interface StatItem { label: string; value: string | number; icon: React.ComponentType<{ className?: string }> }
 
-interface StatItem { label: string; value: string | number; tone?: Tone }
-
+/** The module row's figures. One column beside the chart from `lg`, a scrolling row on a phone. */
 function StatColumn({ stats }: { stats: StatItem[] }) {
-	return (
-		<div className="grid h-full grid-cols-2 gap-2.5 lg:grid-cols-1">
-			{stats.map((s) => (
-				<div
-					key={s.label}
-					className="flex flex-col justify-center rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/30 px-3.5 py-2.5"
-				>
-					<p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{s.label}</p>
-					<p className={cn("mt-0.5 text-xl font-bold tabular-nums", toneCls(s.tone))}>{s.value}</p>
-				</div>
-			))}
-		</div>
-	)
+	return <StatBand size="sm" cols={1} items={stats} />
 }
 
 interface TrendLine { key: string; name: string; color: string }
@@ -341,25 +322,16 @@ export default function HomeDashboard({
 				initial={{ opacity: 0, y: 10 }}
 				animate={{ opacity: 1, y: 0 }}
 				transition={{ duration: 0.3, delay: 0.05 }}
-				className="grid grid-cols-2 gap-3 lg:grid-cols-4"
 			>
-				{([
-					{ label: "Current streak", value: `${user?.currentStreak ?? 0}d`, icon: Flame, tone: (user?.currentStreak ?? 0) > 0 ? "ok" : "default" },
-					{ label: "Total XP", value: (user?.totalXp ?? 0).toLocaleString(), icon: Zap },
-					{ label: "Level", value: user?.currentLevel ?? 1, icon: Sparkles },
-					{ label: "Credits", value: (user?.credits ?? 0).toLocaleString(), icon: Activity },
-				] as Array<StatItem & { icon: React.ComponentType<{ className?: string }> }>).map((s) => (
-					<div
-						key={s.label}
-						className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-					>
-						<div className="flex items-center gap-2">
-							<s.icon className="h-3.5 w-3.5 text-neutral-900 dark:text-neutral-100" />
-							<p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{s.label}</p>
-						</div>
-						<p className={cn("mt-1.5 text-2xl font-bold tabular-nums", toneCls(s.tone))}>{s.value}</p>
-					</div>
-				))}
+				<StatBand
+					cols={4}
+					items={[
+						{ label: "Current streak", value: `${user?.currentStreak ?? 0}d`, icon: Flame },
+						{ label: "Total XP", value: (user?.totalXp ?? 0).toLocaleString(), icon: Zap },
+						{ label: "Level", value: user?.currentLevel ?? 1, icon: Sparkles },
+						{ label: "Credits", value: (user?.credits ?? 0).toLocaleString(), icon: Activity },
+					]}
+				/>
 			</motion.div>
 
 			{/* ── Nudge strip ── */}
@@ -391,10 +363,10 @@ export default function HomeDashboard({
 				<ModuleRow
 					title="Momentum" icon={Zap} href="/practice" hrefLabel="Keep going" delay={0.14}
 					stats={[
-						{ label: "XP this year", value: stats.totalXpEarned.toLocaleString() },
-						{ label: "Active days", value: stats.activeDays },
-						{ label: "Current streak", value: `${user?.currentStreak ?? 0}d`, tone: (user?.currentStreak ?? 0) > 0 ? "ok" : "default" },
-						{ label: "Longest streak", value: `${user?.longestStreak ?? 0}d` },
+						{ label: "XP this year", value: stats.totalXpEarned.toLocaleString(), icon: Zap },
+						{ label: "Active days", value: stats.activeDays, icon: CalendarDays },
+						{ label: "Current streak", value: `${user?.currentStreak ?? 0}d`, icon: Flame },
+						{ label: "Longest streak", value: `${user?.longestStreak ?? 0}d`, icon: Trophy },
 					]}
 					data={trends.activity}
 					lines={[
@@ -406,10 +378,10 @@ export default function HomeDashboard({
 				<ModuleRow
 					title="Projects" icon={FolderKanban} href="/projects" hrefLabel="All projects" reverse delay={0.2}
 					stats={[
-						{ label: "Total projects", value: stats.projects.total },
-						{ label: "In progress", value: stats.projects.active },
-						{ label: "Completed", value: stats.projects.completed, tone: "ok" },
-						{ label: "Completion", value: `${completionRate}%`, tone: completionRate > 0 ? "ok" : "default" },
+						{ label: "Total projects", value: stats.projects.total, icon: FolderKanban },
+						{ label: "In progress", value: stats.projects.active, icon: Clock },
+						{ label: "Completed", value: stats.projects.completed, icon: CheckCircle2 },
+						{ label: "Completion", value: `${completionRate}%`, icon: TrendingUp },
 					]}
 					data={trends.projects}
 					lines={[
@@ -421,10 +393,10 @@ export default function HomeDashboard({
 				<ModuleRow
 					title="Career goals" icon={Target} href="/pathfinder" hrefLabel="Pathfinder" delay={0.26}
 					stats={[
-						{ label: "Total goals", value: stats.goals.total },
-						{ label: "Active", value: stats.goals.active },
-						{ label: "Completed", value: stats.goals.completed, tone: "ok" },
-						{ label: "Avg progress", value: `${stats.goals.avgProgress}%` },
+						{ label: "Total goals", value: stats.goals.total, icon: Target },
+						{ label: "Active", value: stats.goals.active, icon: Clock },
+						{ label: "Completed", value: stats.goals.completed, icon: CheckCircle2 },
+						{ label: "Avg progress", value: `${stats.goals.avgProgress}%`, icon: TrendingUp },
 					]}
 					data={trends.goals}
 					lines={[
@@ -436,10 +408,10 @@ export default function HomeDashboard({
 				<ModuleRow
 					title="Interview practice" icon={Mic} href="/mock" hrefLabel="Mock interviews" reverse delay={0.32}
 					stats={[
-						{ label: "Mock sessions", value: stats.mockSessions },
-						{ label: "Study spaces", value: stats.studios },
-						{ label: "Active days", value: stats.activeDays },
-						{ label: "Level", value: user?.currentLevel ?? 1 },
+						{ label: "Mock sessions", value: stats.mockSessions, icon: Mic },
+						{ label: "Study spaces", value: stats.studios, icon: GraduationCap },
+						{ label: "Active days", value: stats.activeDays, icon: CalendarDays },
+						{ label: "Level", value: user?.currentLevel ?? 1, icon: Sparkles },
 					]}
 					data={trends.mocks}
 					lines={[{ key: "sessions", name: "Sessions", color: ACCENT }]}

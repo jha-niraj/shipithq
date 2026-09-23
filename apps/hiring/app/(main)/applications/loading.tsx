@@ -1,6 +1,7 @@
 // Hand-matched to applications-content.tsx - same wrapper, same grids, same card chrome, so
 // nothing reflows when the real content mounts.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -15,14 +16,7 @@ export default function Loading() {
                 <Shimmer className="h-10 w-36 rounded-xl" delay={0.12} />
             </div>
 
-            <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-                        <Shimmer className="h-3.5 w-20" delay={i * 0.05} />
-                        <Shimmer className="mt-2 h-7 w-16" delay={i * 0.05} />
-                    </div>
-                ))}
-            </div>
+            <StatBandSkeleton count={4} cols={4} className="mb-8" />
 
             <div className="mb-6 flex flex-col gap-3 sm:flex-row">
                 <Shimmer className="h-10 flex-1 rounded-lg" />

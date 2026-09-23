@@ -18,6 +18,7 @@ import {
     StreakInfo
 } from '@/actions/(main)/user/activity.action';
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { StatBand, StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
 interface DayActivity {
     date: Date;
@@ -228,6 +229,7 @@ const ActivityCalendar: React.FC<ActivityCalendarProps> = ({ className = "" }) =
     if (isLoading) {
         return (
             <div className={`${className} space-y-6`}>
+                <StatBandSkeleton count={3} cols={3} />
                 <Card className="bg-white dark:bg-neutral-900 shadow-2xl rounded-xl transition-all duration-300">
                     <CardContent className="p-6">
                         <div className="animate-pulse space-y-4">
@@ -253,46 +255,19 @@ const ActivityCalendar: React.FC<ActivityCalendarProps> = ({ className = "" }) =
 
     return (
         <div className={`${className} space-y-6`}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="bg-gradient-to-br from-neutral-900 to-red-600 text-white border-0 shadow-2xl rounded-xl transition-all duration-300">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-neutral-100 text-sm font-medium">Current Streak</p>
-                                <p className="text-3xl font-bold">{stats?.streak.currentStreak || 0}</p>
-                                <p className="text-neutral-100 text-xs">days</p>
-                            </div>
-                            <Flame className="w-8 h-8 text-neutral-200" />
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="bg-white dark:bg-neutral-900 shadow-2xl rounded-xl transition-all duration-300">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-muted-foreground text-sm font-medium">Longest Streak</p>
-                                <p className="text-3xl font-bold text-primary">{stats?.streak.longestStreak || 0}</p>
-                                <p className="text-muted-foreground text-xs">days</p>
-                            </div>
-                            <TrendingUp className="w-8 h-8 text-primary" />
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="bg-white dark:bg-neutral-900 shadow-2xl rounded-xl transition-all duration-300">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-muted-foreground text-sm font-medium">Next Milestone</p>
-                                <p className="text-3xl font-bold text-neutral-800 dark:text-neutral-200">
-                                    {Math.max(0, Math.ceil((stats?.streak.currentStreak || 0 + 1) / 7) * 7 - (stats?.streak.currentStreak || 0)) || '365+'}
-                                </p>
-                                <p className="text-muted-foreground text-xs">days</p>
-                            </div>
-                            <Trophy className="w-8 h-8 text-neutral-900 dark:text-neutral-100" />
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+            <StatBand
+                cols={3}
+                items={[
+                    { icon: Flame, label: 'Current Streak', value: stats?.streak.currentStreak || 0, hint: 'days' },
+                    { icon: TrendingUp, label: 'Longest Streak', value: stats?.streak.longestStreak || 0, hint: 'days' },
+                    {
+                        icon: Trophy,
+                        label: 'Next Milestone',
+                        value: Math.max(0, Math.ceil((stats?.streak.currentStreak || 0 + 1) / 7) * 7 - (stats?.streak.currentStreak || 0)) || '365+',
+                        hint: 'days',
+                    },
+                ]}
+            />
             <Card className="bg-white dark:bg-neutral-900 shadow-2xl rounded-xl transition-all duration-300">
                 <CardHeader>
                     <div className="flex items-center justify-between">

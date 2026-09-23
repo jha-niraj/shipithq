@@ -1,6 +1,7 @@
 'use client'
 
 import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { useState, useEffect } from 'react'
 import {
     Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle
@@ -123,15 +124,13 @@ export function CreatorEarningsSheet({
                                 </Button>
                             </div>
                         </div>
-                        <div className="p-4 rounded-lg bg-neutral-50 dark:bg-neutral-900/30 border border-neutral-200 dark:border-neutral-800">
-                            <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-                                <DollarSign className="w-4 h-4" />
-                                Total earned from this goal
-                            </p>
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100 mt-1">
-                                {totalEarned} credits
-                            </p>
-                        </div>
+                        <StatBand
+                            size="sm"
+                            cols={1}
+                            items={[
+                                { icon: DollarSign, label: "Total earned from this goal", value: `${totalEarned} credits` },
+                            ]}
+                        />
 
                         {
                             earnings.length > 0 && (

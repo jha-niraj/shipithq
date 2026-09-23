@@ -6,6 +6,7 @@ import {
     TrendingDown, CheckCircle, ArrowRight, Award
 } from "lucide-react"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -86,49 +87,42 @@ export function AnalyticsContent({ analytics, recruiterPerformance }: AnalyticsC
     const { overview, pipeline, topJobs } = analytics
     const totalPipeline = Object.values(pipeline).reduce((a, b) => a + b, 0)
 
-    const statsCards = [
+    const statsCards: StatBandItem[] = [
         {
             label: "Total Views",
             value: overview.totalViews.toLocaleString(),
-            icon: <Eye className="w-5 h-5" />,
-            color: "text-neutral-900",
-            bgColor: "bg-neutral-100 dark:bg-neutral-800/30"
+            icon: Eye,
         },
         {
             label: "Applications",
             value: overview.totalApplications.toLocaleString(),
-            change: overview.applicationChange,
-            icon: <Users className="w-5 h-5" />,
-            color: "text-neutral-900",
-            bgColor: "bg-neutral-100 dark:bg-neutral-800/30"
+            hint: (
+                <span className={`inline-flex items-center gap-0.5 ${overview.applicationChange >= 0 ? "" : "text-rose-700 dark:text-rose-400"}`}>
+                    {overview.applicationChange >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {Math.abs(overview.applicationChange)}%
+                </span>
+            ),
+            icon: Users,
         },
         {
             label: "Active Jobs",
             value: overview.activeJobs.toString(),
-            icon: <Briefcase className="w-5 h-5" />,
-            color: "text-neutral-900",
-            bgColor: "bg-neutral-100 dark:bg-neutral-800/30"
+            icon: Briefcase,
         },
         {
             label: "Avg. Time to Hire",
             value: overview.avgTimeToHire,
-            icon: <Clock className="w-5 h-5" />,
-            color: "text-neutral-900",
-            bgColor: "bg-neutral-100 dark:bg-neutral-800/30"
+            icon: Clock,
         },
         {
             label: "Total Hired",
             value: overview.hiredCount.toString(),
-            icon: <CheckCircle className="w-5 h-5" />,
-            color: "text-neutral-900",
-            bgColor: "bg-neutral-100 dark:bg-neutral-800/30"
+            icon: CheckCircle,
         },
         {
             label: "Conversion Rate",
             value: `${overview.conversionRate}%`,
-            icon: <Target className="w-5 h-5" />,
-            color: "text-neutral-900",
-            bgColor: "bg-neutral-100 dark:bg-neutral-800/30"
+            icon: Target,
         },
     ]
 
@@ -152,39 +146,9 @@ export function AnalyticsContent({ analytics, recruiterPerformance }: AnalyticsC
                     Track your hiring pipeline performance
                 </p>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-                {
-                    statsCards.map((stat, i) => (
-                        <motion.div
-                            key={i}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.05 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4"
-                        >
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className={`p-2 rounded-lg ${stat.bgColor} ${stat.color}`}>
-                                    {stat.icon}
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <span className="text-2xl font-bold text-neutral-900 dark:text-white">{stat.value}</span>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-neutral-500">{stat.label}</span>
-                                    {
-                                        stat.change !== undefined && (
-                                            <span className={`text-xs flex items-center gap-0.5 ${stat.change >= 0 ? "text-neutral-800" : "text-red-600"}`}>
-                                                {stat.change >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                                {Math.abs(stat.change)}%
-                                            </span>
-                                        )
-                                    }
-                                </div>
-                            </div>
-                        </motion.div>
-                    ))
-                }
-            </div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                <StatBand cols={6} items={statsCards} />
+            </motion.div>
             <div className="grid lg:grid-cols-3 gap-6 mb-8">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}

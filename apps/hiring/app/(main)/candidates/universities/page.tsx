@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@repo/ui/components/ui/select"
@@ -83,47 +84,16 @@ export default function UniversityPartnersPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-gradient-to-br from-neutral-800 to-neutral-700 rounded-2xl p-6 text-white"
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <GraduationCap className="w-5 h-5 text-neutral-200" />
-                        <span className="text-neutral-200 text-sm">Partner Universities</span>
-                    </div>
-                    <p className="text-3xl font-bold">{mockUniversities.length}</p>
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <Users className="w-5 h-5 text-neutral-800" />
-                        <span className="text-neutral-500 text-sm">Verified Students</span>
-                    </div>
-                    <p className="text-3xl font-bold text-neutral-900 dark:text-white">
-                        {totalStudents.toLocaleString()}
-                    </p>
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <TrendingUp className="w-5 h-5 text-neutral-800" />
-                        <span className="text-neutral-500 text-sm">Total Placements</span>
-                    </div>
-                    <p className="text-3xl font-bold text-neutral-900 dark:text-white">
-                        {totalPlacements.toLocaleString()}
-                    </p>
-                </motion.div>
-            </div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                <StatBand
+                    cols={3}
+                    items={[
+                        { icon: GraduationCap, label: "Partner Universities", value: mockUniversities.length },
+                        { icon: Users, label: "Verified Students", value: totalStudents.toLocaleString() },
+                        { icon: TrendingUp, label: "Total Placements", value: totalPlacements.toLocaleString() },
+                    ]}
+                />
+            </motion.div>
 
             {/* Info Banner */}
             <motion.div

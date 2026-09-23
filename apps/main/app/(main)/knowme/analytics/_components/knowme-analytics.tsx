@@ -29,7 +29,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
     BarChart3, ArrowLeft, MessageSquare, Users, Clock, TrendingUp,
-    TrendingDown, Minus, Download, Calendar, HelpCircle, Lightbulb,
+    TrendingDown, Download, Calendar, HelpCircle, Lightbulb,
     AlertTriangle, Info, ArrowRight, User, Sparkles
 } from "lucide-react";
 import { Button } from "@repo/ui/components/ui/button";
@@ -42,6 +42,7 @@ import {
 } from "@repo/ui/components/ui/select";
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader";
 import { cn } from "@repo/ui/lib/utils";
+import { StatBand } from "@repo/ui/components/ui/stat-band";
 import toast from "@repo/ui/components/ui/sonner";
 import type { KnowMeAnalyticsFull, TimeRange, TrendData, DailyActivityData } from "@/types/knowme";
 import { exportAnalyticsData } from "@/actions/(main)/knowme";
@@ -225,30 +226,16 @@ export default function KnowMeAnalytics({ analytics, initialRange, profileStatus
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 }}
-                className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4"
+                className="mb-6"
             >
-                <StatCard
-                    label="Questions"
-                    value={overview.totalQuestions}
-                    trend={overview.trends.questions}
-                    icon={<MessageSquare className="h-5 w-5" />}
-                />
-                <StatCard
-                    label="Visitors"
-                    value={overview.totalVisitors}
-                    trend={overview.trends.visitors}
-                    icon={<Users className="h-5 w-5" />}
-                />
-                <StatCard
-                    label="Sessions"
-                    value={overview.totalSessions}
-                    trend={overview.trends.sessions}
-                    icon={<Clock className="h-5 w-5" />}
-                />
-                <StatCard
-                    label="Questions per session"
-                    value={overview.avgQuestionsPerSession.toFixed(1)}
-                    icon={<HelpCircle className="h-5 w-5" />}
+                <StatBand
+                    cols={4}
+                    items={[
+                        { icon: MessageSquare, label: "Questions", value: overview.totalQuestions, hint: <TrendHint trend={overview.trends.questions} /> },
+                        { icon: Users, label: "Visitors", value: overview.totalVisitors, hint: <TrendHint trend={overview.trends.visitors} /> },
+                        { icon: Clock, label: "Sessions", value: overview.totalSessions, hint: <TrendHint trend={overview.trends.sessions} /> },
+                        { icon: HelpCircle, label: "Questions per session", value: overview.avgQuestionsPerSession.toFixed(1) },
+                    ]}
                 />
             </motion.div>
 
@@ -521,51 +508,29 @@ function formatDay(date: string): string {
     return parsed.toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
-function StatCard({
-    label,
-    value,
-    trend,
-    icon,
-}: {
-    label: string;
-    value: number | string;
-    trend?: TrendData;
-    icon: React.ReactNode;
-}) {
+/** The delta beside a headline figure, or nothing when there is no honest comparison. */
+function TrendHint({ trend }: { trend?: TrendData }) {
     // A trend against an EMPTY previous period is arithmetic, not information.
     // `calculateTrend` returns a flat 100% whenever `previous` is 0 and there is
     // anything at all now, so this page was reporting "8 sessions, up 100%" for
     // the first eight sessions ever recorded. There is nothing to compare
     // against, so nothing is shown.
-    const showTrend = trend && trend.previous > 0 && trend.direction !== "stable";
+    if (!trend || trend.previous <= 0 || trend.direction === "stable") return null;
 
     return (
-        <div className="rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-            <div className="mb-3 flex items-center justify-between gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                    {icon}
-                </span>
-                {showTrend && (
-                    <span className={cn(
-                        "flex items-center gap-1 text-xs font-medium tabular-nums",
-                        trend.direction === "down"
-                            ? "text-red-600 dark:text-red-400"
-                            : "text-neutral-700 dark:text-neutral-300",
-                    )}>
-                        {trend.direction === "up" ? (
-                            <TrendingUp className="h-3 w-3" />
-                        ) : trend.direction === "down" ? (
-                            <TrendingDown className="h-3 w-3" />
-                        ) : (
-                            <Minus className="h-3 w-3" />
-                        )}
-                        {Math.abs(trend.changePercent)}%
-                    </span>
-                )}
-            </div>
-            <p className="text-2xl font-bold tabular-nums text-neutral-900 dark:text-white">{value}</p>
-            <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">{label}</p>
-        </div>
+        <span className={cn(
+            "inline-flex items-center gap-1 font-medium tabular-nums",
+            trend.direction === "down"
+                ? "text-red-600 dark:text-red-400"
+                : "text-neutral-700 dark:text-neutral-300",
+        )}>
+            {trend.direction === "up" ? (
+                <TrendingUp className="h-3 w-3" />
+            ) : (
+                <TrendingDown className="h-3 w-3" />
+            )}
+            {Math.abs(trend.changePercent)}%
+        </span>
     );
 }
 

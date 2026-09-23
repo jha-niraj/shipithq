@@ -8,6 +8,7 @@ import { Pencil, Share2, Settings, Plus, MapPin, Building2, Globe, GraduationCap
 import { Button } from "@repo/ui/components/ui/button";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader";
+import { StatBand } from "@repo/ui/components/ui/stat-band";
 import { cn } from "@repo/ui/lib/utils";
 import toast from "@repo/ui/components/ui/sonner";
 import { validateResumeFile } from "@/lib/resume-extractor.client";
@@ -436,24 +437,17 @@ export function ProfileView({
                         </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        {[
+                    <StatBand
+                        size="sm"
+                        cols={4}
+                        className="mt-4"
+                        items={[
                             { label: "Total XP", value: stats.xp.toLocaleString(), icon: Zap },
                             { label: "Projects", value: stats.projectsCount, icon: FolderKanban },
                             { label: "Skills", value: stats.skillsCount, icon: Sparkles },
                             { label: "Followers", value: stats.followersCount, icon: Users },
-                        ].map((stat) => (
-                            <div key={stat.label} className="rounded-xl border border-neutral-100 px-3.5 py-2.5 dark:border-neutral-800">
-                                <div className="flex items-center gap-1.5">
-                                    <stat.icon className="h-3 w-3 text-neutral-600 dark:text-neutral-400" />
-                                    <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{stat.label}</p>
-                                </div>
-                                <p className="mt-0.5 text-lg font-bold tabular-nums text-neutral-900 dark:text-white">
-                                    {stat.value}
-                                </p>
-                            </div>
-                        ))}
-                    </div>
+                        ]}
+                    />
                 </div>
             </motion.section>
 

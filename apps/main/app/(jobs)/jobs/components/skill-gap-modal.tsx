@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import {
     Building2, Target, CheckCircle2, AlertCircle, GraduationCap,
-    ArrowRight, ExternalLink, Award
+    ArrowRight, ExternalLink, Award, Swords, Users
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Badge } from "@repo/ui/components/ui/badge"
@@ -13,6 +13,7 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import { cn } from "@repo/ui/lib/utils"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import {
     getShouldApplyScore, getSkillGapForJob,
     type FeedJobResult, type ShouldApplyScore, type SkillGapAnalysis
@@ -107,28 +108,21 @@ export function SkillGapModal({ job, open, onClose }: SkillGapModalProps) {
                                         {getRecommendationLabel(shouldApply.recommendation)}
                                     </Badge>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4 mb-4">
-                                    <div className="text-center p-3 bg-white dark:bg-neutral-800 rounded-lg">
-                                        <div className="text-2xl font-bold text-neutral-900 dark:text-white">{shouldApply.score}%</div>
-                                        <div className="text-xs text-neutral-500 dark:text-neutral-400">Match Score</div>
-                                    </div>
-                                    <div className="text-center p-3 bg-white dark:bg-neutral-800 rounded-lg">
-                                        <div className={cn(
-                                            "text-2xl font-bold",
-                                            shouldApply.competition.level === "LOW" ? "text-neutral-800 dark:text-neutral-200" :
-                                                shouldApply.competition.level === "HIGH" ? "text-red-600" : "text-neutral-800 dark:text-neutral-200"
-                                        )}>
-                                            {shouldApply.competition.level}
-                                        </div>
-                                        <div className="text-xs text-neutral-500 dark:text-neutral-400">Competition</div>
-                                    </div>
-                                    <div className="text-center p-3 bg-white dark:bg-neutral-800 rounded-lg">
-                                        <div className="text-2xl font-bold text-neutral-900 dark:text-white">
-                                            {shouldApply.competition.applicantsCount}
-                                        </div>
-                                        <div className="text-xs text-neutral-500 dark:text-neutral-400">Applicants</div>
-                                    </div>
-                                </div>
+                                <StatBand
+                                    size="sm"
+                                    cols={3}
+                                    className="mb-4"
+                                    items={[
+                                        { icon: Target, label: "Match Score", value: `${shouldApply.score}%` },
+                                        {
+                                            icon: Swords,
+                                            label: "Competition",
+                                            value: shouldApply.competition.level,
+                                            tone: shouldApply.competition.level === "HIGH" ? "rose" : "neutral",
+                                        },
+                                        { icon: Users, label: "Applicants", value: shouldApply.competition.applicantsCount },
+                                    ]}
+                                />
                                 <div className="space-y-2">
                                     {shouldApply.reasons.map((reason, i) => (
                                         <div key={i} className="flex items-start gap-2 text-sm">

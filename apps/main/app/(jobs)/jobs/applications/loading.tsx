@@ -1,5 +1,6 @@
-// Hand-matched to the applications page (9 status tabs + rows).
+// Hand-matched to the applications page (header, stat band, rows).
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -14,11 +15,9 @@ export default function Loading() {
                 <Shimmer className="h-10 w-36 rounded-xl" delay={0.12} />
             </div>
 
-            <div className="mb-6 flex flex-wrap gap-2 border-b border-neutral-200 pb-2 dark:border-neutral-800">
-                {Array.from({ length: 6 }).map((_, i) => (
-                    <Shimmer key={i} className="h-9 w-28 rounded-lg" delay={i * 0.05} />
-                ))}
-            </div>
+            {/* The page's four-cell stat band (Total, Active, Offers, Closed). The
+                status tabs sit in the header row, not in a strip of their own. */}
+            <StatBandSkeleton count={4} cols={4} className="mb-6" />
 
             <div className="space-y-3">
                 {Array.from({ length: 9 }).map((_, i) => (

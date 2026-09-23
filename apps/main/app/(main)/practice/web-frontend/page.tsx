@@ -4,6 +4,7 @@ interface PageProps {
     searchParams: Promise<{
         topic?: string;
         resume?: string;
+        onboarding?: string;
     }>;
 }
 
@@ -16,7 +17,7 @@ export default async function WebFrontendPracticePage({ searchParams }: PageProp
             onboardingKey="practice:web-frontend"
             topic={params.topic ?? null}
             resume={params.resume === "1"}
-            skeletonCards={9}
+            onboardingParam={params.onboarding === "1"}
         />
     );
 }

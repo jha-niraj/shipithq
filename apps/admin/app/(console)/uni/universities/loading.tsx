@@ -1,9 +1,10 @@
 // Hand-matched to the universities table: a "Back to University Platform"
 // link, header with two buttons (Pending/Export), a search + status-filter
-// row, 4 stat tiles, then the 7-column table (University, Type, Location,
+// row, a 4-cell StatBand, then the 7-column table (University, Type, Location,
 // Status, Students, Faculty, Actions) - same drift as the companies
 // skeleton, fixed the same way (ADM-22).
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
 export default function Loading() {
     return (
@@ -32,14 +33,7 @@ export default function Loading() {
                     <Shimmer className="h-10 w-[150px] rounded-lg" delay={0.06} />
                 </div>
 
-                <div className="mb-6 grid grid-cols-4 gap-4">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900 p-4">
-                            <Shimmer className="h-3.5 w-16" delay={i * 0.05} />
-                            <Shimmer className="mt-1.5 h-6 w-10" delay={i * 0.05} />
-                        </div>
-                    ))}
-                </div>
+                <StatBandSkeleton count={4} cols={4} className="mb-6" />
 
                 <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
                     <div className="flex gap-4 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">

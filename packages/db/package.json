@@ -12,7 +12,8 @@
         "./schema": "./src/schema/index.ts",
         "./resume": "./src/resume.ts",
         "./onboarding": "./src/onboarding-types.ts",
-        "./practice": "./src/practice.ts"
+        "./practice": "./src/practice.ts",
+        "./assistant": "./src/assistant-types.ts"
     },
     "scripts": {
         "db:generate": "dotenv -e ../../apps/main/.env -- drizzle-kit generate",

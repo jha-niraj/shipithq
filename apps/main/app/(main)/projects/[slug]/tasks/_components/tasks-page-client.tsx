@@ -17,6 +17,7 @@ import {
     DialogFooter
 } from '@repo/ui/components/ui/dialog'
 import { cn } from '@repo/ui/lib/utils'
+import { StatBand } from '@repo/ui/components/ui/stat-band'
 import toast from '@repo/ui/components/ui/sonner'
 import { updateTaskStatus } from '@/actions/(main)/projects/project.action'
 import {
@@ -726,26 +727,15 @@ export default function TasksPageClient({ project, tasks, userProgress }: TasksP
                                 </div>
                             </div>
                             <Progress value={progressPercentage} className="h-3 mb-4" />
-                            <div className="grid grid-cols-3 gap-4 text-center">
-                                <div className="bg-white/50 dark:bg-neutral-900/50 rounded-xl p-3">
-                                    <div className="text-2xl font-bold text-neutral-900 dark:text-white">
-                                        {tasks.todo.length}
-                                    </div>
-                                    <div className="text-xs text-neutral-600 dark:text-neutral-400">To Do</div>
-                                </div>
-                                <div className="bg-neutral-50/50 dark:bg-neutral-800/20 rounded-xl p-3 border border-neutral-200 dark:border-neutral-800">
-                                    <div className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                                        {tasks.inProgress.length}
-                                    </div>
-                                    <div className="text-xs text-neutral-800 dark:text-neutral-100">In Progress</div>
-                                </div>
-                                <div className="bg-neutral-50/50 dark:bg-neutral-800/20 rounded-xl p-3 border border-neutral-200 dark:border-neutral-800">
-                                    <div className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                                        {tasks.completed.length}
-                                    </div>
-                                    <div className="text-xs text-neutral-800 dark:text-neutral-100">Completed</div>
-                                </div>
-                            </div>
+                            <StatBand
+                                size="sm"
+                                cols={3}
+                                items={[
+                                    { icon: Target, label: "To Do", value: tasks.todo.length },
+                                    { icon: Play, label: "In Progress", value: tasks.inProgress.length },
+                                    { icon: CheckCircle2, label: "Completed", value: tasks.completed.length },
+                                ]}
+                            />
                             <div className="flex justify-between mt-4 text-xs text-neutral-500 dark:text-neutral-400">
                                 <span className={progressPercentage >= 0 ? 'text-neutral-800 dark:text-neutral-200 font-medium' : ''}>Start</span>
                                 <span className={progressPercentage >= 50 ? 'text-neutral-800 dark:text-neutral-200 font-medium' : ''}>

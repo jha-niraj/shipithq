@@ -2,26 +2,68 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ChevronDown, RotateCcw } from "lucide-react"
+import { ListChecks, RotateCcw, Sparkles, Target, TriangleAlert } from "lucide-react"
+import {
+    Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
+} from "@repo/ui/components/ui/sheet"
+import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
 import { cn } from "@repo/ui/lib/utils"
 import type { OnboardingRunView } from "@/types/onboarding"
-import { onboardingModule, type OnboardingModuleKey } from "@/lib/onboarding/modules"
+import { onboardingModule, type OnboardingModuleKey, onboardingHref } from "@/lib/onboarding/modules"
 import { LEVEL_LABELS, LevelMeter } from "./level-meter"
 
 const INK = "text-neutral-900 dark:text-neutral-50"
 const INK_DIM = "text-neutral-600 dark:text-neutral-400"
 
-function Group({ title, items }: { title: string; items: string[] }) {
+/**
+ * One group of what the onboarding recorded, inside the sheet.
+ *
+ * Short entries are BADGES and long ones are rows (Niraj, 2026-09-22: the text
+ * "doesn't look scattered"). Strengths, gaps and goals are two or three words
+ * each, so as badges they read as a set at a glance; facts are sentences, and
+ * eleven sentences wrapped into a two-column grid is what looked scattered.
+ */
+function Group({
+    title,
+    items,
+    icon: Icon,
+    as,
+}: {
+    title: string
+    items: string[]
+    icon: typeof Sparkles
+    as: "badges" | "rows"
+}) {
     if (items.length === 0) return null
     return (
-        <div>
-            <div className={cn("text-xs font-semibold uppercase tracking-wider", INK_DIM)}>{title}</div>
-            <ul className="mt-1.5 space-y-1">
-                {items.map((s, i) => (
-                    <li key={i} className={cn("text-sm leading-relaxed", INK)}>{s}</li>
-                ))}
-            </ul>
-        </div>
+        <section>
+            <h3 className={cn("flex items-center gap-2 text-sm font-semibold", INK)}>
+                <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                {title}
+                <span className={cn("font-normal", INK_DIM)}>({items.length})</span>
+            </h3>
+            {as === "badges" ? (
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                    {items.map((s, i) => (
+                        <li
+                            key={i}
+                            className={cn(
+                                "rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs font-medium dark:border-neutral-700 dark:bg-neutral-800",
+                                INK,
+                            )}
+                        >
+                            {s}
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <ul className="mt-2 divide-y divide-neutral-200 overflow-hidden rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+                    {items.map((s, i) => (
+                        <li key={i} className={cn("px-3 py-2 text-sm leading-relaxed", INK)}>{s}</li>
+                    ))}
+                </ul>
+            )}
+        </section>
     )
 }
 
@@ -43,7 +85,8 @@ export function OnboardingWidget({
     const [open, setOpen] = useState(false)
     const mod = onboardingModule(moduleKey)
     const profile = completed.profile
-    const resumeHref = `${mod.gatePath}?resume=1`
+    // Straight to the flow: `?onboarding=1` is what the page will carry anyway (MO-10).
+    const resumeHref = onboardingHref(moduleKey, { retake: true })
 
     return (
         <section
@@ -87,23 +130,39 @@ export function OnboardingWidget({
 
             {profile && (
                 <div className="mt-4 border-t border-neutral-200 pt-3 dark:border-neutral-800">
-                    <button
-                        type="button"
-                        onClick={() => setOpen((o) => !o)}
-                        aria-expanded={open}
-                        className={cn("flex cursor-pointer items-center gap-1.5 text-xs font-medium", INK_DIM, "hover:text-neutral-900 dark:hover:text-neutral-100")}
-                    >
-                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
-                        What you told us
-                    </button>
-                    {open && (
-                        <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                            <Group title="Facts" items={profile.facts} />
-                            <Group title="Strengths" items={profile.strengths} />
-                            <Group title="Gaps" items={profile.gaps} />
-                            <Group title="Goals" items={profile.goals} />
-                        </div>
-                    )}
+                    {/* A sheet, not an expander. Opened in place it pushed the memory below it
+                        off the screen and laid eleven sentences across two columns, which is
+                        what read as scattered. */}
+                    <Sheet open={open} onOpenChange={setOpen}>
+                        <SheetTrigger asChild>
+                            <button
+                                type="button"
+                                className={cn("inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium underline-offset-4 hover:underline", INK_DIM, "hover:text-neutral-900 dark:hover:text-neutral-100")}
+                            >
+                                <ListChecks className="h-3.5 w-3.5" aria-hidden />
+                                What you told us
+                                <span className="tabular-nums">
+                                    ({profile.facts.length + profile.strengths.length + profile.gaps.length + profile.goals.length})
+                                </span>
+                            </button>
+                        </SheetTrigger>
+                        <SheetContent side="right" className="w-full p-0 sm:max-w-md">
+                            <SheetHeader className="border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
+                                <SheetTitle className={INK}>What you told us</SheetTitle>
+                                <SheetDescription className={INK_DIM}>
+                                    Your answers from the {mod.label.toLowerCase()} onboarding, as the mentor reads them. Retake it to change any of this.
+                                </SheetDescription>
+                            </SheetHeader>
+                            <ScrollArea className="h-[calc(100dvh-5.5rem)]" reflow>
+                                <div className="space-y-6 px-5 py-5">
+                                    <Group title="Strengths" items={profile.strengths} icon={Sparkles} as="badges" />
+                                    <Group title="Gaps" items={profile.gaps} icon={TriangleAlert} as="badges" />
+                                    <Group title="Goals" items={profile.goals} icon={Target} as="badges" />
+                                    <Group title="Facts" items={profile.facts} icon={ListChecks} as="rows" />
+                                </div>
+                            </ScrollArea>
+                        </SheetContent>
+                    </Sheet>
                 </div>
             )}
         </section>

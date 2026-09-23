@@ -111,3 +111,81 @@ export interface DeletedConcept {
     slug: string;
     deletedAt: string;
 }
+
+/**
+ * One problem the model picked for this user (PD-15). `why` is its own one-line
+ * reason, shown under the title on the Recommended tab; it is the model's words,
+ * so it is capped and never rendered as anything but text.
+ */
+export interface RecommendedProblem {
+    slug: string
+    why: string
+}
+
+// ── The practice path (plan/practice-path) ───────────────────────────────────
+
+/** Which part of a stage's checkpoint. They are taken in this order. */
+export type CheckpointPart = "quiz" | "mock" | "exam"
+
+export interface CheckpointPartState {
+    status: "todo" | "passed" | "weak"
+    /** 0-100 where the part produces one. A mock has no pass mark; it records that it happened. */
+    score?: number
+    /** What it was weak on, in the grader's words. Feeds the extra practice a weak part adds. */
+    missed?: string[]
+    at?: string
+}
+
+export interface PathCheckpoint {
+    quiz: CheckpointPartState
+    mock: CheckpointPartState
+    exam: CheckpointPartState
+    /** The problem the exam part opens; a catalogue slug. */
+    examSlug?: string
+    /** The quiz as generated, so a retake is the same quiz and scoring needs no model. */
+    quizQuestions?: CheckpointQuizQuestion[]
+}
+
+export interface CheckpointQuizQuestion {
+    id: string
+    text: string
+    options: string[]
+    /** Index into `options`. Never sent to the browser while the quiz is open. */
+    answer: number
+    /** One line shown after answering. */
+    why: string
+    /** The concept this question is about, so a weak answer can pick practice. */
+    concept: string
+}
+
+export interface PathStage {
+    /** The catalogue category this stage is built on. */
+    topic: string
+    /** One line: what the learner should be able to do at the end of it. */
+    goal: string
+    /** Catalogue slugs, in the order to attempt them. */
+    slugs: string[]
+    /** Slugs added because a checkpoint went badly (PP-7). */
+    addedSlugs?: string[]
+    checkpoint: PathCheckpoint
+}
+
+/**
+ * One project the model proposes for this user (plan/projects, PJ-1).
+ *
+ * INVENTED, not picked from a catalogue: a project idea has no tests to get
+ * wrong, and one shaped to the hours and the history this person described beats
+ * the nearest row in a fixed list (Niraj, 2026-09-22). The curated catalogue
+ * still exists for browsing on the ideas page; this is the personal set.
+ *
+ * Every field is model text and is rendered as text only. "Build this" hands the
+ * title and description to the existing generator, which writes the blueprint.
+ */
+export interface RecommendedIdea {
+    title: string
+    description: string
+    /** EASY | MEDIUM | HARD, as the generator spells it. */
+    difficulty: string
+    technologies: string[]
+    why: string
+}

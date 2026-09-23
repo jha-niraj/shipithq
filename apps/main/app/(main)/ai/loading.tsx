@@ -3,13 +3,14 @@
 // Five full-bleed sections. Counts and geometry come from the component's own
 // literals, not from memory: the hero is a two-column grid on lg
 // (`minmax(0,1fr)_22rem`) with the artwork column dropped below it, `statCards`
-// is 4 (grid-cols-2 md:grid-cols-4), `tools` is 3, `steps` is 3, and `priced` is
+// is a 3-cell StatBand (cols 3), `tools` is 3, `steps` is 3, and `priced` is
 // 6 rows plus one hand-written row for the per-question interview price.
 //
 // The padding is copied verbatim from each section rather than approximated -
 // the previous version still described the old marketing hero (pt-32 lg:pt-48,
 // centred, one CTA) and the page dropped by ~13rem the moment it resolved.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -45,18 +46,10 @@ export default function Loading() {
                 </div>
             </section>
 
-            {/* Stat band - four centred tiles: icon, value, label. */}
+            {/* Stat band - a three-cell StatBand (Resumes, Cover letters, Credits left). */}
             <section className="border-b border-neutral-100 bg-white py-12 dark:border-neutral-800 dark:bg-neutral-950">
                 <div className="w-full px-6">
-                    <div className="grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-12">
-                        {Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} className="flex flex-col items-center text-center">
-                                <Shimmer className="mb-3 h-6 w-6 rounded" delay={i * 0.05} />
-                                <Shimmer className="h-9 w-16" delay={i * 0.05} />
-                                <Shimmer className="mt-1 h-4 w-24" delay={i * 0.05} />
-                            </div>
-                        ))}
-                    </div>
+                    <StatBandSkeleton count={3} cols={3} />
                 </div>
             </section>
 

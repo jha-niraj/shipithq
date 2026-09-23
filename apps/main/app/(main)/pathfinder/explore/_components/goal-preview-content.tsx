@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
 import { Button } from '@repo/ui/components/ui/button'
@@ -12,9 +12,9 @@ import {
 } from 'lucide-react'
 import { copyPathfinderGoal } from '@/actions/(main)/pathfinder'
 import { useUserStore } from '@/app/store/useUserStore'
-import { useSidebar } from '@/components/common/sidebarprovider'
 import { PATHFINDER_CATEGORIES } from '@/types/pathfinder'
 import { cn } from '@repo/ui/lib/utils'
+import { StatBand } from '@repo/ui/components/ui/stat-band'
 import toast from '@repo/ui/components/ui/sonner'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { AnimatedIcon } from "@repo/ui/components/animated-icons"
@@ -67,33 +67,16 @@ export function GoalPreviewContent({ goal }: GoalPreviewContentProps) {
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const selected = goal.subGoals?.find((sg) => sg.id === selectedId) ?? null
 
-    // The panel needs width, and on this page the app sidebar is the cheapest
-    // place to find it. `sidebarWasCollapsed` remembers what the user had BEFORE
-    // the panel took over, so closing restores their setting instead of forcing
-    // the sidebar open on someone who keeps it collapsed.
-    const { isCollapsed, setIsCollapsed } = useSidebar()
-    const sidebarWasCollapsed = useRef<boolean | null>(null)
-
+    // The sidebar no longer collapses (it is always expanded since 2026-09-22), so
+    // opening a topic no longer borrows width from it.
     const openTopic = useCallback((id: string) => {
-        if (sidebarWasCollapsed.current === null) sidebarWasCollapsed.current = isCollapsed
         setSelectedId(id)
-        setIsCollapsed(true)
-    }, [isCollapsed, setIsCollapsed])
+    }, [])
 
     const closeTopic = useCallback(() => {
         setSelectedId(null)
-        if (sidebarWasCollapsed.current !== null) {
-            setIsCollapsed(sidebarWasCollapsed.current)
-            sidebarWasCollapsed.current = null
-        }
-    }, [setIsCollapsed])
+    }, [])
 
-    // Leaving the page with the panel open must not stick the sidebar collapsed
-    // on every other page. The ref is read at cleanup rather than captured in the
-    // dependency array so this runs exactly once, on unmount.
-    useEffect(() => () => {
-        if (sidebarWasCollapsed.current !== null) setIsCollapsed(sidebarWasCollapsed.current)
-    }, [setIsCollapsed])
     const category = PATHFINDER_CATEGORIES[goal.category as keyof typeof PATHFINDER_CATEGORIES]
     const price = goal.creditPrice ?? 0
     const canAfford = (credits ?? 0) >= price
@@ -180,29 +163,15 @@ export function GoalPreviewContent({ goal }: GoalPreviewContentProps) {
                     )}
 
                     {/* Stats Row */}
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                        <div className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200/60 dark:border-neutral-800/60">
-                            <div className="flex items-center gap-2 mb-1">
-                                <BookOpen className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
-                                <span className="text-xs text-neutral-500 dark:text-neutral-400">Topics</span>
-                            </div>
-                            <p className="text-lg font-semibold text-neutral-900 dark:text-white">{goal.totalSubGoals}</p>
-                        </div>
-                        <div className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200/60 dark:border-neutral-800/60">
-                            <div className="flex items-center gap-2 mb-1">
-                                <CheckCircle2 className="w-4 h-4 text-neutral-900 dark:text-neutral-100" />
-                                <span className="text-xs text-neutral-500 dark:text-neutral-400">Completed</span>
-                            </div>
-                            <p className="text-lg font-semibold text-neutral-900 dark:text-white">{goal.completedSubGoals}</p>
-                        </div>
-                        <div className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200/60 dark:border-neutral-800/60">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Sparkles className="w-4 h-4 text-neutral-900 dark:text-neutral-100" />
-                                <span className="text-xs text-neutral-500 dark:text-neutral-400">Progress</span>
-                            </div>
-                            <p className="text-lg font-semibold text-neutral-900 dark:text-white">{progressPercent}%</p>
-                        </div>
-                    </div>
+                    <StatBand
+                        cols={3}
+                        className="mb-4"
+                        items={[
+                            { icon: BookOpen, label: 'Topics', value: goal.totalSubGoals },
+                            { icon: CheckCircle2, label: 'Completed', value: goal.completedSubGoals },
+                            { icon: Sparkles, label: 'Progress', value: `${progressPercent}%` },
+                        ]}
+                    />
 
                     {/* Progress Bar */}
                     {goal.totalSubGoals > 0 && (

@@ -2,6 +2,7 @@
 
 import { DotmSquare11 } from "@repo/ui/components/ui/dotm-square-11";
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 // Shared loader tile - matches the bento card style
 function LoaderTile({ className = "" }: { className?: string }) {
@@ -90,17 +91,7 @@ export function HomeDashboardSkeleton() {
             </div>
 
             {/* Four headline counters. */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-                        <div className="flex items-center gap-2">
-                            <Shimmer className="h-3.5 w-3.5 rounded" delay={i * 0.05} />
-                            <Shimmer className="h-3 w-24" delay={i * 0.05} />
-                        </div>
-                        <Shimmer className="mt-2 h-7 w-20" delay={i * 0.05} />
-                    </div>
-                ))}
-            </div>
+            <StatBandSkeleton count={4} cols={4} />
 
             {/* The nudge strip is conditional on the real page, so it is deliberately
                 absent here - promising a band that may never arrive is worse than the
@@ -119,13 +110,8 @@ export function HomeDashboardSkeleton() {
                             <Shimmer className="h-4 w-24" delay={row * 0.06} />
                         </div>
                         <div className={`flex flex-col gap-5 lg:flex-row lg:items-stretch ${row % 2 === 1 ? "lg:flex-row-reverse" : ""}`}>
-                            <div className="grid grid-cols-2 gap-2.5 lg:w-1/3 lg:grid-cols-1">
-                                {[0, 1, 2, 3].map((i) => (
-                                    <div key={i} className="rounded-xl border border-neutral-100 bg-neutral-50/60 px-3.5 py-2.5 dark:border-neutral-800 dark:bg-neutral-950/30">
-                                        <Shimmer className="h-3 w-20" delay={row * 0.06 + i * 0.04} />
-                                        <Shimmer className="mt-1.5 h-5 w-14" delay={row * 0.06 + i * 0.04} />
-                                    </div>
-                                ))}
+                            <div className="lg:w-1/3 lg:min-w-0">
+                                <StatBandSkeleton count={4} cols={1} size="sm" />
                             </div>
                             <div className="lg:w-2/3">
                                 <Shimmer className="h-[236px] w-full rounded-lg" delay={row * 0.06 + 0.1} />

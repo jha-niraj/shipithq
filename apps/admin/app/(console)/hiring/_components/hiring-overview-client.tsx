@@ -3,41 +3,7 @@
 import { Building2, Briefcase, UserCheck, FileText, ArrowRight, CheckCircle, Clock } from "lucide-react"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { cn } from "@/lib/utils"
-
-interface StatTileProps {
-    title: string
-    value: string
-    icon: React.ElementType
-    href?: string
-}
-
-function StatTile({ title, value, icon: Icon, href }: StatTileProps) {
-    const body = (
-        <motion.div
-            whileHover={href ? { y: -2 } : undefined}
-            className={cn(
-                "bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-5 transition-all",
-                href && "hover:border-neutral-300 dark:hover:border-neutral-700 cursor-pointer group",
-            )}
-        >
-            <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg bg-neutral-900 flex items-center justify-center">
-                    <Icon className="w-5 h-5 text-white" />
-                </div>
-            </div>
-            <p className="text-2xl font-semibold text-neutral-900 dark:text-white">{value}</p>
-            <p className="text-sm text-neutral-500 mt-1">{title}</p>
-            {href && (
-                <div className="mt-3 flex items-center text-sm text-neutral-800 dark:text-neutral-100 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span>View details</span>
-                    <ArrowRight className="w-4 h-4 ml-1" />
-                </div>
-            )}
-        </motion.div>
-    )
-    return href ? <Link href={href}>{body}</Link> : body
-}
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 
 interface ModuleCardProps {
     title: string
@@ -122,17 +88,21 @@ export function HiringOverviewClient({ stats }: { stats: DashboardStats }) {
                     </Link>
                 )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <StatTile title="Total Companies" value={stats.totalCompanies.toLocaleString()} icon={Building2} href="/hiring/companies" />
-                {/* Active Jobs / Total Members / Applications have real counts (the
-                    action genuinely queries jobs/companyMembers/jobApplications) but
-                    no admin page exists for any of them yet - see plan/admin/tasks.md,
-                    the hiring/uni decision to keep only the Companies +
-                    Verification screens. Informational tiles, not broken links. */}
-                <StatTile title="Active Jobs" value={stats.activeJobs.toLocaleString()} icon={Briefcase} />
-                <StatTile title="Total Members" value={stats.totalMembers.toLocaleString()} icon={UserCheck} />
-                <StatTile title="Applications" value={stats.totalApplications.toLocaleString()} icon={FileText} />
-            </div>
+            {/* Active Jobs / Total Members / Applications have real counts (the
+                action genuinely queries jobs/companyMembers/jobApplications) but
+                no admin page exists for any of them yet - see plan/admin/tasks.md,
+                the hiring/uni decision to keep only the Companies +
+                Verification screens. Informational cells, not broken links. */}
+            <StatBand
+                className="mb-8"
+                cols={4}
+                items={[
+                    { icon: Building2, label: "Total Companies", value: stats.totalCompanies.toLocaleString(), href: "/hiring/companies" },
+                    { icon: Briefcase, label: "Active Jobs", value: stats.activeJobs.toLocaleString() },
+                    { icon: UserCheck, label: "Total Members", value: stats.totalMembers.toLocaleString() },
+                    { icon: FileText, label: "Applications", value: stats.totalApplications.toLocaleString() },
+                ]}
+            />
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">Platform Modules</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ModuleCard

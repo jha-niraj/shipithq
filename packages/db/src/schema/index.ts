@@ -22,3 +22,4 @@ export * from "./opensource";
 export * from "./pathfinder";
 export * from "./studio";
 export * from "./university";
+export * from "./assistant";

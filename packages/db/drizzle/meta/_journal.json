@@ -127,6 +127,34 @@
       "when": 1790057101231,
       "tag": "0017_sticky_preak",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790074957850,
+      "tag": "0018_curved_master_chief",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790111242741,
+      "tag": "0019_certain_doctor_spectrum",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790115219102,
+      "tag": "0020_dapper_doctor_doom",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790146173534,
+      "tag": "0021_purple_stardust",
+      "breakpoints": true
     }
   ]
 }

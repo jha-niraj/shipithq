@@ -10,6 +10,7 @@ import {
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@repo/ui/components/ui/button"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { Input } from "@repo/ui/components/ui/input"
 import { Label } from "@repo/ui/components/ui/label"
 import { Textarea } from "@repo/ui/components/ui/textarea"
@@ -814,29 +815,16 @@ export default function ProfilePage() {
                                                 }
                                             </div>
                                             {/* Stats */}
-                                            <div className="grid grid-cols-3 gap-4 mt-4">
-                                                <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800 text-center">
-                                                    <Users className="w-5 h-5 text-neutral-800 dark:text-neutral-100 mx-auto mb-1" />
-                                                    <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                                                        {universityDetails?.memberCount || 0}
-                                                    </p>
-                                                    <p className="text-xs text-neutral-500">Faculty</p>
-                                                </div>
-                                                <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800 text-center">
-                                                    <User className="w-5 h-5 text-neutral-800 dark:text-neutral-100 mx-auto mb-1" />
-                                                    <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                                                        {universityDetails?.studentCount || 0}
-                                                    </p>
-                                                    <p className="text-xs text-neutral-500">Students</p>
-                                                </div>
-                                                <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800 text-center">
-                                                    <Building className="w-5 h-5 text-neutral-800 dark:text-neutral-100 mx-auto mb-1" />
-                                                    <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                                                        {universityDetails?.departmentCount || 0}
-                                                    </p>
-                                                    <p className="text-xs text-neutral-500">Departments</p>
-                                                </div>
-                                            </div>
+                                            <StatBand
+                                                size="sm"
+                                                cols={3}
+                                                className="mt-4"
+                                                items={[
+                                                    { icon: Users, label: "Faculty", value: universityDetails?.memberCount || 0 },
+                                                    { icon: User, label: "Students", value: universityDetails?.studentCount || 0 },
+                                                    { icon: Building, label: "Departments", value: universityDetails?.departmentCount || 0 },
+                                                ]}
+                                            />
                                             {
                                                 universityDetails?.description && (
                                                     <div className="mt-4 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/50">

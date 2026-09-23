@@ -14,6 +14,7 @@ import {
 	Tabs, TabsContent, TabsList, TabsTrigger
 } from "@repo/ui/components/ui/tabs"
 import Image from "next/image"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 
 interface ProjectStats {
 	totalViews: number
@@ -110,36 +111,15 @@ interface ProgressComponentProps {
 export function ProjectAnalytics({ stats, className }: AnalyticsComponentProps) {
 	return (
 		<div className={`space-y-6 ${className}`}>
-			<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-				<StatCard
-					icon={<Eye className="h-5 w-5" />}
-					title="Total Views"
-					value={stats.totalViews.toLocaleString()}
-					color="blue"
-					trend={12.5}
-				/>
-				<StatCard
-					icon={<Users className="h-5 w-5" />}
-					title="Active Builders"
-					value={stats.totalStarted.toLocaleString()}
-					color="green"
-					trend={8.3}
-				/>
-				<StatCard
-					icon={<CheckCircle2 className="h-5 w-5" />}
-					title="Completions"
-					value={stats.totalCompleted.toLocaleString()}
-					color="purple"
-					trend={-2.1}
-				/>
-				<StatCard
-					icon={<Star className="h-5 w-5" />}
-					title="Avg Rating"
-					value={stats.averageRating.toFixed(1)}
-					color="yellow"
-					trend={5.7}
-				/>
-			</div>
+			<StatBand
+				cols={4}
+				items={[
+					{ icon: Eye, label: "Total Views", value: stats.totalViews.toLocaleString(), hint: <TrendDelta trend={12.5} /> },
+					{ icon: Users, label: "Active Builders", value: stats.totalStarted.toLocaleString(), hint: <TrendDelta trend={8.3} /> },
+					{ icon: CheckCircle2, label: "Completions", value: stats.totalCompleted.toLocaleString(), hint: <TrendDelta trend={-2.1} /> },
+					{ icon: Star, label: "Avg Rating", value: stats.averageRating.toFixed(1), hint: <TrendDelta trend={5.7} /> },
+				]}
+			/>
 			<Tabs defaultValue="overview" className="space-y-6">
 				<TabsList className="grid w-full grid-cols-4">
 					<TabsTrigger value="overview">Overview</TabsTrigger>
@@ -186,26 +166,14 @@ export function ProjectAnalytics({ stats, className }: AnalyticsComponentProps) 
 					</Card>
 				</TabsContent>
 				<TabsContent value="engagement" className="space-y-6">
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-						<StatCard
-							icon={<ThumbsUp className="h-5 w-5" />}
-							title="Total Votes"
-							value={stats.totalVotes.toLocaleString()}
-							color="green"
-						/>
-						<StatCard
-							icon={<Trophy className="h-5 w-5" />}
-							title="XP Awarded"
-							value={`${(stats.totalXpAwarded / 1000).toFixed(1)}K`}
-							color="yellow"
-						/>
-						<StatCard
-							icon={<Target className="h-5 w-5" />}
-							title="Submissions"
-							value={stats.totalSubmissions.toLocaleString()}
-							color="purple"
-						/>
-					</div>
+					<StatBand
+						cols={3}
+						items={[
+							{ icon: ThumbsUp, label: "Total Votes", value: stats.totalVotes.toLocaleString() },
+							{ icon: Trophy, label: "XP Awarded", value: `${(stats.totalXpAwarded / 1000).toFixed(1)}K` },
+							{ icon: Target, label: "Submissions", value: stats.totalSubmissions.toLocaleString() },
+						]}
+					/>
 				</TabsContent>
 				<TabsContent value="trends" className="space-y-6">
 					<WeeklyTrendsChart weeklyStats={stats.weeklyStats} />
@@ -222,32 +190,15 @@ export function ProjectAnalytics({ stats, className }: AnalyticsComponentProps) 
 export function UserProjectAnalytics({ userStats, className }: UserStatsComponentProps) {
 	return (
 		<div className={`space-y-6 ${className}`}>
-			<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-				<StatCard
-					icon={<Code2 className="h-5 w-5" />}
-					title="Total Projects"
-					value={userStats.totalProjects.toString()}
-					color="blue"
-				/>
-				<StatCard
-					icon={<CheckCircle2 className="h-5 w-5" />}
-					title="Completed"
-					value={userStats.completedProjects.toString()}
-					color="green"
-				/>
-				<StatCard
-					icon={<Trophy className="h-5 w-5" />}
-					title="Total XP"
-					value={userStats.totalXpEarned.toLocaleString()}
-					color="yellow"
-				/>
-				<StatCard
-					icon={<Star className="h-5 w-5" />}
-					title="Avg Rating"
-					value={userStats.averageRating > 0 ? userStats.averageRating.toFixed(1) : "-"}
-					color="purple"
-				/>
-			</div>
+			<StatBand
+				cols={4}
+				items={[
+					{ icon: Code2, label: "Total Projects", value: userStats.totalProjects.toString() },
+					{ icon: CheckCircle2, label: "Completed", value: userStats.completedProjects.toString() },
+					{ icon: Trophy, label: "Total XP", value: userStats.totalXpEarned.toLocaleString() },
+					{ icon: Star, label: "Avg Rating", value: userStats.averageRating > 0 ? userStats.averageRating.toFixed(1) : "-" },
+				]}
+			/>
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 				<Card>
 					<CardHeader>
@@ -442,49 +393,13 @@ export function ProjectProgressAnalytics({ progress, className }: ProgressCompon
 }
 
 // Helper Components
-function StatCard({
-	icon,
-	title,
-	value,
-	color,
-	trend
-}: {
-	icon: React.ReactNode
-	title: string
-	value: string
-	color: string
-	trend?: number
-}) {
-	const colorClasses = {
-		blue: "from-neutral-900 to-neutral-800",
-		green: "from-neutral-900 to-neutral-800",
-		purple: "from-neutral-900 to-neutral-800",
-		yellow: "from-neutral-900 to-neutral-800",
-		red: "from-red-500 to-red-600"
-	}
-
+/** Period-over-period delta shown as a StatBand hint. */
+function TrendDelta({ trend }: { trend: number }) {
 	return (
-		<Card className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-neutral-900/50">
-			<CardContent className="pt-6">
-				<div className="flex items-center justify-between">
-					<div className={`p-2 rounded-lg bg-gradient-to-br ${colorClasses[color as keyof typeof colorClasses]} text-white`}>
-						{icon}
-					</div>
-					{
-						trend !== undefined && (
-							<div className={`flex items-center gap-1 text-xs ${trend >= 0 ? 'text-neutral-800 dark:text-neutral-200' : 'text-red-600'}`}>
-								{trend >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-								{Math.abs(trend)}%
-							</div>
-						)
-					}
-				</div>
-				<div className="mt-4">
-					<div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
-					<div className="text-sm text-gray-600 dark:text-gray-400">{title}</div>
-				</div>
-			</CardContent>
-		</Card>
+		<span className={`inline-flex items-center gap-1 ${trend >= 0 ? 'text-neutral-800 dark:text-neutral-200' : 'text-red-600'}`}>
+			{trend >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+			{Math.abs(trend)}%
+		</span>
 	)
 }
 

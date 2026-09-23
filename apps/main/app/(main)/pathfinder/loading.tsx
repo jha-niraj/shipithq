@@ -3,10 +3,11 @@
 // The real page is NOT a page-header + stat band + card grid. It is a full-height
 // two-panel workspace: a sticky header, a mobile-only tab pill row, a fixed-width
 // goals rail (400px at lg, 440px at xl) and a flexible overview panel. The counts
-// below are the ones the component actually renders - six stat tiles in a
-// grid-cols-3 (StatsSection), the two chart cards, and the goal card shape from
+// below are the ones the component actually renders - a six-cell StatBand
+// (StatsSection, cols 3, size sm), the two chart cards, and the goal card shape from
 // GoalCard.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -75,18 +76,8 @@ export default function Loading() {
                         <div className="space-y-6 p-6">
                             <Shimmer className="h-3.5 w-20" />
 
-                            {/* StatsSection: six tiles, grid-cols-3. */}
-                            <div className="grid grid-cols-3 gap-2">
-                                {Array.from({ length: 6 }).map((_, i) => (
-                                    <div key={i} className="rounded-xl bg-neutral-900/5 p-3 dark:bg-neutral-100/5">
-                                        <div className="mb-1 flex items-center gap-1.5">
-                                            <Shimmer className="h-4 w-4 rounded" delay={i * 0.04} />
-                                            <Shimmer className="h-2.5 w-10" delay={i * 0.04} />
-                                        </div>
-                                        <Shimmer className="h-6 w-12" delay={i * 0.04} />
-                                    </div>
-                                ))}
-                            </div>
+                            {/* StatsSection: a six-cell StatBand, three across, size sm. */}
+                            <StatBandSkeleton count={6} cols={3} size="sm" />
 
                             {/* ActivityChart - label, bordered card, three legend chips. */}
                             <div>

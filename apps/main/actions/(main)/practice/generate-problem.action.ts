@@ -4,7 +4,7 @@ import Exa from "exa-js";
 import { openai } from '@/lib/openai-client'
 import { getSession } from "@repo/auth";
 import { headers } from "next/headers";
-import { db, practiceProblem } from "@repo/db";
+import { db, practiceProblem, users } from "@repo/db";
 import { eq, and, desc } from "drizzle-orm";
 import { startBackgroundJob } from "@/actions/(main)/workers/jobs.action";
 
@@ -118,6 +118,23 @@ function parseProblemJSON(raw: string, module: PracticeModule): GeneratedProblem
 // GENERATE FROM URL (Exa + GPT-4o)
 // ─────────────────────────────────────────────
 
+/**
+ * Admins only.
+ *
+ * "Add problem" was taken off the practice page (2026-09-22): the catalogue is
+ * curated, and a generated problem carries generated tests. The actions behind it
+ * stayed exported and callable, each one an uncharged Exa fetch plus a gpt-4o call,
+ * and `createUserPracticeProblem` wrote into the catalogue every user reads. A
+ * scripted loop was somebody else's bill and everybody's problem list.
+ */
+async function requireAdmin(): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
+    const session = await getSession(await headers())
+    if (!session?.user?.id) return { ok: false, error: "Not signed in." }
+    const [me] = await db.select({ role: users.role }).from(users).where(eq(users.id, session.user.id)).limit(1)
+    if (me?.role !== "Admin") return { ok: false, error: "Adding problems is not available." }
+    return { ok: true, userId: session.user.id }
+}
+
 export async function generateProblemFromURL(
 	url: string,
 	module: PracticeModule
@@ -126,6 +143,9 @@ export async function generateProblemFromURL(
 	problem?: GeneratedProblemData;
 	error?: string;
 }> {
+	const admin = await requireAdmin()
+	if (!admin.ok) return { success: false, error: admin.error }
+
 	try {
 		const session = await getSession(await headers());
 		if (!session?.user?.id) {
@@ -181,6 +201,9 @@ export async function generateProblemFromName(
 	problem?: GeneratedProblemData;
 	error?: string;
 }> {
+	const admin = await requireAdmin()
+	if (!admin.ok) return { success: false, error: admin.error }
+
 	try {
 		const session = await getSession(await headers());
 		if (!session?.user?.id) {
@@ -265,6 +288,9 @@ export async function createUserPracticeProblem(data: {
 	judgeJobId?: string | null;
 	error?: string;
 }> {
+	const admin = await requireAdmin()
+	if (!admin.ok) return { success: false, error: admin.error }
+
 	try {
 		const session = await getSession(await headers());
 		if (!session?.user?.id) {

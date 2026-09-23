@@ -27,6 +27,7 @@ import {
 } from '@repo/ui/components/ui/collapsible'
 // Tabs imports reserved for future use
 import { cn } from '@repo/ui/lib/utils'
+import { StatBand } from '@repo/ui/components/ui/stat-band'
 import {
     usePathfinderStore, type PathfinderGoal, type PathfinderGroup
 } from '@/app/store/pathfinderStore'
@@ -55,7 +56,7 @@ interface PathfinderDashboardProps {
 
 const categoryConfig = PATHFINDER_CATEGORIES
 
-// Same unpaired-ink bug as the stat tiles below: `text-neutral-800` with no
+// Same unpaired-ink bug the old stat tiles had: `text-neutral-800` with no
 // `dark:` counterpart measures 1.18:1 on the dark card, so these status badges
 // were unreadable in dark mode. Paired throughout.
 //
@@ -207,38 +208,22 @@ function StatsSection({ goals }: { goals: Goal[] }) {
     const totalCoding = goals.reduce((sum, g) => sum + g.totalCodingSolved, 0)
     const maxStreak = Math.max(...goals.map(g => g.streakDays), 0)
 
-    // Every one of these was `color: 'text-neutral-800'` with NO `dark:` pair.
-    // On the dark card (`neutral-900`) that measures **1.18:1** - the numbers were
-    // not dim, they were invisible, which is exactly what the screenshots showed.
-    //
-    // Worth naming why it survived two contrast passes: these colours live in a
-    // DATA ARRAY, not in a `className` string. The repo-wide pairing sweep in
-    // plan/app-shell/manual-pass-1.md task 4 and my own audit both parsed
-    // `className=` attributes, so neither could see them. A colour is a colour
-    // wherever it is written down.
-    const STAT_INK = 'text-neutral-900 dark:text-neutral-100'
-    const STAT_BG = 'bg-neutral-900/5 dark:bg-white/5'
-    const stats = [
-        { label: 'Active', value: activeGoals.length, icon: <Target className="w-4 h-4" />, color: STAT_INK, bg: STAT_BG },
-        { label: 'Done', value: completedGoals.length, icon: <Trophy className="w-4 h-4" />, color: STAT_INK, bg: STAT_BG },
-        { label: 'Tasks', value: `${completedTasks}/${totalTasks}`, icon: <CheckCircle2 className="w-4 h-4" />, color: STAT_INK, bg: STAT_BG },
-        { label: 'Quiz', value: totalQuiz, icon: <Brain className="w-4 h-4" />, color: STAT_INK, bg: STAT_BG },
-        { label: 'Code', value: totalCoding, icon: <Code2 className="w-4 h-4" />, color: STAT_INK, bg: STAT_BG },
-        { label: 'Streak', value: `${maxStreak}d`, icon: <Flame className="w-4 h-4" />, color: STAT_INK, bg: STAT_BG },
-    ]
-
+    // Six figures in a narrow side panel: a small band, three across.
+    // (These tiles once carried an unpaired `text-neutral-800` ink that measured
+    // 1.18:1 on the dark card; StatBand owns its ink now, paired in both themes.)
     return (
-        <div className="grid grid-cols-3 gap-2">
-            {stats.map((stat) => (
-                <div key={stat.label} className={cn("p-3 rounded-xl", stat.bg)}>
-                    <div className="flex items-center gap-1.5 mb-1">
-                        <div className={stat.color}>{stat.icon}</div>
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400">{stat.label}</span>
-                    </div>
-                    <div className={cn("text-lg font-semibold", stat.color)}>{stat.value}</div>
-                </div>
-            ))}
-        </div>
+        <StatBand
+            size="sm"
+            cols={3}
+            items={[
+                { icon: Target, label: 'Active', value: activeGoals.length },
+                { icon: Trophy, label: 'Done', value: completedGoals.length },
+                { icon: CheckCircle2, label: 'Tasks', value: `${completedTasks}/${totalTasks}` },
+                { icon: Brain, label: 'Quiz', value: totalQuiz },
+                { icon: Code2, label: 'Code', value: totalCoding },
+                { icon: Flame, label: 'Streak', value: `${maxStreak}d` },
+            ]}
+        />
     )
 }
 

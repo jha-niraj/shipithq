@@ -1,5 +1,7 @@
 "use client";
 
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
+
 // The loading silhouette for `profile-view.tsx`: identity card (cover + avatar +
 // level + stats), then the 2/1 section grid.
 //
@@ -31,9 +33,7 @@ export function ProfileSkeleton() {
                     <Block className="mt-4 h-4 w-64" />
                     <Block className="mt-2 h-4 w-full max-w-lg" />
                     <Block className="mt-5 h-[68px] w-full" />
-                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        {[0, 1, 2, 3].map((i) => <Block key={i} className="h-[62px]" />)}
-                    </div>
+                    <StatBandSkeleton count={4} cols={4} size="sm" className="mt-4" />
                 </div>
             </div>
 

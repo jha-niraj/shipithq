@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Badge } from "@repo/ui/components/ui/badge"
-import { Progress } from "@repo/ui/components/ui/progress"
+import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
 import { 
     Dialog, DialogContent, DialogDescription, DialogHeader, 
     DialogTitle, DialogFooter 
@@ -44,57 +44,19 @@ import {
 // COMPONENTS
 // ============================================
 
-function UsageCard({
-    label,
-    used,
-    limit,
-    icon: Icon
-}: {
-    label: string
-    used: number
-    limit: number
-    icon: React.ElementType
-}) {
+/**
+ * One usage meter as a StatBand cell. An unlimited allowance keeps the full
+ * track the old card drew, and shows "used / ∞" as before.
+ */
+function usageItem(label: string, used: number, limit: number, icon: StatBandItem["icon"]): StatBandItem {
     const percentage = limit > 0 ? Math.round((used / limit) * 100) : 0
-    const isNearLimit = percentage >= 80
     const isUnlimited = limit >= 999999
-
-    return (
-        <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
-            <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                        <Icon className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
-                    </div>
-                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{label}</span>
-                </div>
-                <span className={`text-sm font-semibold ${
-                    isUnlimited 
-                        ? 'text-neutral-800 dark:text-neutral-100' 
-                        : isNearLimit 
-                            ? 'text-neutral-800 dark:text-neutral-100' 
-                            : 'text-neutral-900 dark:text-neutral-100'
-                }`}>
-                    {isUnlimited ? `${used} / ∞` : `${used}/${limit}`}
-                </span>
-            </div>
-            {!isUnlimited && (
-                <Progress
-                    value={percentage}
-                    className={`h-2 ${
-                        isNearLimit 
-                            ? '[&>div]:bg-neutral-900' 
-                            : '[&>div]:bg-neutral-900 dark:[&>div]:bg-neutral-100'
-                    }`}
-                />
-            )}
-            {isUnlimited && (
-                <div className="h-2 bg-neutral-100 dark:bg-neutral-800/30 rounded-full">
-                    <div className="h-full bg-neutral-900 rounded-full w-full" />
-                </div>
-            )}
-        </div>
-    )
+    return {
+        icon,
+        label,
+        value: isUnlimited ? `${used} / ∞` : `${used}/${limit}`,
+        progress: isUnlimited ? 100 : percentage,
+    }
 }
 
 function PricingCard({ 
@@ -584,32 +546,15 @@ export default function BillingPage() {
                     transition={{ delay: 0.1 }}
                 >
                     <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Usage This Month</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <UsageCard
-                            label="Active Jobs"
-                            used={usage.jobsUsed}
-                            limit={usage.jobsLimit}
-                            icon={Briefcase}
-                        />
-                        <UsageCard
-                            label="Applications"
-                            used={usage.applicationsUsed}
-                            limit={usage.applicationsLimit}
-                            icon={Users}
-                        />
-                        <UsageCard
-                            label="Interview Templates"
-                            used={usage.templatesUsed}
-                            limit={usage.templatesLimit}
-                            icon={FileText}
-                        />
-                        <UsageCard
-                            label="Team Members"
-                            used={usage.teamMembers}
-                            limit={usage.teamLimit}
-                            icon={Building2}
-                        />
-                    </div>
+                    <StatBand
+                        cols={4}
+                        items={[
+                            usageItem("Active Jobs", usage.jobsUsed, usage.jobsLimit, Briefcase),
+                            usageItem("Applications", usage.applicationsUsed, usage.applicationsLimit, Users),
+                            usageItem("Interview Templates", usage.templatesUsed, usage.templatesLimit, FileText),
+                            usageItem("Team Members", usage.teamMembers, usage.teamLimit, Building2),
+                        ]}
+                    />
                 </motion.div>
             )}
 

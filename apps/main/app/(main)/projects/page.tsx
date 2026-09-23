@@ -7,6 +7,9 @@ import { getModuleActivity } from '@/actions/(common)/stats/module-activity.acti
 import { getCurrentOnboarding } from '@/actions/(main)/onboarding/module-onboarding.action'
 import { ModuleOnboardingEntry } from '@/components/onboarding/module-onboarding-entry'
 import { OnboardingWidget } from '@/components/onboarding/onboarding-widget'
+import { getProjectPicks } from '@/actions/(main)/projects/recommendations.action'
+import { redirect } from 'next/navigation'
+import { dashboardHref, onboardingHref } from '@/lib/onboarding/modules'
 
 export const metadata: Metadata = {
   title: 'Projects | ShipItHQ',
@@ -14,14 +17,14 @@ export const metadata: Metadata = {
 }
 
 interface PageProps {
-  searchParams: Promise<{ resume?: string }>
+  searchParams: Promise<{ resume?: string; onboarding?: string }>
 }
 
 export default async function ProjectsHomePage({ searchParams }: PageProps) {
   const params = await searchParams
   return (
     <Suspense fallback={<Loading />}>
-      <HubContent resume={params.resume === '1'} />
+      <HubContent resume={params.resume === '1'} onboardingParam={params.onboarding === '1'} />
     </Suspense>
   )
 }
@@ -32,10 +35,15 @@ export default async function ProjectsHomePage({ searchParams }: PageProps) {
  * decoration, so it should be there on first paint instead of arriving after a
  * client round trip - and it needs the session, which the client does not have.
  */
-async function HubContent({ resume }: { resume: boolean }) {
+async function HubContent({ resume, onboardingParam }: { resume: boolean; onboardingParam: boolean }) {
   // The onboarding check comes first: behind the gate the overview is never
   // shown, so the gated page must not pay for it (plan/module-onboarding, MO-7).
   const onboarding = await getCurrentOnboarding('projects')
+  const showFlow = !onboarding.completed || resume
+  // The URL says which of the two is on screen, same as the practice pages (MO-10).
+  if (showFlow && !onboardingParam) redirect(onboardingHref('projects', { retake: resume }))
+  if (!showFlow && onboardingParam) redirect(dashboardHref('projects'))
+  // Written out again rather than `showFlow`, so TypeScript narrows `completed` below.
   if (!onboarding.completed || resume) {
     return (
       <div className="h-[var(--page-h,100vh)] min-h-0">
@@ -50,14 +58,18 @@ async function HubContent({ resume }: { resume: boolean }) {
   }
 
   // In parallel: they touch different tables and neither needs the other.
-  const [result, activity] = await Promise.all([
+  // The picks are the CACHED ones; the hub never waits on a model (plan/projects, PJ-1).
+  const [result, activity, picks] = await Promise.all([
     getMyProjectsOverview(),
     getModuleActivity('projects', 30),
+    getProjectPicks(),
   ])
   return (
     <ProjectsHubClient
       overview={result.success ? result.data : null}
       activity={activity}
+      picks={picks.picks}
+      canRecommend={Boolean(onboarding.completed)}
       widget={
         <OnboardingWidget
           moduleKey="projects"

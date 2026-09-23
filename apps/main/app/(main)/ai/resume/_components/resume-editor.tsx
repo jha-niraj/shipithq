@@ -470,7 +470,7 @@ function SkillsSection({ items, onChange }: { items: ResumeSkillGroup[]; onChang
  * behind the panel doing the tailoring. It also capped at `sm:max-w-md`, which is why the
  * "Tailor This Resume (20 credits)" button was clipped at its own edge.
  *
- * The AI rail in `app/(main)/layout.tsx` already established the pattern and the reasoning:
+ * The AI rail in `app/(main)/_components/main-shell.tsx` already established the pattern and the reasoning:
  * "a real column, not an overlay. The page narrows to make room for it, so nothing the user
  * was reading gets covered." This is the same thing one level down - it narrows the editor
  * row instead of the page.
@@ -1227,7 +1227,7 @@ export function ResumeEditor({ draft, content: initialContent, templates }: Prop
                 <ScrollArea reflow className={cn(
                     "w-full border-r border-neutral-200 bg-white transition-[width] duration-300 xl:flex-shrink-0 dark:border-neutral-800 dark:bg-neutral-900",
                     // Narrows when the AI tools column opens, for the reason
-                    // `app/(main)/layout.tsx` gives for collapsing the sidebar when the AI
+                    // `app/(main)/_components/main-shell.tsx` gives for collapsing the sidebar when the AI
                     // rail opens: "three full-width columns do not fit". Measured on a
                     // 1512px screen (page card 1228): at the full 560px the preview is left
                     // with 287px and scales to 0.40, which is a thumbnail. At 400px it gets

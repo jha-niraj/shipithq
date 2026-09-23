@@ -1,4 +1,4 @@
-import { ONBOARDING_LEVELS, type OnboardingLevel } from "@repo/db"
+import { ONBOARDING_LEVELS, type OnboardingLevel } from "@repo/db/onboarding"
 import { cn } from "@repo/ui/lib/utils"
 
 export const LEVEL_LABELS: Record<OnboardingLevel, string> = {

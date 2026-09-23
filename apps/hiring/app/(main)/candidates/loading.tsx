@@ -1,12 +1,13 @@
 // Hand-matched to candidates-content.tsx.
 //
-// Counts and chrome come from the component itself: eight stat tiles in a
-// lg:grid-cols-8 band (value above label, matching the real order), a toolbar of
+// Counts and chrome come from the component itself: an 8-cell StatBand
+// (cols 8, matching the real one), a toolbar of
 // search + two 200/180px selects + the list/kanban segmented control, the
 // "Select all" row, then the list rows - `viewMode` defaults to "list", so the
 // six-column kanban is not what first paint shows. The header carries no action
 // button; drawing one here would pop it away on hydration.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -20,17 +21,7 @@ export default function Loading() {
                 </div>
             </div>
 
-            <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8">
-                {Array.from({ length: 8 }).map((_, i) => (
-                    <div
-                        key={i}
-                        className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-                    >
-                        <Shimmer className="h-8 w-12" delay={i * 0.04} />
-                        <Shimmer className="mt-1 h-3 w-16" delay={i * 0.04} />
-                    </div>
-                ))}
-            </div>
+            <StatBandSkeleton count={8} cols={8} className="mb-8" />
 
             <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center">
                 <Shimmer className="h-10 flex-1 rounded-xl" />

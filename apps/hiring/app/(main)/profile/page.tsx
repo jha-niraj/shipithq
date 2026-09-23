@@ -11,6 +11,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { Label } from "@repo/ui/components/ui/label"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import {
@@ -853,20 +854,15 @@ export default function ProfilePage() {
                                                             )
                                                         }
                                                     </div>
-                                                    <div className="mt-4 grid grid-cols-2 gap-4">
-                                                        <div className="p-4 rounded-xl bg-gradient-to-br from-neutral-50 to-neutral-50 dark:from-neutral-800/20 dark:to-neutral-800/20 border border-neutral-100 dark:border-neutral-800/30">
-                                                            <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                                                                {companyDetails?.memberCount || 0}
-                                                            </p>
-                                                            <p className="text-sm text-neutral-600 dark:text-neutral-400">Team Members</p>
-                                                        </div>
-                                                        <div className="p-4 rounded-xl bg-gradient-to-br from-neutral-50 to-neutral-50 dark:from-neutral-800/20 dark:to-neutral-800/20 border border-neutral-100 dark:border-neutral-800/30">
-                                                            <p className="text-2xl font-bold text-neutral-800 dark:text-neutral-100">
-                                                                {companyDetails?.jobCount || 0}
-                                                            </p>
-                                                            <p className="text-sm text-neutral-600 dark:text-neutral-400">Active Jobs</p>
-                                                        </div>
-                                                    </div>
+                                                    <StatBand
+                                                        className="mt-4"
+                                                        size="sm"
+                                                        cols={2}
+                                                        items={[
+                                                            { icon: User, label: "Team Members", value: companyDetails?.memberCount || 0 },
+                                                            { icon: Briefcase, label: "Active Jobs", value: companyDetails?.jobCount || 0 },
+                                                        ]}
+                                                    />
                                                 </div>
                                             )
                                         }

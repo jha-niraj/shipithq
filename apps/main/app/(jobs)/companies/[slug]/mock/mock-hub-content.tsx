@@ -15,6 +15,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { cn } from "@repo/ui/lib/utils"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 
 import { LucideIcon } from "lucide-react"
 
@@ -221,29 +222,17 @@ export function CompanyMockHubContent({ company, mockHub }: CompanyMockHubConten
                             </p>
                         </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Video className="w-4 h-4 text-white/70" />
-                                <span className="text-xs text-white/70">Sessions</span>
-                            </div>
-                            <p className="text-xl font-bold">{mockHub.stats.totalSessions}</p>
-                        </div>
-                        <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                            <div className="flex items-center gap-2 mb-1">
-                                <TrendingUp className="w-4 h-4 text-white/70" />
-                                <span className="text-xs text-white/70">Avg. Score</span>
-                            </div>
-                            <p className="text-xl font-bold">{mockHub.stats.averageScore}%</p>
-                        </div>
-                        <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Target className="w-4 h-4 text-white/70" />
-                                <span className="text-xs text-white/70">Rounds</span>
-                            </div>
-                            <p className="text-xl font-bold">{mockHub.stats.roundsAttempted}</p>
-                        </div>
-                    </div>
+                    {/* The band brings its own surface and ink, so it reads the same on
+                        this constant dark banner in both themes. */}
+                    <StatBand
+                        size="sm"
+                        cols={3}
+                        items={[
+                            { icon: Video, label: "Sessions", value: mockHub.stats.totalSessions },
+                            { icon: TrendingUp, label: "Avg. Score", value: `${mockHub.stats.averageScore}%` },
+                            { icon: Target, label: "Rounds", value: mockHub.stats.roundsAttempted },
+                        ]}
+                    />
                 </div>
             </div>
 

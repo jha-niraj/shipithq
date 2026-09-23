@@ -1,13 +1,14 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { CreditCard, Search, ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, ArrowRight } from "lucide-react"
+import { CreditCard, Search, ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle } from "lucide-react"
 import { motion } from "framer-motion"
 import { cn } from "@repo/ui/lib/utils"
 import Link from "next/link"
 import { Input } from "@repo/ui/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { toast } from "@repo/ui/components/ui/sonner"
 import {
     getAllTransactions, getCreditRequests, getCreditStats, approveCreditRequest, rejectCreditRequest,
@@ -143,49 +144,16 @@ export function CreditsClient({
                 </h1>
                 <p className="text-neutral-500 dark:text-neutral-400 mt-1">Monitor and manage credit transactions across the platform</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-neutral-900 to-neutral-900 flex items-center justify-center">
-                            <CreditCard className="w-5 h-5 text-white" />
-                        </div>
-                    </div>
-                    <p className="text-2xl font-semibold text-neutral-900 dark:text-white">{stats.totalCredits.toLocaleString()}</p>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Total in Circulation</p>
-                </div>
-                <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-neutral-900 to-neutral-900 flex items-center justify-center">
-                            <ArrowUpRight className="w-5 h-5 text-white" />
-                        </div>
-                    </div>
-                    <p className="text-2xl font-semibold text-neutral-900 dark:text-white">{stats.totalPayments.toLocaleString()}</p>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Payments</p>
-                </div>
-                <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-neutral-900 to-neutral-800 flex items-center justify-center">
-                            <ArrowDownRight className="w-5 h-5 text-white" />
-                        </div>
-                    </div>
-                    <p className="text-2xl font-semibold text-neutral-900 dark:text-white">{stats.totalTransactions.toLocaleString()}</p>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Total Transactions</p>
-                </div>
-                <Link href="/credits/requests">
-                    <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 hover:border-neutral-900 dark:hover:border-neutral-200 transition-colors cursor-pointer group">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-neutral-900 to-neutral-900 flex items-center justify-center">
-                                <Clock className="w-5 h-5 text-white" />
-                            </div>
-                        </div>
-                        <p className="text-2xl font-semibold text-neutral-900 dark:text-white">{stats.pendingRequests}</p>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400 flex items-center gap-1">
-                            Pending Requests
-                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </p>
-                    </div>
-                </Link>
-            </div>
+            <StatBand
+                className="mb-8"
+                cols={4}
+                items={[
+                    { icon: CreditCard, label: "Total in Circulation", value: stats.totalCredits.toLocaleString() },
+                    { icon: ArrowUpRight, label: "Total Payments", value: stats.totalPayments.toLocaleString() },
+                    { icon: ArrowDownRight, label: "Total Transactions", value: stats.totalTransactions.toLocaleString() },
+                    { icon: Clock, label: "Pending Requests", value: stats.pendingRequests, href: "/credits/requests" },
+                ]}
+            />
             <div className="flex border-b border-neutral-200 dark:border-neutral-800 mb-6">
                 {(["overview", "transactions", "requests"] as const).map((tab) => (
                     <button

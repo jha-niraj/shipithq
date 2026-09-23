@@ -7,7 +7,8 @@ import {
 } from 'recharts'
 import { Button } from '@repo/ui/components/ui/button'
 import { AnimatedIcon } from '@repo/ui/components/animated-icons'
-import { cn } from '@repo/ui/lib/utils'
+import { StatBand, StatBandSkeleton } from '@repo/ui/components/ui/stat-band'
+import { Clock, Flame, Mic, Star } from 'lucide-react'
 import { getMyMockStats, type MyMockStats } from '@/actions/(main)/mockvoice/stats.action'
 import { ActivityChart, type ActivityPoint } from '@/components/common/activity-chart'
 import { MOCK_CATEGORIES } from '../voice/_constants/mock-categories'
@@ -44,11 +45,7 @@ export function MyPractice() {
     if (loading) {
         return (
             <div className="mt-6 space-y-4">
-                <div className="grid gap-3 sm:grid-cols-4">
-                    {[0, 1, 2, 3].map((i) => (
-                        <div key={i} className="h-[74px] animate-pulse rounded-xl bg-neutral-200 dark:bg-neutral-800" />
-                    ))}
-                </div>
+                <StatBandSkeleton count={4} cols={4} />
                 <div className="h-72 animate-pulse rounded-xl bg-neutral-200 dark:bg-neutral-800" />
             </div>
         )
@@ -65,12 +62,15 @@ export function MyPractice() {
     if (!stats || stats.total === 0) {
         return (
             <div className="mt-6 space-y-6">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <Stat label="Sessions" value="0" sub="none yet" />
-                    <Stat label="Practice time" value="-" sub="not recorded yet" />
-                    <Stat label="Average score" value="-" sub="none scored yet" />
-                    <Stat label="Streak" value="-" sub="practise today to start one" />
-                </div>
+                <StatBand
+                    cols={4}
+                    items={[
+                        { icon: Mic, label: 'Sessions', value: '0', hint: 'none yet' },
+                        { icon: Clock, label: 'Practice time', value: '-', hint: 'not recorded yet' },
+                        { icon: Star, label: 'Average score', value: '-', hint: 'none scored yet' },
+                        { icon: Flame, label: 'Streak', value: '-', hint: 'practise today to start one' },
+                    ]}
+                />
 
                 <section>
                     <div className="mb-3">
@@ -105,19 +105,23 @@ export function MyPractice() {
 
     return (
         <div className="mt-6 space-y-8">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Stat label="Sessions" value={total.toLocaleString()} sub={`${completed} completed`} />
-                <Stat label="Practice time" value={minutes > 0 ? `${minutes}m` : '-'} sub={minutes > 0 ? 'across all sessions' : 'not recorded yet'} />
-                {/* The SAMPLE is shown beside the average. "4.2" from one session
-                    and "4.2" from forty are different claims, and only one of them
-                    is worth acting on. */}
-                <Stat
-                    label="Average score"
-                    value={averageScore !== null ? `${averageScore}/5` : '-'}
-                    sub={scoredSessions > 0 ? `from ${scoredSessions} scored` : 'none scored yet'}
-                />
-                <Stat label="Streak" value={streak > 0 ? `${streak}d` : '-'} sub={streak > 0 ? 'consecutive days' : 'practise today to start one'} />
-            </div>
+            {/* The SAMPLE is shown beside the average. "4.2" from one session
+                and "4.2" from forty are different claims, and only one of them
+                is worth acting on. */}
+            <StatBand
+                cols={4}
+                items={[
+                    { icon: Mic, label: 'Sessions', value: total.toLocaleString(), hint: `${completed} completed` },
+                    { icon: Clock, label: 'Practice time', value: minutes > 0 ? `${minutes}m` : '-', hint: minutes > 0 ? 'across all sessions' : 'not recorded yet' },
+                    {
+                        icon: Star,
+                        label: 'Average score',
+                        value: averageScore !== null ? `${averageScore}/5` : '-',
+                        hint: scoredSessions > 0 ? `from ${scoredSessions} scored` : 'none scored yet',
+                    },
+                    { icon: Flame, label: 'Streak', value: streak > 0 ? `${streak}d` : '-', hint: streak > 0 ? 'consecutive days' : 'practise today to start one' },
+                ]}
+            />
 
             {/* TWO charts, not one chart with two y-axes.
                 What stood here was a dual-axis LineChart: sessions on the left
@@ -251,16 +255,6 @@ function TrendChart({
                     </LineChart>
                 </ResponsiveContainer>
             </div>
-        </div>
-    )
-}
-
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-    return (
-        <div className={cn('rounded-xl border border-neutral-200 px-4 py-3 dark:border-neutral-800')}>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">{label}</p>
-            <p className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">{value}</p>
-            {sub && <p className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-400">{sub}</p>}
         </div>
     )
 }

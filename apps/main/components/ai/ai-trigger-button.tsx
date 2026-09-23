@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { AIGlyph } from "@repo/ui/components/ui/ai-mark";
 import { cn } from "@repo/ui/lib/utils";
 import { useAIPanelStore } from "@/app/store/aiPanelStore";
 
@@ -26,7 +26,7 @@ export function AITriggerButton({ className }: { className?: string }) {
 				className,
 			)}
 		>
-			<Sparkles className="h-4 w-4" />
+			<AIGlyph size={16} />
 			<span className="hidden sm:inline">Ask AI</span>
 		</button>
 	);

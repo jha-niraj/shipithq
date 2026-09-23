@@ -181,13 +181,26 @@ export async function answerOnboardingTurn(
 }
 
 /**
- * Go back to an earlier question. Everything after it was generated from its
- * answer, so it is discarded, not kept (MO-8). The turn keeps its question and
- * loses its answer; the client preselects the old answer from what it had.
+ * Change the answer to a question already answered, IN PLACE (MO-8, revised).
+ *
+ * Every later turn is kept: Niraj chose keeping the rest of the run over
+ * regenerating it ("take me back to that particular question, and when I save
+ * it, take me to the latest question"). The final profile is built from the
+ * answers as they stand, so it sees the edit.
+ *
+ * Written with `jsonb_set` on this one index, guarded by the question text, so
+ * a question the route appends in the meantime is neither overwritten nor lost -
+ * a read-modify-write of the whole array would do both.
  */
-export async function reopenOnboardingTurn(runId: string, index: number): Promise<OnboardingActionResult> {
+export async function editOnboardingAnswer(
+    runId: string,
+    index: number,
+    values: string[],
+    viaVoice: boolean,
+): Promise<OnboardingActionResult> {
     const userId = await currentUserId()
     if (!userId) return { success: false, error: "Not signed in." }
+    if (!Number.isInteger(index) || index < 0) return { success: false, error: "That question does not exist." }
 
     const row = await db.query.moduleOnboarding.findFirst({
         where: and(eq(moduleOnboarding.id, runId), eq(moduleOnboarding.userId, userId)),
@@ -195,20 +208,28 @@ export async function reopenOnboardingTurn(runId: string, index: number): Promis
     if (!row) return { success: false, error: "That onboarding no longer exists." }
     if (row.status !== "in_progress") return { success: false, error: "Finished onboardings cannot be edited. Retake it instead." }
 
-    const turns = row.turns ?? []
-    const target = turns[index]
+    const target = (row.turns ?? [])[index]
     if (!target) return { success: false, error: "That question does not exist." }
-    if (index === turns.length - 1 && !target.answer) return { success: true, run: toView(row) }
+    if (!target.answer) return { success: false, error: "Only an answered question can be changed." }
 
-    const reopened: OnboardingTurn = { ...target, answer: null, answeredAt: null }
-    const nextTurns = [...turns.slice(0, index), reopened]
+    const checked = checkAnswer(target, values)
+    if (!checked.ok) return { success: false, error: checked.error }
 
+    const answer = { values: checked.values, viaVoice: Boolean(viaVoice) }
+    const answeredAt = new Date().toISOString()
+    const answerPath = `{${index},answer}`
+    const atPath = `{${index},answeredAt}`
     const [updated] = await db
         .update(moduleOnboarding)
-        .set({ turns: nextTurns, openQuestionCount: openCount(nextTurns) })
+        .set({
+            turns: sql`jsonb_set(jsonb_set(${moduleOnboarding.turns}, ${answerPath}::text[], ${JSON.stringify(answer)}::jsonb), ${atPath}::text[], ${JSON.stringify(answeredAt)}::jsonb)`,
+        })
         .where(and(
             eq(moduleOnboarding.id, runId),
-            sql`jsonb_array_length(${moduleOnboarding.turns}) = ${turns.length}`,
+            eq(moduleOnboarding.status, "in_progress"),
+            // `::int`: a bound parameter arrives as text, and `jsonb -> text` is an object-key
+            // lookup, not an array index - without the cast this matched nothing.
+            sql`${moduleOnboarding.turns} -> ${index}::int -> 'question' ->> 'text' = ${target.question.text}`,
         ))
         .returning()
     if (!updated) return { success: false, error: "The onboarding changed. Reload and try again." }

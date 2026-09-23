@@ -82,10 +82,10 @@ export function SDComponentLibrary({ onAddComponent }: SDComponentLibraryProps) 
         setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
     return (
-        <div className="flex flex-col h-full border-r border-neutral-800 bg-neutral-950">
+        <div className="flex flex-col h-full border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
             <button
                 onClick={() => setIsOpen((o) => !o)}
-                className="flex items-center justify-between px-3 py-2 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer"
+                className="flex items-center justify-between px-3 py-2 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
             >
                 Components
                 {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -137,7 +137,7 @@ export function SDComponentLibrary({ onAddComponent }: SDComponentLibraryProps) 
                                                                         category: cat.key,
                                                                     })
                                                                 }
-                                                                className="h-auto py-1.5 px-2 flex flex-col items-center gap-0.5 text-neutral-400 hover:text-white hover:bg-neutral-800/80 rounded-md transition-colors"
+                                                                className="h-auto py-1.5 px-2 flex flex-col items-center gap-0.5 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/80 rounded-md transition-colors"
                                                             >
                                                                 <span className="text-base leading-none">{comp.icon}</span>
                                                                 <span className="text-xs leading-tight text-center truncate w-full">

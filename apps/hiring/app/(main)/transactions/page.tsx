@@ -8,14 +8,12 @@ import {
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { Input } from "@repo/ui/components/ui/input"
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@repo/ui/components/ui/select"
 import { Alert, AlertDescription } from "@repo/ui/components/ui/alert"
-import {
-    Card, CardContent, CardDescription, CardHeader,
-} from "@repo/ui/components/ui/card"
 import {
     getPaymentHistory, type PaymentRecord
 } from "@/actions/billing/payment.action"
@@ -228,43 +226,15 @@ export default function TransactionsPage() {
                 )
             }
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Total Spent</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold">
-                            {overview?.currency === "INR" ? "₹" : "$"}
-                            {(overview?.totalSpent || 0).toLocaleString()}
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Successful</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold text-neutral-800">{successfulPayments.length}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Pending</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold text-neutral-800">{pendingPayments.length}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Failed</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold text-red-600">{failedPayments.length}</p>
-                    </CardContent>
-                </Card>
-            </div>
+            <StatBand
+                cols={4}
+                items={[
+                    { icon: CreditCard, label: "Total Spent", value: `${overview?.currency === "INR" ? "₹" : "$"}${(overview?.totalSpent || 0).toLocaleString()}` },
+                    { icon: CheckCircle, label: "Successful", value: successfulPayments.length },
+                    { icon: Clock, label: "Pending", value: pendingPayments.length },
+                    { icon: XCircle, label: "Failed", value: failedPayments.length, tone: "rose" },
+                ]}
+            />
             <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />

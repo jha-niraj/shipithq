@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import { Users, Plus, Search, Filter, MoreVertical, CheckCircle2, Clock, XCircle } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 
 export default function StudentsPage() {
     return (
@@ -55,35 +56,16 @@ export default function StudentsPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
-                className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
+                className="mb-8"
             >
-                <div className="bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4">
-                    <div className="flex items-center gap-3">
-                        <CheckCircle2 className="w-5 h-5 text-neutral-800" />
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">0</p>
-                            <p className="text-sm text-neutral-800/80">Verified Students</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4">
-                    <div className="flex items-center gap-3">
-                        <Clock className="w-5 h-5 text-neutral-800" />
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-100">0</p>
-                            <p className="text-sm text-neutral-800/80">Pending Verification</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4">
-                    <div className="flex items-center gap-3">
-                        <XCircle className="w-5 h-5 text-red-600" />
-                        <div>
-                            <p className="text-2xl font-bold text-red-700 dark:text-red-400">0</p>
-                            <p className="text-sm text-red-600/80">Rejected</p>
-                        </div>
-                    </div>
-                </div>
+                <StatBand
+                    cols={3}
+                    items={[
+                        { icon: CheckCircle2, label: "Verified Students", value: 0 },
+                        { icon: Clock, label: "Pending Verification", value: 0 },
+                        { icon: XCircle, label: "Rejected", value: 0, tone: "rose" },
+                    ]}
+                />
             </motion.div>
 
             {/* Empty State */}

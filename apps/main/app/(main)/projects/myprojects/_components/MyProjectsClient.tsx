@@ -21,6 +21,7 @@ import {
 	Tabs, TabsList, TabsTrigger 
 } from "@repo/ui/components/ui/tabs"
 import toast from "@repo/ui/components/ui/sonner";
+import { StatBand, StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 import Link from "next/link"
 import { getUserProjects } from "@/actions/(main)/projects/project.action"
 import { ProjectCard, ProjectCardSkeleton } from "@/components/projects/project-card"
@@ -174,51 +175,26 @@ export default function MyProjectsPage() {
 						</div>
 					</motion.div>
 					{
-						stats && (
+						stats ? (
 							<motion.div
-								className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8"
+								className="mb-8"
 								initial={{ opacity: 0, y: 30 }}
 								animate={{ opacity: 1, y: 0 }}
 								transition={{ delay: 0.2, duration: 0.6 }}
 							>
-								<Card className="bg-white dark:bg-neutral-900 shadow-2xl p-5 rounded-xl border border-neutral-200 dark:border-neutral-800">
-									<CardContent className="pt-6 text-center">
-										<Code2 className="w-8 h-8 text-neutral-800 dark:text-neutral-200 mx-auto mb-2" />
-										<div className="text-2xl font-bold text-gray-900 dark:text-white">
-											{stats.totalProjects}
-										</div>
-										<div className="text-sm text-gray-600 dark:text-gray-400">Total Projects</div>
-									</CardContent>
-								</Card>
-								<Card className="bg-white dark:bg-neutral-900 shadow-2xl p-5 rounded-xl border border-neutral-200 dark:border-neutral-800">
-									<CardContent className="pt-6 text-center">
-										<CheckCircle2 className="w-8 h-8 text-neutral-800 dark:text-neutral-200 mx-auto mb-2" />
-										<div className="text-2xl font-bold text-gray-900 dark:text-white">
-											{stats.completedProjects}
-										</div>
-										<div className="text-sm text-gray-600 dark:text-gray-400">Completed</div>
-									</CardContent>
-								</Card>
-								<Card className="bg-white dark:bg-neutral-900 shadow-2xl p-5 rounded-xl border border-neutral-200 dark:border-neutral-800">
-									<CardContent className="pt-6 text-center">
-										<Play className="w-8 h-8 text-neutral-800 dark:text-neutral-200 mx-auto mb-2" />
-										<div className="text-2xl font-bold text-gray-900 dark:text-white">
-											{stats.inProgressProjects}
-										</div>
-										<div className="text-sm text-gray-600 dark:text-gray-400">In Progress</div>
-									</CardContent>
-								</Card>
-								<Card className="bg-white dark:bg-neutral-900 shadow-2xl p-5 rounded-xl border border-neutral-200 dark:border-neutral-800">
-									<CardContent className="pt-6 text-center">
-										<Trophy className="w-8 h-8 text-neutral-800 dark:text-neutral-200 mx-auto mb-2" />
-										<div className="text-2xl font-bold text-gray-900 dark:text-white">
-											{stats.totalSubmissions}
-										</div>
-										<div className="text-sm text-gray-600 dark:text-gray-400">Submissions</div>
-									</CardContent>
-								</Card>
+								<StatBand
+									cols={4}
+									items={[
+										{ icon: Code2, label: "Total Projects", value: stats.totalProjects },
+										{ icon: CheckCircle2, label: "Completed", value: stats.completedProjects },
+										{ icon: Play, label: "In Progress", value: stats.inProgressProjects },
+										{ icon: Trophy, label: "Submissions", value: stats.totalSubmissions },
+									]}
+								/>
 							</motion.div>
-						)
+						) : loading ? (
+							<StatBandSkeleton count={4} cols={4} className="mb-8" />
+						) : null
 					}
 
 					<Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">

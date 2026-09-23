@@ -11,6 +11,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { Label } from "@repo/ui/components/ui/label"
 import { Switch } from "@repo/ui/components/ui/switch"
 import {
@@ -429,61 +430,16 @@ export default function RolesPermissionsPage() {
                     )
                 }
             </AnimatePresence>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center">
-                            <Users className="w-5 h-5 text-neutral-800 dark:text-neutral-100" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                                {members.length}
-                            </p>
-                            <p className="text-sm text-neutral-500">Total Members</p>
-                        </div>
-                    </div>
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center">
-                            <Crown className="w-5 h-5 text-neutral-800 dark:text-neutral-100" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                                {members.filter(m => m.role === "FOUNDER").length}
-                            </p>
-                            <p className="text-sm text-neutral-500">Admins (FOUNDER)</p>
-                        </div>
-                    </div>
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center">
-                            <Clock className="w-5 h-5 text-neutral-800 dark:text-neutral-100" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                                {invitations.length}
-                            </p>
-                            <p className="text-sm text-neutral-500">Pending Invites</p>
-                        </div>
-                    </div>
-                </motion.div>
-            </div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                <StatBand
+                    cols={3}
+                    items={[
+                        { icon: Users, label: "Total Members", value: members.length },
+                        { icon: Crown, label: "Admins (FOUNDER)", value: members.filter(m => m.role === "FOUNDER").length },
+                        { icon: Clock, label: "Pending Invites", value: invitations.length },
+                    ]}
+                />
+            </motion.div>
             {
                 invitations.length > 0 && (
                     <motion.div

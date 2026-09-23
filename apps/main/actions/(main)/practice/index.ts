@@ -11,7 +11,6 @@ export {
     finishGuidedSession,
     applyGuidedCompletion,
     saveSessionProgress,
-    updateSessionAfterAssess,
     getModuleProgress,
     getLeaderboard,
     getUserPracticeStats,
@@ -22,6 +21,9 @@ export {
 export { assessPracticeWork, getMentorResponse } from "./assess.action";
 
 // Voice (ElevenLabs STT/TTS)
+// Voice: Sarvam AI (plan/practice-workspace, PW-4). `voice.action.ts` holds the
+// old ElevenLabs pair, kept in the repo and no longer called.
+export { speakMentorReply, isVoiceAvailable } from "./voice-sarvam.action";
 export { getScribeToken, generateTTSAudio } from "./voice.action";
 
 // User-generated problems (Exa + AI)
@@ -36,3 +38,9 @@ export { requestJudgeAssets, runSampleTests, submitSolution } from "./judge.acti
 
 // Mentor memory: consolidation, the learner profile page
 export { requestMemoryUpdate, getLearnerProfile, deleteLearnerEntry } from "./memory.action";
+
+// Recommended problems, picked by the model from the onboarding profile (PD-15)
+export { getRecommendations, type RecommendationsView } from "./recommendations.action";
+
+// The practice path: stages of problems with a checkpoint each (plan/practice-path)
+export { getPath, type PathView } from "./path.action";

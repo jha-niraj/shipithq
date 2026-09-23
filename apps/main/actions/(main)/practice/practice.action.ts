@@ -18,6 +18,7 @@ import { startBackgroundJob } from "@/actions/(main)/workers/jobs.action";
 // for backward compatibility with callers that import from this file
 type PracticeModule = "DSA" | "SYSTEM_DESIGN" | "WEB_FRONTEND" | "WEB_BACKEND";
 type PracticeSessionStatus = "IN_PROGRESS" | "COMPLETED" | "ABANDONED";
+type PracticeMode = "EXAM" | "ASSIST";
 
 // ─────────────────────────────────────────────
 // PROBLEMS
@@ -52,6 +53,10 @@ export async function getProblemsForModule(
             sessions: {
                 where: eq(practiceUserSession.userId, userId),
                 columns: { status: true, bestScore: true },
+                // A problem can have an EXAM row and an ASSIST row. Without an order
+                // the list showed whichever the database handed back, so a solved
+                // problem could read as not started. Completed first, then newest.
+                orderBy: (s, { asc, desc }) => [asc(s.status), desc(s.updatedAt)],
                 limit: 1,
             },
         } : undefined,
@@ -140,6 +145,7 @@ export async function getCategoriesForModule(module: PracticeModule): Promise<Pr
             sessions: {
                 where: eq(practiceUserSession.userId, userId),
                 columns: { status: true },
+                orderBy: (s, { asc, desc }) => [asc(s.status), desc(s.updatedAt)],
                 limit: 1,
             },
         } : undefined,
@@ -300,7 +306,7 @@ export async function getOrCreateSession(
     const problem = await db.query.practiceProblem.findFirst({ where: eq(practiceProblem.slug, problemSlug) });
     if (!problem) return null;
 
-    const existing = await db.query.practiceUserSession.findFirst({
+    const findExisting = () => db.query.practiceUserSession.findFirst({
         where: and(
             eq(practiceUserSession.userId, userId),
             eq(practiceUserSession.problemId, problem.id),
@@ -308,36 +314,26 @@ export async function getOrCreateSession(
         ),
     });
 
-    if (existing) {
-        return {
-            id: existing.id,
-            userId: existing.userId,
-            problemId: existing.problemId,
-            module: existing.module,
-            mode: existing.mode,
-            status: existing.status,
-            code: existing.code,
-            cssCode: existing.cssCode,
-            canvasData: existing.canvasData,
-            language: existing.language,
-            attempts: existing.attempts,
-            bestScore: existing.bestScore,
-            lastFeedback: existing.lastFeedback,
-            requirementsMet: existing.requirementsMet as Record<string, boolean> | null,
-            totalTimeSeconds: existing.totalTimeSeconds,
-            startedAt: existing.startedAt,
-            completedAt: existing.completedAt,
-            voiceUsed: existing.voiceUsed,
-            chatHistory: existing.chatHistory as PracticeChatMessage[] | null,
-            xpAwarded: existing.xpAwarded,
-            stage: existing.status === "COMPLETED" ? "done" : existing.stage,
-        };
-    }
+    const existing = await findExisting();
+    if (existing) return toSessionData(existing);
 
     // A DSA problem with a C++ harness opens in C++ on its `class Solution`
     // starter: that is the language with tests (PD-5). Everything else keeps
     // the previous default.
     const opensInCpp = problem.module === "DSA" && problem.judgeStatus === "ready" && Boolean(problem.harness?.cpp);
+    /*
+     * ON CONFLICT DO NOTHING, then read the winner.
+     *
+     * Checking and then inserting is a race, and this one fired in practice: opening
+     * a problem renders the page more than once (a prefetch, a dev double render, a
+     * second tab), both renders saw no row, both inserted, and the loser crashed the
+     * page on `uq_practice_user_session_user_id_problem_id_mode`. A reload then
+     * worked, because by then the row existed - which is exactly what a race looks
+     * like from the outside.
+     *
+     * The unique index is the real guard; this makes the loser fetch the winner's
+     * row instead of throwing.
+     */
     const [created] = await db.insert(practiceUserSession).values({
         userId,
         problemId: problem.id,
@@ -346,31 +342,16 @@ export async function getOrCreateSession(
         code: problem.starterCode ?? "",
         cssCode: problem.starterCss ?? "",
         language: opensInCpp ? "cpp" : "javascript",
-    }).returning();
+    })
+        .onConflictDoNothing({
+            target: [practiceUserSession.userId, practiceUserSession.problemId, practiceUserSession.mode],
+        })
+        .returning();
+    if (created) return toSessionData(created);
 
-    return {
-        id: created!.id,
-        userId: created!.userId,
-        problemId: created!.problemId,
-        module: created!.module,
-        mode: created!.mode,
-        status: created!.status,
-        code: created!.code,
-        cssCode: created!.cssCode,
-        canvasData: created!.canvasData,
-        language: created!.language,
-        attempts: created!.attempts,
-        bestScore: created!.bestScore,
-        lastFeedback: created!.lastFeedback,
-        requirementsMet: null,
-        totalTimeSeconds: created!.totalTimeSeconds,
-        startedAt: created!.startedAt,
-        completedAt: created!.completedAt,
-        voiceUsed: created!.voiceUsed,
-        chatHistory: null,
-        xpAwarded: created!.xpAwarded,
-        stage: created!.stage,
-    };
+    // Someone else inserted it between the check and the insert.
+    const winner = await findExisting();
+    return winner ? toSessionData(winner) : null;
 }
 
 export async function saveSessionProgress(
@@ -382,13 +363,21 @@ export async function saveSessionProgress(
         language?: string;
         chatHistory?: PracticeChatMessage[];
         totalTimeSeconds?: number;
+        /**
+         * The `updatedAt` the client last saw. A save whose base is older than the
+         * row is refused rather than applied: a second tab, or the judge's own write
+         * during a Run, used to be clobbered by whichever autosave fired last.
+         * Omitted means "write anyway", which is what a first save after load does.
+         */
+        baseUpdatedAt?: string | number | Date;
     }
 ): Promise<boolean> {
     const session = await getSession(headers());
     if (!session?.user?.id) return false;
 
     try {
-        await db.update(practiceUserSession)
+        const base = data.baseUpdatedAt ? new Date(data.baseUpdatedAt) : null;
+        const rows = await db.update(practiceUserSession)
             .set({
                 ...(data.code !== undefined ? { code: data.code } : {}),
                 ...(data.cssCode !== undefined ? { cssCode: data.cssCode } : {}),
@@ -400,57 +389,106 @@ export async function saveSessionProgress(
             })
             .where(and(
                 eq(practiceUserSession.id, sessionId),
-                eq(practiceUserSession.userId, session.user.id)
-            ));
-        return true;
-    } catch {
+                eq(practiceUserSession.userId, session.user.id),
+                // Conditional on the row not having moved since the client read it.
+                ...(base && !Number.isNaN(base.getTime())
+                    ? [sql`${practiceUserSession.updatedAt} <= ${base}`]
+                    : []),
+            ))
+            .returning({ id: practiceUserSession.id });
+        // No row means somebody else wrote first; the caller keeps its changes and
+        // tries again on the next tick rather than overwriting newer work.
+        return rows.length > 0;
+    } catch (error: unknown) {
+        console.error("[saveSessionProgress] failed:", error);
         return false;
     }
 }
 
-export async function updateSessionAfterAssess(
-    sessionId: string,
-    data: {
-        score: number;
-        feedback: string;
-        requirementsMet: Record<string, boolean>;
-        xpAwarded: number;
-    }
-): Promise<boolean> {
-    const session = await getSession(headers());
-    if (!session?.user?.id) return false;
+/** The most XP one assessment may add. The generous end of what `assess.action.ts`
+ *  can compute, so an honest run is never capped and a forged one is. */
+const MAX_ASSESS_XP = 120;
 
+/**
+ * How long ago this session was last assessed, in milliseconds, or null when it
+ * never has been. Server only, like `persistAssessment` beside it.
+ */
+export async function recentAssessment(userId: string, problemSlug: string, mode: PracticeMode): Promise<number | null> {
+    const problem = await db.query.practiceProblem.findFirst({
+        where: eq(practiceProblem.slug, problemSlug),
+        columns: { id: true },
+    });
+    if (!problem) return null;
+    const row = await db.query.practiceUserSession.findFirst({
+        where: and(
+            eq(practiceUserSession.userId, userId),
+            eq(practiceUserSession.problemId, problem.id),
+            eq(practiceUserSession.mode, mode)
+        ),
+        columns: { attempts: true, updatedAt: true },
+    });
+    if (!row || row.attempts === 0 || !row.updatedAt) return null;
+    return Date.now() - row.updatedAt.getTime();
+}
+
+/**
+ * Write an assessment's result to the session (PD-18).
+ *
+ * Called by `assessPracticeWork`, which computed the score and the XP itself and
+ * is the only caller that may. It is NOT a server action: there is no "use
+ * server" export path to it, so the browser cannot reach it, which is the whole
+ * point - the numbers used to be relayed through the client and a hand-made call
+ * could mint XP.
+ */
+export async function persistAssessment(input: {
+    userId: string;
+    problemSlug: string;
+    mode: PracticeMode;
+    score: number;
+    feedback: string;
+    requirementsMet: Record<string, boolean>;
+    xpAwarded: number;
+}): Promise<boolean> {
     try {
+        const problem = await db.query.practiceProblem.findFirst({
+            where: eq(practiceProblem.slug, input.problemSlug),
+            columns: { id: true, module: true },
+        });
+        if (!problem) return false;
+
         const current = await db.query.practiceUserSession.findFirst({
             where: and(
-                eq(practiceUserSession.id, sessionId),
-                eq(practiceUserSession.userId, session.user.id)
+                eq(practiceUserSession.userId, input.userId),
+                eq(practiceUserSession.problemId, problem.id),
+                eq(practiceUserSession.mode, input.mode)
             ),
         });
         if (!current) return false;
 
-        const newBestScore = Math.max(current.bestScore, data.score);
-        const allMet = Object.values(data.requirementsMet).every(Boolean);
-        const newStatus: PracticeSessionStatus = allMet && data.score >= 80 ? "COMPLETED" : "IN_PROGRESS";
+        const score = Math.min(100, Math.max(0, Math.round(input.score)));
+        const xp = Math.min(MAX_ASSESS_XP, Math.max(0, Math.round(input.xpAwarded)));
+        const met = Object.values(input.requirementsMet ?? {});
+        const allMet = met.length > 0 && met.every(Boolean);
+        const newStatus: PracticeSessionStatus = allMet && score >= 80 ? "COMPLETED" : "IN_PROGRESS";
 
         await db.update(practiceUserSession)
             .set({
                 attempts: sql`${practiceUserSession.attempts} + 1`,
-                bestScore: newBestScore,
-                lastFeedback: data.feedback,
-                requirementsMet: data.requirementsMet,
+                bestScore: Math.max(current.bestScore, score),
+                lastFeedback: input.feedback,
+                requirementsMet: input.requirementsMet,
                 status: newStatus,
-                xpAwarded: sql`${practiceUserSession.xpAwarded} + ${data.xpAwarded}`,
+                xpAwarded: sql`${practiceUserSession.xpAwarded} + ${xp}`,
                 ...(newStatus === "COMPLETED" ? { completedAt: new Date() } : {}),
             })
-            .where(eq(practiceUserSession.id, sessionId));
+            .where(eq(practiceUserSession.id, current.id));
 
         if (newStatus === "COMPLETED" && current.status !== "COMPLETED") {
-            await updateModuleProgress(session.user.id, current.module, current.problemId);
+            await updateModuleProgress(input.userId, current.module, current.problemId);
         }
-
         return true;
-    } catch {
+    } catch (error: unknown) {
+        console.error("[persistAssessment] failed:", error);
         return false;
     }
 }
@@ -477,9 +515,16 @@ export async function finishGuidedSession(sessionId: string): Promise<{ success:
     const passed = Boolean(state && (state.testsPassedAt.length > 0 || state.lastSubmit?.passed));
     if (!passed) return { success: false, error: "Get every test passing first, then you can finish." };
 
-    if (row.status !== "COMPLETED") {
-        await db.update(practiceUserSession).set({ stage: "done" }).where(eq(practiceUserSession.id, row.id));
-    }
+    /*
+     * The stage is NOT moved here.
+     *
+     * It used to be written to "done" before the reflect job ran, so a job that
+     * failed, or a tab closed while it ran, left a session reading "done" with
+     * status still IN_PROGRESS: the Finish button was gone (it needs optimise or
+     * reflect), no XP had been awarded, and there was no way back. The stage now
+     * moves in `applyGuidedCompletion`, which runs when the job has actually
+     * produced the closing feedback.
+     */
     const job = await startBackgroundJob("practice_reflect", { sessionId }, { cost: 0 });
     if (!job.success || !job.jobId) return { success: false, error: job.error ?? "Could not finish the session." };
     return { success: true, jobId: job.jobId };
@@ -545,26 +590,19 @@ async function updateModuleProgress(userId: string, module: PracticeModule, comp
     const difficultyXP: Record<string, number> = { EASY: 25, MEDIUM: 50, HARD: 100 };
     const xp = difficultyXP[problem.difficulty] ?? 25;
 
-    const existing = await db.query.practiceModuleProgress.findFirst({
-        where: and(
-            eq(practiceModuleProgress.userId, userId),
-            eq(practiceModuleProgress.module, module)
-        ),
-    });
+    const diffKey = `${problem.difficulty.toLowerCase()}Completed` as keyof typeof practiceModuleProgress;
 
-    const diffKey = `${problem.difficulty.toLowerCase()}Completed` as any;
-
-    if (existing) {
-        await db.update(practiceModuleProgress)
-            .set({
-                completed: sql`${practiceModuleProgress.completed} + 1`,
-                totalXP: sql`${practiceModuleProgress.totalXP} + ${xp}`,
-                lastPracticedAt: new Date(),
-                [diffKey]: sql`${(practiceModuleProgress as any)[diffKey]} + 1`,
-            })
-            .where(eq(practiceModuleProgress.id, existing.id));
-    } else {
-        await db.insert(practiceModuleProgress).values({
+    /*
+     * ON CONFLICT, not check-then-insert.
+     *
+     * Two completions landing together on a user with no progress row both saw
+     * "no row" and both inserted, and the loser threw on
+     * `uq_practice_module_progress_user_id_module` - after the session had already
+     * been marked complete, so the user lost the XP and saw an error. The unique
+     * index is the guard; the upsert increments whichever way it lands.
+     */
+    await db.insert(practiceModuleProgress)
+        .values({
             userId,
             module,
             completed: 1,
@@ -573,8 +611,16 @@ async function updateModuleProgress(userId: string, module: PracticeModule, comp
             currentStreak: 1,
             longestStreak: 1,
             [diffKey]: 1,
+        })
+        .onConflictDoUpdate({
+            target: [practiceModuleProgress.userId, practiceModuleProgress.module],
+            set: {
+                completed: sql`${practiceModuleProgress.completed} + 1`,
+                totalXP: sql`${practiceModuleProgress.totalXP} + ${xp}`,
+                lastPracticedAt: new Date(),
+                [diffKey]: sql`${(practiceModuleProgress as unknown as Record<string, unknown>)[diffKey]} + 1`,
+            },
         });
-    }
 
     // Calculate streak
     const streakProgress = await db.query.practiceModuleProgress.findFirst({
@@ -617,32 +663,25 @@ async function updateModuleProgress(userId: string, module: PracticeModule, comp
         ),
     });
     if (progress) {
-        const existingLb = await db.query.practiceLeaderboard.findFirst({
-            where: and(
-                eq(practiceLeaderboard.userId, userId),
-                eq(practiceLeaderboard.module, module)
-            ),
-        });
-
-        if (existingLb) {
-            await db.update(practiceLeaderboard)
-                .set({
-                    totalXP: progress.totalXP,
-                    completed: progress.completed,
-                    averageScore: progress.averageScore,
-                    streak: progress.currentStreak,
-                })
-                .where(eq(practiceLeaderboard.id, existingLb.id));
-        } else {
-            await db.insert(practiceLeaderboard).values({
+        // Same shape as the progress upsert above, and for the same reason.
+        await db.insert(practiceLeaderboard)
+            .values({
                 userId,
                 module,
                 totalXP: progress.totalXP,
                 completed: progress.completed,
                 averageScore: progress.averageScore,
                 streak: progress.currentStreak,
+            })
+            .onConflictDoUpdate({
+                target: [practiceLeaderboard.userId, practiceLeaderboard.module],
+                set: {
+                    totalXP: progress.totalXP,
+                    completed: progress.completed,
+                    averageScore: progress.averageScore,
+                    streak: progress.currentStreak,
+                },
             });
-        }
     }
 
     // Award XP to user
@@ -793,7 +832,7 @@ export async function getUserPracticeStats(): Promise<PracticeUserStats | null> 
 
     const userId = session.user.id;
 
-    const [modules, sessions, _totalProblemsArr] = await Promise.all([
+    const [modules, sessions, attemptedRows] = await Promise.all([
         db.query.practiceModuleProgress.findMany({ where: eq(practiceModuleProgress.userId, userId) }),
         db.query.practiceUserSession.findMany({
             where: eq(practiceUserSession.userId, userId),
@@ -805,7 +844,11 @@ export async function getUserPracticeStats(): Promise<PracticeUserStats | null> 
                 },
             },
         }),
-        db.select({ count: sql<number>`count(*)` }).from(practiceProblem).where(eq(practiceProblem.isActive, true)),
+        // How many problems this user has actually attempted. The list above is the
+        // recent ten, and counting it said "10 attempted" forever.
+        db.select({ n: sql<number>`count(*)::int` })
+            .from(practiceUserSession)
+            .where(eq(practiceUserSession.userId, userId)),
     ]);
 
     const totalSolved = modules.reduce((acc, m) => acc + m.completed, 0);
@@ -874,7 +917,7 @@ export async function getUserPracticeStats(): Promise<PracticeUserStats | null> 
 
     return {
         totalSolved,
-        totalAttempted: sessions.length,
+        totalAttempted: attemptedRows[0]?.n ?? 0,
         totalXP,
         currentStreak,
         longestStreak,

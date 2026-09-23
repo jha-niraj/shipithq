@@ -13,6 +13,7 @@ import {
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { verifyCompany, rejectCompanyVerification } from "@/actions/hiring/hiring.action"
 import { useSession } from "@repo/auth/client"
 
@@ -288,29 +289,15 @@ export function VerificationClient({
                     </div>
                 </div>
             </div>
-            <div className="grid grid-cols-3 gap-4 mb-8">
-                <div className="bg-neutral-50 dark:bg-neutral-800/20 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
-                    <div className="flex items-center gap-2 text-neutral-800 dark:text-neutral-100">
-                        <Clock className="w-5 h-5" />
-                        <span className="text-2xl font-semibold">{stats.pending}</span>
-                    </div>
-                    <p className="text-sm text-neutral-700 dark:text-neutral-100 mt-1">Pending Review</p>
-                </div>
-                <div className="bg-neutral-50 dark:bg-neutral-800/20 rounded-xl p-4 border border-neutral-200 dark:border-neutral-800">
-                    <div className="flex items-center gap-2 text-neutral-800 dark:text-neutral-100">
-                        <CheckCircle className="w-5 h-5" />
-                        <span className="text-2xl font-semibold">{stats.verified}</span>
-                    </div>
-                    <p className="text-sm text-neutral-700 dark:text-neutral-100 mt-1">Approved</p>
-                </div>
-                <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
-                    <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                        <XCircle className="w-5 h-5" />
-                        <span className="text-2xl font-semibold">{stats.rejected}</span>
-                    </div>
-                    <p className="text-sm text-red-700 dark:text-red-300 mt-1">Rejected</p>
-                </div>
-            </div>
+            <StatBand
+                className="mb-8"
+                cols={3}
+                items={[
+                    { icon: Clock, label: "Pending Review", value: stats.pending },
+                    { icon: CheckCircle, label: "Approved", value: stats.verified },
+                    { icon: XCircle, label: "Rejected", value: stats.rejected, tone: "rose" },
+                ]}
+            />
             {companies.length > 0 ? (
                 <div className="space-y-4">
                     {companies.map((company) => (

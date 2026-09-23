@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { CreditCard, Check, ArrowRight, Coins, Users, BookOpen, Zap } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import Link from "next/link"
 
 const plans = [
@@ -94,47 +95,21 @@ export default function BillingPage() {
             </motion.div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <Users className="w-5 h-5 text-neutral-800" />
-                        <span className="text-neutral-500 text-sm">Students</span>
-                    </div>
-                    <p className="text-2xl font-bold text-neutral-900 dark:text-white">0</p>
-                    <p className="text-xs text-neutral-500">verified students</p>
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15 }}
-                    className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <Coins className="w-5 h-5 text-neutral-800" />
-                        <span className="text-neutral-500 text-sm">Used This Month</span>
-                    </div>
-                    <p className="text-2xl font-bold text-neutral-900 dark:text-white">0</p>
-                    <p className="text-xs text-neutral-500">credits consumed</p>
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                >
-                    <div className="flex items-center gap-3 mb-2">
-                        <BookOpen className="w-5 h-5 text-neutral-800" />
-                        <span className="text-neutral-500 text-sm">Assignments</span>
-                    </div>
-                    <p className="text-2xl font-bold text-neutral-900 dark:text-white">0</p>
-                    <p className="text-xs text-neutral-500">assignments created</p>
-                </motion.div>
-            </div>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="mb-8"
+            >
+                <StatBand
+                    cols={3}
+                    items={[
+                        { icon: Users, label: "Students", value: 0, hint: "verified students" },
+                        { icon: Coins, label: "Used This Month", value: 0, hint: "credits consumed" },
+                        { icon: BookOpen, label: "Assignments", value: 0, hint: "assignments created" },
+                    ]}
+                />
+            </motion.div>
 
             {/* Current Plan */}
             <motion.div

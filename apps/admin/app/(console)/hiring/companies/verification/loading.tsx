@@ -1,10 +1,11 @@
 // Hand-matched to the company verification queue: a "Back to Hiring
-// Platform" link, header with no action button, 3 stat tiles (Pending
-// Review/Approved/Rejected), and cards (icon+name+industry+pending badge,
+// Platform" link, header with no action button, a 3-cell StatBand
+// (Pending Review/Approved/Rejected), and cards (icon+name+industry+pending badge,
 // a 2x2 detail grid, a footer row with date + Details/Reject/Approve) - the
 // previous skeleton's header button and 2-button card footer both drifted
 // (ADM-22).
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
 export default function Loading() {
     return (
@@ -17,14 +18,7 @@ export default function Loading() {
                     <Shimmer className="h-4 w-72" delay={0.06} />
                 </div>
 
-                <div className="mb-8 grid grid-cols-3 gap-4">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900 p-4">
-                            <Shimmer className="h-3.5 w-20" delay={i * 0.05} />
-                            <Shimmer className="mt-2 h-7 w-12" delay={i * 0.05} />
-                        </div>
-                    ))}
-                </div>
+                <StatBandSkeleton count={3} cols={3} className="mb-8" />
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {Array.from({ length: 4 }).map((_, i) => (

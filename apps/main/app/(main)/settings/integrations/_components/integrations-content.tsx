@@ -26,6 +26,7 @@ import {
     getGitHubProfile, disconnectGitHub, syncGitHubContributions
 } from '@/actions/(main)/user/integrations.action'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 
 interface Connection {
     id: string
@@ -268,43 +269,17 @@ export function IntegrationsContent({ socialConnections }: IntegrationsContentPr
                             </a>
                         </div>
                         {contributionSummary && (
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                                <div className="p-3 rounded-lg bg-neutral-900/10">
-                                    <div className="flex items-center gap-1.5 text-neutral-800 dark:text-neutral-100 mb-1">
-                                        <GitPullRequest className="w-4 h-4" />
-                                        <span className="text-xs font-medium">PRs</span>
-                                    </div>
-                                    <p className="text-lg font-bold">{contributionSummary.totalPRs}</p>
-                                </div>
-                                <div className="p-3 rounded-lg bg-neutral-900/10">
-                                    <div className="flex items-center gap-1.5 text-neutral-800 dark:text-neutral-100 mb-1">
-                                        <Check className="w-4 h-4" />
-                                        <span className="text-xs font-medium">Merged</span>
-                                    </div>
-                                    <p className="text-lg font-bold">{contributionSummary.mergedPRs}</p>
-                                </div>
-                                <div className="p-3 rounded-lg bg-neutral-900/10">
-                                    <div className="flex items-center gap-1.5 text-neutral-800 dark:text-neutral-100 mb-1">
-                                        <GitBranch className="w-4 h-4" />
-                                        <span className="text-xs font-medium">Open</span>
-                                    </div>
-                                    <p className="text-lg font-bold">{contributionSummary.openPRs}</p>
-                                </div>
-                                <div className="p-3 rounded-lg bg-neutral-900/10">
-                                    <div className="flex items-center gap-1.5 text-neutral-800 dark:text-neutral-100 mb-1">
-                                        <Star className="w-4 h-4" />
-                                        <span className="text-xs font-medium">Repos</span>
-                                    </div>
-                                    <p className="text-lg font-bold">{contributionSummary.totalRepos}</p>
-                                </div>
-                                <div className="p-3 rounded-lg bg-rose-500/10">
-                                    <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 mb-1">
-                                        <GitBranch className="w-4 h-4" />
-                                        <span className="text-xs font-medium">Commits</span>
-                                    </div>
-                                    <p className="text-lg font-bold">{contributionSummary.totalCommits}</p>
-                                </div>
-                            </div>
+                            <StatBand
+                                size="sm"
+                                cols={5}
+                                items={[
+                                    { icon: GitPullRequest, label: 'PRs', value: contributionSummary.totalPRs },
+                                    { icon: Check, label: 'Merged', value: contributionSummary.mergedPRs },
+                                    { icon: GitBranch, label: 'Open', value: contributionSummary.openPRs },
+                                    { icon: Star, label: 'Repos', value: contributionSummary.totalRepos },
+                                    { icon: GitBranch, label: 'Commits', value: contributionSummary.totalCommits },
+                                ]}
+                            />
                         )}
                     </CardContent>
                 )}

@@ -1,6 +1,7 @@
 // Hand-matched to company-content.tsx - same wrapper, same grids, same card chrome, so
 // nothing reflows when the real content mounts.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -14,6 +15,11 @@ export default function Loading() {
                 </div>
                 <Shimmer className="h-10 w-36 rounded-xl" delay={0.12} />
             </div>
+
+            {/* Cover banner (the logo overhangs it by 40px, hence the band's mt-16). */}
+            <Shimmer className="mb-8 h-48 w-full rounded-2xl lg:h-64" />
+
+            <StatBandSkeleton count={4} cols={4} className="mt-16 mb-8" />
 
             <div className="mb-6 flex flex-wrap gap-2 border-b border-neutral-200 pb-2 dark:border-neutral-800">
                 {Array.from({ length: 9 }).map((_, i) => (

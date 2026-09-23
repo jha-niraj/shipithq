@@ -12,6 +12,7 @@ import { TemplatePreview, type TemplateShape } from "@/components/resume/templat
 import { priceLabel, type PricedOperation } from "@/lib/credits/pricing"
 import type { AiHubStats } from "@/actions/(main)/ai/hub-stats.action"
 import { ActivityChart, type ActivityPoint } from "@/components/common/activity-chart"
+import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
 
 /**
  * The entry page for every AI module.
@@ -76,7 +77,7 @@ const tools = [
 ] as const
 
 /** Three real counts for the signed-in user, each linked to the thing it counts. */
-function statCards(stats: AiHubStats) {
+function statCards(stats: AiHubStats): StatBandItem[] {
     return [
         { label: "Resumes", value: stats.resumes, icon: FileText, href: "/ai/resume" },
         { label: "Cover letters", value: stats.coverLetters, icon: FileSignature, href: "/ai/coverletter" },
@@ -225,31 +226,9 @@ export default function AiToolsPage({
 
             <section className="border-b border-neutral-100 bg-white py-12 dark:border-neutral-800 dark:bg-neutral-950">
                 <div className="w-full px-6">
-                    <div className="grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-12">
-                        {cards.map((stat, index) => (
-                            <motion.div
-                                key={stat.label}
-                                initial={{ opacity: 0, y: 10 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: index * 0.1 }}
-                            >
-                                {/* Linked to the page it counts. A number the reader can go and
-                                    check is a different kind of claim from one they cannot. */}
-                                <Link href={stat.href} className="group flex flex-col items-center text-center">
-                                    <div className="mb-3 text-neutral-600 transition-colors group-hover:text-neutral-900 dark:text-neutral-400 dark:group-hover:text-white">
-                                        <stat.icon className="h-6 w-6" />
-                                    </div>
-                                    <div className="text-3xl font-bold tracking-tight tabular-nums text-neutral-900 dark:text-white">
-                                        {stat.value}
-                                    </div>
-                                    <div className="mt-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                                        {stat.label}
-                                    </div>
-                                </Link>
-                            </motion.div>
-                        ))}
-                    </div>
+                    {/* Linked to the page it counts. A number the reader can go and
+                        check is a different kind of claim from one they cannot. */}
+                    <StatBand cols={3} items={cards} />
 
                     {/* Cover letters per day. Resume drafts are edited in place rather
                         than created per session, so counting them would report one

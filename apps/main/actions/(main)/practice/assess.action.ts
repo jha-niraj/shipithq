@@ -4,6 +4,7 @@ import { openai } from '@/lib/openai-client'
 import { db, practiceProblem, clientSafeJudge } from "@repo/db";
 import { eq } from "drizzle-orm";
 import { getSession } from "@repo/auth";
+import { persistAssessment, recentAssessment } from "./practice.action";
 import { headers } from "next/headers";
 import type {
     PracticeAssessPayload, PracticeAssessResult, PracticeProblemDetail
@@ -259,6 +260,13 @@ For ${payload.mode === "EXAM" ? "EXAM mode, be fair but rigorous since no help w
 // ASSESS ACTION
 // ─────────────────────────────────────────────
 
+/** The most XP one assessment may add, mirrored in practice.action.ts. */
+const MAX_ASSESS_XP = 120;
+/** The shortest gap between two assessments of the same session. Submit is a
+ *  gpt-4o call with no credit behind it, so a held button would otherwise be an
+ *  unlimited spend (sweep, 2026-09-22). */
+const ASSESS_COOLDOWN_MS = 15_000;
+
 export async function assessPracticeWork(
     payload: PracticeAssessPayload
 ): Promise<{ success: true; result: PracticeAssessResult } | { success: false; error: string }> {
@@ -269,6 +277,13 @@ export async function assessPracticeWork(
 
     if (!process.env.OPENAI_API_KEY) {
         return { success: false, error: "OpenAI API key not configured" };
+    }
+
+    // Refuse a second assessment of the same work seconds after the last one:
+    // Submit is a gpt-4o call with no credit behind it (sweep, 2026-09-22).
+    const sinceLast = await recentAssessment(session.user.id, payload.problemSlug, payload.mode);
+    if (sinceLast !== null && sinceLast < ASSESS_COOLDOWN_MS) {
+        return { success: false, error: "That is still being marked. Give it a few seconds." };
     }
 
     try {
@@ -336,18 +351,47 @@ export async function assessPracticeWork(
 
         const difficultyMultiplier: Record<string, number> = { EASY: 1, MEDIUM: 2, HARD: 3 };
         const mult = difficultyMultiplier[problem.difficulty] ?? 1;
-        const baseXP = Math.round((parsed.score / 100) * 25);
+        const baseXP = Math.round((Math.min(100, Math.max(0, Number(parsed.score) || 0)) / 100) * 25);
         const xpAwarded = baseXP * mult;
 
         const attemptPenalty = payload.attemptNumber > 1 ? Math.max(0.5, 1 - (payload.attemptNumber - 1) * 0.1) : 1;
         const finalXP = Math.round(xpAwarded * attemptPenalty);
 
+        /*
+         * The score is MODEL output, so it is bounded before it is used for
+         * anything. An unparseable reply used to fall through with a regex-scraped
+         * number, or 50, and that number reached the leaderboard.
+         */
+        const score = Math.min(100, Math.max(0, Math.round(Number(parsed.score) || 0)));
+        const requirementsMet = parsed.requirementsMet && typeof parsed.requirementsMet === "object"
+            ? Object.fromEntries(Object.entries(parsed.requirementsMet).map(([k, v]) => [k, Boolean(v)]))
+            : {};
+
         const result: PracticeAssessResult = {
-            score: parsed.score,
+            score,
             feedback: parsed.feedback,
-            requirementsMet: parsed.requirementsMet,
-            xpAwarded: finalXP,
+            requirementsMet,
+            xpAwarded: Math.min(MAX_ASSESS_XP, Math.max(0, finalXP)),
         };
+
+        /*
+         * WRITTEN HERE (PD-18).
+         *
+         * The session update used to be a second call the browser made with these
+         * numbers in it, which made them claims rather than results: a hand-made
+         * call with `{score: 100, xpAwarded: 999999}` minted XP without a model ever
+         * running. Nothing between this function and the database now, so the only
+         * score that can be stored is the one this function computed.
+         */
+        await persistAssessment({
+            userId: session.user.id,
+            problemSlug: payload.problemSlug,
+            mode: payload.mode,
+            score: result.score,
+            feedback: result.feedback,
+            requirementsMet: result.requirementsMet,
+            xpAwarded: result.xpAwarded,
+        });
 
         return { success: true, result };
     } catch (err) {

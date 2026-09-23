@@ -5,12 +5,13 @@ import { motion } from "framer-motion"
 import {
     Building2, Globe, MapPin, Users, Calendar, Briefcase, Camera,
     Plus, X, Save, ExternalLink, Image as ImageIcon, Video, Twitter, 
-    Linkedin, Github, Edit2, Check, Sparkles
+    Linkedin, Github, Edit2, Check, Sparkles, UserCheck
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@repo/ui/components/ui/select"
@@ -243,52 +244,16 @@ export function CompanyProfileContent({ profile, stats }: CompanyProfileContentP
                     )
                 }
             </motion.div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-16 mb-8">
-                <div className="p-4 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800/30">
-                            <Briefcase className="w-5 h-5 text-neutral-800 dark:text-neutral-100" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats?.activeJobs || 0}</p>
-                            <p className="text-xs text-neutral-500">Active Jobs</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="p-4 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800/30">
-                            <Users className="w-5 h-5 text-neutral-800 dark:text-neutral-100" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats?.totalHires || 0}</p>
-                            <p className="text-xs text-neutral-500">Total Hires</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="p-4 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800/30">
-                            <Users className="w-5 h-5 text-neutral-800 dark:text-neutral-100" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{profile.membersCount || 0}</p>
-                            <p className="text-xs text-neutral-500">Team Members</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="p-4 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800/30">
-                            <Calendar className="w-5 h-5 text-neutral-800 dark:text-neutral-100" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats?.avgTimeToHireDays || 0}d</p>
-                            <p className="text-xs text-neutral-500">Avg. Time to Hire</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <StatBand
+                className="mt-16 mb-8"
+                cols={4}
+                items={[
+                    { icon: Briefcase, label: "Active Jobs", value: stats?.activeJobs || 0 },
+                    { icon: UserCheck, label: "Total Hires", value: stats?.totalHires || 0 },
+                    { icon: Users, label: "Team Members", value: profile.membersCount || 0 },
+                    { icon: Calendar, label: "Avg. Time to Hire", value: `${stats?.avgTimeToHireDays || 0}d` },
+                ]}
+            />
             <Tabs defaultValue="basic" className="space-y-6">
                 <TabsList className="bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl">
                     <TabsTrigger value="basic" className="rounded-lg">Basic Info</TabsTrigger>

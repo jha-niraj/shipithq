@@ -810,3 +810,49 @@ to the old one.
 ratio meets AA, both typechecks and `check-nav` pass, and the dash grep
 returns nothing under `apps/main`, `apps/worker`, `packages/db` and
 `plan/practice-dsa`.
+
+---
+
+## PD-15 Recommended problems, chosen by the model
+
+> **Superseded (2026-09-22)** by `plan/practice-path`: the flat list became the Path tab's stages. The route, the table and the prompt are still here and still pass their check; the tab that showed them is gone.
+
+- [x] Status: done (2026-09-22). `scripts/practice-checks/recommendations.ts` 18/18 against the dev database, the seeded 75 and the real model: 12 to 27 picks, every slug real, no duplicates, a reason within the cap on each, picks reaching into the topics the profile calls weak, cached second call in 61 ms with no model call, Refresh regenerates, no onboarding refused.
+
+**Why.** Niraj, 2026-09-22: "at the last of the onboarding, we need to pass this much of a question to the OpenAI itself like a slug only ... and let the openAI decide which questions the user need to prepare, like kind of a recommendation from the 75. Let's keep this to a maximum of 30." A catalogue of 75 problems in original order is the same list for a beginner and for someone who fears graphs; the onboarding already knows which they are.
+
+**Decisions (Niraj, 2026-09-22).**
+- Regenerated when an onboarding completes, and by a Refresh control on the tab. Cached in between.
+- Each recommendation carries one short line saying why it was picked.
+- At most 30, and only slugs that exist in that module's catalogue.
+
+**Files.**
+- New `packages/db/src/schema/practice-recommendation.ts` (or a table in `practice.ts`), plus a migration.
+- New `apps/main/app/api/practice/recommendations/route.ts` (the model call; a route, not a server action, like the onboarding question route).
+- New `apps/main/lib/practice/recommend-prompt.ts`.
+- `apps/main/actions/(main)/practice/` - a read action for the cached list.
+- `packages/ai/src/tasks.ts` - `practiceRecommendations`.
+
+**Steps.**
+1. Table `practice_recommendation`: user, module, `items` (slug + why), `generatedAt`, and the onboarding level and version it was built from. One row per user and module.
+2. The route takes `{ module, force? }`, loads the module's catalogue (slug, title, category, difficulty, tags) and the user's completed onboarding profile, and asks for an ordered list of at most 30 slugs, each with a reason under about 90 characters.
+3. Everything the model returns is checked against the catalogue: unknown slugs dropped, duplicates dropped, order kept, list capped. If nothing survives, the route says so and the tab falls back to the full list.
+4. Cached rows are returned without a model call unless `force` is set.
+5. The module page reads the cached list on the server and passes it to the list card.
+
+**Edge cases.** No completed onboarding: no recommendations, and the tab says to finish the onboarding. A catalogue that grows later still works, because stored slugs are re-checked on read. A user with no problems solved is the normal case, not an error.
+
+**Done when.** A check script with a real onboarding profile gets 10 to 30 recommendations, every slug real, no duplicates, each with a reason, and a second call with no `force` makes no model call.
+
+---
+
+## PD-18 The score and the XP stop travelling through the browser
+
+- [x] Status: done (2026-09-22). `assessPracticeWork` writes the session through a server-only `persistAssessment`; the client action is gone; the model's score is clamped before use. All practice checks pass.
+
+**Why.** The 2026-09-22 sweep: `updateSessionAfterAssess` wrote a client-supplied score and XP to the session, the user's total and the leaderboard. They are clamped now (0-100, at most 120 XP) but still claimed rather than proven.
+
+**Steps.** `assessPracticeWork` already computes both on the server. Have it write the session itself and return the saved row, and take `score`, `xpAwarded` and `requirementsMet` out of the action's arguments.
+
+**Done when.** No route from the browser can set a score or award XP, and a check calling the action directly with invented numbers changes nothing.
+

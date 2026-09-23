@@ -2,11 +2,12 @@
 
 import { motion } from "framer-motion"
 import {
-    Users, School, ArrowRight, GraduationCap,
+    Users, School, GraduationCap,
     CheckCircle2, Briefcase, Building, CreditCard,
     PieChart, Shield, Coins, UserPlus
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
 import Link from "next/link"
 
 interface HeadDashboardProps {
@@ -21,73 +22,34 @@ interface HeadDashboardProps {
     }
 }
 
-interface StatCardProps {
-    title: string
-    value: string | number
-    change?: string
-    changeType?: "positive" | "negative" | "neutral"
-    icon: React.ReactNode
-    href: string
-}
-
-const StatCard = ({ title, value, change, changeType = "neutral", icon, href }: StatCardProps) => (
-    <Link href={href}>
-        <motion.div
-            whileHover={{ y: -2 }}
-            className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer group"
-        >
-            <div className="flex items-start justify-between mb-4">
-                <div className="p-3 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 group-hover:scale-105 transition-transform">
-                    {icon}
-                </div>
-                <ArrowRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors" />
-            </div>
-            <div className="space-y-1">
-                <p className="text-3xl font-bold text-neutral-900 dark:text-white">{value}</p>
-                <p className="text-sm text-neutral-500">{title}</p>
-            </div>
-            {
-                change && (
-                    <div className={`mt-3 text-xs font-medium ${changeType === "positive" ? "text-neutral-800 dark:text-neutral-100" :
-                            changeType === "negative" ? "text-red-600 dark:text-red-400" :
-                                "text-neutral-500"
-                        }`}>
-                        {change}
-                    </div>
-                )
-            }
-        </motion.div>
-    </Link>
-)
-
 export function HeadDashboard({ userName, stats }: HeadDashboardProps) {
-    const dashboardStats = [
+    const dashboardStats: StatBandItem[] = [
         {
-            title: "Total Students",
+            label: "Total Students",
             value: stats?.totalStudents || 0,
-            change: stats?.pendingVerifications ? `${stats.pendingVerifications} pending verification` : "No pending verifications",
-            icon: <Users className="w-5 h-5 text-neutral-800" />,
+            hint: stats?.pendingVerifications ? `${stats.pendingVerifications} pending verification` : "No pending verifications",
+            icon: Users,
             href: "/students"
         },
         {
-            title: "Faculty Members",
+            label: "Faculty Members",
             value: stats?.totalFaculty || 0,
-            change: "Manage team roles",
-            icon: <GraduationCap className="w-5 h-5 text-neutral-800" />,
+            hint: "Manage team roles",
+            icon: GraduationCap,
             href: "/team/roles"
         },
         {
-            title: "Active Classes",
+            label: "Active Classes",
             value: stats?.totalClasses || 0,
-            change: "View all classes",
-            icon: <School className="w-5 h-5 text-neutral-800" />,
+            hint: "View all classes",
+            icon: School,
             href: "/classes"
         },
         {
-            title: "Credit Balance",
+            label: "Credit Balance",
             value: stats?.creditsBalance || 0,
-            change: "Manage credits",
-            icon: <Coins className="w-5 h-5 text-neutral-800" />,
+            hint: "Manage credits",
+            icon: Coins,
             href: "/billing"
         },
     ]
@@ -137,11 +99,9 @@ export function HeadDashboard({ userName, stats }: HeadDashboardProps) {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+                className="mb-8"
             >
-                {dashboardStats.map((stat, index) => (
-                    <StatCard key={index} {...stat} />
-                ))}
+                <StatBand items={dashboardStats} cols={4} />
             </motion.div>
 
             {/* Main Content Grid */}

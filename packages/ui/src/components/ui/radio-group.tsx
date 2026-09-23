@@ -29,11 +29,14 @@ const RadioGroupItem = React.forwardRef<
 			ref={ref}
 			className={cn(
 				"aspect-square h-4 w-4 rounded-full border border-primary text-primary ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+				// Matches Checkbox, so the two controls feel like one family.
+				"transition-[border-color,box-shadow] duration-150 active:scale-95",
 				className
 			)}
 			{...props}
 		>
-			<RadioGroupPrimitive.Indicator className="flex items-center justify-center">
+			{/* Mounted only while selected, so the dot springs in on choose. */}
+			<RadioGroupPrimitive.Indicator className="flex items-center justify-center animate-in fade-in-0 zoom-in-50 duration-150">
 				<Circle className="h-2.5 w-2.5 fill-current text-current" />
 			</RadioGroupPrimitive.Indicator>
 		</RadioGroupPrimitive.Item>

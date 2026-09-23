@@ -1,4 +1,6 @@
-// Matched to credits-client: header with three stat cards, then a purchases
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
+
+// Matched to credits-client: header with a three-cell stat band, then a purchases
 // table and a history list. A skeleton that does not match is worse than none,
 // because the page visibly reflows when the real thing lands.
 export default function Loading() {
@@ -7,11 +9,7 @@ export default function Loading() {
             <div className="shrink-0 border-b border-neutral-200 px-6 py-5 dark:border-neutral-800">
                 <div className="h-6 w-28 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
                 <div className="mt-2 h-4 w-96 max-w-full animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
-                <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    {[0, 1, 2].map((i) => (
-                        <div key={i} className="h-[74px] animate-pulse rounded-xl bg-neutral-200 dark:bg-neutral-800" />
-                    ))}
-                </div>
+                <StatBandSkeleton count={3} cols={3} className="mt-5" />
             </div>
             {/* Three sections, in the order the page renders them: usage by
                 feature, the spend trend, then purchases. History is a panel now,

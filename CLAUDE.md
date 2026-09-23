@@ -52,6 +52,16 @@ bound to a class the entry point never exported.
 `apps/shipitworker` is the exception and is NOT a job worker: it owns a
 Cloudflare Container that runs user code synchronously. Leave it alone.
 
+## Asking Niraj something
+
+**Every question, suggestion or clarification goes through the `AskUserQuestion`
+tool - never as plain text in a reply.** Options with real trade-offs, a
+recommendation first, and a preview where the choice is visual. Niraj decides by
+clicking and the work continues in the same turn; a question buried in prose
+stops the work and waits for a reply that has to be typed. This applies to design
+choices, naming, scope calls and "should I also do X" - not to reporting what was
+done.
+
 ## Verification: what to run, and when
 
 **Do not run `eslint`, `pnpm lint`, or any production build (`next build`,
@@ -95,12 +105,20 @@ Migrations: `pnpm db:generate` then `pnpm db:migrate` from `packages/db`. Never
 
 ## App shell (apps/main)
 
-`app/(main)/layout.tsx` floats three rounded cards on a neutral backdrop: the
-sidebar, the page, and the AI rail. On `lg+` the AI panel is a real docked
+`app/(main)/_components/main-shell.tsx` lays three columns edge to edge,
+separated by borders, with no gutters and no rounded cards: the sidebar, the
+page, and the AI rail. `app/(main)/layout.tsx` is only a server wrapper that
+reads the sidebar's pin cookie; `app/(jobs)` is split the same way.
+
+The sidebar (`components/navigation/sidebar.tsx`, a port of gurukulhq's) is
+fixed and `w-60`. Pinned, the page is offset by `lg:ml-60`; unpinned (the
+header button), it leaves the layout (`lg:ml-0`) and a 12px strip at the left
+edge floats it back over the page. The docked AI rail unpins it while open
+without touching the saved choice. State: `components/common/sidebarprovider.tsx`. On `lg+` the AI panel is a real docked
 column that narrows the page - **never** a Sheet; below `lg` the same component
 mounts inside a Sheet.
 
-The page card sets `--page-h: calc(100vh - 1rem)`, and a rule in
+The page sets `--page-h: calc(100dvh - var(--app-bottom-nav-h))`, and a rule in
 `packages/ui/src/styles/globals.css` retargets `h-screen` / `min-h-screen` inside
 `[data-app-page]` at it, so full-height pages need no per-page change.
 
@@ -119,15 +137,15 @@ fails with `ERR_PNPM_NOTHING_TO_DEPLOY` without deploying anything. `pnpm run
 deploy` works, but `release` avoids the trap entirely.
 
 Secrets live in each app's `.env.production` (gitignored). Copy the tracked
-`.env.production.example` beside it — every required key is listed there with
+`.env.production.example` beside it - every required key is listed there with
 what it is for.
 
 `--secrets-file` is **additive**: a secret already on the Worker but omitted from
-the file is left alone. The trap is the opposite one — a key present with an
+the file is left alone. The trap is the opposite one - a key present with an
 EMPTY value overwrites the live secret with an empty string. Delete the line
 rather than blanking it.
 
-For the Next apps, `NEXT_PUBLIC_*` values are **build-time** — inlined into the
+For the Next apps, `NEXT_PUBLIC_*` values are **build-time** - inlined into the
 client bundle during `opennextjs-cloudflare build`. Setting one on the Worker
 afterwards changes nothing already compiled in. Everything else is a runtime
 secret and only needs a redeploy.
@@ -155,6 +173,12 @@ secret and only needs a redeploy.
   matching the real layout still beats both. A rotating ring is the one loading
   affordance every product uses, which makes it the one that says nothing about
   this one - and at button size it is a grey smudge.
+- **Headline numbers use `StatBand`** from `@repo/ui/components/ui/stat-band`, with
+  `StatBandSkeleton` (same `count`, `cols`, `size`) in the loading state. Never write a
+  local `StatCard` / `StatTile` / `MiniStat` or an inline grid of number cards. Read
+  `packages/ui/src/components/ui/STAT-BAND.md` first: the value never truncates, colour
+  tints the value only (`tone`: `neutral`, `emerald`, `rose`), format the value yourself,
+  and `'-'` means no data, not zero.
 - Images go to **R2**, never Cloudinary. Public objects (avatars) live under the
   `avatars/` prefix and are served by `r2PublicUrl()`; everything else stays
   private behind a signed URL. `/api/media` will only serve the public prefix,

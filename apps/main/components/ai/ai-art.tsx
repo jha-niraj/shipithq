@@ -3,11 +3,13 @@
  *
  * ── Why these are drawn rather than imported ──
  *
- * The panel used one lucide `Sparkles` for the hero and nothing at all on the four
- * suggestions. A sparkle is the icon every assistant on the internet uses, which makes it the
- * one icon that says nothing about this one - and four identical text rows give a reader no
- * way to tell the suggestions apart at a glance, so they get read left to right like a list
- * of terms rather than scanned like a menu.
+ * Four identical text rows give a reader no way to tell the suggestions apart at a glance,
+ * so they get read left to right like a list of terms rather than scanned like a menu. Each
+ * glyph here says what its suggestion DOES.
+ *
+ * The assistant's own mark used to live here too. It is `AIMark` in
+ * `packages/ui/src/components/ui/ai-mark.tsx` now, shared with the sidebar, the panel header
+ * and every reply's avatar (plan/ai-chat, AC-1).
  *
  * Each glyph here says what its suggestion DOES: a page being read, a plan filling in, a
  * design being connected up, blocks being stacked.
@@ -24,48 +26,6 @@
  *
  * All four glyphs share a 32x32 viewBox so they optically match at the same rendered size.
  */
-
-/**
- * The hero mark: the ShipItHQ staircase, lighting up a tile at a time.
- *
- * This is the brand mark from `public/logo.svg` - the same six-rect 3x3 staircase, scaled
- * from its 512 box to 40. Using the product's own mark rather than a generic sparkle is the
- * whole point: the assistant is part of this product, and the tiles climbing in sequence
- * reads as "working through it" without borrowing anyone else's visual language.
- */
-export function AssistantMark({ className = "" }: { className?: string }) {
-    // logo.svg at 512: x/y from 91, 94 wide, 118 apart. Scaled by 40/512 -> 7.1, 7.34, 9.22.
-    const TILES = [
-        { x: 7.1, y: 25.5 },
-        { x: 16.3, y: 25.5 },
-        { x: 25.5, y: 25.5 },
-        { x: 16.3, y: 16.3 },
-        { x: 25.5, y: 16.3 },
-        { x: 25.5, y: 7.1 },
-    ]
-
-    return (
-        <svg viewBox="0 0 40 40" className={className} aria-hidden focusable="false">
-            {/* No ring. There was a slow open circle around the mark, and at 56px it read as
-                a stray arc clipped by nothing rather than as an orbit - the gap in the dash
-                landed differently at every size and there was no size where it looked
-                deliberate. The staircase carries the mark on its own. */}
-            <g className="sh-glyph-seq">
-                {TILES.map((t) => (
-                    <rect
-                        key={`${t.x}-${t.y}`}
-                        x={t.x}
-                        y={t.y}
-                        width="7.34"
-                        height="7.34"
-                        rx="1.2"
-                        fill="currentColor"
-                    />
-                ))}
-            </g>
-        </svg>
-    )
-}
 
 export type GlyphKind = "resume" | "plan" | "design" | "build"
 

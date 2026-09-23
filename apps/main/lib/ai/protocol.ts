@@ -59,9 +59,26 @@ export interface ActionFrame {
     kind?: string;
 }
 
-/** The turn ended cleanly. Carries nothing; its arrival is the signal. */
+/** The turn ended cleanly. Carries the ids the server gave the two turns it saved, so
+ *  the panel can swap its temporary ids for them (feedback needs the real one). Either
+ *  may be absent if saving failed; the reply is still shown. */
 export interface DoneFrame {
     t: "done";
+    messageId?: string;
+    userMessageId?: string;
+}
+
+/** The conversation this turn belongs to. First frame of every response: a turn sent
+ *  without a session id creates one, and the panel learns its id here. */
+export interface SessionFrame {
+    t: "session";
+    id: string;
+}
+
+/** The conversation's title, sent once after its first exchange is titled. */
+export interface TitleFrame {
+    t: "title";
+    v: string;
 }
 
 /**
@@ -75,7 +92,7 @@ export interface ErrorFrame {
     message: string;
 }
 
-export type ChatFrame = TextFrame | ToolFrame | ActionFrame | DoneFrame | ErrorFrame;
+export type ChatFrame = TextFrame | ToolFrame | ActionFrame | DoneFrame | ErrorFrame | SessionFrame | TitleFrame;
 
 /** Serialise one frame for the wire. The trailing newline is the delimiter. */
 export function encodeFrame(frame: ChatFrame): string {

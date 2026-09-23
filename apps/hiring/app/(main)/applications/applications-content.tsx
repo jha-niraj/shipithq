@@ -10,6 +10,7 @@ import {
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import type {
     ApplicationStats, JobApplicationStats
 } from "@/actions/applications"
@@ -20,10 +21,10 @@ interface ApplicationsContentProps {
 }
 
 const statCards = [
-    { key: "total", label: "Total Applications", icon: Users, color: "violet" },
-    { key: "new", label: "New", icon: Clock, color: "blue" },
-    { key: "shortlisted", label: "Shortlisted", icon: CheckCircle, color: "green" },
-    { key: "rejected", label: "Rejected", icon: XCircle, color: "red" }
+    { key: "total", label: "Total Applications", icon: Users },
+    { key: "new", label: "New", icon: Clock },
+    { key: "shortlisted", label: "Shortlisted", icon: CheckCircle },
+    { key: "rejected", label: "Rejected", icon: XCircle }
 ] as const
 
 export function ApplicationsContent({ stats, jobStats }: ApplicationsContentProps) {
@@ -46,48 +47,23 @@ export function ApplicationsContent({ stats, jobStats }: ApplicationsContentProp
 
             {
                 stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        {
-                            statCards.map((stat, index) => {
-                                const Icon = stat.icon
-                                const value = stats[stat.key as keyof ApplicationStats]
-                                const colorClasses = {
-                                    violet: "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100",
-                                    blue: "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100",
-                                    green: "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100",
-                                    red: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-                                }
-
-                                return (
-                                    <motion.div
-                                        key={stat.key}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: index * 0.1 }}
-                                        className="bg-white dark:bg-neutral-950 rounded-2xl p-5 border border-neutral-200 dark:border-neutral-800"
-                                    >
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className={`p-2 rounded-xl ${colorClasses[stat.color]}`}>
-                                                <Icon className="w-5 h-5" />
-                                            </div>
-                                            {
-                                                stat.key === "new" && stats.thisWeek > 0 && (
-                                                    <Badge className="bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100">
-                                                        <TrendingUp className="w-3 h-3 mr-1" />
-                                                        +{stats.thisWeek} this week
-                                                    </Badge>
-                                                )
-                                            }
-                                        </div>
-                                        <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                                            {value}
-                                        </p>
-                                        <p className="text-sm text-neutral-500">{stat.label}</p>
-                                    </motion.div>
-                                )
-                            })
-                        }
-                    </div>
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                        <StatBand
+                            cols={4}
+                            items={statCards.map((stat) => ({
+                                key: stat.key,
+                                icon: stat.icon,
+                                label: stat.label,
+                                value: stats[stat.key as keyof ApplicationStats],
+                                hint: stat.key === "new" && stats.thisWeek > 0 ? (
+                                    <span className="inline-flex items-center gap-0.5">
+                                        <TrendingUp className="w-3 h-3" />
+                                        +{stats.thisWeek} this week
+                                    </span>
+                                ) : undefined,
+                            }))}
+                        />
+                    </motion.div>
                 )
             }
 

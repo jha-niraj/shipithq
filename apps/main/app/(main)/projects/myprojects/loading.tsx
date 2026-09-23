@@ -1,5 +1,6 @@
-// Hand-matched to My Projects (9 tabs + a 3-up project grid).
+// Hand-matched to My Projects (stat band, tabs + a 3-up project grid).
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
@@ -13,6 +14,8 @@ export default function Loading() {
                 </div>
                 <Shimmer className="h-10 w-36 rounded-xl" delay={0.12} />
             </div>
+
+            <StatBandSkeleton count={4} cols={4} className="mb-8" />
 
             <div className="mb-6 flex flex-wrap gap-2 border-b border-neutral-200 pb-2 dark:border-neutral-800">
                 {Array.from({ length: 6 }).map((_, i) => (

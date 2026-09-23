@@ -7,6 +7,7 @@ import {
 } from "@/actions/main/analytics.action"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { TrendChart } from "../../_components/trend-chart"
 
 type SuccessData<T> = T extends { success: true; data: infer D } ? D : never
@@ -15,38 +16,6 @@ type UserGrowthData = SuccessData<Awaited<ReturnType<typeof getUserGrowthStats>>
 type EngagementData = SuccessData<Awaited<ReturnType<typeof getEngagementStats>>>
 type ModuleUsageData = SuccessData<Awaited<ReturnType<typeof getModuleUsageStats>>>
 type RevenueData = SuccessData<Awaited<ReturnType<typeof getRevenueStats>>>
-
-/** One headline figure. */
-function StatCard({
-    icon: Icon,
-    value,
-    label,
-    sub,
-}: {
-    icon: React.ElementType
-    value: string
-    label: string
-    sub?: string
-}) {
-    return (
-        <div className="min-w-0 rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-            <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-900 dark:bg-neutral-100">
-                    <Icon className="h-5 w-5 text-white dark:text-neutral-900" />
-                </div>
-                <div className="min-w-0">
-                    {/* `tabular-nums` and NOT `truncate`: docs/responsiveness.md is
-                        explicit that truncating a figure CHANGES it - "12,345,678"
-                        clipped to "12,345..." reads as a smaller number, and nothing
-                        on screen says it was cut. Labels truncate; values step down. */}
-                    <p className="text-xl font-semibold tabular-nums text-neutral-900 sm:text-2xl dark:text-white">{value}</p>
-                    <p className="truncate text-sm text-neutral-500 dark:text-neutral-400">{label}</p>
-                </div>
-            </div>
-            {sub && <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{sub}</p>}
-        </div>
-    )
-}
 
 /** A labelled figure in a list. Used by Engagement. */
 function MetricRow({ label, value }: { label: string; value: number | undefined }) {
@@ -147,32 +116,21 @@ export function AnalyticsClient({
                 comment saying the tables are not wired up, so a tile for them
                 would report a measured zero for something never measured. */}
             {overviewStats && (
-                <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <StatCard
-                        icon={Users}
-                        value={overviewStats.totalUsers?.toLocaleString() ?? "0"}
-                        label="Total Users"
-                        sub={`${overviewStats.newUsers?.toLocaleString() ?? 0} new this period`}
-                    />
-                    <StatCard
-                        icon={TrendingUp}
-                        value={overviewStats.newUsers?.toLocaleString() ?? "0"}
-                        label="New Users"
-                        sub={periodLabel}
-                    />
-                    <StatCard
-                        icon={CreditCard}
-                        value={overviewStats.totalCredits?.toLocaleString() ?? "0"}
-                        label="Credits Held"
-                        sub="Across every account"
-                    />
-                    <StatCard
-                        icon={MessageSquare}
-                        value={overviewStats.totalFeedback?.toLocaleString() ?? "0"}
-                        label="Feedback"
-                        sub={periodLabel}
-                    />
-                </div>
+                <StatBand
+                    className="mb-8"
+                    cols={4}
+                    items={[
+                        {
+                            icon: Users,
+                            label: "Total Users",
+                            value: overviewStats.totalUsers?.toLocaleString() ?? "0",
+                            hint: `${overviewStats.newUsers?.toLocaleString() ?? 0} new this period`,
+                        },
+                        { icon: TrendingUp, label: "New Users", value: overviewStats.newUsers?.toLocaleString() ?? "0", hint: periodLabel },
+                        { icon: CreditCard, label: "Credits Held", value: overviewStats.totalCredits?.toLocaleString() ?? "0", hint: "Across every account" },
+                        { icon: MessageSquare, label: "Feedback", value: overviewStats.totalFeedback?.toLocaleString() ?? "0", hint: periodLabel },
+                    ]}
+                />
             )}
 
             {/* The two time series. Both replaced hand-rolled `<div>` bars that had
@@ -202,16 +160,15 @@ export function AnalyticsClient({
             </div>
 
             {revenue && revenue.transactionCount > 0 && (
-                <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <StatCard icon={Receipt} value={revenue.totalRevenue.toLocaleString()} label="Total Revenue" sub={periodLabel} />
-                    <StatCard icon={Activity} value={revenue.transactionCount.toLocaleString()} label="Transactions" sub={periodLabel} />
-                    <StatCard
-                        icon={TrendingUp}
-                        value={Math.round(revenue.averageValue).toLocaleString()}
-                        label="Average Value"
-                        sub="Per completed payment"
-                    />
-                </div>
+                <StatBand
+                    className="mb-8"
+                    cols={3}
+                    items={[
+                        { icon: Receipt, label: "Total Revenue", value: revenue.totalRevenue.toLocaleString(), hint: periodLabel },
+                        { icon: Activity, label: "Transactions", value: revenue.transactionCount.toLocaleString(), hint: periodLabel },
+                        { icon: TrendingUp, label: "Average Value", value: Math.round(revenue.averageValue).toLocaleString(), hint: "Per completed payment" },
+                    ]}
+                />
             )}
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

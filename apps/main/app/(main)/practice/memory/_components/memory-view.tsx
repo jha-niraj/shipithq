@@ -11,6 +11,7 @@ import {
 import toast from "@repo/ui/components/ui/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import { deleteLearnerEntry, type LearnerProfileView } from "@/actions/(main)/practice/memory.action";
+import { MODULE_CONFIG, type PracticeModule } from "@/types/practice";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "What the mentor knows about you" (plan/practice-dsa PD-9).
@@ -43,7 +44,7 @@ function when(iso: string): string {
 
 type Pending = { kind: "concept" | "mistake"; slug: string; label: string } | null;
 
-export function MemoryView({ profile }: { profile: LearnerProfileView }) {
+export function MemoryView({ profile, module, label }: { profile: LearnerProfileView; module: PracticeModule; label: string }) {
     const [concepts, setConcepts] = useState<LearnerConcept[]>(profile.concepts);
     const [mistakes, setMistakes] = useState<LearnerMistake[]>(profile.mistakes);
     const [pending, setPending] = useState<Pending>(null);
@@ -52,7 +53,7 @@ export function MemoryView({ profile }: { profile: LearnerProfileView }) {
     const confirmDelete = async () => {
         if (!pending) return;
         setBusy(true);
-        const res = await deleteLearnerEntry(pending.kind, pending.slug);
+        const res = await deleteLearnerEntry(pending.kind, pending.slug, module);
         setBusy(false);
         if (!res.success) {
             toast.error(res.error ?? "Could not delete that.");
@@ -66,24 +67,21 @@ export function MemoryView({ profile }: { profile: LearnerProfileView }) {
 
     const empty = concepts.length === 0 && mistakes.length === 0;
 
-    return (
-        <div className="w-full space-y-6 px-page py-6">
-            <header>
-                <h1 className={cn("text-xl font-bold", INK)}>What the mentor knows about you</h1>
-                <p className={cn("mt-1 max-w-2xl text-sm leading-relaxed", INK_DIM)}>
-                    Built from your DSA sessions, and read by the mentor on every problem. Anything wrong or out of date, delete it.
-                </p>
-            </header>
+    const modulePath = `/practice/${MODULE_CONFIG[module]?.path ?? "dsa"}`;
 
+    return (
+        // The page's heading and the module tabs live in memory-tabs.tsx; this is one
+        // module's memory (UI-10).
+        <div className="space-y-5">
             {empty ? (
                 <div className={cn(CARD, "flex flex-col items-start gap-3")}>
                     <Brain className={cn("h-5 w-5", INK)} />
                     <p className={cn("text-sm font-medium", INK)}>Nothing yet.</p>
                     <p className={cn("max-w-xl text-sm leading-relaxed", INK_DIM)}>
-                        As you solve problems with the mentor, it records the concepts you have shown, the ones that needed a nudge, and mistakes you repeat. They will appear here, each with the problem it came from.
+                        Nothing is written here until you solve a problem with the mentor. As you do, it records the concepts you showed, the ones that needed a nudge, and mistakes you repeat, each with the problem it came from.
                     </p>
-                    <Link href="/practice/dsa" className={cn("mt-1 inline-flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline", INK)}>
-                        Start a DSA problem <ArrowRight className="h-4 w-4" />
+                    <Link href={modulePath} className={cn("mt-1 inline-flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline", INK)}>
+                        Start a {label.toLowerCase()} problem <ArrowRight className="h-4 w-4" />
                     </Link>
                 </div>
             ) : (

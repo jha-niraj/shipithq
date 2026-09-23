@@ -13,6 +13,7 @@ import {
 import Link from 'next/link'
 import { PathfinderCategory, PathfinderLevel } from '@repo/db'
 import { cn } from '@repo/ui/lib/utils'
+import { StatBand } from '@repo/ui/components/ui/stat-band'
 import {
     Accordion, AccordionContent, AccordionItem, AccordionTrigger
 } from '@repo/ui/components/ui/accordion'
@@ -355,19 +356,16 @@ function SessionStats({ session }: { session: DailySession | null }) {
         : 0
 
     return (
-        <div className="grid grid-cols-3 gap-2 p-3 border-b border-neutral-200 dark:border-neutral-800">
-            <div className="text-center p-2 rounded-lg bg-neutral-50 dark:bg-neutral-900/30">
-                <div className="text-lg font-bold text-neutral-800 dark:text-neutral-200">{session.completedSubGoals}/{session.totalSubGoals}</div>
-                <div className="text-xs text-neutral-800 dark:text-neutral-200/70">Tasks</div>
-            </div>
-            <div className="text-center p-2 rounded-lg bg-neutral-50 dark:bg-neutral-900/30">
-                <div className="text-lg font-bold text-neutral-800 dark:text-neutral-200">{quizPercent}%</div>
-                <div className="text-xs text-neutral-800 dark:text-neutral-200/70">Quiz Score</div>
-            </div>
-            <div className="text-center p-2 rounded-lg bg-neutral-50 dark:bg-neutral-900/30">
-                <div className="text-lg font-bold text-neutral-800 dark:text-neutral-200">{session.solvedCodingProblems}/{session.totalCodingProblems}</div>
-                <div className="text-xs text-neutral-800 dark:text-neutral-200/70">Code</div>
-            </div>
+        <div className="shrink-0 p-3 border-b border-neutral-200 dark:border-neutral-800">
+            <StatBand
+                size="sm"
+                cols={3}
+                items={[
+                    { icon: CheckCircle2, label: 'Tasks', value: `${session.completedSubGoals}/${session.totalSubGoals}` },
+                    { icon: Brain, label: 'Quiz Score', value: `${quizPercent}%` },
+                    { icon: Code2, label: 'Code', value: `${session.solvedCodingProblems}/${session.totalCodingProblems}` },
+                ]}
+            />
         </div>
     )
 }

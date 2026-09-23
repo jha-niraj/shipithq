@@ -1,5 +1,6 @@
 "use client"
 
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useConversation } from '@/lib/elevenlabs/use-conversation'
@@ -698,43 +699,15 @@ export default function AIMockInterviewClient({
                         <h1 className="text-4xl font-bold mb-2">Interview Results</h1>
                         <p className="text-neutral-600 dark:text-neutral-400">{project.title}</p>
                     </div>
-                    <div className="grid md:grid-cols-3 gap-6 mb-8">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    <Trophy className="w-5 h-5 text-neutral-800 dark:text-neutral-200" />
-                                    Overall Score
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-4xl font-bold text-neutral-800 dark:text-neutral-200">
-                                    {feedback.overallScore}/100
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    <MessageSquare className="w-5 h-5 text-neutral-800 dark:text-neutral-200" />
-                                    Communication
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-4xl font-bold">{feedback.communication?.score}/100</div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    <Target className="w-5 h-5 text-neutral-800 dark:text-neutral-200" />
-                                    Technical
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-4xl font-bold">{feedback.technical?.score}/100</div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                    <StatBand
+                        cols={3}
+                        className="mb-8"
+                        items={[
+                            { icon: Trophy, label: "Overall Score", value: `${feedback.overallScore}/100` },
+                            { icon: MessageSquare, label: "Communication", value: `${feedback.communication?.score ?? ""}/100` },
+                            { icon: Target, label: "Technical", value: `${feedback.technical?.score ?? ""}/100` },
+                        ]}
+                    />
                     <Card className="mb-8">
                         <CardHeader>
                             <CardTitle>Performance Breakdown</CardTitle>

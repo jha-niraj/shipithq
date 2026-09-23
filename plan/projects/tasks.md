@@ -523,3 +523,22 @@ The new hub and the ideas empty state were verified by server-rendered HTML and 
 clean compile, not by eye: the MCP browser tab reports `visibilityState: hidden`,
 which throttles React's streaming badly enough that the page never leaves its
 Suspense fallback. Both need a human look.
+
+---
+
+## PJ-1 Projects picked from the onboarding
+
+- [x] Status: done (2026-09-22). `scripts/practice-checks/project-picks.ts` 13/13 against the dev database and the real model: six projects, each with a title, a description, a difficulty, its tools and a reason, none repeated, no dashes, refused without the onboarding, cached second call, Pick again regenerates, one row per user.
+
+**Why.** The projects onboarding asks what someone has built, what stopped the projects that died and how many hours they have. Nothing read it. Niraj, 2026-09-22: learn about the user "so that we can suggest the projects to them as well and they can generate that".
+
+**Decision (Niraj, 2026-09-22).** The picks are INVENTED from the profile rather than ranked out of the catalogue: a project idea carries no tests, so an invented one is safe, and one sized to the hours someone actually has beats the nearest row in a fixed list. The curated catalogue stays, for browsing.
+
+**What it is.** `project_recommendation` holds six projects per user. `/api/projects/recommendations` proposes them from the completed projects onboarding, caps and cleans everything the model returns, and caches; `force` re-picks. The hub shows them under "Picked for you", each with its reason, and "Build this" opens the existing generator with the title and description already filled in.
+
+## PJ-2 The curated idea catalogue
+
+- [x] Status: done (2026-09-22). 30 ideas seeded with `pnpm db:seed --only=project-ideas`; the table was empty before, so the ideas page had nothing to browse.
+
+**What it is.** `packages/db/src/seed/project-ideas.ts`: 30 ideas across web, backend, realtime, devtools and CLI, easy to hard. Each names the thing, says what it does and says what the hard part will be, which is what makes it a project rather than a tutorial. Seeded as curated and approved, upserted on the title so re-running edits rather than duplicates, and left out of `--clear`.
+

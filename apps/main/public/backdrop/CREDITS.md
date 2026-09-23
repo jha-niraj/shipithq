@@ -1,5 +1,25 @@
 # Backdrop artwork
 
+**Current (2026-09-22, plan/practice-ui UI-1):** the signed-in app has no
+photograph (a plain `neutral-50` / black backdrop). The auth screens use one:
+
+| File | Built from | Used by |
+|---|---|---|
+| `auth-forest.webp` | "Misty forest valley with mountains in background", Roberto Shumski, Unsplash `oYEGPZebzGw` | auth brand panel, both themes, no layer; 2000px square centre crop, WebP q72, 176 KB |
+| `auth-forest-banner.webp` | same photo | auth banner above the form below `lg`; 1500x500 strip from 18% down, WebP q72, 32 KB |
+
+Unsplash licence: free for commercial use, no attribution required; the
+photographer is credited on the panel anyway. Contrast of the panel copy was
+measured on these exact pixels (see `app/(auth)/_components/auth-backdrop.tsx`);
+re-measure if either file is replaced.
+
+**No longer referenced, proposed for deletion** (plan/practice-ui): `light.webp`,
+`dark.webp`, `dark-sharp.webp`. The history below documents them.
+
+---
+
+# Backdrop artwork
+
 Three files from two photographs. See `components/common/app-backdrop.tsx` for why
 there are two rather than one, and why neither ships under a scrim.
 

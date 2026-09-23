@@ -3,35 +3,7 @@
 import { GraduationCap, Users, UserCheck, BookMarked, CheckCircle, Clock } from "lucide-react"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { cn } from "@/lib/utils"
-
-interface StatTileProps {
-    title: string
-    value: string
-    icon: React.ElementType
-    href?: string
-}
-
-function StatTile({ title, value, icon: Icon, href }: StatTileProps) {
-    const body = (
-        <motion.div
-            whileHover={href ? { y: -2 } : undefined}
-            className={cn(
-                "bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-5 transition-all",
-                href && "hover:border-neutral-300 dark:hover:border-neutral-700 cursor-pointer group",
-            )}
-        >
-            <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg bg-neutral-900 flex items-center justify-center">
-                    <Icon className="w-5 h-5 text-white" />
-                </div>
-            </div>
-            <p className="text-2xl font-semibold text-neutral-900 dark:text-white">{value}</p>
-            <p className="text-sm text-neutral-500 mt-1">{title}</p>
-        </motion.div>
-    )
-    return href ? <Link href={href}>{body}</Link> : body
-}
+import { StatBand } from "@repo/ui/components/ui/stat-band"
 
 interface ModuleCardProps {
     title: string
@@ -117,17 +89,21 @@ export function UniOverviewClient({ stats }: { stats: DashboardStats }) {
                     </Link>
                 )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <StatTile title="Universities" value={stats.totalUniversities.toLocaleString()} icon={GraduationCap} href="/uni/universities" />
-                {/* Students / Faculty / Classes have real counts (the action genuinely
+            {/* Students / Faculty / Classes have real counts (the action genuinely
                     queries them) but no admin page exists for any of them yet - see
                     plan/admin/tasks.md, the hiring/uni decision to keep only the
                     Universities + Verification screens. Informational, not broken
-                    links. */}
-                <StatTile title="Students" value={stats.totalStudents.toLocaleString()} icon={Users} />
-                <StatTile title="Faculty" value={stats.totalFaculty.toLocaleString()} icon={UserCheck} />
-                <StatTile title="Classes" value={stats.totalClasses.toLocaleString()} icon={BookMarked} />
-            </div>
+                links. */}
+            <StatBand
+                className="mb-8"
+                cols={4}
+                items={[
+                    { icon: GraduationCap, label: "Universities", value: stats.totalUniversities.toLocaleString(), href: "/uni/universities" },
+                    { icon: Users, label: "Students", value: stats.totalStudents.toLocaleString() },
+                    { icon: UserCheck, label: "Faculty", value: stats.totalFaculty.toLocaleString() },
+                    { icon: BookMarked, label: "Classes", value: stats.totalClasses.toLocaleString() },
+                ]}
+            />
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">Platform Modules</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ModuleCard

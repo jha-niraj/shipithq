@@ -142,7 +142,29 @@ export async function settleStage(input: {
     verdict: StageVerdict | null
 }): Promise<PracticeStage | null> {
     const { sessionId, stage, verdict } = input
-    const state: PracticeMentorState = { ...emptyMentorState(), ...(input.mentorState ?? {}) }
+
+    /*
+     * Re-read the state HERE, not at the start of the reply.
+     *
+     * `input.mentorState` is a copy taken before the model ran, which is seconds
+     * ago and one Submit ago. Writing it back whole lost whatever the judge
+     * recorded in between: pressing Submit while a reply streamed wrote
+     * `testsPassedAt`, and this then erased it, so brute force never advanced and
+     * Finish kept saying "get every test passing first" to somebody who just had.
+     *
+     * The fresh row wins on the hard signals (the judge owns those), and the
+     * verdict's own findings are layered on top.
+     */
+    const [fresh] = await db
+        .select({ mentorState: practiceUserSession.mentorState })
+        .from(practiceUserSession)
+        .where(eq(practiceUserSession.id, sessionId))
+        .limit(1)
+    const state: PracticeMentorState = {
+        ...emptyMentorState(),
+        ...(input.mentorState ?? {}),
+        ...(fresh?.mentorState ?? {}),
+    }
 
     if (verdict?.approach && stage !== "optimise") state.approach = verdict.approach
     if (verdict?.claimedComplexity) state.claimedComplexity = verdict.claimedComplexity
