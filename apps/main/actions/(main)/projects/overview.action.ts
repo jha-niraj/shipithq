@@ -22,6 +22,7 @@ import {
     userTaskV2Statuses,
 } from "@repo/db";
 import { and, asc, count, desc, eq, notInArray } from "drizzle-orm";
+import { catalogueWhere } from '@/lib/projects/catalogue'
 import { toErrorMessage } from "@/lib/errors";
 
 export interface MyProjectSummary {
@@ -215,7 +216,7 @@ export async function getCatalogueCount(): Promise<number> {
         const [row] = await db
             .select({ n: count() })
             .from(projectsV2)
-            .where(eq(projectsV2.visibility, "PUBLIC"));
+            .where(catalogueWhere());
         return row?.n ?? 0;
     } catch {
         return 0;

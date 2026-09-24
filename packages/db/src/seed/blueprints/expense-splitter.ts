@@ -8,26 +8,26 @@ import type { SeedSprint } from "./types"
 const sprints: SeedSprint[] = [
     {
         name: "A house that records who paid",
-        goal: "Members of a house can add an expense with its shares and see the ledger, stored in Postgres through Prisma.",
+        goal: "Members of a house can add an expense with its shares and see the ledger, stored in Postgres through your ORM.",
         duration: "1 week",
         tasks: [
             {
-                title: "Start the app with Prisma and a database",
+                title: "Seed a house and show its members",
                 description: [
-                    "Get a Next.js app talking to Postgres through Prisma, with a migration applied and a seeded house rendering on a page.",
-                    "The one thing worth deciding now is how the Prisma client is created, because a hot reloading dev server will otherwise open a new connection on every file save until the pool is empty."
+                    "Your app already reaches its database (Setup). Now give it its first real data: a migration that creates houses and their members, a seed script that inserts one house with three members, and a page that renders them.",
+                    "Keep this schema small on purpose - the next task grows it into expenses and shares. What matters here is that the migration is a file in the repository and the seed can be run twice without making a mess.",
                 ],
                 criteria: [
-                    "A migration creates the schema and a page renders data read through Prisma",
-                    "A seeded house with three members renders their names",
-                    "The database URL is read from the environment and the app refuses to start without it rather than falling back to a default"
+                    "A migration file creates houses and members and applies cleanly to an empty database",
+                    "The seed inserts one house with three members, and running it twice still leaves three members",
+                    "A page renders the three names read from the database, not hardcoded",
                 ],
                 hints: [
-                    "The Prisma client wants to be a single instance that survives a hot reload; the documented pattern for that is short."
+                    "Make the seed idempotent from the start: upsert on a stable key, or clear and insert inside one transaction.",
                 ],
                 difficulty: "BEGINNER",
-                estimatedTime: "1 hour",
-                category: "setup"
+                estimatedTime: "45 minutes",
+                category: "data",
             },
             {
                 title: "Model houses, members, expenses and shares",

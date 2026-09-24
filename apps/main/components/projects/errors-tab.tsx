@@ -297,7 +297,7 @@ function SubmitErrorSheet({
     return (
         <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-                <Button className="gap-2 bg-gradient-to-r from-neutral-900 to-neutral-800 hover:opacity-90">
+                <Button className="gap-2">
                     <Plus className="w-4 h-4" />
                     Share Error
                 </Button>
@@ -413,7 +413,7 @@ function SubmitErrorSheet({
                         <Button
                             onClick={handleSubmit}
                             disabled={loading || !form.title || !form.description || !form.solution}
-                            className="w-full bg-gradient-to-r from-neutral-900 to-neutral-800"
+                            className="w-full"
                         >
                             {
                                 loading ? (

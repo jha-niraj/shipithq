@@ -2,6 +2,7 @@
 
 import { db, users, projectsV2, projectV2Tasks, projectV2Submissions, projectIdeas, openSourceProjects, mockVoiceSession, userProjectV2Progress } from '@repo/db'
 import { eq, sql, count } from 'drizzle-orm'
+import { catalogueWhere } from '@/lib/projects/catalogue'
 
 /**
  * Get comprehensive platform statistics for the landing page
@@ -36,7 +37,7 @@ export async function getPlatformStats() {
             // Technology-specific ideas
             db.select({ value: count() }).from(projectIdeas).where(eq(projectIdeas.ideaType, 'TECHNOLOGY_SPECIFIC')),
             // Public projects
-            db.select({ value: count() }).from(projectsV2).where(eq(projectsV2.visibility, 'PUBLIC')),
+            db.select({ value: count() }).from(projectsV2).where(catalogueWhere()),
             // Open source projects
             db.select({ value: count() }).from(openSourceProjects).catch(() => [{ value: 0 }]),
             // Mock interview sessions

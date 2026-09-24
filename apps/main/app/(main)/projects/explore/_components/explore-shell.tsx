@@ -1,23 +1,19 @@
 import { PageHeader } from "@repo/ui/components/ui/page-header"
 import { TabsNav } from "@repo/ui/components/ui/tabs"
-import { Button } from "@repo/ui/components/ui/button"
-import { Plus } from "lucide-react"
-import ProjectGenerateSheet from "@/components/projects/project-generate-sheet"
+import { NewProjectButton } from "./new-project-button"
 
 // The Explore page's frame: the header with the tabs on its right, and whatever
 // pane the tab selected (plan/projects, PJ-3 and PJ-4).
 
 export const EXPLORE_TABS = [
-    { value: "ideas", label: "Ideas" },
-    { value: "community", label: "Community" },
+    { value: "browse", label: "Browse" },
     { value: "mine", label: "Mine" },
 ] as const
 
 export type ExploreTab = (typeof EXPLORE_TABS)[number]["value"]
 
 const SUBTITLE: Record<ExploreTab, string> = {
-    ideas: "Curated projects to build, by stack or by the problem they solve.",
-    community: "What other people have built here and made public.",
+    browse: "Every project you can build: ShipItHQ's own, and what learners have made public.",
     mine: "Everything you have started, and where each one stands.",
 }
 
@@ -65,14 +61,7 @@ export function ExploreShell({ tab, children }: { tab: ExploreTab; children: Rea
                     // The sheet opens HERE. It used to link to `/projects?generate=1`,
                     // a parameter the hub does not read, so the page's primary action
                     // navigated away and did nothing.
-                    <ProjectGenerateSheet
-                        trigger={
-                            <Button size="sm" className="gap-1.5">
-                                <Plus className="h-4 w-4" aria-hidden />
-                                New project
-                            </Button>
-                        }
-                    />
+                    <NewProjectButton />
                 }
             />
             </div>

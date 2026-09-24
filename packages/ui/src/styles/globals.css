@@ -1240,3 +1240,34 @@ h1, h2, h3, h4, h5, h6,
 .dark .razorpay-backdrop {
     background: rgba(10, 10, 10, 0.94) !important;
 }
+
+/*
+ * The interface-sounds toggle's speaker (components/ui/sounds.tsx, plan/ui-sounds):
+ * muting draws a slash through it and folds the sound waves away. `pathLength=1`
+ * on the slash lets one dash of length 1 draw it from end to end.
+ */
+.sound-toggle .sound-slash {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 220ms ease-out;
+}
+.sound-toggle svg[data-muted="true"] .sound-slash {
+    stroke-dashoffset: 0;
+}
+.sound-toggle .sound-wave {
+    transform-origin: 11px 12px;
+    transition: opacity 160ms ease-out, transform 220ms ease-out;
+}
+.sound-toggle .sound-wave-outer {
+    transition-delay: 40ms;
+}
+.sound-toggle svg[data-muted="true"] .sound-wave {
+    opacity: 0;
+    transform: scale(0.6);
+}
+@media (prefers-reduced-motion: reduce) {
+    .sound-toggle .sound-slash,
+    .sound-toggle .sound-wave {
+        transition: none;
+    }
+}

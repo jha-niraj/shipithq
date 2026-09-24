@@ -3,6 +3,9 @@ import { createId } from "@paralleldrive/cuid2"
 import type { DB } from "./db"
 import { schema } from "./db"
 import { chatJSON } from "./openai"
+import { BLUEPRINT_SYSTEM } from "./pipeline-prompt"
+import { validateSetup } from "./pipeline-setup"
+import { setupForStack } from "@repo/db/project-setup"
 
 const { projectsV2, projectV2Sprints, projectV2Tasks, userProjectV2Progress } = schema
 
@@ -33,6 +36,7 @@ interface Blueprint {
 	dataArchitecture?: unknown
 	projectStructure?: unknown
 	setupGuide?: unknown
+	setup?: unknown
 	sprints?: Array<{
 		name: string
 		goal: string
@@ -62,42 +66,7 @@ function slugify(input: string): string {
 	return `${base || "project"}-${createId().slice(0, 6)}`
 }
 
-const SYSTEM = `You are ShipItHQ's senior engineering mentor. You design realistic, portfolio-grade software project blueprints that teach by building.
-Return ONLY valid JSON (no markdown) matching exactly this shape:
-{
-  "overview": string,                    // 2-4 sentence blueprint overview
-  "vision": string,
-  "targetAudience": string,
-  "problemSolution": string,
-  "estimatedDuration": string,           // e.g. "3-4 weeks"
-  "estimatedHours": number,              // integer total hours
-  "keyOutcomes": string[],               // 3-6 outcomes
-  "recruiterSignal": string,             // why this impresses recruiters
-  "features": string[],                  // 5-10 core features
-  "technicalRequirements": string[],
-  "projectStructure": string[],          // key folders/modules
-  "setupGuide": string[],                // ordered setup steps
-  "sprints": [                           // 3-6 sprints, ordered
-    {
-      "name": string,
-      "goal": string,
-      "duration": string,                // e.g. "4-5 days"
-      "tasks": [                         // 3-6 tasks per sprint
-        {
-          "title": string,
-          "description": string[],       // 2-4 concrete steps
-          "criteria": string[],          // acceptance criteria
-          "hints": string[],
-          "tags": string[],
-          "category": string,
-          "estimatedTime": string,       // e.g. "2-3 hours"
-          "learningObjectives": string[],
-          "checkpoints": string[]
-        }
-      ]
-    }
-  ]
-}`
+const SYSTEM = BLUEPRINT_SYSTEM
 
 export interface GenerationResult {
 	projectId: string
@@ -114,7 +83,8 @@ export async function runGeneration(
 ): Promise<GenerationResult> {
 	const difficulty: Difficulty = input.difficulty ?? "INTERMEDIATE"
 
-	// Normalise stacks to a keyed object stored on the project.
+	// Normalise stacks to a keyed object stored on the project. Any stack again:
+	// code is written on the learner's machine (plan/project-repos RP-1).
 	const stacks = Array.isArray(input.stacks)
 		? input.stacks.reduce<Record<string, string>>((acc, s) => { acc[s.category.toLowerCase()] = s.name; return acc }, {})
 		: (input.stacks ?? {})
@@ -154,6 +124,8 @@ Make it buildable, sprint-based, and portfolio-worthy. Return the JSON blueprint
 		description: input.projectDescription,
 		technologies: input.technologies ?? [],
 		generationType: input.generationType,
+		// Whether the V2 in-browser editor could run it: frontend with no backend.
+		runtime: input.generationType === "FRONTEND" && !/\S/.test((stacks.backend ?? "").replace(/^none$/i, "")) ? "browser" : "server",
 		difficulty,
 		visibility: input.visibility,
 		estimatedHours,
@@ -180,6 +152,52 @@ Make it buildable, sprint-based, and portfolio-worthy. Return the JSON blueprint
 	await onProgress(80, "Creating sprints & tasks")
 
 	let totalTasks = 0
+
+	// Setup, sprint 0 (plan/project-repos RP-5): first by order_index -1. With
+	// neither a verified kit nor a valid model Setup, the project is saved
+	// without one and the page falls back to the setupGuide list.
+	// The verified steps for a stack they were run on (the same ones the curated
+	// projects use); otherwise the model's own Setup, validated.
+	const setup = setupForStack({
+		slug,
+		generationType: input.generationType,
+		stacks,
+		technologies: input.technologies ?? [],
+		folders: Array.isArray(blueprint.projectStructure) ? blueprint.projectStructure.filter((f): f is string => typeof f === "string") : [],
+	}) ?? validateSetup(blueprint.setup)
+	if (setup) {
+		const setupId = createId()
+		await db.insert(projectV2Sprints).values({
+			id: setupId,
+			projectId,
+			sprintNumber: 0,
+			name: setup.name,
+			goal: setup.goal,
+			duration: "1 day",
+			orderIndex: -1,
+			createdBy: userId,
+			isApproved: true,
+		})
+		await db.insert(projectV2Tasks).values(
+			setup.tasks.map((t, j) => ({
+				id: createId(),
+				sprintId: setupId,
+				title: t.title,
+				description: t.description,
+				criteria: t.criteria,
+				hints: t.hints,
+				tags: [],
+				difficulty: "BEGINNER" as const,
+				orderIndex: j,
+				category: "setup",
+				estimatedTime: t.estimatedTime,
+				checkpoints: [],
+				learningObjectives: [],
+			})),
+		)
+		totalTasks += setup.tasks.length
+	}
+
 	for (let i = 0; i < blueprint.sprints.length; i++) {
 		const s = blueprint.sprints[i]!
 		const sprintId = createId()

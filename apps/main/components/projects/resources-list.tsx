@@ -10,7 +10,7 @@ import {
     Avatar, AvatarFallback, AvatarImage
 } from '@repo/ui/components/ui/avatar'
 import {
-    Youtube, FileText, BookOpen, GraduationCap, MessageCircle, Wrench,
+    Youtube, FileText, BookOpen, GraduationCap, MessageCircle, Wrench, Video, Newspaper,
     Palette, Sparkles, Github, ExternalLink, ThumbsUp, Eye, Trash2, Shield
 } from 'lucide-react'
 import {
@@ -27,9 +27,9 @@ import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 const RESOURCE_TYPES = [
     { value: 'ALL', label: 'All Resources', icon: FileText },
     { value: 'YOUTUBE_VIDEO', label: 'YouTube', icon: Youtube },
-    { value: 'VIDEO', label: 'Videos', icon: FileText },
+    { value: 'VIDEO', label: 'Videos', icon: Video },
     { value: 'DOCUMENTATION', label: 'Docs', icon: BookOpen },
-    { value: 'BLOG_ARTICLE', label: 'Articles', icon: FileText },
+    { value: 'BLOG_ARTICLE', label: 'Articles', icon: Newspaper },
     { value: 'COURSE', label: 'Courses', icon: GraduationCap },
     { value: 'DISCORD_COMMUNITY', label: 'Community', icon: MessageCircle },
     { value: 'TOOL_RECOMMENDATION', label: 'Tools', icon: Wrench },
@@ -40,9 +40,9 @@ const RESOURCE_TYPES = [
 
 const RESOURCE_ICONS: Record<ResourceType, React.ComponentType<{ className?: string }>> = {
     YOUTUBE_VIDEO: Youtube,
-    VIDEO: FileText,
+    VIDEO: Video,
     DOCUMENTATION: BookOpen,
-    BLOG_ARTICLE: FileText,
+    BLOG_ARTICLE: Newspaper,
     COURSE: GraduationCap,
     DISCORD_COMMUNITY: MessageCircle,
     TOOL_RECOMMENDATION: Wrench,

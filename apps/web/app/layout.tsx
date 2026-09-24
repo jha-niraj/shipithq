@@ -4,6 +4,7 @@ import { RevealObserver } from "@/components/reveal-observer";
 import { ThemeProvider } from "@repo/ui/components/themeprovider";
 import { Geist, Space_Grotesk, Geist_Mono, Bricolage_Grotesque } from "next/font/google";
 import { Toaster as SonnerToaster } from "@repo/ui/components/ui/sonner";
+import { SoundEffects } from "@repo/ui/components/ui/sounds";
 import { Providers } from "@/app/providers";
 import { SITE, BRAND } from "@/lib/site";
 import { organizationSchema, websiteSchema, serviceSchema, jsonLd } from "@/lib/schema";
@@ -164,6 +165,8 @@ export default function RootLayout({
 						{/* Position, close button and styling are the shared defaults in
 						    @repo/ui - deliberately not set per app, so all five stay in sync. */}
 						<SonnerToaster />
+						{/* Interface sounds, on by default; the sidebar's speaker mutes them (plan/ui-sounds). */}
+						<SoundEffects />
 					</ThemeProvider>
 				</Providers>
 			</body>

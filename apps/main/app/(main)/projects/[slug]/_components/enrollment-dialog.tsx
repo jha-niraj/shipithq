@@ -117,7 +117,7 @@ export function EnrollmentDialog({
 	 */
 	const goToBoard = () => {
 		onOpenChange(false);
-		if (boardSlug.current) router.push(`/projects/${boardSlug.current}/sprints`);
+		if (boardSlug.current) router.push(`/projects/${boardSlug.current}/workspace`);
 		else router.refresh();
 	};
 
@@ -257,18 +257,21 @@ export function EnrollmentDialog({
 								<div className="text-center space-y-2">
 									<p className="font-semibold text-lg">Setting up your project...</p>
 									<div className="space-y-1 text-sm text-muted-foreground">
-										<p className="flex items-center justify-center gap-2">
+										{/* divs, not p: the loader is a div, and a div inside a p is invalid HTML (a hydration error). */}
+										<div className="flex items-center justify-center gap-2">
 											<InlineLoader size="sm" />
 											Creating your workspace
-										</p>
-										<p className="flex items-center justify-center gap-2">
+										</div>
+										<div className="flex items-center justify-center gap-2">
 											<InlineLoader size="sm" />
 											Initializing {tasksCount} tasks
-										</p>
-										<p className="flex items-center justify-center gap-2">
-											<InlineLoader size="sm" />
-											Processing payment
-										</p>
+										</div>
+										{enrollmentCost > 0 && (
+											<div className="flex items-center justify-center gap-2">
+												<InlineLoader size="sm" />
+												Processing payment
+											</div>
+										)}
 									</div>
 								</div>
 							</div>

@@ -12,22 +12,22 @@ const sprints: SeedSprint[] = [
         duration: "1 week",
         tasks: [
             {
-                title: "Stand up the Go service and Redis",
+                title: "Serve health over HTTP with real config",
                 description: [
-                    "A Go binary with a health endpoint, a configured port and a Redis connection established at boot. Configuration from the environment with defaults, logged once at startup so the effective settings are never a mystery.",
-                    "Read the Redis client library's pool defaults while you are here. Those defaults become a latency problem in sprint three, and knowing them now saves an afternoon later."
+                    "Setup proved Go can reach Redis. Now turn that into the service: an HTTP server on a configured port with a health endpoint, configuration read from the environment with defaults, and the effective settings logged once at startup so they are never a mystery.",
+                    "Read the Redis client library's pool defaults while you are here. Those defaults become a latency problem in sprint three, and knowing them now saves an afternoon later.",
                 ],
                 criteria: [
                     "Running the server command starts a service answering a health endpoint on the configured port",
                     "The health endpoint reports the Redis round trip time",
-                    "The effective configuration is logged once at startup and every value has a documented default"
+                    "The effective configuration is logged once at startup and every value has a documented default",
                 ],
                 hints: [
-                    "Pick the Redis client now and skim what its pool size, dial timeout and read timeout default to."
+                    "Skim what go-redis's pool size, dial timeout and read timeout default to.",
                 ],
                 difficulty: "BEGINNER",
                 estimatedTime: "1 hour",
-                category: "setup"
+                category: "backend",
             },
             {
                 title: "Define the limit rules and where they live",

@@ -8,6 +8,7 @@ import {
     projectIdeas,
 } from "@repo/db";
 import { eq, and, sql, type SQL } from "drizzle-orm";
+import { catalogueWhere } from '@/lib/projects/catalogue'
 
 export async function getProjectCategories() {
     try {
@@ -61,7 +62,7 @@ export async function getPlatformProjects(options?: {
     try {
         const conditions: SQL[] = [
             eq(projectsV2.isPlatformSeeded, true),
-            eq(projectsV2.visibility, 'PUBLIC'),
+            catalogueWhere(),
         ];
         if (options?.technology) {
             conditions.push(sql`${projectsV2.technologies} @> ARRAY[${options.technology}]::text[]`);
@@ -121,7 +122,7 @@ export async function getCategoryWithIdeas(categorySlug: string) {
             db.query.projectsV2.findMany({
                 where: and(
                     eq(projectsV2.isPlatformSeeded, true),
-                    eq(projectsV2.visibility, 'PUBLIC'),
+                    catalogueWhere(),
                     sql`${projectsV2.technologies} && ARRAY[${sql.join(techNames.map((t: string) => sql`${t}`), sql`, `)}]::text[]`
                 ),
                 columns: {

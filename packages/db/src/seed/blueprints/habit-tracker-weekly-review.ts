@@ -11,22 +11,22 @@ const sprints: SeedSprint[] = [
         duration: "1 week",
         tasks: [
             {
-                title: "Stand up a typed React app you can run",
+                title: "Lay out the app shell",
                 description: [
-                    "Create a React project with TypeScript and get it rendering a single page with the project name on it. Turn strict mode on in the TypeScript config from the very first commit.",
-                    "Every later task in this project leans on the compiler to catch a wrong date or a missing habit id, so the strictness is not decoration."
+                    "Replace the Vite starter page with the app's own shell: a heading with the app's name, read from one place (`src/config.ts`), and two views - Today and Week - that you switch between without a page reload. The views can be empty for now.",
+                    "Every later task lands in one of those two views, so deciding the shell now keeps the next nineteen from each inventing their own layout.",
                 ],
                 criteria: [
-                    "The dev server serves a page showing the project name with no errors in the browser console",
-                    "A type check with no emit passes with strict set to true in tsconfig",
-                    "The repository has one commit containing an app that runs"
+                    "The app's name is written once, in `src/config.ts`, and the heading reads it from there",
+                    "Today and Week switch without a page reload, and the current one is visibly marked",
+                    "`npm run build` passes with no type errors",
                 ],
                 hints: [
-                    "The standard React and TypeScript template gives you most of this; the part worth checking by hand is which strictness flags the template quietly left off."
+                    "Two views do not need a router yet; a piece of state is enough, and easy to replace later.",
                 ],
                 difficulty: "BEGINNER",
                 estimatedTime: "30 minutes",
-                category: "setup"
+                category: "frontend",
             },
             {
                 title: "Model a habit and a day of ticks",

@@ -11,27 +11,27 @@ const sprints: SeedSprint[] = [
         duration: "1 week",
         tasks: [
             {
-                title: "Scaffold Next.js, Prisma and Tailwind",
+                title: "Put the first table behind a page",
                 description: [
-                    "Create the app in TypeScript, connect Prisma to a PostgreSQL database, and confirm Tailwind is applying styles. One page that reads one row from the database proves all three at once.",
-                    "Keep the database URL in an environment file from the first commit, and make sure that file is ignored by git.",
+                    "Your app already reaches its database (Setup). Create one table with a migration - employers is a good first one - insert a row, and render it on a page at request time, styled with Tailwind.",
+                    "Decide now where database calls are allowed to live: server components, route handlers and server actions, never a client component. An ORM client imported across that line fails in a confusing way.",
                 ],
                 criteria: [
-                    "npx prisma migrate dev runs against a local database and creates at least one table.",
-                    "A page renders a value read through Prisma at request time, not a hardcoded string.",
-                    "The repository contains an example environment file and no real credentials.",
+                    "A migration creates the employers table and applies to an empty database",
+                    "A page renders an employer read from the database at request time, not a hardcoded string",
+                    "No file marked 'use client' imports the database client, directly or through another module",
                 ],
                 hints: [
-                    "Decide now where database calls are allowed to live, because a Prisma client imported into a client component fails in a confusing way.",
+                    "Keep every query in `src/server/`, and let only server code import from it.",
                 ],
                 difficulty: "BEGINNER",
-                estimatedTime: "1 hour",
-                category: "setup",
+                estimatedTime: "45 minutes",
+                category: "data",
             },
             {
                 title: "Model jobs, skills, employers and candidates",
                 description: [
-                    "Write the Prisma schema. A job belongs to an employer and requires a set of skills, each at a required level and marked required or nice to have. A candidate has a profile and a set of skills with a claimed level and years of use.",
+                    "Write the schema in your ORM. A job belongs to an employer and requires a set of skills, each at a required level and marked required or nice to have. A candidate has a profile and a set of skills with a claimed level and years of use.",
                     "The join tables carry data, not just two foreign keys, and that is what makes scoring possible later. A job skill without a required level and a weight gives the scorer nothing to work with.",
                 ],
                 criteria: [
@@ -229,7 +229,7 @@ const sprints: SeedSprint[] = [
                     "Keeping it pure is what makes the hand-scored examples from the previous task usable as tests, and what lets you re-run it over historical data later without side effects.",
                 ],
                 criteria: [
-                    "The function takes plain data and returns both a total and an itemised list of contributions, with no imports from Prisma.",
+                    "The function takes plain data and returns both a total and an itemised list of contributions, with no imports from the ORM.",
                     "Scoring the three hand-calculated candidates returns exactly the numbers written in the document.",
                     "A candidate with no skills scores the documented floor rather than throwing or returning NaN.",
                 ],

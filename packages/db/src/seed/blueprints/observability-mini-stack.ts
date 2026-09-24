@@ -26,7 +26,7 @@ const sprints: SeedSprint[] = [
                 ],
                 difficulty: "BEGINNER",
                 estimatedTime: "1 hour 30 minutes",
-                category: "setup",
+                category: "backend",
             },
             {
                 title: "Instrument it with OpenTelemetry",
@@ -44,7 +44,7 @@ const sprints: SeedSprint[] = [
                 ],
                 difficulty: "INTERMEDIATE",
                 estimatedTime: "2 hours 30 minutes",
-                category: "setup",
+                category: "backend",
             },
             {
                 title: "An ingest endpoint that accepts OTLP",

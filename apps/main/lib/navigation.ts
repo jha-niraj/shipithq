@@ -82,9 +82,9 @@ export const mainNavigation: NavigationConfig = {
                 { name: 'Overview', path: 'projects', icon: LayoutDashboard },
                 // One Explore page with tabs replaced Ideas, My Projects and All
                 // Projects (plan/projects, PJ-4). The sidebar links to the tabs.
-                { name: 'Explore', path: 'projects/explore?tab=ideas', icon: Heading },
+                { name: 'Explore', path: 'projects/explore?tab=browse', icon: Heading },
                 { name: 'My Projects', path: 'projects/explore?tab=mine', icon: User },
-                { name: 'Community', path: 'projects/explore?tab=community', icon: User2 }
+                { name: 'Community', path: 'projects/explore?tab=browse&made=community', icon: User2 }
             ]
         },
         {

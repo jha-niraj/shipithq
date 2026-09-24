@@ -38,7 +38,10 @@
 			{ "name": "INTERVIEW_PREP_GENERATION", "class_name": "InterviewPrepGeneration" },
 			{ "name": "PRACTICE_TESTS_GENERATE", "class_name": "PracticeTestsGenerate" },
 			{ "name": "PRACTICE_MEMORY_UPDATE", "class_name": "PracticeMemoryUpdate" },
-			{ "name": "PRACTICE_REFLECT", "class_name": "PracticeReflect" }
+			{ "name": "PRACTICE_REFLECT", "class_name": "PracticeReflect" },
+			{ "name": "PROJECT_AI", "class_name": "ProjectAi" },
+			{ "name": "SPRINT_QUIZ", "class_name": "SprintQuiz" },
+			{ "name": "SPRINT_MOCK", "class_name": "SprintMock" }
 		]
 	},
 
@@ -90,6 +93,22 @@
 		{
 			"tag": "v8",
 			"new_sqlite_classes": ["PracticeTestsGenerate", "PracticeMemoryUpdate", "PracticeReflect"]
+		},
+		{
+			// The workspace's Project AI (plan/project-workspace WS-15). A NEW tag:
+			// tags are append-only once deployed.
+			"tag": "v9",
+			"new_sqlite_classes": ["ProjectAi"]
+		},
+		{
+			// Sprint quizzes (plan/project-workspace WS-12). A NEW tag, as above.
+			"tag": "v10",
+			"new_sqlite_classes": ["SprintQuiz"]
+		},
+		{
+			// Sprint mock interviews (plan/project-workspace WS-13). A NEW tag.
+			"tag": "v11",
+			"new_sqlite_classes": ["SprintMock"]
 		}
 	],
 

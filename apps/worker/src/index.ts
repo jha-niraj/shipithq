@@ -36,6 +36,9 @@ export {
 	PracticeTestsGenerate,
 	PracticeMemoryUpdate,
 	PracticeReflect,
+	ProjectAi,
+	SprintQuiz,
+	SprintMock,
 } from "./jobs"
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -921,7 +921,7 @@ skeleton that matches.
 **Done when.** `sweep-2026-09-23-module.md` has nothing left under "Still open".
 
 ## PJ-14 The six inline model calls move to the worker
-- [ ] Status: not started. Planned 2026-09-23 on Niraj's call: after manual testing, not before.
+- [x] Status: resolved 2026-09-24 by replacement, not by moving. The final quiz and mock now run on the WS-12/13 worker jobs (WS-14), and `task-details.action.ts`, `projectassessments.action.ts`, `projectv2-mock.action.ts` and `projectv2-quiz.action.ts` have NO remaining callers (grep 2026-09-24), so none of the six inline calls is reachable. Niraj approved deleting them (2026-09-24); deleted, with the two checks in `scripts/practice-checks/projects-money.ts` that exercised them. `tsc` clean.
 
 **Why.** CLAUDE.md: anything that calls an LLM runs in `apps/worker` as a Durable Object plus Alarm, never in a server action, because a Worker request has a hard budget and a 60-second completion is killed long after the user has been charged. Six calls in this module are still inline.
 
@@ -1051,3 +1051,21 @@ The code review is the one that will fail first, because its input size is whate
 - Quiz attempts, standups, resources and errors are per project, so they follow the copy with no change.
 
 **Done when.** Enrolling in a public project creates a private copy owned by the enrolee and lands on its board; a sprint the owner adds after publishing does not appear on the public page or in a new copy; the enrolee can generate a sprint on their copy; a private project can be made public and then shows up in the catalogue.
+
+## PJ-19 Explore: one Browse tab instead of Ideas and Community
+- [x] Status: done 2026-09-24. Tabs are Browse and Mine; `getBrowse` lists every public project plus approved ideas with no project, filtered and sorted on the server from the URL (`made`, `mode`, `technology`, `difficulty`, `category`, `q`, `sort`); facets come from the real catalogue; cards say "by ShipItHQ" or the learner, and count build sprints only. Verified in the browser: default shows 10 (All 10 / ShipItHQ 10 / Community 0); `?tab=ideas` lands on Browse, `?tab=community` and `/projects/allprojects` on the community empty state, `/projects/ideas` on Browse; search "postgres" (ShipItHQ) finds 5; a Hard filter writes `difficulty=ADVANCED` and survives a reload; problem-first + most-started leads with the most started; the sidebar's Explore and Community entries point at Browse and Browse filtered. Render check 35/35. Found on the way and fixed: every Explore load had a hydration error from the header's "New project" (a server-built trigger passed into the client sheet's asChild slot) - now built client-side in `new-project-button.tsx`. `allprojects/_components/AllProjectsClient.tsx` had no users left; deleted with Niraj's approval (2026-09-24). The `/projects/allprojects` redirect stays. Also approved and done: `sonner` uninstalled from packages/ui and apps/admin (the toasts are `components/ui/toast.tsx` behind the `sonner.tsx` adapter).
+
+**Why.** Ideas and Community showed the SAME ten projects (every approved idea links to a curated project, and every public project is curated until a learner publishes one), so the two tabs differed only in how you browsed, not what. Niraj: "this is getting into confusion".
+
+**Files.** `app/(main)/projects/explore/page.tsx`, `_components/explore-shell.tsx`, `_components/ideas-pane.tsx` (becomes the Browse pane), `actions/(main)/projects/explore.action.ts` (`getBrowse` replaces `getIdeas`), `lib/navigation.ts` (sidebar), the links in `ProjectsHubClient.tsx`, `MyProjectsClient.tsx`, `project-picks.tsx`, `error.tsx`, the `ideas` and `allprojects` redirect pages, `scripts/practice-checks/projects-render.tsx`.
+
+**Steps.**
+1. Tabs: **Browse** and **Mine**. Old links keep working: `tab=ideas` -> Browse, `tab=community` -> Browse with `made=community`.
+2. Browse lists every public project (`catalogueWhere`), server-rendered, all state in the URL: `made` (all / shipithq / community), `mode` (by stack / problem first), `technology`, `difficulty`, `category`, `q` (search), `sort` (popular / recent). Facets come from what is actually public, not a hardcoded list.
+3. Approved ideas with no project yet still show, as "Generate this", when `made` is not community.
+4. The card says who made it: ShipItHQ, or the learner. Sprint and task counts leave out Setup.
+5. The sidebar's "Community" entry becomes Explore filtered to community; "Explore" opens Browse.
+
+**Edge cases.** Community empty today: its empty state says how a project gets listed (Make public). A learner's COPY is private and never listed. Search is server-side, so it filters the whole catalogue, not one page.
+
+**Done when.** `/projects/explore` shows Browse with all 10 projects; `?made=community` shows the empty state; `?tab=ideas` and `?tab=community` land on Browse (the second filtered); filters, search and sort change the URL and survive a reload; the sidebar has no separate Community tab page; `tsc` clean.

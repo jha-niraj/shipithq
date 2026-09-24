@@ -80,12 +80,41 @@ A project whose stack v1 cannot run shows the workspace's editor and tasks,
 with the preview panel explaining that running this stack is coming, rather
 than a broken preview. Widening this is the containers phase.
 
+### Decided 2026-09-24, before wiring
+
+- **The workspace replaces the board.** `/projects/<slug>/sprints`, `/tasks`,
+  `/quiz` and `/aimock` are deleted, with redirects into the workspace (the
+  quiz and mock to their tabs). The project page is the redesign.
+- **Bundler: CodeSandbox's hosted Sandpack bundler.** Self-hosting later if
+  needed.
+- **Check task: all green marks the task Done automatically**, through the one
+  status action, so progress and gates move together. A failing run never
+  un-does a task already Done.
+- **Sprint quiz and sprint mock open when every task in that sprint is Done.**
+  The final quiz and mock keep 50% and 75% of all tasks (`gates.ts`).
+- **Generated projects get an AI-written starter and per-task tests**, written
+  by a worker job (Durable Object) with strict limits - see WS-16.
+- **Frontend only, for now.** Curated projects the browser cannot run are
+  hidden from the catalogue until containers exist; nothing is deleted.
+- **Project AI, first version:** add a task to a sprint, plan a new sprint,
+  answer questions about the project's code (read-only), break a task into
+  steps. It asks when something is unclear (which sprint? what focus?) and
+  confirms before it writes anything.
+- **Mock interviews are text plus dictation**, like the practice DSA page:
+  questions as text, answers typed or dictated through Sarvam.
+
 ## Prices
 
 | Thing | Number | Note |
 |---|---|---|
 | Running code, running tests | 0 | Runs in the user's browser; nothing of ours is spent |
 | AI review of a task's change | **5 credits** | Decided by Niraj 2026-09-23. A model call on the worker; held on dispatch, refunded on failure |
+| Sprint quiz | **25 credits** | Decided 2026-09-24: today's quiz price. Generated once per sprint; held, refunded on failure |
+| Sprint mock interview | **30 credits per session** | Decided 2026-09-24: today's mock price. Refunded if the session never starts |
+| Final quiz / final mock | unchanged | 25 and 30, as in `plan/projects/overview.md` |
+| Project AI: questions, steps | **0** | Decided 2026-09-24 |
+| Project AI: add a task, plan a sprint | **5 credits** | Decided 2026-09-24. Charged only when it actually writes |
+| Starter and tests for a generated project | **+15 credits** | Decided 2026-09-24. On top of generation: public 28, private 40, still +30 with the assessment. Held and refunded with the rest of generation (WS-16) |
 
 ## Out of scope for v1
 

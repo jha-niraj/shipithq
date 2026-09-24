@@ -12,6 +12,8 @@
         "./schema": "./src/schema/index.ts",
         "./resume": "./src/resume.ts",
         "./onboarding": "./src/onboarding-types.ts",
+        "./project-setup": "./src/project-setup.ts",
+        "./project-gates": "./src/project-gates.ts",
         "./practice": "./src/practice.ts",
         "./assistant": "./src/assistant-types.ts"
     },
@@ -21,7 +23,10 @@
         "db:push": "dotenv -e ../../apps/main/.env -- drizzle-kit push",
         "db:studio": "dotenv -e ../../apps/main/.env -- drizzle-kit studio",
         "db:pull": "dotenv -e ../../apps/main/.env -- drizzle-kit introspect",
-        "db:seed": "dotenv -e ../../apps/main/.env -- tsx src/seed/index.ts"
+        "db:seed": "dotenv -e ../../apps/main/.env -- tsx src/seed/index.ts",
+        "starters:check": "tsx src/seed/starters/verify.ts",
+        "db:project-setup": "dotenv -e ../../apps/main/.env -- tsx src/scripts/project-setup.ts",
+        "db:migrations": "dotenv -e ../../apps/main/.env -- tsx src/scripts/migrations.ts"
     },
     "keywords": [],
     "author": "",
@@ -37,7 +42,9 @@
         "dotenv-cli": "^11.0.0",
         "drizzle-kit": "^0.31.0",
         "eslint": "^9.39.1",
+        "marked": "^18.0.14",
         "tsx": "^4.23.12",
-        "typescript": "5.9.2"
+        "typescript": "5.9.2",
+        "vitest": "^5.0.1"
     }
 }

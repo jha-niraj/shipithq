@@ -1,0 +1,27 @@
+#root {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 48px 16px;
+}
+
+h1 {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+
+.muted {
+  color: #737373;
+  margin: 0 0 24px;
+}
+
+.card {
+  border: 1px solid #d4d4d4;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .muted { color: #a3a3a3; }
+  .card { border-color: #262626; }
+}

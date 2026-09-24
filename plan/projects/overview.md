@@ -19,8 +19,10 @@ reader and understanding how a project actually works.
 1. **A project has exactly one owner and no other participants.** No members, no
    roles, no invitations - not in the UI, not in the actions, not in the schema.
 
-2. **Nothing is shared, gifted, or forked.** No visibility setting, no public
-   /private toggle, no buying a project for somebody else.
+2. **Nothing is shared or gifted.** No buying a project for somebody else.
+   *Amended 2026-09-23 (PJ-18):* a project CAN be public, and enrolling makes
+   the enrolee their own copy - see "Public is a snapshot; enrolling is a
+   copy". Each copy still has exactly one owner, so point 1 holds.
 
 3. **Nobody contributes to anybody else's project.** No visitor feature
    suggestions, no sprint suggestions from third parties.
@@ -112,6 +114,9 @@ Decided by Niraj on 2026-09-23 (PJ-18).
   private project owned by the enrolee, with `forked_from_id` pointing back.
   From then on it is their project: they generate sprints, add tasks and tick
   them exactly as an owner does, and nobody else sees those changes.
+- **Files are frozen at publish too** (2026-09-23). The workspace's files
+  (plan/project-workspace) are snapshotted into `project_v2_published_file`
+  when the project is published, and copies are made from that snapshot.
 - **A copy cannot be published.** Publishing someone else's project under your
   name is the one thing a copy should not do. (Default taken while building;
   Niraj can reverse it.)

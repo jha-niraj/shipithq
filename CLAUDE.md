@@ -100,8 +100,18 @@ usually swallows it into `{ success: false }`. For atomic multi-statement writes
 use `withTransaction(async (tx) => …)`; for a fixed set of independent
 statements use `db.batch([...])`. Never introduce `db.transaction(`.
 
-Migrations: `pnpm db:generate` then `pnpm db:migrate` from `packages/db`. Never
-`db:push`. Report what a generated migration contains before applying it.
+Migrations: `pnpm db:generate --name <name>`, then `pnpm db:migrations` (preview:
+every pending migration with its SQL) and `pnpm db:migrations --apply`, all from
+`packages/db`. Never `db:push`. Report what a generated migration contains before
+applying it.
+
+**Every change to data ships as a script that previews first** (Niraj,
+2026-09-24). A migration, a backfill, a reseed, a one-off fix: a script in
+`packages/db/src/scripts/` with a `db:<name>` command that, by default, prints
+the database host and exactly what it WOULD change, per row or project, and
+writes nothing; with `--apply` it writes, then plans again and shows that
+nothing is left. Give Niraj both commands to run and read. Existing examples:
+`pnpm db:migrations` and `pnpm db:project-setup`.
 
 ## App shell (apps/main)
 

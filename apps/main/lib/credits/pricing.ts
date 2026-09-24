@@ -50,6 +50,24 @@ export const CREDIT_PRICES = {
     project_enroll: 13,
     project_quiz: 25,
     project_mock: 30,
+    /**
+     * The workspace's Project AI adding what it proposed - a task or a sprint.
+     * Asking it things, and "break this into steps", are free; only the write
+     * is charged, and only when the owner presses Add. Decided by Niraj on
+     * 2026-09-24, `plan/project-workspace/overview.md` (Prices).
+     */
+    project_ai_write: 5,
+    /**
+     * A sprint's quiz, generated once per sprint when its tasks are all done;
+     * retakes are free. Decided by Niraj on 2026-09-24,
+     * `plan/project-workspace/overview.md` (Prices).
+     */
+    sprint_quiz: 25,
+    /**
+     * One sprint mock interview session, questions to feedback. Decided by Niraj
+     * on 2026-09-24, `plan/project-workspace/overview.md` (Prices).
+     */
+    sprint_mock: 30,
     practice_set: 5,
     exam_set: 10,
 

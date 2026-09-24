@@ -12,7 +12,7 @@ import {
     varchar,
     type AnyPgColumn,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { users, resourceTypeEnum } from "./schema";
 import type { RecommendedIdea } from "../practice-types";
@@ -172,6 +172,12 @@ export const projectsV2 = pgTable(
         primaryLanguageOrFramework: text("primary_language_or_framework"),
         difficulty: projectV2DifficultyEnum("difficulty").notNull(),
         visibility: projectV2VisibilityEnum("visibility").notNull().default("PRIVATE"),
+        // Where the project's code can run (plan/project-workspace WS-10): "browser"
+        // runs in the workspace's in-browser runtime; "server" needs a backend,
+        // database or native toolchain and is hidden from the catalogue until
+        // server containers exist. Text rather than an enum so a third runtime is
+        // a data change, not a migration of the type.
+        runtime: text("runtime").notNull().default("browser"),
         // When it became public. Non-owners see only sprints and tasks created at
         // or before this moment (plan/projects overview, "Public is a snapshot").
         publishedAt: timestamp("published_at"),
@@ -219,6 +225,7 @@ export const projectsV2 = pgTable(
         // quick enrol clicks. NULLs are distinct, so ordinary projects are unaffected.
         uniqueIndex("uq_project_v2_fork_per_user").on(table.forkedFromId, table.createdBy),
         index("idx_project_v2_visibility").on(table.visibility),
+        index("idx_project_v2_runtime").on(table.runtime),
         index("idx_project_v2_difficulty").on(table.difficulty),
         index("idx_project_v2_created_at").on(table.createdAt),
         index("idx_project_v2_slug").on(table.slug),
@@ -303,6 +310,10 @@ export const projectV2Tasks = pgTable(
         testingGuidelines: text("testing_guidelines").array().notNull().default([]),
         learns: jsonb("learns"),
         assessmentType: taskAssessmentTypeEnum("assessment_type").notNull().default("QUIZ"),
+        // The test file that checks this task in the workspace, e.g.
+        // "/tests/s1-t2.test.ts" (plan/project-workspace WS-5). Null: no test,
+        // the task is ticked by hand. Copied with the task on enrolment.
+        testPath: text("test_path"),
         projectV2Id: text("project_v2_id").references(() => projectsV2.id),
         createdBy: text("created_by"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -413,6 +424,81 @@ export const projectV2KnowledgeBases = pgTable(
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().$onUpdateFn(() => new Date()),
     },
+);
+
+/*
+ * A project's code, one row per file (plan/project-workspace WS-1).
+ *
+ * Per project, so each enrolee's copy (PJ-18) has its own files. Text in a
+ * column, not R2: source files are small, read together, and saved as the user
+ * types; R2 is for images and uploads. Limits live in
+ * plan/project-workspace/overview.md and `apps/main/lib/projects/workspace.ts`.
+ */
+export const projectV2Files = pgTable(
+    "project_v2_file",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        projectId: text("project_id").notNull().references(() => projectsV2.id, { onDelete: "cascade" }),
+        // Normalised, with a leading slash: "/src/App.tsx".
+        path: text("path").notNull(),
+        content: text("content").notNull().default(""),
+        // Provided files the user must not edit, such as a task's tests.
+        isReadonly: boolean("is_readonly").notNull().default(false),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow().$onUpdateFn(() => new Date()),
+    },
+    (table) => [
+        uniqueIndex("uq_project_v2_file_project_path").on(table.projectId, table.path),
+    ],
+);
+
+/*
+ * The files as they stood when the project was published (plan/projects PJ-18,
+ * Niraj 2026-09-23: "freeze files at publish"). Enrolling copies from HERE, not
+ * from `project_v2_file`, so the owner's later code stays theirs - the same rule
+ * `published_at` applies to sprints and tasks.
+ */
+export const projectV2PublishedFiles = pgTable(
+    "project_v2_published_file",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        projectId: text("project_id").notNull().references(() => projectsV2.id, { onDelete: "cascade" }),
+        path: text("path").notNull(),
+        content: text("content").notNull().default(""),
+        isReadonly: boolean("is_readonly").notNull().default(false),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("uq_project_v2_published_file_project_path").on(table.projectId, table.path),
+    ],
+);
+
+/*
+ * The Project AI's conversation (plan/project-workspace WS-15), one row per
+ * message, per project copy. An assistant message may carry a PROPOSED change
+ * (a task or a sprint) that nothing is written for until the owner presses Add;
+ * `proposal_status` records that decision, so a proposal can be applied once.
+ */
+export const projectAiMessages = pgTable(
+    "project_ai_message",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        projectId: text("project_id").notNull().references(() => projectsV2.id, { onDelete: "cascade" }),
+        userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        role: text("role").notNull(), // "user" | "assistant"
+        content: text("content").notNull(),
+        // The task the learner was on when they asked; context for the reply.
+        taskId: text("task_id"),
+        // { kind: "task", ... } | { kind: "sprint", ... } - see project-ai.action.ts.
+        proposal: jsonb("proposal"),
+        proposalStatus: text("proposal_status"), // null | "pending" | "added" | "discarded"
+        // The job that wrote an assistant message, or answers a user one.
+        jobId: text("job_id"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        index("idx_project_ai_message_project_created").on(table.projectId, table.createdAt),
+    ],
 );
 
 export const projectV2Submissions = pgTable(
@@ -1080,4 +1166,100 @@ export const projectV2GuidedSessionsRelations = relations(projectV2GuidedSession
         references: [projectsV2.id],
         relationName: "ProjectGuidedSessions",
     }),
-}));
+}));/** One question of a sprint quiz, as stored (plan/project-workspace WS-12). */
+export interface SprintQuizQuestion {
+    prompt: string
+    /** Exactly four. */
+    options: string[]
+    /** 0-3. Never sent to the browser before the learner answers. */
+    correctAnswer: number
+    explanation: string
+    /** The task the question is about, when it is about one. */
+    taskId: string | null
+}
+
+/**
+ * A sprint's quiz (plan/project-workspace WS-12): generated once per sprint of
+ * a learner's own project (a copy is one learner's), when every task in that
+ * sprint is done. Its own table rather than `project_v2_quiz`, which holds ONE
+ * quiz per project - the final one - and is read that way in several places.
+ */
+export const projectV2SprintQuizzes = pgTable(
+    "project_v2_sprint_quiz",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        projectId: text("project_id").notNull().references(() => projectsV2.id, { onDelete: "cascade" }),
+        /** Null = the project's FINAL quiz (WS-14), which covers every sprint. */
+        sprintId: text("sprint_id").unique().references(() => projectV2Sprints.id, { onDelete: "cascade" }),
+        questions: jsonb("questions").$type<SprintQuizQuestion[]>().notNull(),
+        jobId: text("job_id"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        index("idx_project_v2_sprint_quiz_project_id").on(table.projectId),
+        // One final quiz per project (a plain unique lets many NULLs through).
+        uniqueIndex("uq_project_v2_sprint_quiz_final").on(table.projectId).where(sql`sprint_id is null`),
+    ],
+);
+
+/** Every finished attempt at a sprint quiz; a retake adds a row, history is kept. */
+export const projectV2SprintQuizAttempts = pgTable(
+    "project_v2_sprint_quiz_attempt",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        quizId: text("quiz_id").notNull().references(() => projectV2SprintQuizzes.id, { onDelete: "cascade" }),
+        userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        /** The option chosen per question, in question order; -1 = skipped. */
+        answers: jsonb("answers").$type<number[]>().notNull(),
+        correct: integer("correct").notNull(),
+        total: integer("total").notNull(),
+        /** 0-100. */
+        score: integer("score").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [index("idx_project_v2_sprint_quiz_attempt_quiz_user").on(table.quizId, table.userId, table.createdAt)],
+);
+
+/** One line of a sprint mock interview (plan/project-workspace WS-13). */
+export interface SprintMockTurn {
+    role: "interviewer" | "learner"
+    text: string
+    at: string
+    /** The job that wrote an interviewer line, so a re-run does not write it twice. */
+    jobId?: string
+}
+
+/** What the interviewer concluded when the session ended. */
+export interface SprintMockFeedback {
+    /** 0-100. */
+    score: number
+    summary: string
+    strengths: string[]
+    gaps: string[]
+    nextSteps: string[]
+}
+
+/**
+ * A sprint mock interview session (plan/project-workspace WS-13): 30 credits a
+ * session, open when every task in the sprint is done, typed or dictated. The
+ * transcript is kept as it grows, so leaving mid-session loses nothing.
+ * status: opening -> active -> ended (feedback written) | failed.
+ */
+export const projectV2SprintMockSessions = pgTable(
+    "project_v2_sprint_mock_session",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        projectId: text("project_id").notNull().references(() => projectsV2.id, { onDelete: "cascade" }),
+        /** Null = the project's FINAL mock interview (WS-14), about every sprint. */
+        sprintId: text("sprint_id").references(() => projectV2Sprints.id, { onDelete: "cascade" }),
+        userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        status: text("status").notNull().default("opening"),
+        transcript: jsonb("transcript").$type<SprintMockTurn[]>().notNull().default([]),
+        feedback: jsonb("feedback").$type<SprintMockFeedback | null>(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        endedAt: timestamp("ended_at"),
+    },
+    (table) => [index("idx_project_v2_sprint_mock_session_sprint_user").on(table.sprintId, table.userId, table.createdAt)],
+);
+
+

@@ -11,15 +11,8 @@
  * led to a page that would have let you in (plan/projects, PJ-12).
  *
  * One helper, one comparison, used by the board, the detail page and both routes.
+ * The numbers now live in `@repo/db/project-gates` (2026-09-24), so the worker
+ * re-checks the same ones when it generates a final quiz or mock.
  */
 
-export const QUIZ_UNLOCK_PERCENT = 50
-export const MOCK_UNLOCK_PERCENT = 75
-
-/** The quiz is open from 50 percent of the project's tasks, inclusive. */
-export const quizUnlocked = (progressPercentage: number): boolean =>
-    progressPercentage >= QUIZ_UNLOCK_PERCENT
-
-/** The mock interview is open from 75 percent, inclusive. */
-export const mockUnlocked = (progressPercentage: number): boolean =>
-    progressPercentage >= MOCK_UNLOCK_PERCENT
+export { MOCK_UNLOCK_PERCENT, QUIZ_UNLOCK_PERCENT, mockUnlocked, quizUnlocked } from '@repo/db/project-gates'

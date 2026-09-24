@@ -37,7 +37,6 @@
 		"recharts": "^3.6.0",
 		"remark-gfm": "^4.0.1",
 		"resend": "^6.6.0",
-		"sonner": "^2.0.3",
 		"tailwind-merge": "^2.6.0",
 		"zustand": "^5.0.9"
 	},

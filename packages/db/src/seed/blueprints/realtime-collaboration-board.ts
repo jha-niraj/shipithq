@@ -12,22 +12,22 @@ const sprints: SeedSprint[] = [
         duration: "1 week",
         tasks: [
             {
-                title: "Scaffold the app and the board route",
+                title: "Add the board route",
                 description: [
-                    "Start a Next.js app in TypeScript with strict mode on, and add a route for a single board at a URL that carries the board id. For now the page can render nothing but the board id it was given.",
-                    "This is the boring task that decides how painful the next nineteen are. Turn on strict TypeScript now, not later: the CRDT work in sprint 3 is full of shapes that look interchangeable and are not.",
+                    "Add a route for a single board at a URL that carries the board id. For now the page can render nothing but the id it was given.",
+                    "Keep TypeScript strict, as Setup left it: the CRDT work in sprint 3 is full of shapes that look interchangeable and are not.",
                 ],
                 criteria: [
-                    "Visiting /board/abc renders a page that displays the id abc, read from the route and not hardcoded.",
-                    "npx tsc --noEmit passes with strict: true in tsconfig.json.",
-                    "An unknown route still renders a not-found page rather than an unhandled error.",
+                    "Visiting /board/abc renders a page that displays the id abc, read from the route and not hardcoded",
+                    "`npx tsc --noEmit` passes with strict mode on",
+                    "An unknown route still renders a not-found page rather than an unhandled error",
                 ],
                 hints: [
                     "Decide early whether the board canvas is a client component or a server one, because everything realtime has to live on the client side of that line.",
                 ],
                 difficulty: "BEGINNER",
-                estimatedTime: "1 hour",
-                category: "setup",
+                estimatedTime: "30 minutes",
+                category: "frontend",
             },
             {
                 title: "Model boards, notes and strokes in PostgreSQL",

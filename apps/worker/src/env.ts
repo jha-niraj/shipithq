@@ -32,6 +32,9 @@ export const JOB_BINDINGS = {
 	practice_tests_generate: "PRACTICE_TESTS_GENERATE",
 	practice_memory_update: "PRACTICE_MEMORY_UPDATE",
 	practice_reflect: "PRACTICE_REFLECT",
+	project_ai: "PROJECT_AI",
+	sprint_quiz: "SPRINT_QUIZ",
+	sprint_mock: "SPRINT_MOCK",
 } as const satisfies Partial<Record<JobType, string>>
 
 export type RunnableJobType = keyof typeof JOB_BINDINGS

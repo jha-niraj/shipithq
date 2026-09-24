@@ -1,0 +1,1 @@
+ALTER TABLE "project_v2_task" ADD COLUMN "test_path" text;

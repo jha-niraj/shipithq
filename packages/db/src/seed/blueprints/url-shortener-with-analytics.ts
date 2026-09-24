@@ -12,22 +12,22 @@ const sprints: SeedSprint[] = [
         duration: "1 week",
         tasks: [
             {
-                title: "Run a Node service against Postgres and Redis",
+                title: "Fail loudly at boot",
                 description: [
-                    "Get a Node service, a Postgres instance and a Redis instance running together with one command, and have the service connect to both at boot.",
-                    "Redis has nothing to do yet. It is here from the start so that sprint two is a change of behaviour rather than a change of infrastructure."
+                    "Setup gave the service a /health endpoint that reports Postgres and Redis. Now make startup itself strict: check both connections before the server starts listening, and exit if a required one is not there.",
+                    "Redis has nothing to do yet. It is here from the start so that sprint two is a change of behaviour rather than a change of infrastructure.",
                 ],
                 criteria: [
-                    "One command starts Postgres and Redis and the service connects to both during startup",
-                    "A health endpoint returns 200 and reports the state of each connection",
-                    "The service exits with a non-zero code if a required connection fails at startup rather than serving requests that will fail"
+                    "The service checks Postgres and Redis before it listens, and logs which one failed",
+                    "It exits with a non-zero code when a required connection fails at startup, rather than serving requests that will fail",
+                    "/health still answers 200 with both ok when everything is up",
                 ],
                 hints: [
-                    "Failing loudly at boot beats failing on the first request; the health endpoint is there to report, not to repair."
+                    "Failing loudly at boot beats failing on the first request; the health endpoint is there to report, not to repair.",
                 ],
                 difficulty: "BEGINNER",
-                estimatedTime: "45 minutes",
-                category: "setup"
+                estimatedTime: "30 minutes",
+                category: "backend",
             },
             {
                 title: "Design the links table",

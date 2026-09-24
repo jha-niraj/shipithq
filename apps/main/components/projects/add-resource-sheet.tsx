@@ -13,7 +13,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@repo/ui/components/ui/select'
 import {
-    Plus, Youtube, FileText, BookOpen, GraduationCap, MessageCircle,
+    Plus, Youtube, FileText, BookOpen, GraduationCap, MessageCircle, Video, Newspaper,
     Wrench, Palette, Sparkles, Github
 } from 'lucide-react'
 import toast from '@repo/ui/components/ui/sonner'
@@ -22,18 +22,26 @@ import { useRouter } from 'next/navigation'
 import { ResourceType } from '@repo/db'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 
+/*
+ * One neutral ink for every type, in both themes (2026-09-24). These were
+ * `text-neutral-800`, dark on the dark menu, so the icon on a highlighted row
+ * (neutral-800 too) vanished outright - "Course" looked iconless. YouTube red
+ * and Design pink broke the monochrome palette as well.
+ */
+const ICON = 'text-neutral-600 dark:text-neutral-400'
+
 const RESOURCE_TYPES = [
-    { value: 'YOUTUBE_VIDEO', label: 'YouTube Video', icon: Youtube, color: 'text-red-600' },
-    { value: 'VIDEO', label: 'Video', icon: FileText, color: 'text-neutral-800' },
-    { value: 'DOCUMENTATION', label: 'Documentation', icon: BookOpen, color: 'text-neutral-800' },
-    { value: 'BLOG_ARTICLE', label: 'Blog Article', icon: FileText, color: 'text-neutral-800' },
-    { value: 'COURSE', label: 'Course', icon: GraduationCap, color: 'text-neutral-800' },
-    { value: 'DISCORD_COMMUNITY', label: 'Discord/Community', icon: MessageCircle, color: 'text-neutral-800' },
-    { value: 'TOOL_RECOMMENDATION', label: 'Tool Recommendation', icon: Wrench, color: 'text-neutral-800' },
-    { value: 'DESIGN_MOCKUP', label: 'Design Mockup', icon: Palette, color: 'text-pink-600' },
-    { value: 'DESIGN_INSPIRATION', label: 'Design Inspiration', icon: Sparkles, color: 'text-neutral-800' },
-    { value: 'GITHUB_REPO', label: 'GitHub Repository', icon: Github, color: 'text-gray-600' },
-    { value: 'OTHER', label: 'Other', icon: FileText, color: 'text-neutral-600 dark:text-neutral-400' },
+    { value: 'YOUTUBE_VIDEO', label: 'YouTube Video', icon: Youtube, color: ICON },
+    { value: 'VIDEO', label: 'Video', icon: Video, color: ICON },
+    { value: 'DOCUMENTATION', label: 'Documentation', icon: BookOpen, color: ICON },
+    { value: 'BLOG_ARTICLE', label: 'Blog Article', icon: Newspaper, color: ICON },
+    { value: 'COURSE', label: 'Course', icon: GraduationCap, color: ICON },
+    { value: 'DISCORD_COMMUNITY', label: 'Discord/Community', icon: MessageCircle, color: ICON },
+    { value: 'TOOL_RECOMMENDATION', label: 'Tool Recommendation', icon: Wrench, color: ICON },
+    { value: 'DESIGN_MOCKUP', label: 'Design Mockup', icon: Palette, color: ICON },
+    { value: 'DESIGN_INSPIRATION', label: 'Design Inspiration', icon: Sparkles, color: ICON },
+    { value: 'GITHUB_REPO', label: 'GitHub Repository', icon: Github, color: ICON },
+    { value: 'OTHER', label: 'Other', icon: FileText, color: ICON },
 ]
 
 interface AddResourceSheetProps {

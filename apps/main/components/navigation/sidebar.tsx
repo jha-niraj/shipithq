@@ -13,6 +13,7 @@ import { cn } from "@repo/ui/lib/utils"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { Logo } from "@repo/ui/components/logo"
 import { ThemeToggle } from "@repo/ui/components/themetoggle"
+import { SoundToggle } from "@repo/ui/components/ui/sounds"
 import { AIGlyph } from "@repo/ui/components/ui/ai-mark"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
@@ -536,8 +537,10 @@ export default function Sidebar({ primary }: { primary?: NavigationItem[] } = {}
 
                 {/* Theme and notifications */}
                 <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
-                    <div className="cursor-pointer px-1">
+                    <div className="flex cursor-pointer items-center gap-1 px-1">
                         <ThemeToggle />
+                        {/* Interface sounds, on by default (plan/ui-sounds). */}
+                        <SoundToggle />
                     </div>
                     <NotificationsPanel enabled={Boolean(userId)} />
                 </div>

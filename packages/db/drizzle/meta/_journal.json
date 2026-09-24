@@ -169,6 +169,62 @@
       "when": 1790186283862,
       "tag": "0023_project_fork_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790187247264,
+      "tag": "0024_project_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790187450518,
+      "tag": "0025_project_published_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790194196479,
+      "tag": "0026_project_runtime",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790195014245,
+      "tag": "0027_task_test_path",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790195469243,
+      "tag": "0028_project_ai_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790242838811,
+      "tag": "0029_sprint_quiz",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790243519958,
+      "tag": "0030_sprint_mock",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790245411805,
+      "tag": "0031_final_quiz_mock",
+      "breakpoints": true
     }
   ]
 }

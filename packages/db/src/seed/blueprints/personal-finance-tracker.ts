@@ -13,23 +13,23 @@ const sprints: SeedSprint[] = [
         duration: "1 week",
         tasks: [
             {
-                title: "Stand up the app and a Postgres database",
+                title: "Put the first table behind a page",
                 description: [
-                    "Create the Next.js app and point it at a Postgres database you can reach from your machine. Add one table and one page that reads from it, so you have proof the whole chain works before there is anything interesting in it.",
-                    "The point of this task is to find the connection problems now, while there is nothing to lose, rather than in the middle of the import work."
+                    "Your app already reaches its database (Setup). Add one table with a migration and one page at /transactions that reads from it, so the whole chain - migration, row, query, page - works before there is anything interesting in it.",
+                    "The point is to find the problems now, while there is nothing to lose, rather than in the middle of the import work.",
                 ],
                 criteria: [
-                    "A page at /transactions renders a row that was inserted into Postgres by hand, not hard coded in the component.",
-                    "Stopping and restarting the dev server still shows the row, so the data is in the database and not in memory.",
-                    "The connection string lives in an environment file that is not committed."
+                    "A migration creates a transactions table and applies to an empty database",
+                    "A page at /transactions renders a row inserted into Postgres by hand, not hardcoded in the component",
+                    "Stopping and restarting the dev server still shows the row, so the data is in the database and not in memory",
                 ],
                 hints: [
-                    "Decide early whether queries run on the server or in a route handler, because it changes where the connection string is allowed to be read.",
-                    "A hosted Postgres with a free tier saves you a local install, but check whether it limits concurrent connections."
+                    "Decide early whether queries run in server components or route handlers; it changes where the connection string may be read.",
+                    "Neon's free plan limits connections - worth knowing before a hot-reloading dev server opens a new one per save.",
                 ],
                 difficulty: "BEGINNER",
                 estimatedTime: "45 minutes",
-                category: "setup"
+                category: "data",
             },
             {
                 title: "Model an account, an import and a transaction",

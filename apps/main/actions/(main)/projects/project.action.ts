@@ -11,6 +11,8 @@ import {
     projectV2Sprints,
     projectV2TaskDetails,
     projectV2KnowledgeBases,
+    projectV2Files,
+    projectV2PublishedFiles,
     userProjectV2Progress,
     userTaskV2Statuses,
     projectV2Quizzes,
@@ -21,10 +23,13 @@ import {
     withTransaction
 } from "@repo/db";
 import { eq, and, sql, type SQL } from "drizzle-orm";
+import { catalogueWhere } from '@/lib/projects/catalogue'
 import { revalidatePath } from "next/cache";
 import { toErrorMessage } from "@/lib/errors"
 import { debitCredits, insufficientCreditsMessage } from '@/lib/credits/debit'
 import { ENROLL_CREDIT_COST } from '@/lib/credits/pricing'
+import { isSetupSprint } from '@/lib/projects/sprints'
+import { taskNoteProblem } from '@/lib/projects/task-notes'
 
 interface ActionResponse {
     success: boolean;
@@ -425,7 +430,9 @@ export async function getProjectTasks(slug: string): Promise<ActionResponse> {
 
 export async function updateTaskStatus(
     taskId: string,
-    newStatus: "TO_DO" | "IN_PROGRESS" | "COMPLETED"
+    newStatus: "TO_DO" | "IN_PROGRESS" | "COMPLETED",
+    /** What the learner built or decided; required to mark a sprint task done (RP-6). */
+    note?: string
 ): Promise<ActionResponse> {
     try {
         const user = await getCurrentUser();
@@ -434,13 +441,19 @@ export async function updateTaskStatus(
             where: eq(projectV2Tasks.id, taskId),
             with: {
                 sprint: {
-                    columns: { projectId: true },
+                    columns: { projectId: true, sprintNumber: true },
                 },
             },
         });
 
         if (!task || !task.sprint) {
             return { success: false, error: "Task not found" };
+        }
+
+        const cleanNote = note === undefined ? undefined : note.trim();
+        if (cleanNote !== undefined && cleanNote !== "") {
+            const problem = taskNoteProblem(cleanNote);
+            if (problem) return { success: false, error: problem };
         }
 
         const projectId = task.sprint.projectId;
@@ -458,11 +471,20 @@ export async function updateTaskStatus(
             where: and(eq(userTaskV2Statuses.userId, user.id), eq(userTaskV2Statuses.taskId, taskId)),
         });
 
+        // Done means you can say what you did (plan/project-repos RP-6), except
+        // for Setup, where there is nothing to decide.
+        const noteAfter = cleanNote || existingStatus?.notes?.trim() || "";
+        if (newStatus === "COMPLETED" && !isSetupSprint(task.sprint.sprintNumber) && !noteAfter) {
+            return { success: false, error: "Write a line or two on what you built before marking it done." };
+        }
+
         if (existingStatus) {
             await db.update(userTaskV2Statuses)
                 .set({
                     status: newStatus,
                     completedAt: newStatus === "COMPLETED" ? new Date() : null,
+                    // Un-marking keeps the note; only a new one replaces it.
+                    ...(cleanNote ? { notes: cleanNote } : {}),
                 })
                 .where(eq(userTaskV2Statuses.id, existingStatus.id));
         } else {
@@ -473,6 +495,7 @@ export async function updateTaskStatus(
                 progressId: progress.id,
                 status: newStatus,
                 completedAt: newStatus === "COMPLETED" ? new Date() : null,
+                notes: cleanNote || null,
             });
         }
 
@@ -530,6 +553,44 @@ export async function updateTaskStatus(
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return { success: false, error: errorMessage };
+    }
+}
+
+/**
+ * Edit the note on a task (plan/project-repos RP-6). The learner's own status
+ * row only; a task never touched has no row to hold a note, so it is created.
+ */
+export async function saveTaskNote(taskId: string, note: string): Promise<{ success: true; data: { note: string } } | { success: false; error: string }> {
+    try {
+        const user = await getCurrentUser();
+        const clean = note.trim();
+        const problem = taskNoteProblem(clean);
+        if (problem) return { success: false, error: problem };
+
+        const task = await db.query.projectV2Tasks.findFirst({
+            where: eq(projectV2Tasks.id, taskId),
+            with: { sprint: { columns: { projectId: true } } },
+        });
+        if (!task?.sprint) return { success: false, error: "Task not found" };
+        const projectId = task.sprint.projectId;
+
+        const progress = await db.query.userProjectV2Progress.findFirst({
+            where: and(eq(userProjectV2Progress.userId, user.id), eq(userProjectV2Progress.projectId, projectId)),
+            columns: { id: true },
+        });
+        if (!progress) return { success: false, error: "Start the project first" };
+
+        const updated = await db.update(userTaskV2Statuses)
+            .set({ notes: clean })
+            .where(and(eq(userTaskV2Statuses.userId, user.id), eq(userTaskV2Statuses.taskId, taskId)))
+            .returning({ id: userTaskV2Statuses.id });
+        if (updated.length === 0) {
+            await db.insert(userTaskV2Statuses).values({ userId: user.id, projectId, taskId, progressId: progress.id, status: "TO_DO", notes: clean });
+        }
+        return { success: true, data: { note: clean } };
+    } catch (error: unknown) {
+        console.error("saveTaskNote:", error);
+        return { success: false, error: "Could not save the note" };
     }
 }
 
@@ -835,7 +896,7 @@ export async function deleteProject(projectId: string): Promise<ActionResponse> 
 export async function getPublicProjects(limit: number = 9): Promise<ActionResponse> {
     try {
         const projects = await db.query.projectsV2.findMany({
-            where: eq(projectsV2.visibility, 'PUBLIC'),
+            where: catalogueWhere(),
             columns: {
                 id: true,
                 slug: true,
@@ -898,7 +959,7 @@ export async function getAllPublicProjects(options?: {
 
         const skip = (page - 1) * limit;
 
-        const conditions: SQL[] = [eq(projectsV2.visibility, 'PUBLIC')];
+        const conditions: SQL[] = [catalogueWhere()];
 
         if (difficulty && difficulty !== 'ALL') {
             conditions.push(eq(projectsV2.difficulty, difficulty as "BEGINNER" | "INTERMEDIATE" | "ADVANCED"));
@@ -1299,7 +1360,17 @@ export async function enrollInProject(projectId: string): Promise<ActionResponse
                 await tx.insert(projectV2KnowledgeBases).values({ ...kb, projectId: copyId });
             }
 
-            // 5. Progress on the copy, and a status row per task.
+            // 5. The code (plan/project-workspace WS-1), from the snapshot taken when
+            // the project was published - not the owner's live files, which may
+            // have moved on since (Niraj, 2026-09-23: "freeze files at publish").
+            const files = await tx.select({ path: projectV2PublishedFiles.path, content: projectV2PublishedFiles.content, isReadonly: projectV2PublishedFiles.isReadonly })
+                .from(projectV2PublishedFiles)
+                .where(eq(projectV2PublishedFiles.projectId, projectId));
+            if (files.length > 0) {
+                await tx.insert(projectV2Files).values(files.map((f) => ({ ...f, projectId: copyId })));
+            }
+
+            // 6. Progress on the copy, and a status row per task.
             const [progress] = await tx.insert(userProjectV2Progress).values({
                 userId: user.id,
                 projectId: copyId,
@@ -1317,7 +1388,7 @@ export async function enrollInProject(projectId: string): Promise<ActionResponse
                 })));
             }
 
-            // 6. The original counts one more start.
+            // 7. The original counts one more start.
             await tx.update(projectsV2).set({ totalStarted: sql`${projectsV2.totalStarted} + 1` }).where(eq(projectsV2.id, projectId));
 
             return progress!;
@@ -1370,12 +1441,27 @@ export async function publishProject(projectId: string): Promise<ActionResponse>
         if (project.forkedFromId) return { success: false, error: "A copy of someone else's project cannot be published." };
         if (project.visibility === "PUBLIC") return { success: false, error: "This project is already public." };
 
-        // Guarded on PRIVATE so a double click cannot move `published_at` forward.
-        const updated = await db.update(projectsV2)
-            .set({ visibility: "PUBLIC", publishedAt: new Date() })
-            .where(and(eq(projectsV2.id, projectId), eq(projectsV2.visibility, "PRIVATE")))
-            .returning({ id: projectsV2.id });
-        if (updated.length === 0) return { success: false, error: "This project is already public." };
+        // One transaction: the visibility flip and the file snapshot land together
+        // or not at all. Guarded on PRIVATE so a double click cannot move
+        // `published_at` forward or snapshot twice.
+        const published = await withTransaction(async (tx) => {
+            const updated = await tx.update(projectsV2)
+                .set({ visibility: "PUBLIC", publishedAt: new Date() })
+                .where(and(eq(projectsV2.id, projectId), eq(projectsV2.visibility, "PRIVATE")))
+                .returning({ id: projectsV2.id });
+            if (updated.length === 0) return false;
+
+            // Freeze the code as it is now; copies are made from this.
+            const files = await tx.select({ path: projectV2Files.path, content: projectV2Files.content, isReadonly: projectV2Files.isReadonly })
+                .from(projectV2Files)
+                .where(eq(projectV2Files.projectId, projectId));
+            await tx.delete(projectV2PublishedFiles).where(eq(projectV2PublishedFiles.projectId, projectId));
+            if (files.length > 0) {
+                await tx.insert(projectV2PublishedFiles).values(files.map((f) => ({ ...f, projectId })));
+            }
+            return true;
+        });
+        if (!published) return { success: false, error: "This project is already public." };
 
         revalidatePath('/projects');
         revalidatePath(`/projects/${project.slug}`);

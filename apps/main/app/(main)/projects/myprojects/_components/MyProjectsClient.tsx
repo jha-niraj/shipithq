@@ -421,7 +421,7 @@ export default function MyProjectsPage({ embedded = false }: { embedded?: boolea
 											</button>
 										) : (
 											<div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-												<Link href="/projects/explore?tab=ideas">
+												<Link href="/projects/explore?tab=browse">
 													<Button size="sm" variant="outline">Browse ideas</Button>
 												</Link>
 												<Button size="sm" onClick={() => setGenerateOpen(true)}>

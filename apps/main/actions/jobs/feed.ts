@@ -14,6 +14,7 @@ import {
     projectsV2,
 } from "@repo/db"
 import { eq, and, inArray, desc, count, ilike } from "drizzle-orm"
+import { catalogueWhere } from '@/lib/projects/catalogue'
 
 // Types for the feed
 export interface FeedJobResult {
@@ -665,7 +666,7 @@ export async function getSkillGapForJob(jobId: string): Promise<{
         for (const skill of missingRequired.slice(0, 3)) {
             const project = await db.query.projectsV2.findFirst({
                 where: and(
-                    eq(projectsV2.visibility, "PUBLIC"),
+                    catalogueWhere(),
                     ilike(projectsV2.title, `%${skill}%`)
                 ),
                 columns: {

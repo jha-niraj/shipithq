@@ -71,6 +71,15 @@ export const JOB_TYPES = [
     "practice_tests_generate",
     "practice_memory_update",
     "practice_reflect",
+    // The workspace's Project AI (plan/project-workspace WS-15): one reply per
+    // message - an answer, a question back, or a proposed task or sprint.
+    "project_ai",
+    // A sprint's quiz (plan/project-workspace WS-12): ten questions from the
+    // sprint's tasks and the learner's own notes on them.
+    "sprint_quiz",
+    // A sprint's mock interview (plan/project-workspace WS-13): one job type,
+    // three steps - open (holds the session's credits), each turn, feedback.
+    "sprint_mock",
 ] as const;
 
 export type JobType = (typeof JOB_TYPES)[number];

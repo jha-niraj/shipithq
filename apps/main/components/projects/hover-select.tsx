@@ -89,7 +89,9 @@ export function HoverSelect<T extends string>({ value, onValueChange, options, a
                 align="start"
                 onPointerEnter={enter}
                 onPointerLeave={leave}
-                className="max-h-80 overflow-y-auto"
+                // The menu is exactly as wide as its trigger (Niraj, 2026-09-24),
+                // so the two read as one control rather than a box and a stray list.
+                className="max-h-80 w-[var(--radix-dropdown-menu-trigger-width)] min-w-0 overflow-y-auto"
             >
                 <DropdownMenuRadioGroup value={value} onValueChange={(v) => onValueChange(v as T)}>
                     {

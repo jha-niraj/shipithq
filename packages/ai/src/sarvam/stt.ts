@@ -25,8 +25,15 @@ export async function transcribe(input: {
     if (input.audio.size === 0) return { success: true, text: "" }
     if (input.audio.size > MAX_CLIP_BYTES) return { success: false, error: "That recording is too long." }
 
+    // Chrome records `audio/webm;codecs=opus`, and Sarvam rejects any type with
+    // parameters (400 "Invalid file type"), while the same bytes labelled
+    // `audio/webm` transcribe. Checked against the live API on 2026-09-24:
+    // every dictation from Chrome was failing with a 502 from our route.
+    const baseType = input.audio.type.split(";")[0]?.trim() || "application/octet-stream"
+    const audio = baseType === input.audio.type ? input.audio : input.audio.slice(0, input.audio.size, baseType)
+
     const form = new FormData()
-    form.append("file", input.audio, input.filename ?? "speech.webm")
+    form.append("file", audio, input.filename ?? "speech.webm")
     form.append("model", SARVAM_STT_MODEL)
     form.append("language_code", input.languageCode ?? SARVAM_LANGUAGE)
 

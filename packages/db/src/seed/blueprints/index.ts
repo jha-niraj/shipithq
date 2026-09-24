@@ -31,4 +31,5 @@ export const BLUEPRINTS: Record<string, SeedSprint[]> = {
     "rate-limiter-service": rateLimiterService,
 }
 
+export { SETUPS } from "./setup"
 export type { SeedSprint, SeedTask, SeedDifficulty } from "./types"

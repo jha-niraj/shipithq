@@ -15,7 +15,7 @@
 import { and, eq, inArray } from "drizzle-orm"
 import {
     db, users, creditHolds, creditTransactions, projectsV2, projectV2Sprints, projectV2Tasks,
-    projectV2KnowledgeBases, projectV2MockSessions, userProjectV2Progress,
+    userProjectV2Progress,
 } from "@repo/db"
 
 {
@@ -134,60 +134,10 @@ try {
     check("the project's progress moved", (progressRow?.tasksCompleted ?? 0) === 1, `tasksCompleted=${progressRow?.tasksCompleted}`)
     check("the percentage moved with it", (progressRow?.progressPercentage ?? 0) > 0, `${progressRow?.progressPercentage}`)
 
-    // ── Every sprint's completion status in one call ───────────────────────────
-    const { getSprintCompletionStatuses } = await import("@/actions/(main)/projects/projectassessments.action")
-    const statuses = await getSprintCompletionStatuses(projectId)
-    check("one call returns a status for every sprint", statuses.success && Object.keys(statuses.data ?? {}).length === sprints.length, `${Object.keys(statuses.data ?? {}).length} of ${sprints.length}`)
-    const highest = Math.max(...sprints.map((s) => s.sprintNumber))
-    const lastSprintId = sprints.find((s) => s.sprintNumber === highest)!.id
-    check("the last sprint needs no mock interview", statuses.data?.[lastSprintId]?.mockStatus.required === false)
-    const firstSprintId = sprints.find((s) => s.sprintNumber === 1)!.id
-    check("an earlier sprint does need one", statuses.data?.[firstSprintId]?.mockStatus.required === true)
-
-    // ── The mock interview hold ───────────────────────────────────────────────
-    await db.insert(projectV2KnowledgeBases).values({ projectId, mockKnowledgeBase: "Ask about the project." } as typeof projectV2KnowledgeBases.$inferInsert)
-    const {
-        createProjectMockSession, abandonProjectMockSession,
-        updateProjectMockSessionStatus, getProjectMockAttempts,
-    } = await import("@/actions/(main)/projects/projectv2-mock.action")
-
-    const creditsOf = async (id: string) => (await db.select({ credits: users.credits }).from(users).where(eq(users.id, id)))[0]!.credits
-    const before = await creditsOf(ownerId)
-    const created = await createProjectMockSession(project!.slug)
-    check("a mock session is created", created.success === true, created.error ?? "")
-    const afterCreate = await creditsOf(ownerId)
-    check("creating it charges 30 credits", before - afterCreate === 30, `${before} -> ${afterCreate}`)
-
-    const abandoned = await abandonProjectMockSession(created.sessionId!)
-    check("abandoning a call that recorded nothing refunds it", abandoned.success && abandoned.refunded === 30, `refunded=${abandoned.refunded}`)
-    check("the credits are actually back", await creditsOf(ownerId) === before)
-    const [cancelled] = await db.select({ status: projectV2MockSessions.status }).from(projectV2MockSessions).where(eq(projectV2MockSessions.id, created.sessionId!))
-    check("the session is CANCELLED, not left in progress", cancelled?.status === "CANCELLED", cancelled?.status)
-
-    const again = await abandonProjectMockSession(created.sessionId!)
-    check("abandoning twice refunds nothing the second time", again.success && again.refunded === 0, `refunded=${again.refunded}`)
-    check("the balance did not move again", await creditsOf(ownerId) === before)
-
-    // A call that connected keeps its charge.
-    const connected = await createProjectMockSession(project!.slug)
-    await updateProjectMockSessionStatus(connected.sessionId!, "IN_PROGRESS", "conv-test-1")
-    const keptBefore = await creditsOf(ownerId)
-    const keptResult = await abandonProjectMockSession(connected.sessionId!)
-    check("a call that connected is not refunded", keptResult.success && keptResult.refunded === 0, `refunded=${keptResult.refunded}`)
-    check("its charge stands", await creditsOf(ownerId) === keptBefore)
-    const [settled] = await db.select({ status: creditHolds.status }).from(creditHolds).where(eq(creditHolds.holdId, `mock-${connected.sessionId}`))
-    check("its hold is settled rather than left open", settled?.status === "settled", settled?.status)
-
-    // ── The stale sweep ───────────────────────────────────────────────────────
-    const stale = await createProjectMockSession(project!.slug)
-    await db.update(projectV2MockSessions)
-        .set({ status: "IN_PROGRESS", createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) })
-        .where(eq(projectV2MockSessions.id, stale.sessionId!))
-    const beforeSweep = await creditsOf(ownerId)
-    await getProjectMockAttempts(project!.slug)
-    const [sweptRow] = await db.select({ status: projectV2MockSessions.status }).from(projectV2MockSessions).where(eq(projectV2MockSessions.id, stale.sessionId!))
-    check("a session left hanging for two hours is closed", sweptRow?.status === "CANCELLED", sweptRow?.status)
-    check("and refunded, because it recorded nothing", await creditsOf(ownerId) === beforeSweep + 30, `${beforeSweep} -> ${await creditsOf(ownerId)}`)
+    // The sprint-completion call and the old mock interview's credit hold were
+    // checked here until 2026-09-24, when their actions were deleted: sprint and
+    // final quizzes and mock interviews moved to worker jobs whose credits are
+    // held and settled by the job system (plan/project-workspace WS-12..14).
 } catch (e: unknown) {
     fail++
     console.log("ERROR", e)

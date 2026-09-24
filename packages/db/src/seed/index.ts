@@ -36,12 +36,15 @@
  * asked would put rows in their account that they did not create.
  */
 
-import { db } from "../client";
+import { db, withTransaction } from "../client";
+import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
 import { practiceProblem } from "../schema/practice";
 import { DSA_CATALOGUE, SEEDED_SORT_ORDER_FLOOR } from "./practice-dsa";
 import { PROJECT_IDEAS } from "./project-ideas";
-import { BLUEPRINTS } from "./blueprints";
-import { projectIdeas, projectV2Sprints, projectV2Tasks, userProjectV2Progress } from "../schema/projects";
+import { BLUEPRINTS, SETUPS } from "./blueprints";
+import { applySetupSprints, insertSetupSprint, planSetupSprints } from "./setup-sprints";
+import { projectIdeas, projectV2Files, projectV2PublishedFiles, projectV2Sprints, projectV2Tasks, userProjectV2Progress, userTaskV2Statuses } from "../schema/projects";
 import {
     companies,
     companyMembers,
@@ -50,7 +53,7 @@ import {
     projectsV2,
     users,
 } from "../index";
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { COMPANIES, JOBS, PROJECTS } from "./data";
 
 // ── Safety ───────────────────────────────────────────────────────────────────
@@ -275,6 +278,15 @@ async function seedJobs(
  * that the oldest account.
  */
 /**
+ * A curated project runs in the browser exactly when it ships a starter repo
+ * (plan/project-workspace WS-10). Derived, not listed, so adding a starter is
+ * the whole of making a project runnable - there is no second list to forget.
+ */
+function runtimeOf(slug: string): "browser" | "server" {
+    return existsSync(resolve(import.meta.dirname, "starters", slug, "files")) ? "browser" : "server";
+}
+
+/**
  * A setup guide derived from the project's own stack.
  *
  * The Setup Guide tab reads `projects_v2.setup_guide`, and every seeded project
@@ -362,6 +374,7 @@ async function seedProjects(ownerId: string): Promise<number> {
                 isPlatformSeeded: true,
                 projectSource: "PLATFORM_SEEDED",
                 visibility: "PUBLIC",
+                runtime: runtimeOf(p.slug),
                 guidedModeEnabled: true,
                 totalViews: p.totalViews,
                 totalStarted: p.totalStarted,
@@ -381,12 +394,79 @@ async function seedProjects(ownerId: string): Promise<number> {
                     setupGuide: setupGuideFor(p),
                     visibility: "PUBLIC",
                     isPlatformSeeded: true,
+                    runtime: runtimeOf(p.slug),
                 },
             });
         n++;
     }
 
     return n;
+}
+
+/**
+ * Starter repos for the workspace (plan/project-workspace WS-2).
+ *
+ * Each folder in `starters/` is a curated project's code: `files/` is what a
+ * learner opens, `solution/` is the reference that proves the tests passable
+ * (`pnpm starters:check`) and is never seeded. Files under `/tests/` are
+ * read-only in the workspace - the learner makes them pass, not edits them.
+ *
+ * Written to BOTH the project's live files and its published snapshot, since
+ * enrolling copies from the snapshot (PJ-18). Replacing them is safe: every
+ * enrolee already holds their own copy of the files.
+ */
+async function seedProjectStarters(): Promise<{ projects: number; files: number; skipped: string[] }> {
+    const root = resolve(import.meta.dirname, "starters");
+    const skipped: string[] = [];
+    let projects = 0;
+    let fileCount = 0;
+
+    const walk = (dir: string): string[] =>
+        readdirSync(dir).flatMap((name) => {
+            const full = join(dir, name);
+            return statSync(full).isDirectory() ? walk(full) : [full];
+        });
+
+    for (const slug of readdirSync(root)) {
+        const filesDir = join(root, slug, "files");
+        if (!existsSync(filesDir)) continue;
+
+        const [project] = await db.select({ id: projectsV2.id }).from(projectsV2).where(eq(projectsV2.slug, slug)).limit(1);
+        if (!project) {
+            skipped.push(`${slug} (no project row)`);
+            continue;
+        }
+
+        const rows = walk(filesDir).map((full) => {
+            const path = "/" + relative(filesDir, full).split("\\").join("/");
+            return { projectId: project.id, path, content: readFileSync(full, "utf8"), isReadonly: path.startsWith("/tests/") };
+        });
+
+        // Each task learns its test file (WS-5): "/tests/s<sprint>-t<task>.test.ts",
+        // task numbered by its place in the sprint. A task with no such file
+        // has none, and is ticked by hand.
+        const paths = new Set(rows.map((r) => r.path));
+        const sprints = await db.query.projectV2Sprints.findMany({
+            where: eq(projectV2Sprints.projectId, project.id),
+            with: { tasks: { orderBy: (t, { asc }) => [asc(t.orderIndex)], columns: { id: true } } },
+        });
+
+        await withTransaction(async (tx) => {
+            await tx.delete(projectV2Files).where(eq(projectV2Files.projectId, project.id));
+            await tx.delete(projectV2PublishedFiles).where(eq(projectV2PublishedFiles.projectId, project.id));
+            await tx.insert(projectV2Files).values(rows);
+            await tx.insert(projectV2PublishedFiles).values(rows);
+            for (const sp of sprints) {
+                for (const [i, t] of sp.tasks.entries()) {
+                    const testPath = `/tests/s${sp.sprintNumber}-t${i + 1}.test.ts`;
+                    await tx.update(projectV2Tasks).set({ testPath: paths.has(testPath) ? testPath : null }).where(eq(projectV2Tasks.id, t.id));
+                }
+            }
+        });
+        projects++;
+        fileCount += rows.length;
+    }
+    return { projects, files: fileCount, skipped };
 }
 
 /**
@@ -463,6 +543,14 @@ async function seedProjectBlueprints(): Promise<{ projects: number; sprints: num
                 );
                 taskCount += sprint.tasks.length;
             }
+        }
+
+        // Setup, sprint 0 (plan/project-repos RP-3): ordered first by order_index -1.
+        const setup = SETUPS[slug];
+        if (setup) {
+            await withTransaction((tx) => insertSetupSprint(tx, project.id, setup));
+            sprintCount++;
+            taskCount += setup.tasks.length;
         }
 
         // Published as of NOW, after the sprints above were re-inserted. A public
@@ -729,6 +817,26 @@ async function main() {
         console.log(`  blueprints ${bp.projects} projects, ${bp.sprints} sprints, ${bp.tasks} tasks${bp.skipped.length ? ` (skipped: ${bp.skipped.join(", ")})` : ""}`);
         const ideas = await seedProjectIdeas();
         console.log(`  ideas      ${ideas.written} written, ${ideas.linked} linked, ${ideas.removed} removed`);
+        const st = await seedProjectStarters();
+        console.log(`  starters   ${st.projects} projects, ${st.files} files${st.skipped.length ? ` (skipped: ${st.skipped.join(", ")})` : ""}`);
+        return;
+    }
+
+    // Setup (sprint 0) into the curated projects and every copy of them, additively
+    // (plan/project-repos RP-4).
+    if (args.includes("--only=project-setup")) {
+        // Kept for the full-seed flow; the preview-first way is
+        // `pnpm db:project-setup` (src/scripts/project-setup.ts).
+        const plan = await planSetupSprints();
+        const written = await applySetupSprints(plan);
+        console.log(`  setup      ${written} of ${plan.targets.length} projects and copies changed${plan.skipped.length ? ` (skipped: ${plan.skipped.join(", ")})` : ""}`);
+        return;
+    }
+
+    // Only the workspace starter repos (plan/project-workspace WS-2).
+    if (args.includes("--only=project-starters")) {
+        const st = await seedProjectStarters();
+        console.log(`  starters   ${st.projects} projects, ${st.files} files${st.skipped.length ? ` (skipped: ${st.skipped.join(", ")})` : ""}`);
         return;
     }
 
@@ -779,6 +887,9 @@ async function main() {
 
     const ideas = await seedProjectIdeas();
     console.log(`  ideas      ${ideas.written} curated, ${ideas.linked} linked to a project, ${ideas.removed} removed`);
+
+    const starters = await seedProjectStarters();
+    console.log(`  starters   ${starters.projects} projects, ${starters.files} files${starters.skipped.length ? ` (skipped: ${starters.skipped.join(", ")})` : ""}`);
 
     const practice = await seedPracticeDsa();
     console.log(`  practice   ${practice.written} DSA problems${practice.skipped.length ? ` (left alone, user-owned: ${practice.skipped.join(", ")})` : ""}`);

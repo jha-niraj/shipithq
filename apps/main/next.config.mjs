@@ -48,6 +48,15 @@ const nextConfig = {
             // being cleaned up rather than a deliberate, settled move.
             { source: "/ai/jobinterviewassistant", destination: "/ai/interviewassistant", permanent: false },
             { source: "/ai/jobinterviewassistant/:path*", destination: "/ai/interviewassistant/:path*", permanent: false },
+
+            // The project workspace replaced the sprint board, the tasks page and
+            // the standalone quiz and mock pages (plan/project-workspace, deleted
+            // 2026-09-24). Old links and bookmarks land in the workspace, the quiz
+            // and mock on their own tabs. Not permanent, for the same reason as above.
+            { source: "/projects/:slug/sprints", destination: "/projects/:slug/workspace", permanent: false },
+            { source: "/projects/:slug/tasks", destination: "/projects/:slug/workspace", permanent: false },
+            { source: "/projects/:slug/quiz", destination: "/projects/:slug/workspace?file=%40final-quiz", permanent: false },
+            { source: "/projects/:slug/aimock", destination: "/projects/:slug/workspace?file=%40final-mock", permanent: false },
         ];
     },
 

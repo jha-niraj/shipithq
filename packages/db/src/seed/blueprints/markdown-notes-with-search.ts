@@ -13,23 +13,24 @@ const sprints: SeedSprint[] = [
         duration: "1 week",
         tasks: [
             {
-                title: "Set up the app and a typed note model",
+                title: "Model a note",
                 description: [
-                    "Create the React and TypeScript app and define the note type once, in one file, with an id, a title, the markdown body and created and updated timestamps. Everything later in the project depends on this shape.",
-                    "Keep the type strict from the start. A note whose body might be undefined will cost you an afternoon in the indexing sprint."
+                    "Define the note once, in `src/notes/note.ts`: an id, the markdown body, and created and updated times. The title is not stored - task 5 derives it from the body.",
+                    "Write `createNote` and `editNote` there, with tests. Keep the type strict from the start: a note whose body might be undefined will cost you an afternoon in the indexing sprint.",
                 ],
                 criteria: [
-                    "The project type checks with strict mode on and no use of any in the note model.",
-                    "A note object constructed without a required field is a compile error, not a runtime surprise.",
-                    "The app builds and renders a hard coded note."
+                    "The note model uses no `any`, and the compiler stays in strict mode",
+                    "`createNote` stamps a new note created and updated at the same moment",
+                    "`editNote` changes the body and the updated time, never the created time",
+                    "`npm test -- --run` covers both functions and passes",
                 ],
                 hints: [
                     "Decide whether timestamps are numbers or Date objects now. IndexedDB stores both, but only one of them sorts and compares without conversion.",
-                    "An id that sorts by creation time saves you a secondary index later."
+                    "An id that sorts by creation time saves you a secondary index later.",
                 ],
                 difficulty: "BEGINNER",
                 estimatedTime: "45 minutes",
-                category: "setup"
+                category: "data",
             },
             {
                 title: "Store notes in IndexedDB",

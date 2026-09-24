@@ -13,6 +13,7 @@ import { AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useSession } from '@repo/auth/client';
 import { ThemeToggle } from "@repo/ui/components/themetoggle";
+import { SoundToggle } from "@repo/ui/components/ui/sounds";
 import Image from "next/image";
 
 export default function Navbar() {
@@ -82,6 +83,7 @@ export default function Navbar() {
                 </div>
 
                 <div className="flex items-center justify-center space-x-3">
+                    <SoundToggle />
                     <ThemeToggle />
                     {
                         session ? (

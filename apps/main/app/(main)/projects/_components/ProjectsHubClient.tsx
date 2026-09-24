@@ -85,7 +85,7 @@ export default function ProjectsHubClient({ overview, activity, widget, picks, c
 				</div>
 				<div className="flex shrink-0 items-center gap-2">
 					<Button asChild variant="outline" size="sm" className="gap-2">
-						<Link href="/projects/explore?tab=ideas">
+						<Link href="/projects/explore?tab=browse">
 							<Lightbulb className="h-4 w-4" />
 							Browse ideas
 						</Link>
@@ -128,7 +128,7 @@ export default function ProjectsHubClient({ overview, activity, widget, picks, c
 							</p>
 						</div>
 						<Button asChild className="shrink-0 gap-2">
-							<Link href={`/projects/${nextTask.projectSlug}/tasks`}>
+							<Link href={`/projects/${nextTask.projectSlug}/workspace?task=${nextTask.id}&file=%40task`}>
 								Continue
 								<ArrowRight className="h-4 w-4" />
 							</Link>
@@ -249,7 +249,7 @@ export default function ProjectsHubClient({ overview, activity, widget, picks, c
 						From the catalogue
 					</h2>
 					<Link
-						href="/projects/explore?tab=community"
+						href="/projects/explore?tab=browse&made=community"
 						className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
 					>
 						Browse all
@@ -322,7 +322,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 					}
 				/>
 				<Button asChild variant="outline" size="sm" className="gap-2">
-					<Link href="/projects/explore?tab=ideas">
+					<Link href="/projects/explore?tab=browse">
 						<Lightbulb className="h-4 w-4" />
 						Browse ideas
 					</Link>

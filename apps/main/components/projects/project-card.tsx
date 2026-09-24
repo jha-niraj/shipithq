@@ -193,7 +193,7 @@ export function ProjectCard({ project, showProgress = false }: ProjectCardProps)
                         {showProgress && userProgress ? (
                             <>
                                 {userProgress.status === 'IN_PROGRESS' && (
-                                    <Link href={`/projects/${project.slug}/sprints`}>
+                                    <Link href={`/projects/${project.slug}/workspace`}>
                                         <Button size="sm" className="bg-neutral-900 text-white dark:bg-white dark:text-black hover:opacity-90 rounded-xl text-xs">
                                             <Play className="w-3.5 h-3.5 mr-1.5" />
                                             Continue

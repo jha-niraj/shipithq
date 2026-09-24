@@ -173,7 +173,7 @@ export async function createStandupConfig(input: StandupConfigInput): Promise<Ac
             .where(eq(projectV2StandupConfigs.id, config!.id));
 
         revalidatePath(`/projects/${input.projectSlug}`);
-        revalidatePath(`/projects/${input.projectSlug}/tasks`);
+        revalidatePath(`/projects/${input.projectSlug}/workspace`);
 
         return {
             success: true,

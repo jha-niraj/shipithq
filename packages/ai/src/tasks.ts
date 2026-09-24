@@ -36,6 +36,12 @@ export const AI_TASKS = {
     assistantChat: DEFAULT_CHAT_MODEL,
     /** ShipItHQ AI panel: a short title for a conversation after its first exchange. */
     assistantChatTitle: DEFAULT_CHAT_MODEL,
+    /** Project workspace AI: answers, task and sprint proposals (plan/project-workspace WS-15). */
+    projectAi: DEFAULT_CHAT_MODEL,
+    /** A sprint quiz: ten questions from the tasks and the learner's notes (plan/project-workspace WS-12). */
+    sprintQuiz: DEFAULT_CHAT_MODEL,
+    /** A sprint mock interview: questions, follow-ups and the feedback (plan/project-workspace WS-13). */
+    sprintMock: DEFAULT_CHAT_MODEL,
 } as const satisfies Record<string, ModelId>
 
 export type AiTask = keyof typeof AI_TASKS

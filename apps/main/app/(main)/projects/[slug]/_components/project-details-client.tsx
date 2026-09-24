@@ -1,208 +1,593 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
-import {
-    ArrowLeft, Sparkles, Clock, Code2, Brain, Trophy, CheckCircle2, Lock,
-    Unlock, Play, Users, Target, Lightbulb, Layers, ListChecks, Check, Globe,
-    Coins, Zap
-} from 'lucide-react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import {
+    ArrowLeft, ArrowRight, Check, Circle, CircleDot, Clock, Code2, Coins, Copy, Globe, GraduationCap, Layers, ListChecks,
+    Lock, Play, Presentation, Target, Terminal, Trophy, Users,
+} from 'lucide-react'
 import { Button } from '@repo/ui/components/ui/button'
-import { Badge } from '@repo/ui/components/ui/badge'
 import {
-    Card, CardContent, CardDescription, CardHeader, CardTitle
-} from '@repo/ui/components/ui/card'
-import {
-    Tabs, TabsContent, TabsList, TabsTrigger
-} from '@repo/ui/components/ui/tabs'
-import { Progress } from '@repo/ui/components/ui/progress'
-import {
-    Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
-    SheetFooter
+    Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle,
 } from '@repo/ui/components/ui/sheet'
+import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
 import { Input } from '@repo/ui/components/ui/input'
 import { Label } from '@repo/ui/components/ui/label'
 import { Textarea } from '@repo/ui/components/ui/textarea'
-import {
-    Tooltip, TooltipContent, TooltipProvider, TooltipTrigger
-} from '@repo/ui/components/ui/tooltip'
 import toast from '@repo/ui/components/ui/sonner'
-import {
-    startProject, submitProject, publishProject
-} from '@/actions/(main)/projects/project.action'
-import {
-    ProjectDetailsClientProps, ProjectV2Page, ProjectV2Sprint
-} from '@/types/project'
-import { EnrollmentDialog } from './enrollment-dialog'
-import DailyStandupSheet from './daily-standup-sheet'
+import { InlineLoader } from '@repo/ui/components/ui/inline-loader'
 import { cn } from '@repo/ui/lib/utils'
+import { publishProject, startProject, submitProject } from '@/actions/(main)/projects/project.action'
+import type { ProjectDetailsClientProps, ProjectV2Sprint } from '@/types/project'
 import { MOCK_UNLOCK_PERCENT, QUIZ_UNLOCK_PERCENT, mockUnlocked, quizUnlocked } from '@/lib/projects/gates'
 import { ENROLL_CREDIT_COST } from '@/lib/credits/pricing'
-
-// New extracted components
+import { EnrollmentDialog } from './enrollment-dialog'
+import DailyStandupSheet from './daily-standup-sheet'
 import { ProjectAssistantButtons } from './project-assistant-buttons'
-import { PageOverviewCard } from './page-overview-card'
 import { SetupGuideTab } from './setup-guide-tab'
-// Team Members components removed
-
-
-
-
-
-import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { isSetupSprint, sprintLabel } from '@/lib/projects/sprints'
 
 /*
- * Milestones are the sprints (Niraj, 2026-09-23, PJ-17 step 7).
+ * The project page, redesigned (Niraj, 2026-09-24: "follow the one you
+ * designed"; the mockup was /projects/<slug>/redesign).
  *
- * This was four fixed dots - Start, Quiz, Mock, Complete - at 0/50/75/100
- * percent, with Start "unlocked" from the first second, so it said nothing about
- * where you actually were. It also showed the quiz and mock on projects with no
- * assessment. Now it is one step per sprint with its own done/total, and the two
- * gates follow only when the project has them, at the thresholds in `gates.ts`.
+ * 1. The hero is one band: what the project is on the left, your progress and
+ *    the one action that matters on the right. It replaced a tall card that
+ *    left a column of empty page beside the title.
+ * 2. "Next up" comes straight after: the task you are on, one click away.
+ * 3. One body, no Overview / Setup Guide tabs. Read on the left (about, what
+ *    you will learn, the plan with every sprint's tasks); glance on the right
+ *    (stack, running it locally, the final gates). The full setup guide, with
+ *    its ticks, opens in a sheet from the "Run it locally" card.
+ *
+ * The primary action depends on who is looking, in this order:
+ *   a copy of this project exists for you -> open your copy
+ *   you own it (yours, or your copy) and started -> open the workspace
+ *   you own it, not started -> start building
+ *   public, not yours -> enrol (free for a curated project)
+ *
+ * A legacy enrolment (a progress row on someone else's project, from before
+ * enrolling made copies) has no workspace - the workspace is owner-only, and
+ * the board that served it was deleted on 2026-09-24. It is offered the same
+ * enrolment as anyone, with a line saying why.
  */
-interface SprintStep { id: string; number: number; name: string; done: number; total: number }
 
-function SprintMilestones({ sprints, progressPercentage, includeAssessment }: {
-    sprints: SprintStep[]
-    progressPercentage: number
-    includeAssessment: boolean
-}) {
-    if (sprints.length === 0) return null
-    const gates = includeAssessment ? [
-        { key: 'quiz', label: 'Quiz', icon: Brain, at: QUIZ_UNLOCK_PERCENT, open: quizUnlocked(progressPercentage) },
-        { key: 'mock', label: 'Mock', icon: Sparkles, at: MOCK_UNLOCK_PERCENT, open: mockUnlocked(progressPercentage) },
-    ] : []
+const workspaceUrl = (slug: string, params?: Record<string, string>) =>
+    `/projects/${slug}/workspace${params ? `?${new URLSearchParams(params)}` : ''}`
+
+export default function ProjectDetailsClient({ project, currentUserId, userCredits = 0 }: ProjectDetailsClientProps) {
+    const router = useRouter()
+
+    const isCreator = currentUserId === project?.creator?.id
+    // Progress counts only on a project you own; see the legacy note above.
+    const ownProgress = isCreator ? project.progress?.[0] : undefined
+    const legacyEnrolment = !isCreator && !!project.progress?.[0] && project.progress[0].status !== 'NOT_STARTED'
+    const userProgress = ownProgress
+    const hasStarted = !!userProgress && userProgress.status !== 'NOT_STARTED'
+    const isPublic = project.visibility === 'PUBLIC'
+    const hasCopy = !!project.myCopySlug && !isCreator
+
+    const [starting, setStarting] = useState(false)
+    const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
+    const [standupSheetOpen, setStandupSheetOpen] = useState(false)
+    const [setupOpen, setSetupOpen] = useState(false)
+    const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
+    const [submitting, setSubmitting] = useState(false)
+    const [submitForm, setSubmitForm] = useState({ githubUrl: '', liveUrl: '', notes: '' })
+
+    const sprints: ProjectV2Sprint[] = project.sprints ?? []
+    const status = useMemo(
+        () => new Map((userProgress?.taskStatuses ?? []).map((t) => [t.taskId, t.status])),
+        [userProgress]
+    )
+    const tasks = useMemo(() => sprints.flatMap((sp) => (sp.tasks ?? []).map((t) => ({ sprint: sp, task: t }))), [sprints])
+    const done = tasks.filter((x) => status.get(x.task.id) === 'COMPLETED').length
+    const pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0
+    const next = hasStarted ? tasks.find((x) => status.get(x.task.id) !== 'COMPLETED') : undefined
+    const stackRows = Object.entries(project.stacks ?? {}).filter(([, v]) => typeof v === 'string' && v && v !== 'None') as [string, string][]
+    const setupGuide = project.setupGuide
+        ? {
+            prerequisites: project.setupGuide.prerequisites || [],
+            environmentVariables: project.setupGuide.environmentVariables || [],
+            installationSteps: project.setupGuide.installationSteps || [],
+            verificationSteps: project.setupGuide.verificationSteps || [],
+        }
+        : null
+    const commands = setupGuide?.installationSteps ?? []
+    // Setup is sprint 0 (plan/project-repos RP-3). A project generated before
+    // it existed has none, and keeps the old "Run it locally" card.
+    const setupSprint = sprints.find((sp) => isSetupSprint(sp.sprintNumber)) ?? null
+    const buildSprints = sprints.filter((sp) => !isSetupSprint(sp.sprintNumber))
+    const buildTaskCount = buildSprints.reduce((n, sp) => n + (sp.tasks?.length ?? 0), 0)
+    const setupTasks = setupSprint?.tasks ?? []
+    const setupDone = setupTasks.filter((t) => status.get(t.id) === 'COMPLETED').length
+    const setupNext = setupTasks.find((t) => status.get(t.id) !== 'COMPLETED') ?? setupTasks[0]
+
+    const openUrl = (params?: Record<string, string>) => workspaceUrl(project.slug, params)
+    // Where "Start setup" goes: your workspace if you have one, else nowhere yet.
+    // A copy's task ids are its own, so a copy opens on its first open task.
+    const setupHref = !setupNext ? null
+        : hasCopy ? workspaceUrl(project.myCopySlug!)
+        : hasStarted || isCreator ? openUrl({ task: setupNext.id, file: '@task' })
+        : null
+
+    const handleStartProject = async () => {
+        try {
+            setStarting(true)
+            const result = await startProject(project.id)
+            if (result.success) {
+                toast.success('Project started.')
+                router.push(workspaceUrl(project.slug))
+            } else {
+                toast.error(result.error || 'Failed to start project')
+            }
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Something went wrong')
+        } finally {
+            setStarting(false)
+        }
+    }
+
+    const handleSubmitProject = async () => {
+        if (!submitForm.githubUrl) {
+            toast.error('GitHub URL is required')
+            return
+        }
+        try {
+            setSubmitting(true)
+            const result = await submitProject(project.id, {
+                githubUrl: submitForm.githubUrl,
+                liveUrl: submitForm.liveUrl || undefined,
+                notes: submitForm.notes || undefined,
+            })
+            if (result.success) {
+                toast.success('Project submitted.')
+                setSubmitDialogOpen(false)
+                setSubmitForm({ githubUrl: '', liveUrl: '', notes: '' })
+                router.refresh()
+            } else {
+                toast.error(result.error || 'Failed to submit project')
+            }
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Failed to submit project')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    // ── The primary action block (hero, right) ───────────────────────────────
+    const primary = hasCopy ? (
+        <>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">You have your own copy of this project.</p>
+            <Button asChild size="lg" className="w-full gap-2">
+                <Link href={workspaceUrl(project.myCopySlug!)}><Code2 className="h-4 w-4" /> Open your copy</Link>
+            </Button>
+        </>
+    ) : hasStarted ? (
+        <>
+            <ProgressBar done={done} total={tasks.length} pct={pct} />
+            <Button asChild size="lg" className="w-full gap-2">
+                <Link href={openUrl()}>
+                    <Code2 className="h-4 w-4" /> Open the workspace
+                </Link>
+            </Button>
+            <Button variant="outline" className="w-full gap-2" onClick={() => setStandupSheetOpen(true)}>
+                <Target className="h-4 w-4" /> Daily standup
+            </Button>
+            {pct >= 90 && (
+                <Button variant="outline" className="w-full gap-2" onClick={() => setSubmitDialogOpen(true)}>
+                    <Trophy className="h-4 w-4" /> Submit project
+                </Button>
+            )}
+        </>
+    ) : isCreator ? (
+        <>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">Your project. Start it to track progress.</p>
+            <Button size="lg" className="w-full gap-2" onClick={handleStartProject} disabled={starting}>
+                {starting ? <><InlineLoader size="sm" /> Starting</> : <><Play className="h-4 w-4" /> Start building</>}
+            </Button>
+        </>
+    ) : isPublic ? (
+        <>
+            <div className="flex items-baseline justify-between text-sm">
+                <span className="text-neutral-600 dark:text-neutral-400">Your own copy to build on</span>
+                <span className="flex items-center gap-1 font-medium text-neutral-900 dark:text-white">
+                    <Coins className="h-3.5 w-3.5" />
+                    {/* Curated projects are free (overview, prices). */}
+                    {project.isPlatformSeeded ? 'Free' : `${ENROLL_CREDIT_COST} credits`}
+                </span>
+            </div>
+            <Button size="lg" className="w-full gap-2" onClick={() => setEnrollDialogOpen(true)}>
+                <Coins className="h-4 w-4" /> Enroll
+            </Button>
+            {!project.isPlatformSeeded && <p className="text-xs text-neutral-500 dark:text-neutral-400">Your balance: {userCredits} credits</p>}
+            {legacyEnrolment && (
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    You started this before projects came as copies. Enrolling gives you your own copy with its workspace; progress starts fresh there.
+                </p>
+            )}
+        </>
+    ) : (
+        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            This project is private. Its owner can make it public for others to enrol in.
+        </p>
+    )
 
     return (
-        <div className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-800">
-            <div className="mb-4 flex items-baseline justify-between gap-3">
-                <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Milestones</h3>
-                <span className="text-xs tabular-nums text-neutral-500 dark:text-neutral-400">{Math.round(progressPercentage)}% of tasks</span>
-            </div>
-            <ol className="flex gap-3 overflow-x-auto pb-1">
-                {sprints.map((sp) => {
-                    const pct = sp.total ? Math.round((sp.done / sp.total) * 100) : 0
-                    const complete = sp.total > 0 && sp.done === sp.total
-                    return (
-                        <li key={sp.id} className="min-w-[140px] flex-1" title={sp.name}>
-                            <div className="h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-                                <div className="h-full rounded-full bg-neutral-900 transition-[width] duration-500 dark:bg-white" style={{ width: `${pct}%` }} />
-                            </div>
-                            <div className="mt-2 flex items-center gap-1.5">
-                                {complete && <Check className="h-3.5 w-3.5 shrink-0 text-neutral-900 dark:text-white" />}
-                                <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100">Sprint {sp.number}</span>
-                                <span className="ml-auto text-xs tabular-nums text-neutral-500 dark:text-neutral-400">{sp.done}/{sp.total}</span>
-                            </div>
-                            <p className="mt-0.5 truncate text-xs text-neutral-600 dark:text-neutral-400">{sp.name}</p>
-                        </li>
-                    )
-                })}
-                {gates.map(({ key, label, icon: Icon, at, open }) => (
-                    <li key={key} className="flex min-w-[88px] flex-col items-start">
-                        <div className={cn('flex h-1.5 w-full rounded-full', open ? 'bg-neutral-900 dark:bg-white' : 'bg-neutral-200 dark:bg-neutral-800')} />
-                        <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-neutral-900 dark:text-neutral-100">
-                            {open ? <Icon className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5 text-neutral-500" />}
-                            {label}
+        <div className="relative w-full">
+            <div className="mx-auto w-full max-w-6xl px-page py-6">
+                {/* Top bar */}
+                <div className="flex items-center justify-between gap-3">
+                    <Link
+                        href="/projects/explore"
+                        className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                    >
+                        <ArrowLeft className="h-4 w-4" aria-hidden />
+                        Projects
+                    </Link>
+                    <div className="flex items-center gap-2">
+                        <ProjectAssistantButtons
+                            projectId={project.id}
+                            projectSlug={project.slug}
+                            isCreator={isCreator}
+                            isEnrolled={hasStarted || isCreator}
+                            currentUserId={currentUserId}
+                        />
+                    </div>
+                </div>
+
+                {/* 1. The hero, one band */}
+                <section className="mt-6 grid gap-8 border-b border-neutral-200 pb-8 dark:border-neutral-800 lg:grid-cols-[1fr_300px]">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <Chip>{project.difficulty.toLowerCase()}</Chip>
+                            <Chip>{isPublic ? <><Globe className="h-3 w-3" /> Public</> : <><Lock className="h-3 w-3" /> Private</>}</Chip>
+                            {hasStarted && <Chip>In progress</Chip>}
                         </div>
-                        <p className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-400">{open ? 'Open' : `At ${at}%`}</p>
-                    </li>
-                ))}
-            </ol>
+                        {project.forkedFrom && (
+                            <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
+                                Your copy of{' '}
+                                <Link href={`/projects/${project.forkedFrom.slug}`} className="font-medium text-neutral-900 underline-offset-4 hover:underline dark:text-white">
+                                    {project.forkedFrom.title}
+                                </Link>
+                            </p>
+                        )}
+                        <h1 className="mt-3 text-2xl font-bold tracking-tight text-neutral-900 dark:text-white md:text-3xl">{project.title}</h1>
+                        <p className="mt-2 max-w-2xl text-base text-neutral-700 dark:text-neutral-200 md:text-lg">{project.shortDescription || project.description}</p>
+                        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-neutral-600 dark:text-neutral-400">
+                            <span className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> {project.estimatedHours} hours</span>
+                            <span className="flex items-center gap-1.5"><ListChecks className="h-4 w-4" /> {buildTaskCount} tasks in {buildSprints.length} sprints{setupSprint ? ', after setup' : ''}</span>
+                            {isPublic && <span className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {project.totalStarted} started</span>}
+                            {isPublic && <span className="flex items-center gap-1.5"><Trophy className="h-4 w-4" /> {project.totalSubmissions} finished</span>}
+                        </div>
+                    </div>
+                    <div className="flex flex-col justify-end gap-3">
+                        {primary}
+                        {isCreator && !isPublic && !project.forkedFromId && <MakePublicButton projectId={project.id} />}
+                    </div>
+                </section>
+
+                {/* 2. Next up */}
+                {next && (
+                    <section className="mt-6 flex flex-col gap-4 rounded-xl border border-neutral-200 p-5 dark:border-neutral-800 sm:flex-row sm:items-center">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Next up · {sprintLabel(next.sprint.sprintNumber)}</p>
+                            <p className="mt-1 truncate text-base font-semibold text-neutral-900 dark:text-white">{next.task.title}</p>
+                            <p className="mt-0.5 truncate text-sm text-neutral-600 dark:text-neutral-400">
+                                {next.sprint.name}{next.task.estimatedTime ? ` · about ${next.task.estimatedTime}` : ''}
+                            </p>
+                        </div>
+                        <Button asChild className="shrink-0 gap-2">
+                            <Link href={openUrl({ task: next.task.id, file: '@task' })}>Continue <ArrowRight className="h-4 w-4" /></Link>
+                        </Button>
+                    </section>
+                )}
+
+                {/* 3. One body: read on the left, glance on the right */}
+                <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_300px]">
+                    <main className="min-w-0 space-y-10">
+                        <section>
+                            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">About this project</h2>
+                            <p className="mt-3 leading-relaxed text-neutral-700 dark:text-neutral-300">{project.blueprintOverview}</p>
+                            {project.vision && <p className="mt-3 leading-relaxed text-neutral-600 dark:text-neutral-400">{project.vision}</p>}
+                            {(project.targetAudience || project.problemSolution) && (
+                                <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                                    {project.targetAudience && (
+                                        <div>
+                                            <dt className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Who it is for</dt>
+                                            <dd className="mt-1 text-sm text-neutral-700 dark:text-neutral-300">{project.targetAudience}</dd>
+                                        </div>
+                                    )}
+                                    {project.problemSolution && (
+                                        <div>
+                                            <dt className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">The problem it solves</dt>
+                                            <dd className="mt-1 text-sm text-neutral-700 dark:text-neutral-300">{project.problemSolution}</dd>
+                                        </div>
+                                    )}
+                                </dl>
+                            )}
+                        </section>
+
+                        {(project.keyOutcomes?.length ?? 0) > 0 && (
+                            <section>
+                                <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">What you will be able to do</h2>
+                                <ol className="mt-3 space-y-3">
+                                    {project.keyOutcomes.map((o, i) => (
+                                        <li key={i} className="flex gap-3 text-neutral-700 dark:text-neutral-300">
+                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-neutral-300 text-xs font-semibold tabular-nums dark:border-neutral-700">{i + 1}</span>
+                                            <span className="pt-0.5">{o}</span>
+                                        </li>
+                                    ))}
+                                </ol>
+                            </section>
+                        )}
+
+                        <section>
+                            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">The plan</h2>
+                            {sprints.length === 0 ? (
+                                <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">No sprints yet.</p>
+                            ) : (
+                                <>
+                                    <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                                        {setupSprint ? 'Setup first, then ' : ''}{buildSprints.length} sprints. Each sprint ends with a quiz and a mock interview.
+                                    </p>
+                                    <ol className="mt-4 space-y-3">
+                                        {sprints.map((sp) => {
+                                            const spTasks = sp.tasks ?? []
+                                            const spDone = spTasks.filter((t) => status.get(t.id) === 'COMPLETED').length
+                                            const current = next?.sprint.id === sp.id
+                                            return (
+                                                <li key={sp.id} className={cn('rounded-xl border p-4', current ? 'border-neutral-900 dark:border-white' : 'border-neutral-200 dark:border-neutral-800')}>
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs text-neutral-500 dark:text-neutral-400">{sprintLabel(sp.sprintNumber)}{current ? ' · you are here' : ''}</p>
+                                                            <p className="font-semibold text-neutral-900 dark:text-white">{sp.name}</p>
+                                                            <p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">{sp.goal}</p>
+                                                        </div>
+                                                        {hasStarted && <span className="shrink-0 text-sm tabular-nums text-neutral-500 dark:text-neutral-400">{spDone}/{spTasks.length}</span>}
+                                                    </div>
+                                                    <ul className="mt-3 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+                                                        {spTasks.map((t) => {
+                                                            const s = status.get(t.id)
+                                                            const Icon = s === 'COMPLETED' ? Check : s === 'IN_PROGRESS' ? CircleDot : Circle
+                                                            return (
+                                                                <li key={t.id} className="flex min-w-0 items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+                                                                    <Icon className={cn('h-3.5 w-3.5 shrink-0', s === 'COMPLETED' ? 'text-neutral-900 dark:text-white' : 'text-neutral-400')} />
+                                                                    <span className={cn('truncate', s === 'COMPLETED' && 'text-neutral-500 line-through')} title={t.title}>{t.title}</span>
+                                                                </li>
+                                                            )
+                                                        })}
+                                                    </ul>
+                                                </li>
+                                            )
+                                        })}
+                                    </ol>
+                                </>
+                            )}
+                        </section>
+                    </main>
+
+                    <aside className="space-y-6">
+                        {stackRows.length > 0 && (
+                            <SideCard title="Stack" icon={Layers}>
+                                <dl className="space-y-2 text-sm">
+                                    {stackRows.map(([k, v]) => (
+                                        <div key={k} className="flex justify-between gap-3">
+                                            <dt className="capitalize text-neutral-500 dark:text-neutral-400">{k}</dt>
+                                            <dd className="text-right font-medium text-neutral-900 dark:text-white">{v}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </SideCard>
+                        )}
+
+                        {setupSprint && setupTasks.length > 0 && (
+                            <SideCard title="Setup" icon={Terminal}>
+                                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                                    {setupTasks.length} steps from an empty folder to the app running on your machine.
+                                </p>
+                                <ol className="mt-3 space-y-1.5">
+                                    {setupTasks.map((t, i) => {
+                                        const ticked = status.get(t.id) === 'COMPLETED'
+                                        return (
+                                            <li key={t.id} className="flex min-w-0 items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+                                                {ticked
+                                                    ? <Check className="h-3.5 w-3.5 shrink-0 text-neutral-900 dark:text-white" />
+                                                    : <span className="w-3.5 shrink-0 text-center text-xs tabular-nums text-neutral-500">{i + 1}</span>}
+                                                <span className={cn('truncate', ticked && 'text-neutral-500 line-through')} title={t.title}>{t.title}</span>
+                                            </li>
+                                        )
+                                    })}
+                                </ol>
+                                {setupHref ? (
+                                    <Link href={setupHref} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-neutral-900 underline-offset-4 hover:underline dark:text-white">
+                                        {setupDone === setupTasks.length ? 'Review setup' : setupDone > 0 ? `Continue setup (${setupDone}/${setupTasks.length})` : 'Start setup'} <ArrowRight className="h-3 w-3" />
+                                    </Link>
+                                ) : (
+                                    <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">Opens in your workspace once you start.</p>
+                                )}
+                            </SideCard>
+                        )}
+
+                        {!setupSprint && setupGuide && (
+                            <SideCard title="Run it locally" icon={Terminal}>
+                                {commands.length > 0 && (
+                                    <div className="space-y-1 rounded-lg border border-neutral-800 bg-neutral-950 p-2.5 font-mono text-xs text-neutral-100">
+                                        {commands.map((c, i) => (
+                                            <div key={i} className="flex items-center gap-2">
+                                                <span className="text-neutral-500">$</span>
+                                                <span className="min-w-0 flex-1 truncate" title={c}>{c}</span>
+                                                <CopyCommand text={c} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setSetupOpen(true)}
+                                    className="mt-2 inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-neutral-900 underline-offset-4 hover:underline dark:text-white"
+                                >
+                                    Full setup guide <ArrowRight className="h-3 w-3" />
+                                </button>
+                            </SideCard>
+                        )}
+
+                        <SideCard title="Final gates" icon={GraduationCap}>
+                            <GateRow
+                                icon={GraduationCap} label="Final quiz" at={QUIZ_UNLOCK_PERCENT} open={quizUnlocked(pct)}
+                                href={hasStarted ? openUrl({ file: '@final-quiz' }) : null}
+                            />
+                            <GateRow
+                                icon={Presentation} label="Final mock interview" at={MOCK_UNLOCK_PERCENT} open={mockUnlocked(pct)}
+                                href={hasStarted ? openUrl({ file: '@final-mock' }) : null}
+                            />
+                        </SideCard>
+                    </aside>
+                </div>
+            </div>
+
+            <EnrollmentDialog
+                open={enrollDialogOpen}
+                onOpenChange={setEnrollDialogOpen}
+                projectId={project.id}
+                projectTitle={project.title}
+                projectSlug={project.slug}
+                tasksCount={tasks.length}
+                userCredits={userCredits}
+                isFree={project.isPlatformSeeded}
+            />
+
+            <Sheet open={setupOpen} onOpenChange={setSetupOpen}>
+                <SheetContent scroll={false} side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-2xl">
+                    <SheetHeader className="space-y-0 border-b border-neutral-200 px-6 py-4 dark:border-neutral-800">
+                        <SheetTitle className="text-base">Setup guide</SheetTitle>
+                        <SheetDescription className="text-xs">Running {project.title} on your own machine.</SheetDescription>
+                    </SheetHeader>
+                    <ScrollArea reflow className="min-h-0 flex-1">
+                        <div className="px-6 py-5">
+                            <SetupGuideTab storageKey={project.id} setupGuide={setupGuide} />
+                        </div>
+                    </ScrollArea>
+                </SheetContent>
+            </Sheet>
+
+            <Sheet open={submitDialogOpen} onOpenChange={setSubmitDialogOpen}>
+                <SheetContent className="sm:max-w-md">
+                    <SheetHeader>
+                        <SheetTitle>Submit your project</SheetTitle>
+                        <SheetDescription>Share your finished project for review.</SheetDescription>
+                    </SheetHeader>
+                    <div className="space-y-4 py-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="githubUrl">GitHub repository URL</Label>
+                            <Input id="githubUrl" placeholder="https://github.com/username/repo" value={submitForm.githubUrl} onChange={(e) => setSubmitForm({ ...submitForm, githubUrl: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="liveUrl">Live demo URL <span className="font-normal text-neutral-500">(optional)</span></Label>
+                            <Input id="liveUrl" placeholder="https://your-project.vercel.app" value={submitForm.liveUrl} onChange={(e) => setSubmitForm({ ...submitForm, liveUrl: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="notes">Notes <span className="font-normal text-neutral-500">(optional)</span></Label>
+                            <Textarea id="notes" placeholder="Challenges, what you learned, anything you added" value={submitForm.notes} onChange={(e) => setSubmitForm({ ...submitForm, notes: e.target.value })} rows={4} />
+                        </div>
+                    </div>
+                    <SheetFooter>
+                        <Button onClick={handleSubmitProject} disabled={submitting || !submitForm.githubUrl} className="w-full gap-2">
+                            {submitting ? <><InlineLoader size="sm" /> Submitting</> : <><Trophy className="h-4 w-4" /> Submit project</>}
+                        </Button>
+                    </SheetFooter>
+                </SheetContent>
+            </Sheet>
+
+            <DailyStandupSheet
+                isOpen={standupSheetOpen}
+                onClose={() => setStandupSheetOpen(false)}
+                projectId={project.id}
+                projectSlug={project.slug}
+                projectTitle={project.title}
+                userCredits={userCredits}
+                hasStarted={hasStarted}
+            />
         </div>
     )
 }
 
-// ============================================================================
-// Quick Actions Component
-// ============================================================================
-function QuickActions({
-    projectSlug,
-    progressPercentage,
-    includeAssessment,
-    isPublic,
-    hasStarted,
-}: {
-    projectSlug: string
-    progressPercentage: number
-    includeAssessment: boolean
-    isPublic: boolean
-    hasStarted: boolean
-}) {
-    /*
-     * A locked action is a DISABLED BUTTON, not a link to "#".
-     *
-     * Every one of these was wrapped in `<Link href='#'>` with a disabled Button
-     * inside it, and a disabled button does not stop the anchor: clicking a locked
-     * action navigated to `#` and jumped the page to the top. And the mock's link
-     * pointed at `/projects/<slug>/mock`, a route that does not exist - the route
-     * is `aimock` - so the one unlocked action here 404'd every time
-     * (plan/projects, PJ-12).
-     */
-    const actions = [
-        {
-            key: "quiz",
-            icon: Brain,
-            label: "Quiz",
-            lockedLabel: `${QUIZ_UNLOCK_PERCENT}% to unlock`,
-            href: `/projects/${projectSlug}/quiz`,
-            unlocked: quizUnlocked(progressPercentage),
-            shown: includeAssessment,
-        },
-        {
-            key: "mock",
-            icon: Sparkles,
-            label: "Mock AI",
-            lockedLabel: `${MOCK_UNLOCK_PERCENT}% to unlock`,
-            href: `/projects/${projectSlug}/aimock`,
-            unlocked: mockUnlocked(progressPercentage),
-            shown: includeAssessment,
-        },
-    ].filter((a) => a.shown)
-
-    // The Sprints tile moved to the top of the page (PJ-17 step 8), so without
-    // an assessment there is nothing left to show.
-    if (actions.length === 0) return null
-
+function Chip({ children }: { children: React.ReactNode }) {
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {actions.map(({ key, icon: Icon, label, lockedLabel, href, unlocked }) => {
-                const body = (
-                    <>
-                        <Icon className="w-5 h-5" />
-                        <span className="text-xs">{unlocked ? label : lockedLabel}</span>
-                    </>
-                )
-                return unlocked ? (
-                    <Button
-                        key={key}
-                        asChild
-                        variant="outline"
-                        className="w-full h-auto py-4 flex-col gap-1 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all"
-                    >
-                        <Link href={href}>{body}</Link>
-                    </Button>
-                ) : (
-                    <Button
-                        key={key}
-                        variant="outline"
-                        disabled
-                        aria-label={`${label} - ${lockedLabel}`}
-                        className="w-full h-auto py-4 flex-col gap-1 opacity-50"
-                    >
-                        {body}
-                    </Button>
-                )
-            })}
+        <span className="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-2.5 py-0.5 capitalize text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
+            {children}
+        </span>
+    )
+}
+
+function ProgressBar({ done, total, pct }: { done: number; total: number; pct: number }) {
+    return (
+        <div>
+            <div className="flex items-baseline justify-between text-sm">
+                <span className="text-neutral-600 dark:text-neutral-400">Your progress</span>
+                <span className="font-semibold tabular-nums text-neutral-900 dark:text-white">{done}/{total} · {pct}%</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                <div className="h-full rounded-full bg-neutral-900 transition-[width] duration-500 dark:bg-white" style={{ width: `${pct}%` }} />
+            </div>
         </div>
+    )
+}
+
+function SideCard({ title, icon: Icon, children }: { title: string; icon: typeof Layers; children: React.ReactNode }) {
+    return (
+        <section className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
+                <Icon className="h-4 w-4 text-neutral-500" /> {title}
+            </h3>
+            {children}
+        </section>
+    )
+}
+
+function GateRow({ icon: Icon, label, at, open, href }: { icon: typeof Layers; label: string; at: number; open: boolean; href: string | null }) {
+    const body = (
+        <>
+            <Icon className="h-4 w-4 shrink-0 text-neutral-500" />
+            <span className="flex-1 text-neutral-800 dark:text-neutral-200">{label}</span>
+            {open
+                ? <span className="text-xs text-neutral-900 dark:text-white">Open</span>
+                : <span className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400"><Lock className="h-3 w-3" /> at {at}%</span>}
+        </>
+    )
+    return href && open ? (
+        <Link href={href} className="-mx-1.5 flex items-center gap-2.5 rounded-md px-1.5 py-1.5 text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900">{body}</Link>
+    ) : (
+        <div className="flex items-center gap-2.5 py-1.5 text-sm">{body}</div>
+    )
+}
+
+function CopyCommand({ text }: { text: string }) {
+    const [copied, setCopied] = useState(false)
+    return (
+        <button
+            type="button"
+            aria-label={copied ? 'Copied' : 'Copy command'}
+            onClick={async () => {
+                try {
+                    await navigator.clipboard.writeText(text)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 1500)
+                } catch {
+                    toast.error('Could not copy - select the text instead')
+                }
+            }}
+            className="shrink-0 cursor-pointer text-neutral-500 hover:text-neutral-100"
+        >
+            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+        </button>
     )
 }
 
 /*
  * "Make public" (PJ-18). One way, so it asks first - in place, not in a browser
- * confirm() dialog. What it does is stated where the button is: others see the
- * project as it is now, and later additions stay yours.
+ * confirm() dialog - and says what it does where the button is.
  */
 function MakePublicButton({ projectId }: { projectId: string }) {
     const router = useRouter()
@@ -225,8 +610,7 @@ function MakePublicButton({ projectId }: { projectId: string }) {
     if (!confirming) {
         return (
             <Button variant="outline" className="w-full gap-2" onClick={() => setConfirming(true)}>
-                <Globe className="h-4 w-4" />
-                Make public
+                <Globe className="h-4 w-4" /> Make public
             </Button>
         )
     }
@@ -237,737 +621,8 @@ function MakePublicButton({ projectId }: { projectId: string }) {
             </p>
             <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => setConfirming(false)} disabled={busy}>Cancel</Button>
-                <Button size="sm" className="flex-1" onClick={publish} disabled={busy}>
-                    {busy ? <InlineLoader size="sm" /> : 'Publish'}
-                </Button>
+                <Button size="sm" className="flex-1" onClick={publish} disabled={busy}>{busy ? <InlineLoader size="sm" /> : 'Publish'}</Button>
             </div>
         </div>
-    )
-}
-
-// ============================================================================
-// Main Component
-// ============================================================================
-
-
-export default function ProjectDetailsClient({
-    project,
-    currentUserId,
-    userCredits = 0,
-    currentUser
-}: ProjectDetailsClientProps) {
-    const router = useRouter()
-
-    const userProgress = project.progress?.[0]
-    const hasStarted = userProgress && userProgress.status !== 'NOT_STARTED'
-    const progressPercentage = userProgress?.progressPercentage || 0
-    const isCompleted = userProgress?.status === 'COMPLETED'
-    const isCreator = currentUserId === project?.creator?.id
-    const isPublic = project.visibility === 'PUBLIC'
-    const [starting, setStarting] = useState(false)
-    const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
-    const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
-    // `shareDialogOpen` and its five Dialog imports went with the share feature
-    // that was never built (approved by Niraj, 2026-09-23).
-    const [submitting, setSubmitting] = useState(false)
-    const [submitForm, setSubmitForm] = useState({
-        githubUrl: '',
-        liveUrl: '',
-        notes: ''
-    })
-
-    const [standupSheetOpen, setStandupSheetOpen] = useState(false)
-    const [activeTab, setActiveTab] = useState('overview')
-
-
-
-
-
-
-    // Calculate total tasks from sprints (tasks are now nested in sprints)
-    const totalTasks = useMemo(() => {
-        if (!project.sprints) return 0
-        return project.sprints.reduce((acc: number, sprint: ProjectV2Sprint) => {
-            return acc + (sprint.tasks?.length || 0)
-        }, 0)
-    }, [project.sprints])
-
-    // Per-sprint done/total for the milestone row.
-    const sprintSteps = useMemo(() => {
-        const done = new Set((userProgress?.taskStatuses || []).filter((t) => t.status === 'COMPLETED').map((t) => t.taskId))
-        return (project.sprints || []).map((sp: ProjectV2Sprint) => ({
-            id: sp.id,
-            number: sp.sprintNumber,
-            name: sp.name,
-            total: sp.tasks?.length || 0,
-            done: (sp.tasks || []).filter((t) => done.has(t.id)).length,
-        }))
-    }, [project.sprints, userProgress])
-
-
-
-    const handleStartProject = async () => {
-        try {
-            setStarting(true)
-            const result = await startProject(project.id)
-
-            if (result.success) {
-                toast.success('Project started! Let\'s build something amazing! 🚀')
-                router.refresh()
-            } else {
-                toast.error(result.error || 'Failed to start project')
-            }
-        } catch (error) {
-            console.log("Error occurred while starting project: " + error);
-            toast.error('Something went wrong')
-        } finally {
-            setStarting(false)
-        }
-    }
-
-    const handleSubmitProject = async () => {
-        if (!submitForm.githubUrl) {
-            toast.error('GitHub URL is required')
-            return
-        }
-
-        try {
-            setSubmitting(true)
-            const result = await submitProject(project.id, {
-                githubUrl: submitForm.githubUrl,
-                liveUrl: submitForm.liveUrl || undefined,
-                notes: submitForm.notes || undefined,
-            })
-
-            if (result.success) {
-                toast.success('🎉 Project submitted successfully!')
-                setSubmitDialogOpen(false)
-                setSubmitForm({ githubUrl: '', liveUrl: '', notes: '' })
-                router.refresh()
-            } else {
-                toast.error(result.error || 'Failed to submit project')
-            }
-        } catch (error) {
-            console.log("Error occurred while submitting project: " + error);
-            toast.error('Failed to submit project')
-        } finally {
-            setSubmitting(false)
-        }
-    }
-
-
-
-
-    // All three arms were the identical string, so the map never varied. One
-    // token, and it carries a border so the pill reads on both surfaces.
-    const difficultyColors = {
-        BEGINNER: 'border border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200',
-        INTERMEDIATE: 'border border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200',
-        ADVANCED: 'border border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200',
-    }
-
-
-
-
-
-    return (
-        /*
-         * The page frame, matched to Explore (Niraj, 2026-09-23: this page does
-         * not match "the projects and explore page ui and professionalism").
-         *
-         * Gone: the `min-h-screen` gradient, which painted a full-viewport band
-         * behind content that is supposed to sit in cards on the shell's own
-         * surface; the hardcoded `px-4 md:px-6`, which is not the `px-page` every
-         * other page uses; and the rounded back PILL, which was one of six
-         * different back affordances in this module. A quiet text link, the way
-         * a breadcrumb reads, and the actions sit in the flow rather than
-         * `absolute`, where they overlapped the pill at narrow widths.
-         */
-        <div className="relative w-full">
-            <div className="w-full px-page py-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                    <Link
-                        href="/projects/explore"
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
-                    >
-                        <ArrowLeft className="h-4 w-4" aria-hidden />
-                        Projects
-                    </Link>
-                    <div className="flex items-center gap-2">
-                        {/* Beside Resources and Errors, where the eye already is
-                            (Niraj, 2026-09-23, PJ-17 step 8). */}
-                        {
-                            (hasStarted || isCreator) && (
-                                <Button asChild variant="outline" size="sm" className="gap-2">
-                                    <Link href={`/projects/${project.slug}/sprints`}>
-                                        <ListChecks className="h-4 w-4" />
-                                        <span className="hidden sm:inline">Sprints</span>
-                                    </Link>
-                                </Button>
-                            )
-                        }
-                        <ProjectAssistantButtons
-                            projectId={project.id}
-                            projectSlug={project.slug}
-                            isCreator={isCreator}
-                            isEnrolled={hasStarted || isCreator}
-                            currentUserId={currentUserId}
-                        />
-                    </div>
-                </div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="mb-6"
-                >
-                    {/* `items-stretch`, so the action card fills the hero's height
-                        instead of leaving a column of empty page beside the stats
-                        (Niraj, 2026-09-23: "too much of a gap, and there is no
-                        content as well"). */}
-                    <div className="flex flex-col lg:flex-row lg:items-stretch lg:justify-between gap-6">
-                        <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-4 flex-wrap">
-                                <Badge className={`${difficultyColors[project.difficulty as keyof typeof difficultyColors]} px-3 py-1`}>
-                                    {project.difficulty}
-                                </Badge>
-                                <Badge variant="outline" className="px-3 py-1">
-                                    {project.generationType.replace('_', ' ')}
-                                </Badge>
-                                {
-                                    isPublic ? (
-                                        <Badge variant="outline" className="px-3 py-1 border-neutral-300 text-neutral-700 dark:border-neutral-700 dark:text-neutral-100">
-                                            <Unlock className="w-3 h-3 mr-1" />
-                                            Public
-                                        </Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="px-3 py-1">
-                                            <Lock className="w-3 h-3 mr-1" />
-                                            Private
-                                        </Badge>
-                                    )
-                                }
-                                {
-                                    hasStarted && (
-                                        <Badge className="bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100">
-                                            <Zap className="w-3 h-3 mr-1" />
-                                            In Progress
-                                        </Badge>
-                                    )
-                                }
-                            </div>
-                            {
-                                project.forkedFrom && (
-                                    <p className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">
-                                        Your copy of{' '}
-                                        <Link href={`/projects/${project.forkedFrom.slug}`} className="font-medium text-neutral-900 underline-offset-4 hover:underline dark:text-white">
-                                            {project.forkedFrom.title}
-                                        </Link>
-                                    </p>
-                                )
-                            }
-                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-neutral-900 via-neutral-700 to-neutral-500 dark:from-neutral-50 dark:via-neutral-200 dark:to-neutral-400 mb-4">
-                                {project.title}
-                            </h1>
-                            <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-3xl mb-6">
-                                {project.shortDescription || project.description}
-                            </p>
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-600 dark:text-neutral-400">
-                                <div className="flex items-center gap-2">
-                                    <Clock className="w-4 h-4" />
-                                    <span>{project.estimatedHours} hours</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <ListChecks className="w-4 h-4" />
-                                    <span>{totalTasks} tasks</span>
-                                </div>
-                                {
-                                    isPublic && (
-                                        <>
-                                            <div className="flex items-center gap-2">
-                                                <Users className="w-4 h-4" />
-                                                <span>{project.totalStarted} started</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Trophy className="w-4 h-4" />
-                                                <span>{project.totalSubmissions} completed</span>
-                                            </div>
-                                        </>
-                                    )
-                                }
-                            </div>
-                        </div>
-                        <div className="lg:w-80 flex-shrink-0">
-                            <Card className="h-full bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
-                                <CardContent className="flex h-full flex-col justify-center p-6 space-y-4">
-                                    {
-                                        project.myCopySlug && !isCreator ? (
-                                            /* Enrolling made them a copy (PJ-18); this page is
-                                               the public original, so send them to theirs. */
-                                            <>
-                                                <div className="text-center py-2">
-                                                    <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">You have your own copy</h3>
-                                                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                                                        Your progress and anything you add live there.
-                                                    </p>
-                                                </div>
-                                                <Button asChild className="w-full" size="lg">
-                                                    <Link href={`/projects/${project.myCopySlug}/sprints`}>
-                                                        <Play className="w-4 h-4 mr-2" />
-                                                        Open your copy
-                                                    </Link>
-                                                </Button>
-                                            </>
-                                        ) : hasStarted ? (
-                                            <>
-                                                <div>
-                                                    <div className="flex items-center justify-between text-sm mb-2">
-                                                        <span className="text-neutral-600 dark:text-neutral-400">Progress</span>
-                                                        <span className="font-bold text-neutral-900 dark:text-white">
-                                                            {Math.round(progressPercentage)}%
-                                                        </span>
-                                                    </div>
-                                                    <Progress value={progressPercentage} className="h-3" />
-                                                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                                                        {userProgress?.tasksCompleted || 0} of {userProgress?.totalTasks || totalTasks} tasks
-                                                    </p>
-                                                </div>
-                                                <Button className="w-full bg-gradient-to-r from-neutral-800 to-neutral-800 hover:from-neutral-700 hover:to-neutral-700 text-white shadow-lg shadow-neutral-900/25" size="lg" asChild><Link href={`/projects/${project.slug}/sprints`}>
-                                                    <Play className="w-4 h-4 mr-2" />
-                                                    {isCompleted ? 'Review Tasks' : 'Continue Building'}
-                                                </Link></Button>
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        className="flex-1"
-                                                        onClick={() => setStandupSheetOpen(true)}
-                                                    >
-                                                        <Target className="w-4 h-4 mr-1" />
-                                                        Standup
-                                                    </Button>
-                                                </div>
-
-                                                {
-                                                    progressPercentage >= 90 && (
-                                                        <Button
-                                                            onClick={() => setSubmitDialogOpen(true)}
-                                                            className="w-full bg-gradient-to-r from-neutral-800 to-neutral-800 hover:from-neutral-700 hover:to-neutral-700 text-white"
-                                                        >
-                                                            <Trophy className="w-4 h-4 mr-2" />
-                                                            Submit Project
-                                                        </Button>
-                                                    )
-                                                }
-                                            </>
-                                        ) : isCreator ? (
-                                            <>
-                                                <div className="text-center py-2">
-                                                    <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Your Project</h3>
-                                                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                                                        Start building to track progress
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    onClick={handleStartProject}
-                                                    disabled={starting}
-                                                    className="w-full bg-gradient-to-r from-neutral-800 to-neutral-800 hover:from-neutral-700 hover:to-neutral-700 text-white shadow-lg shadow-neutral-900/25"
-                                                    size="lg"
-                                                >
-                                                    {
-                                                        starting ? (
-                                                            <>
-                                                                <InlineLoader size="sm" className="mr-2" />
-                                                                Starting...
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Play className="w-4 h-4 mr-2" />
-                                                                Start Building
-                                                            </>
-                                                        )
-                                                    }
-                                                </Button>
-                                            </>
-                                        ) : isPublic ? (
-                                            <>
-                                                <div className="bg-gradient-to-br from-neutral-50 to-neutral-50 dark:from-neutral-800/20 dark:to-neutral-800/20 rounded-xl p-4 border border-neutral-100 dark:border-neutral-800">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Enrollment</span>
-                                                        <Badge className="bg-neutral-100 text-neutral-700 dark:bg-neutral-800/50 dark:text-neutral-100">
-                                                            <Coins className="w-3 h-3 mr-1" />
-                                                            {/* Curated projects are free (overview, prices); this
-                                                                said 13 on every one of them. */}
-                                                            {project.isPlatformSeeded ? 'Free' : `${ENROLL_CREDIT_COST} Credits`}
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                                        You get your own copy to build on and extend.
-                                                        {!project.isPlatformSeeded && ` Your balance: ${userCredits} credits.`}
-                                                    </p>
-                                                </div>
-                                                {/* One price and one balance, said once.
-                                                    The card printed "Your balance" twice,
-                                                    three lines apart. The gradient had
-                                                    identical stops, so it was a flat fill
-                                                    pretending to be a gradient. */}
-                                                <Button
-                                                    onClick={() => setEnrollDialogOpen(true)}
-                                                    className="w-full"
-                                                    size="lg"
-                                                >
-                                                    <Coins className="w-4 h-4 mr-2" />
-                                                    Enroll Now
-                                                </Button>
-                                            </>
-                                        ) : (
-                                            /*
-                                             * The last case is a PRIVATE project seen by
-                                             * somebody who is neither its creator nor
-                                             * started on it - which means they were
-                                             * enrolled in it. It used to be `null`, so
-                                             * the card rendered as an empty white box
-                                             * with no text and no button
-                                             * (plan/projects, PJ-12).
-                                             */
-                                            <>
-                                                <div className="text-center py-2">
-                                                    <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">You have access</h3>
-                                                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                                                        This project is private. Open the board to pick up where it stands.
-                                                    </p>
-                                                </div>
-                                                <Button asChild className="w-full" size="lg">
-                                                    <Link href={`/projects/${project.slug}/sprints`}>
-                                                        <ListChecks className="w-4 h-4 mr-2" />
-                                                        Open the board
-                                                    </Link>
-                                                </Button>
-                                            </>
-                                        )
-
-                                    }
-                                    {
-                                        isCreator && !isPublic && !project.forkedFromId && (
-                                            <MakePublicButton projectId={project.id} />
-                                        )
-                                    }
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </div>
-                </motion.div>
-                {
-                    hasStarted && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className="mb-8 space-y-4"
-                        >
-                            <SprintMilestones
-                                sprints={sprintSteps}
-                                progressPercentage={progressPercentage}
-                                includeAssessment={project.includeAssessment}
-                            />
-                            <QuickActions
-                                projectSlug={project.slug}
-                                progressPercentage={progressPercentage}
-                                includeAssessment={project.includeAssessment}
-                                isPublic={isPublic}
-                                hasStarted={hasStarted}
-                            />
-                        </motion.div>
-                    )
-                }
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                >
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        {/* `segmented size="sm" fit`, the same call Explore and
-                            practice make. It was the default card variant at full
-                            width, which stretched three labels across the page and
-                            re-drew the border, background and shadow the component
-                            already owns. The Pages tab only appears when there are
-                            pages: "Pages (0)" opened an empty grid. */}
-                        <TabsList variant="segmented" size="sm" fit>
-                            <TabsTrigger value="overview">Overview</TabsTrigger>
-                            {project.pages.length > 0 && (
-                                <TabsTrigger value="pages">Pages ({project.pages.length})</TabsTrigger>
-                            )}
-                            <TabsTrigger value="setup">Setup Guide</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="overview" className="mt-4">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <Card className="bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow duration-300">
-                                    <CardHeader>
-                                        <CardTitle className='text-left text-xl'>Project Overview</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-left text-neutral-700 dark:text-neutral-300 leading-relaxed text-lg">
-                                            {project.blueprintOverview}
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow duration-300">
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2 text-xl">
-                                            <Layers className="w-5 h-5 text-neutral-900 dark:text-neutral-100" />
-                                            Technology Stack
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {
-                                                project.stacks?.frontend && (
-                                                    <div className="flex gap-4 items-center">
-                                                        <p className="text-left text-sm font-medium text-neutral-500 dark:text-neutral-400 w-20">Frontend</p>
-                                                        <Badge variant="secondary" className="bg-neutral-50 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100">{project.stacks.frontend}</Badge>
-                                                    </div>
-                                                )
-                                            }
-                                            {
-                                                project.stacks?.backend && (
-                                                    <div className="flex gap-4 items-center">
-                                                        <p className="text-left text-sm font-medium text-neutral-500 dark:text-neutral-400 w-20">Backend</p>
-                                                        <Badge variant="secondary" className="bg-neutral-50 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100">{project.stacks.backend}</Badge>
-                                                    </div>
-                                                )
-                                            }
-                                            {
-                                                project.stacks?.database && (
-                                                    <div className="flex gap-4 items-center">
-                                                        <p className="text-left text-sm font-medium text-neutral-500 dark:text-neutral-400 w-20">Database</p>
-                                                        <Badge variant="secondary" className="bg-neutral-50 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100">{project.stacks.database}</Badge>
-                                                    </div>
-                                                )
-                                            }
-                                            {
-                                                project.stacks?.deployment && (
-                                                    <div className="flex gap-4 items-center">
-                                                        <p className="text-left text-sm font-medium text-neutral-500 dark:text-neutral-400 w-20">Deployment</p>
-                                                        <Badge variant="secondary" className="bg-neutral-50 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100">{project.stacks.deployment}</Badge>
-                                                    </div>
-                                                )
-                                            }
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                                {project.keyOutcomes?.length > 0 && (
-                                <Card className="lg:col-span-2 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2 text-xl">
-                                            <Target className="w-5 h-5 text-neutral-900 dark:text-neutral-100" />
-                                            Key Outcomes
-                                        </CardTitle>
-                                        <CardDescription>What you&apos;ll build in this project</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                                            {
-                                                (project.keyOutcomes || []).map((outcome: string, index: number) => (
-                                                    <li key={index} className="flex items-start gap-3 p-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg">
-                                                        <CheckCircle2 className="w-4 h-4 text-neutral-800 dark:text-neutral-200 flex-shrink-0 mt-0.5" />
-                                                        <span className="text-left text-neutral-700 dark:text-neutral-300 text-sm">{outcome}</span>
-                                                    </li>
-                                                ))
-                                            }
-                                        </ul>
-                                    </CardContent>
-                                </Card>
-                                )}
-                                {
-                                    project.vision && (
-                                        <Card className="bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow duration-300">
-                                            <CardHeader>
-                                                <CardTitle className="flex items-center gap-2 text-xl">
-                                                    <Lightbulb className="w-5 h-5 text-neutral-900 dark:text-neutral-100" />
-                                                    Vision & Purpose
-                                                </CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="space-y-4">
-                                                <p className="text-left text-neutral-700 dark:text-neutral-300 leading-relaxed italic">
-                                                    &quot;{project.vision}&quot;
-                                                </p>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                                                    {project.targetAudience && (
-                                                        <div className="bg-neutral-50 dark:bg-neutral-800/50 p-3 rounded-lg">
-                                                            <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1">Target Audience</p>
-                                                            <p className="text-sm text-neutral-700 dark:text-neutral-300">{project.targetAudience}</p>
-                                                        </div>
-                                                    )}
-                                                    {project.problemSolution && (
-                                                        <div className="bg-neutral-50 dark:bg-neutral-800/50 p-3 rounded-lg">
-                                                            <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1">Problem Solved</p>
-                                                            <p className="text-sm text-neutral-700 dark:text-neutral-300">{project.problemSolution}</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    )
-                                }
-                                {
-                                    project.features && project.features.length > 0 && (
-                                        <Card className="bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 border-neutral-200 dark:border-neutral-800 lg:col-span-2 shadow-sm hover:shadow-md transition-shadow duration-300">
-                                            <CardHeader>
-                                                <CardTitle className="text-left flex items-center gap-2 text-xl">
-                                                    <Code2 className="w-5 h-5 text-neutral-900 dark:text-neutral-100" />
-                                                    Features
-                                                </CardTitle>
-                                                <CardDescription className="text-left">Main features you&apos;ll implement</CardDescription>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                    {
-                                                        project.features.map((feature, index: number) => (
-                                                            <div key={index} className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/50 dark:bg-neutral-900/50 hover:bg-white dark:hover:bg-neutral-900 transition-colors">
-                                                                <div className="flex items-start justify-between mb-2">
-                                                                    <h4 className="font-medium text-neutral-900 dark:text-white text-sm">{feature.name}</h4>
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className={cn(
-                                                                            "text-xs",
-                                                                            feature.priority === 'must-have' && "border-red-200 bg-red-50 text-red-700 dark:bg-red-900/20 dark:border-red-900 dark:text-red-400",
-                                                                            feature.priority === 'should-have' && "border-neutral-200 bg-neutral-50 text-neutral-700 dark:bg-neutral-800/20 dark:border-neutral-800 dark:text-neutral-100",
-                                                                            feature.priority === 'nice-to-have' && "border-neutral-200 bg-neutral-50 text-neutral-700 dark:bg-neutral-800/20 dark:border-neutral-800 dark:text-neutral-100"
-                                                                        )}
-                                                                    >
-                                                                        {feature.priority?.replace('-', ' ')}
-                                                                    </Badge>
-                                                                </div>
-                                                                <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-3 leading-relaxed">{feature.description}</p>
-                                                                <Badge
-                                                                    variant="secondary"
-                                                                    className={cn(
-                                                                        "text-xs",
-                                                                        feature.complexity === 'low' && "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-                                                                        feature.complexity === 'medium' && "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-                                                                        feature.complexity === 'high' && "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                                                                    )}
-                                                                >
-                                                                    {feature.complexity} complexity
-                                                                </Badge>
-                                                            </div>
-                                                        ))
-                                                    }
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    )
-                                }
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="pages" className="mt-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {
-                                    project.pages.map((page: ProjectV2Page) => (
-                                        <PageOverviewCard
-                                            key={page.id}
-                                            page={page}
-                                            difficultyColors={difficultyColors}
-                                        />
-                                    ))
-                                }
-                            </div>
-                        </TabsContent>
-                        <TabsContent value="setup" className="mt-6">
-                            <SetupGuideTab
-                                storageKey={project.id}
-                                setupGuide={project.setupGuide ? {
-                                    prerequisites: project.setupGuide.prerequisites || [],
-                                    environmentVariables: project.setupGuide.environmentVariables || [],
-                                    installationSteps: project.setupGuide.installationSteps || [],
-                                    verificationSteps: project.setupGuide.verificationSteps || []
-                                } : null}
-                            />
-                        </TabsContent>
-                    </Tabs>
-                </motion.div>
-            </div >
-            <EnrollmentDialog
-                open={enrollDialogOpen}
-                onOpenChange={setEnrollDialogOpen}
-                projectId={project.id}
-                projectTitle={project.title}
-                projectSlug={project.slug}
-                tasksCount={totalTasks}
-                userCredits={userCredits}
-            />
-            <Sheet open={submitDialogOpen} onOpenChange={setSubmitDialogOpen}>
-                <SheetContent className="sm:max-w-md">
-                    <SheetHeader>
-                        <SheetTitle>Submit Your Project</SheetTitle>
-                        <SheetDescription>
-                            Share your completed project for review
-                        </SheetDescription>
-                    </SheetHeader>
-                    <div className="space-y-4 py-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="githubUrl">GitHub Repository URL *</Label>
-                            <Input
-                                id="githubUrl"
-                                placeholder="https://github.com/username/repo"
-                                value={submitForm.githubUrl}
-                                onChange={(e) => setSubmitForm({ ...submitForm, githubUrl: e.target.value })}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="liveUrl">Live Demo URL (Optional)</Label>
-                            <Input
-                                id="liveUrl"
-                                placeholder="https://your-project.vercel.app"
-                                value={submitForm.liveUrl}
-                                onChange={(e) => setSubmitForm({ ...submitForm, liveUrl: e.target.value })}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="notes">Additional Notes (Optional)</Label>
-                            <Textarea
-                                id="notes"
-                                placeholder="Share any challenges, learnings, or additional features..."
-                                value={submitForm.notes}
-                                onChange={(e) => setSubmitForm({ ...submitForm, notes: e.target.value })}
-                                rows={4}
-                            />
-                        </div>
-                    </div>
-                    <SheetFooter>
-                        <Button
-                            onClick={handleSubmitProject}
-                            disabled={submitting || !submitForm.githubUrl}
-                            className="w-full bg-gradient-to-r from-neutral-800 to-neutral-800 text-white"
-                        >
-                            {
-                                submitting ? (
-                                    <>
-                                        <InlineLoader size="sm" className="mr-2" />
-                                        Submitting...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Trophy className="w-4 h-4 mr-2" />
-                                        Submit Project
-                                    </>
-                                )
-                            }
-                        </Button>
-                    </SheetFooter>
-                </SheetContent>
-            </Sheet>
-            <DailyStandupSheet
-                isOpen={standupSheetOpen}
-                onClose={() => setStandupSheetOpen(false)}
-                projectId={project.id}
-                projectSlug={project.slug}
-                projectTitle={project.title}
-                userCredits={userCredits}
-                hasStarted={!!hasStarted}
-            />
-        </div >
     )
 }

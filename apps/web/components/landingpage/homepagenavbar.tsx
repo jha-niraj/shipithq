@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTitle } from "@repo/ui/components/ui/sheet";
 import { ArrowRight, Menu, ChevronDown } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@repo/ui/components/themetoggle";
+import { SoundToggle } from "@repo/ui/components/ui/sounds";
 import { APP_LINKS } from "@/lib/site";
 import { NAV_ITEMS, type NavChild } from "./nav-links";
 
@@ -279,6 +280,7 @@ export default function Navbar() {
                     </div>
 
                     <div className="flex items-center justify-center space-x-3">
+                        <SoundToggle />
                         <ThemeToggle />
                         <a href={APP_LINKS.signup} className="hidden sm:block">
                             <Button className="cursor-pointer rounded-full bg-neutral-900 text-white transition-all hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200">
