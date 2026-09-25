@@ -1,16 +1,19 @@
 "use client"
 
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { useEffect, useState, useTransition } from "react"
 import { useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import {
     CreditCard, Check, ArrowRight, Briefcase, Users, FileText,
-    Sparkles, Building2, Loader2, AlertCircle,
-    Receipt, Download
+    Sparkles, Building2, AlertCircle,
+    Receipt, Download, Wallet, CalendarCheck, CalendarClock
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
+import Loading from "./loading"
 import { 
     Dialog, DialogContent, DialogDescription, DialogHeader, 
     DialogTitle, DialogFooter 
@@ -157,7 +160,7 @@ function PricingCard({
                     disabled={isCurrent || isPending}
                     onClick={() => onSelectPlan(planKey)}
                 >
-                    {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    {isPending && <InlineLoader size="sm" className="mr-2" />}
                     {isCurrent 
                         ? 'Current Plan' 
                         : planKey === 'ENTERPRISE' 
@@ -361,7 +364,7 @@ export default function BillingPage() {
                 if (overviewResult.success && overviewResult.data) {
                     setBillingOverview(overviewResult.data)
                 }
-            } catch (err) {
+            } catch (err: unknown) {
                 setError("Failed to load billing information")
                 console.error(err)
             } finally {
@@ -404,7 +407,7 @@ export default function BillingPage() {
                 } else {
                     setError(result.error || "Failed to create checkout session")
                 }
-            } catch (err) {
+            } catch (err: unknown) {
                 setError("An unexpected error occurred")
                 console.error(err)
             }
@@ -428,27 +431,17 @@ export default function BillingPage() {
     }
 
     if (loading) {
-        return (
-            <div className="min-h-dvh flex items-center justify-center">
-                <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
-                    <p className="mt-2 text-neutral-500">Loading billing information...</p>
-                </div>
-            </div>
-        )
+        return <Loading />
     }
 
     const currentPlan = (subscription?.plan || "FREE") as HiringSubscriptionPlanType
 
     return (
-        <div className="p-6 lg:p-8 space-y-8">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Billing & Subscription</h1>
-                <p className="text-neutral-500 dark:text-neutral-400 mt-1">
-                    Manage your subscription, view invoices, and track usage
-                </p>
-            </div>
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="Billing & Subscription"
+                subtitle="Manage your subscription, view invoices, and track usage"
+            />
 
             {/* Error Alert */}
             {error && (
@@ -502,41 +495,36 @@ export default function BillingPage() {
                     </div>
                 </div>
 
-                {/* Billing Overview Stats */}
-                {billingOverview && (
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6 pt-6 border-t border-white/20">
-                        <div>
-                            <p className="text-white/60 text-xs">Total Spent</p>
-                            <p className="text-xl font-bold">
-                                {billingOverview.currency === 'INR' ? '₹' : '$'}
-                                {billingOverview.totalSpent.toLocaleString()}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-white/60 text-xs">Invoices</p>
-                            <p className="text-xl font-bold">{billingOverview.invoiceCount}</p>
-                        </div>
-                        <div>
-                            <p className="text-white/60 text-xs">Last Payment</p>
-                            <p className="text-xl font-bold">
-                                {billingOverview.lastPaymentDate 
-                                    ? new Date(billingOverview.lastPaymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                                    : '-'
-                                }
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-white/60 text-xs">Next Billing</p>
-                            <p className="text-xl font-bold">
-                                {billingOverview.nextBillingDate 
-                                    ? new Date(billingOverview.nextBillingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                                    : '-'
-                                }
-                            </p>
-                        </div>
-                    </div>
-                )}
             </motion.div>
+
+            {/* Billing Overview Stats */}
+            {billingOverview && (
+                <StatBand
+                    cols={4}
+                    items={[
+                        {
+                            icon: Wallet,
+                            label: "Total Spent",
+                            value: `${billingOverview.currency === 'INR' ? '₹' : '$'}${billingOverview.totalSpent.toLocaleString()}`,
+                        },
+                        { icon: Receipt, label: "Invoices", value: billingOverview.invoiceCount },
+                        {
+                            icon: CalendarCheck,
+                            label: "Last Payment",
+                            value: billingOverview.lastPaymentDate
+                                ? new Date(billingOverview.lastPaymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                : '-',
+                        },
+                        {
+                            icon: CalendarClock,
+                            label: "Next Billing",
+                            value: billingOverview.nextBillingDate
+                                ? new Date(billingOverview.nextBillingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                : '-',
+                        },
+                    ]}
+                />
+            )}
 
             {/* Usage Stats */}
             {usage && (
@@ -742,7 +730,7 @@ export default function BillingPage() {
                             Cancel
                         </Button>
                         <Button onClick={handleUpgrade} disabled={isPending}>
-                            {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            {isPending && <InlineLoader size="sm" className="mr-2" />}
                             Proceed to Payment
                         </Button>
                     </DialogFooter>
@@ -767,7 +755,7 @@ export default function BillingPage() {
                             onClick={handleCancelSubscription}
                             disabled={isPending}
                         >
-                            {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            {isPending && <InlineLoader size="sm" className="mr-2" />}
                             Cancel Subscription
                         </Button>
                     </DialogFooter>

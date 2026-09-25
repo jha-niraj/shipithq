@@ -1,27 +1,27 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowUp, Check, ListPlus, Sparkles, SplitSquareVertical, Wand2, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowUp, Check, ListPlus, SplitSquareVertical, Wand2, X } from 'lucide-react'
+import { AIGlyph, AIMark } from '@repo/ui/components/ui/ai-mark'
 import { Button } from '@repo/ui/components/ui/button'
 import { InlineLoader } from '@repo/ui/components/ui/inline-loader'
 import toast from '@repo/ui/components/ui/sonner'
 import { cn } from '@repo/ui/lib/utils'
-import { isSetupSprint, sprintLabel } from '@/lib/projects/sprints'
-import { awaitBackgroundJob } from '@/hooks/use-background-job'
+import { isSetupSprint } from '@/lib/projects/sprints'
 import {
-    applyAiProposal, discardAiProposal, getAiMessage, listAiMessages, sendAiMessage,
+    applyAiProposal, discardAiProposal, listAiMessages, sendAiMessage,
     type AiMessage, type AiProposal,
 } from '@/actions/(main)/projects/project-ai.action'
-import { PAGE_COLUMN } from './sprint-pages'
+import { Shimmer, ShimmerStyles } from '@repo/ui/components/skeleton-kit'
 import type { WorkspaceSprint } from './workspace-client'
 
 /*
  * The Project AI, the first pinned tab (plan/project-workspace WS-15).
  *
- * Ask about the code, ask for a task or a sprint, or have the current task
+ * Ask about building it, ask for a task or a sprint, or have the current task
  * broken into steps. A proposed task or sprint shows as a card; only Add writes
- * it, for 5 credits. Replies are written on the worker; a reload while one is
- * still being written picks it up again.
+ * it, for 5 credits, and Cancel drops it. Replies are written inline by the
+ * server action (WS-22), so one request brings the answer back.
  */
 
 const WRITE_PRICE = 5 // lib/credits/pricing.ts `project_ai_write`, shown on the button
@@ -31,9 +31,18 @@ interface AiAssistantProps {
     sprints: WorkspaceSprint[]
     currentTaskId: string | null
     onPlanChanged: (plan: WorkspaceSprint[]) => void
+    /** Closes the docked panel (WS-20). */
+    onClose: () => void
 }
 
-export function AiAssistant({ projectId, sprints, currentTaskId, onPlanChanged }: AiAssistantProps) {
+/*
+ * Docked on the right of the workspace since 2026-09-24 (WS-20), beside
+ * whatever tab is open: a narrow column with its own header and close button,
+ * not a page-width tab.
+ */
+const COLUMN = 'px-4'
+
+export function AiAssistant({ projectId, sprints, currentTaskId, onPlanChanged, onClose }: AiAssistantProps) {
     // Setup takes no new tasks (plan/project-repos RP-3).
     const buildSprints = sprints.filter((sp) => !isSetupSprint(sp.number))
     const [messages, setMessages] = useState<AiMessage[] | null>(null)
@@ -45,41 +54,35 @@ export function AiAssistant({ projectId, sprints, currentTaskId, onPlanChanged }
 
     const scrollToEnd = () => requestAnimationFrame(() => endRef.current?.scrollIntoView({ block: 'end' }))
 
-    /* Waits for a reply the worker is writing, then shows it. */
-    const followReply = useCallback(async (jobId: string) => {
-        setThinking('Thinking')
-        const outcome = await awaitBackgroundJob<{ messageId?: string }>(jobId, (_p, phase) => { if (phase) setThinking(phase) })
-        if (outcome.ok && outcome.result?.messageId) {
-            const reply = await getAiMessage(projectId, outcome.result.messageId)
-            if (reply.success) setMessages((m) => [...(m ?? []), reply.data])
-        } else if (!outcome.ok) {
-            toast.error(outcome.error || 'The AI could not answer. Try again.')
-        }
-        setThinking(null)
-        scrollToEnd()
-    }, [projectId])
-
     useEffect(() => {
         let live = true
         void listAiMessages(projectId).then((r) => {
             if (!live) return
-            if (!r.success) { setMessages([]); return }
-            setMessages(r.data.messages)
+            setMessages(r.success ? r.data.messages : [])
             scrollToEnd()
-            if (r.data.pendingJobId) void followReply(r.data.pendingJobId)
         })
         return () => { live = false }
-    }, [projectId, followReply])
+    }, [projectId])
 
     const send = async (text: string) => {
         const content = text.trim()
         if (!content || thinking) return
         setDraft('')
-        const result = await sendAiMessage(projectId, content, currentTaskId)
-        if (!result.success) { toast.error(result.error); setDraft(content); return }
-        setMessages((m) => [...(m ?? []), result.data.message])
+        // The question shows at once; the server stores it with the reply.
+        const pendingId = `pending-${Date.now()}`
+        setMessages((m) => [...(m ?? []), { id: pendingId, role: 'user', content, proposal: null, proposalStatus: null, createdAt: new Date().toISOString() }])
+        setThinking('Thinking')
         scrollToEnd()
-        await followReply(result.data.jobId)
+        const result = await sendAiMessage(projectId, content, currentTaskId)
+        setThinking(null)
+        if (!result.success) {
+            setMessages((m) => (m ?? []).filter((x) => x.id !== pendingId))
+            toast.error(result.error)
+            setDraft(content)
+            return
+        }
+        setMessages((m) => [...(m ?? []).filter((x) => x.id !== pendingId), result.data.question, result.data.reply])
+        scrollToEnd()
     }
 
     const decide = async (message: AiMessage, add: boolean) => {
@@ -107,35 +110,38 @@ export function AiAssistant({ projectId, sprints, currentTaskId, onPlanChanged }
     ] as const
 
     return (
-        <div className="flex h-full flex-col">
+        <div className="flex h-full min-w-0 flex-col">
+            {/* The panel's header, the height of the tab strip beside it. */}
+            <div className="flex h-9 shrink-0 items-center gap-2 border-b border-neutral-200 pl-3 pr-1.5 dark:border-neutral-800">
+                <span className="text-[13px] font-medium text-neutral-900 dark:text-white">Project AI</span>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close Project AI"
+                    title="Close Project AI"
+                    className="ml-auto flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white"
+                >
+                    <X className="h-4 w-4" />
+                </button>
+            </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-                <div className={cn(PAGE_COLUMN, 'pb-6 pt-4')}>
-                    <div className="flex items-center gap-2.5">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
-                            <Sparkles className="h-4 w-4" />
-                        </span>
-                        <div>
-                            <h1 className="text-base font-semibold text-neutral-900 dark:text-white">Project AI</h1>
-                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                Knows this project&apos;s {buildSprints.length} sprints and the notes you leave on finished tasks. It can&apos;t see your code, so paste the part you mean. Asking is free; adding a task or a sprint it proposes costs {WRITE_PRICE} credits.
-                            </p>
-                        </div>
-                    </div>
-
+                <div className={cn(COLUMN, 'flex min-h-full flex-col pb-6 pt-3')}>
                     {messages === null ? (
-                        <div className="flex justify-center py-10"><InlineLoader size="md" label="Loading the conversation" /></div>
+                        // A block, so a skeleton of the conversation, not a loader (CLAUDE.md, loading).
+                        <div className="mt-2 space-y-3" aria-busy aria-label="Loading the conversation">
+                            <ShimmerStyles />
+                            <Shimmer className="ml-auto h-8 w-3/5 rounded-2xl" />
+                            <Shimmer className="h-12 w-4/5 rounded-2xl" delay={0.05} />
+                            <Shimmer className="ml-auto h-8 w-2/5 rounded-2xl" delay={0.1} />
+                        </div>
                     ) : messages.length === 0 ? (
-                        <section className="mt-6 rounded-xl border border-dashed border-neutral-300 p-4 dark:border-neutral-700">
-                            <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">How it goes</p>
-                            <div className="mt-3 space-y-3 text-sm">
-                                <Bubble who="you">Add a task for a dark mode toggle.</Bubble>
-                                <Bubble who="ai">Which sprint should it go in? {buildSprints.slice(0, 2).map((sp) => `Sprint ${sp.number} (${sp.name})`).join(', ')}{buildSprints.length > 2 ? ', or another' : ''}?</Bubble>
-                                <Bubble who="you">Sprint 2.</Bubble>
-                                <Bubble who="ai">Here is the task. Add it, change your message, or discard it.</Bubble>
-                            </div>
-                        </section>
+                        // Only the mark: the suggestions under the input say what it can do.
+                        <div className="flex flex-1 flex-col items-center justify-center gap-3 py-10 text-center">
+                            <AIMark size={48} />
+                            <p className="text-sm text-neutral-600 dark:text-neutral-400">Ask about this project.</p>
+                        </div>
                     ) : (
-                        <div className="mt-6 space-y-4 text-sm">
+                        <div className="mt-2 space-y-4 text-sm">
                             {messages.map((m) => (
                                 <div key={m.id} className="space-y-2">
                                     <Bubble who={m.role === 'user' ? 'you' : 'ai'}>{m.content}</Bubble>
@@ -144,15 +150,16 @@ export function AiAssistant({ projectId, sprints, currentTaskId, onPlanChanged }
                                             proposal={m.proposal}
                                             status={m.proposalStatus}
                                             busy={busyProposal === m.id}
+                                            lastSprint={buildSprints.at(-1)?.number ?? 0}
                                             onAdd={() => decide(m, true)}
-                                            onDiscard={() => decide(m, false)}
+                                            onCancel={() => decide(m, false)}
                                         />
                                     )}
                                 </div>
                             ))}
                             {thinking && (
                                 <div className="flex items-center gap-2.5 text-neutral-500 dark:text-neutral-400">
-                                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-neutral-100 dark:bg-neutral-900"><Sparkles className="h-3.5 w-3.5" /></span>
+                                    <span className="flex h-6 w-6 shrink-0 items-center justify-center"><AIGlyph size={16} /></span>
                                     <InlineLoader size="sm" /> {thinking}
                                 </div>
                             )}
@@ -163,7 +170,7 @@ export function AiAssistant({ projectId, sprints, currentTaskId, onPlanChanged }
             </div>
 
             <div className="shrink-0 border-t border-neutral-200 py-3 dark:border-neutral-800">
-                <div className={PAGE_COLUMN}>
+                <div className={COLUMN}>
                     <div className="mb-2 flex flex-wrap gap-2">
                         {suggestions.map((sg) => (
                             <button
@@ -208,17 +215,19 @@ export function AiAssistant({ projectId, sprints, currentTaskId, onPlanChanged }
     )
 }
 
-function ProposalCard({ proposal, status, busy, onAdd, onDiscard }: {
+function ProposalCard({ proposal, status, busy, lastSprint, onAdd, onCancel }: {
     proposal: AiProposal
+    /** The last sprint's number: a new sprint is always added after it. */
+    lastSprint: number
     status: AiMessage['proposalStatus']
     busy: boolean
     onAdd: () => void
-    onDiscard: () => void
+    onCancel: () => void
 }) {
     return (
         <div className="ml-8 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                {proposal.kind === 'task' ? `Proposed task · Sprint ${proposal.sprintNumber}` : 'Proposed sprint'}
+                {proposal.kind === 'task' ? `Proposed task · Sprint ${proposal.sprintNumber}` : status === 'pending' ? `Proposed sprint · after Sprint ${lastSprint}` : 'Proposed sprint'}
             </p>
             {proposal.kind === 'task' ? (
                 <>
@@ -250,10 +259,10 @@ function ProposalCard({ proposal, status, busy, onAdd, onDiscard }: {
                         <Button size="sm" onClick={onAdd} disabled={busy} className="gap-1.5">
                             {busy ? <InlineLoader size="sm" /> : <ListPlus className="h-4 w-4" />} Add · {WRITE_PRICE} credits
                         </Button>
-                        <Button size="sm" variant="outline" onClick={onDiscard} disabled={busy} className="gap-1.5"><X className="h-4 w-4" /> Discard</Button>
+                        <Button size="sm" variant="outline" onClick={onCancel} disabled={busy} className="gap-1.5"><X className="h-4 w-4" /> Cancel</Button>
                     </>
                 ) : (
-                    <span className="text-xs text-neutral-500 dark:text-neutral-400">{status === 'added' ? 'Added to the plan.' : 'Discarded.'}</span>
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">{status === 'added' ? 'Added to the plan.' : 'Cancelled.'}</span>
                 )}
             </div>
         </div>
@@ -267,8 +276,8 @@ function Bubble({ who, children }: { who: 'you' | 'ai'; children: React.ReactNod
         </div>
     ) : (
         <div className="flex gap-2.5">
-            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-neutral-100 dark:bg-neutral-900">
-                <Sparkles className="h-3.5 w-3.5 text-neutral-600 dark:text-neutral-300" />
+            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center text-neutral-700 dark:text-neutral-300">
+                <AIGlyph size={16} />
             </span>
             <p className="max-w-[85%] whitespace-pre-wrap leading-relaxed text-neutral-700 dark:text-neutral-300">{children}</p>
         </div>

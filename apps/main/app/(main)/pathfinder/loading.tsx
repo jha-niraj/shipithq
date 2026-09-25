@@ -16,7 +16,7 @@ export default function Loading() {
 
             {/* Header - icon tile, title + sub, QuickActions on the right. */}
             <div className="shrink-0 border-b border-neutral-200/60 bg-white px-4 py-3 dark:border-neutral-800/60 dark:bg-neutral-900/80">
-                <div className="mx-auto flex w-full items-center justify-between">
+                <div className="page-frame flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Shimmer className="h-9 w-9 rounded-xl" />
                         <div className="space-y-1.5">
@@ -33,14 +33,14 @@ export default function Loading() {
 
             {/* Mobile tab pills - hidden from lg, exactly as the real row is. */}
             <div className="shrink-0 border-b border-neutral-200/60 bg-white px-4 py-2 lg:hidden dark:border-neutral-800/60 dark:bg-neutral-900/80">
-                <div className="flex gap-1 rounded-lg bg-neutral-100 p-0.5 dark:bg-neutral-800/50">
+                <div className="flex gap-0.5 rounded-xl bg-neutral-100/70 p-0.5 dark:bg-neutral-800/50">
                     <Shimmer className="h-7 flex-1 rounded-md" />
                     <Shimmer className="h-7 flex-1 rounded-md" delay={0.05} />
                 </div>
             </div>
 
             <div className="flex-1 overflow-hidden">
-                <div className="mx-auto flex h-full w-full">
+                <div className="page-frame flex h-full">
                     {/* Goals rail. */}
                     <div className="flex w-full flex-col border-r border-neutral-200/60 bg-white lg:w-[400px] xl:w-[440px] dark:border-neutral-800/60 dark:bg-neutral-900/30">
                         <div className="space-y-2.5 p-4">

@@ -10,7 +10,7 @@ import { eq, and, asc } from "drizzle-orm"
 import { 
     RoundContent, type Application as RoundApplication, type InterviewRound 
 } from "./round-content"
-import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import Loading from "./loading"
 
 interface RoundPageProps {
     params: Promise<{
@@ -164,11 +164,7 @@ export default async function RoundPage({ params }: RoundPageProps) {
 
     return (
         <Suspense
-            fallback={
-                <div className="min-h-screen flex items-center justify-center">
-                    <InlineLoader size="lg" className="text-neutral-600 dark:text-neutral-400" />
-                </div>
-            }
+            fallback={<Loading />}
         >
             <RoundContent application={transformedApplication} round={transformedRound} />
         </Suspense>

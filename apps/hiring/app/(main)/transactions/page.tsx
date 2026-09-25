@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import {
-    CreditCard, Filter, Search, ArrowDownRight, Loader2, AlertCircle, 
+    CreditCard, Filter, Search, ArrowDownRight, AlertCircle, 
     CheckCircle, XCircle, Clock, RefreshCcw, ChevronLeft, ChevronRight
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
+import Loading from "./loading"
 import { Input } from "@repo/ui/components/ui/input"
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -106,7 +108,7 @@ function TransactionCard({ payment }: { payment: PaymentRecord }) {
                         {
                             payment.paidAt ? (
                                 <span className="flex items-center gap-1 justify-end">
-                                    <CheckCircle className="h-3 w-3 text-neutral-900" />
+                                    <CheckCircle className="h-3 w-3 text-neutral-900 dark:text-white" />
                                     Paid {new Date(payment.paidAt).toLocaleDateString()}
                                 </span>
                             ) : (
@@ -154,7 +156,7 @@ export default function TransactionsPage() {
                 if (overviewResult.success && overviewResult.data) {
                     setOverview(overviewResult.data)
                 }
-            } catch (err) {
+            } catch (err: unknown) {
                 setError("Failed to load transactions")
                 console.error(err)
             } finally {
@@ -191,14 +193,7 @@ export default function TransactionsPage() {
     )
 
     if (loading) {
-        return (
-            <div className="min-h-dvh flex items-center justify-center">
-                <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
-                    <p className="mt-2 text-neutral-500">Loading transactions...</p>
-                </div>
-            </div>
-        )
+        return <Loading />
     }
 
     // Calculate stats
@@ -207,13 +202,11 @@ export default function TransactionsPage() {
     const failedPayments = payments.filter(p => p.status === "FAILED")
 
     return (
-        <div className="p-6 lg:p-8 space-y-8">
-            <div>
-                <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Transactions</h1>
-                <p className="text-neutral-500 dark:text-neutral-400 mt-1">
-                    View and manage all your payment transactions
-                </p>
-            </div>
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="Transactions"
+                subtitle="View and manage all your payment transactions"
+            />
 
             {
                 error && (

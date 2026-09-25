@@ -35,7 +35,7 @@ export default function MockInterviewLandingPage() {
     return (
         // <SmoothScroll>
             <main>
-                <div className="w-full px-page pt-6 pb-4">
+                <div className="page-frame px-page pt-6 pb-4">
                     <motion.div
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}

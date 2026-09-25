@@ -1,10 +1,11 @@
 "use client"
 
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { useState } from "react"
 import { motion } from "framer-motion"
 import {
     X, Calendar, Briefcase, ExternalLink, XCircle, MessageSquare,
-    FileText, Loader2, User, TrendingUp
+    FileText, User, TrendingUp
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Badge } from "@repo/ui/components/ui/badge"
@@ -114,7 +115,7 @@ export function CandidateDetailSheet({ candidate, onClose }: CandidateDetailShee
             if (result.success) {
                 setCurrentStatus(newStatus)
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Error updating status:", error)
         } finally {
             setIsUpdating(false)
@@ -132,7 +133,7 @@ export function CandidateDetailSheet({ candidate, onClose }: CandidateDetailShee
                 setCurrentStatus("REJECTED")
                 setShowRejectModal(false)
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Error rejecting candidate:", error)
         } finally {
             setIsRejecting(false)
@@ -267,7 +268,7 @@ export function CandidateDetailSheet({ candidate, onClose }: CandidateDetailShee
                                 {
                                     isUpdating && (
                                         <div className="flex items-center gap-2 text-sm text-neutral-500">
-                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <InlineLoader size="sm" />
                                             Updating status...
                                         </div>
                                     )
@@ -352,7 +353,7 @@ export function CandidateDetailSheet({ candidate, onClose }: CandidateDetailShee
                                         {
                                             isRejecting ? (
                                                 <>
-                                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                    <InlineLoader size="sm" className="mr-2" />
                                                     Rejecting...
                                                 </>
                                             ) : (

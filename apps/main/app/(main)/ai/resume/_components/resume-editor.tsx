@@ -1236,11 +1236,17 @@ export function ResumeEditor({ draft, content: initialContent, templates }: Prop
                     aiToolsOpen ? "xl:w-[400px] 2xl:w-[460px]" : "xl:w-[560px] 2xl:w-[620px]",
                 )}>
                     <Tabs defaultValue="header" className="h-full">
-                        <TabsList className="sticky top-0 z-10 w-full rounded-none border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 justify-start px-4 gap-1 h-9">
-                            {['header', 'experience', 'projects', 'education', 'skills'].map(t => (
-                                <TabsTrigger key={t} value={t} className="text-xs capitalize h-7">{t}</TabsTrigger>
-                            ))}
-                        </TabsList>
+                        {/* The one styled tab strip in apps/main (UI-3): a genuinely sticky
+                            toolbar. It pins to the top of the form's scroll area, so the wrapper
+                            needs its own surface and bottom rule to keep the form from showing
+                            through as it scrolls under. The list itself stays props-only. */}
+                        <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white px-4 py-1.5 dark:border-neutral-800 dark:bg-neutral-900">
+                            <TabsList variant="segmented" size="sm" fit>
+                                {['header', 'experience', 'projects', 'education', 'skills'].map(t => (
+                                    <TabsTrigger key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</TabsTrigger>
+                                ))}
+                            </TabsList>
+                        </div>
                         <div className="p-4">
                             <TabsContent value="header" className="mt-0"><HeaderSection header={content.header} onChange={h => setContent(c => ({ ...c, header: h }))} /></TabsContent>
                             <TabsContent value="experience" className="mt-0"><ExperienceSection items={content.experience} onChange={v => setContent(c => ({ ...c, experience: v }))} /></TabsContent>

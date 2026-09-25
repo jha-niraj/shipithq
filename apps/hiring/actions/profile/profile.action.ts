@@ -2,8 +2,9 @@
 
 import { db, users, companyMembers, companies } from "@repo/db"
 import { eq } from "drizzle-orm"
-import { auth, getSession } from "@repo/auth"
+import { auth } from "@repo/auth"
 import { headers } from "next/headers"
+import { requirePermission } from "@/lib/permissions"
 import type {
     UserProfile, CompanyDetails, UpdateProfilePayload,
     ChangePasswordPayload, UpdateCompanyPayload, Permission,
@@ -18,15 +19,13 @@ import type {
  * Get the current user's profile along with their company member info
  */
 export async function getUserProfile() {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const access = await requirePermission()
+    if (!access.ok) return { success: false, error: access.error }
+    const { ctx } = access
 
     try {
         const user = await db.query.users.findFirst({
-            where: eq(users.id, session.user.id),
+            where: eq(users.id, ctx.userId),
             columns: {
                 id: true,
                 name: true,
@@ -63,15 +62,13 @@ export async function getUserProfile() {
  * Get the current user's company member info
  */
 export async function getCurrentMember() {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const access = await requirePermission()
+    if (!access.ok) return { success: false, error: access.error }
+    const { ctx } = access
 
     try {
         const member = await db.query.companyMembers.findFirst({
-            where: eq(companyMembers.userId, session.user.id),
+            where: eq(companyMembers.userId, ctx.userId),
             columns: {
                 id: true,
                 userId: true,
@@ -126,21 +123,12 @@ export async function getCurrentMember() {
  * Get company details (accessible to all members)
  */
 export async function getCompanyDetails() {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const access = await requirePermission()
+    if (!access.ok) return { success: false, error: access.error }
+    const { ctx } = access
 
     try {
-        const member = await db.query.companyMembers.findFirst({
-            where: eq(companyMembers.userId, session.user.id),
-            columns: { companyId: true, role: true }
-        })
-
-        if (!member) {
-            return { success: false, error: "Not a member of any company" }
-        }
+        const member = ctx.member
 
         const company = await db.query.companies.findFirst({
             where: eq(companies.id, member.companyId)
@@ -200,7 +188,7 @@ export async function getCompanyDetails() {
         return {
             success: true,
             data: companyDetails,
-            isHead: member.role === "FOUNDER"
+            isHead: ctx.can("edit_company")
         }
     } catch (error) {
         console.error("Get company details error:", error)
@@ -216,11 +204,9 @@ export async function getCompanyDetails() {
  * Update the current user's profile
  */
 export async function updateUserProfile(payload: UpdateProfilePayload) {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const access = await requirePermission()
+    if (!access.ok) return { success: false, error: access.error }
+    const { ctx } = access
 
     try {
         // Update user info
@@ -232,7 +218,7 @@ export async function updateUserProfile(payload: UpdateProfilePayload) {
         if (Object.keys(updateData).length > 0) {
             await db.update(users)
                 .set(updateData)
-                .where(eq(users.id, session.user.id))
+                .where(eq(users.id, ctx.userId))
         }
 
         // Update company member info if display name or custom job title changed
@@ -243,7 +229,7 @@ export async function updateUserProfile(payload: UpdateProfilePayload) {
 
             await db.update(companyMembers)
                 .set(memberUpdateData)
-                .where(eq(companyMembers.userId, session.user.id))
+                .where(eq(companyMembers.userId, ctx.userId))
         }
 
         return { success: true, message: "Profile updated successfully" }
@@ -257,11 +243,9 @@ export async function updateUserProfile(payload: UpdateProfilePayload) {
  * Change the current user's password
  */
 export async function changePassword(payload: ChangePasswordPayload) {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const access = await requirePermission()
+    if (!access.ok) return { success: false, error: access.error }
+    const { ctx } = access
 
     // Validate password match
     if (payload.newPassword !== payload.confirmPassword) {
@@ -293,7 +277,7 @@ export async function changePassword(payload: ChangePasswordPayload) {
         // App-side flag, not something better-auth knows about.
         await db.update(users)
             .set({ mustChangePassword: false })
-            .where(eq(users.id, session.user.id))
+            .where(eq(users.id, ctx.userId))
 
         return { success: true, message: "Password changed successfully" }
     } catch (error: unknown) {
@@ -317,29 +301,15 @@ export async function changePassword(payload: ChangePasswordPayload) {
 }
 
 /**
- * Update company details (HEAD only)
+ * Update company details (edit_company)
  */
 export async function updateCompanyDetails(payload: UpdateCompanyPayload) {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const access = await requirePermission("edit_company")
+    if (!access.ok) return { success: false, error: access.error }
+    const { ctx } = access
 
     try {
-        // Check if user is HEAD
-        const member = await db.query.companyMembers.findFirst({
-            where: eq(companyMembers.userId, session.user.id),
-            columns: { companyId: true, role: true }
-        })
-
-        if (!member) {
-            return { success: false, error: "Not a member of any company" }
-        }
-
-        if (member.role !== "FOUNDER") {
-            return { success: false, error: "Only HEAD can update company details" }
-        }
+        const member = ctx.member
 
         // Build update data
         const updateData: Record<string, unknown> = {}

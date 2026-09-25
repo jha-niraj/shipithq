@@ -8,7 +8,7 @@ import {
 // already painted around this, so previewing the layout beats a centred spinner.
 export default function HomeLoading() {
     return (
-        <div className="w-full pb-4">
+        <div className="page-frame pb-4">
             <div className="mx-auto w-full px-page pt-6 pb-10">
                 <HomeDashboardSkeleton />
             </div>

@@ -1,16 +1,19 @@
 "use client"
 
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { useState, useTransition, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
     Plus, Search, ListChecks, ChevronRight, Clock, Users, Mic,
     MoreVertical, Star, Edit2, Trash2, Copy, Eye, CheckCircle2,
-    AlertCircle, Sparkles, FileStack, Loader2, Rocket, Building2, Briefcase
+    AlertCircle, Sparkles, FileStack, Rocket, Building2, Briefcase
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
+import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -62,7 +65,7 @@ const roundTypeColors: Record<string, string> = {
     SYSTEM_DESIGN: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100",
     BEHAVIORAL: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100",
     TAKE_HOME: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100",
-    PANEL: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400",
+    PANEL: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100",
     HIRING_MANAGER: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100",
     CULTURE_FIT: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100",
     HR_FINAL: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100",
@@ -198,35 +201,31 @@ export function InterviewConfigContent({ initialProcesses, initialStats }: Inter
     }
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                        Interview Process
-                    </h1>
-                    <p className="text-neutral-500 mt-1">
-                        Configure transparent interview processes for candidates
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <Button
-                        variant="outline"
-                        onClick={() => setIsTemplatesOpen(true)}
-                        className="rounded-xl"
-                    >
-                        <FileStack className="w-4 h-4 mr-2" />
-                        Templates
-                    </Button>
-                    <Button
-                        onClick={() => setIsCreateSheetOpen(true)}
-                        className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200"
-                    >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create Process
-                    </Button>
-                </div>
-            </div>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-8">
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="Interview Process"
+                subtitle="Configure transparent interview processes for candidates"
+                actions={
+                    <>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsTemplatesOpen(true)}
+                            className="rounded-xl"
+                        >
+                            <FileStack className="w-4 h-4 mr-2" />
+                            Templates
+                        </Button>
+                        <Button
+                            onClick={() => setIsCreateSheetOpen(true)}
+                            className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Create Process
+                        </Button>
+                    </>
+                }
+            />
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
                 <StatBand
                     cols={3}
                     items={[
@@ -242,12 +241,12 @@ export function InterviewConfigContent({ initialProcesses, initialStats }: Inter
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="mb-8 p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/30 border border-neutral-200 dark:border-neutral-800/50"
+                        className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/30 border border-neutral-200 dark:border-neutral-800/50"
                     >
                         <div className="flex items-start gap-3">
                             <AlertCircle className="w-5 h-5 text-neutral-800 dark:text-neutral-100 mt-0.5" />
                             <div>
-                                <h3 className="font-semibold text-neutral-900 dark:text-neutral-700">
+                                <h3 className="font-semibold text-neutral-900 dark:text-white">
                                     No Interview Process Configured
                                 </h3>
                                 <p className="text-sm text-neutral-700 dark:text-neutral-100 mt-1">
@@ -269,7 +268,7 @@ export function InterviewConfigContent({ initialProcesses, initialStats }: Inter
             }
             {
                 processes.length > 0 && (
-                    <div className="mb-6">
+                    <div>
                         <div className="relative max-w-md">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                             <Input
@@ -519,7 +518,7 @@ export function InterviewConfigContent({ initialProcesses, initialStats }: Inter
                     <div className="max-w-7xl mx-auto w-full flex flex-col h-full">
                         <SheetHeader className="pb-4 border-b border-neutral-200 dark:border-neutral-800">
                             <SheetTitle className="flex items-center gap-2 text-xl">
-                                <Sparkles className="w-6 h-6 text-neutral-900" />
+                                <Sparkles className="w-6 h-6 text-neutral-900 dark:text-white" />
                                 Interview Process Templates
                             </SheetTitle>
                             <SheetDescription>
@@ -534,10 +533,10 @@ export function InterviewConfigContent({ initialProcesses, initialStats }: Inter
                                 {
                                     (["ALL", "STARTUP", "FAANG", "MNC"] as const).map((style) => {
                                         const styleConfig = {
-                                            ALL: { icon: ListChecks, label: "All Templates", color: "neutral" },
-                                            STARTUP: { icon: Rocket, label: "Startup", color: "green" },
-                                            FAANG: { icon: Building2, label: "FAANG / Big Tech", color: "blue" },
-                                            MNC: { icon: Briefcase, label: "MNC / Corporate", color: "purple" }
+                                            ALL: { icon: ListChecks, label: "All Templates" },
+                                            STARTUP: { icon: Rocket, label: "Startup" },
+                                            FAANG: { icon: Building2, label: "FAANG / Big Tech" },
+                                            MNC: { icon: Briefcase, label: "MNC / Corporate" }
                                         }[style]
                                         const Icon = styleConfig.icon
 
@@ -563,8 +562,25 @@ export function InterviewConfigContent({ initialProcesses, initialStats }: Inter
                         <div className="flex-1 overflow-y-auto py-4">
                             {
                                 templatesLoading ? (
-                                    <div className="flex items-center justify-center h-40">
-                                        <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
+                                        <ShimmerStyles />
+                                        {
+                                            Array.from({ length: 6 }).map((_, i) => (
+                                                <div key={i} className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <Shimmer className="h-5 w-16 rounded-full" delay={i * 0.04} />
+                                                        <Shimmer className="h-3 w-14" delay={i * 0.04} />
+                                                    </div>
+                                                    <Shimmer className="h-5 w-3/4 mb-2" delay={i * 0.04} />
+                                                    <Shimmer className="h-4 w-full" delay={i * 0.04} />
+                                                    <Shimmer className="h-4 w-2/3 mt-1.5 mb-3" delay={i * 0.04} />
+                                                    <div className="flex justify-between">
+                                                        <Shimmer className="h-3 w-14" delay={i * 0.04} />
+                                                        <Shimmer className="h-3 w-12" delay={i * 0.04} />
+                                                    </div>
+                                                </div>
+                                            ))
+                                        }
                                     </div>
                                 ) : filteredTemplates.length > 0 ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -603,7 +619,7 @@ export function InterviewConfigContent({ initialProcesses, initialStats }: Inter
                                                             </Badge>
                                                             {
                                                                 template.isAiGenerated && (
-                                                                    <Badge variant="secondary" className="text-xs bg-gradient-to-r from-neutral-100 to-pink-100 dark:from-neutral-800/30 dark:to-pink-900/30 text-neutral-700 dark:text-neutral-100">
+                                                                    <Badge variant="secondary" className="text-xs bg-neutral-100 dark:bg-neutral-800/30 text-neutral-700 dark:text-neutral-100">
                                                                         <Sparkles className="w-3 h-3 mr-1" />
                                                                         AI
                                                                     </Badge>
@@ -644,7 +660,7 @@ export function InterviewConfigContent({ initialProcesses, initialStats }: Inter
                         <div className="border-t border-neutral-200 dark:border-neutral-800 pt-4 mt-auto">
                             <div className="bg-gradient-to-r from-neutral-50 to-neutral-50 dark:from-neutral-900/30 dark:to-neutral-900/30 rounded-2xl p-4">
                                 <div className="flex items-center gap-2 mb-3">
-                                    <Sparkles className="w-5 h-5 text-neutral-900" />
+                                    <Sparkles className="w-5 h-5 text-neutral-900 dark:text-white" />
                                     <h3 className="font-semibold text-neutral-900 dark:text-white">
                                         Generate with AI
                                     </h3>
@@ -699,7 +715,7 @@ export function InterviewConfigContent({ initialProcesses, initialStats }: Inter
                                 {
                                     aiGenerating && (
                                         <div className="flex items-center gap-2 mt-3 text-sm text-neutral-800 dark:text-neutral-100">
-                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <InlineLoader size="sm" />
                                             Generating interview process...
                                         </div>
                                     )

@@ -11,6 +11,12 @@ import {
 } from "@repo/db";
 import { revalidatePath } from "next/cache";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
+import {
+    normalizeProjectLinkType, normalizeProjectMediaType, normalizeProjectStatus,
+    normalizeProjectType, normalizeProjectVisibility,
+} from "@repo/db/profile-values";
+import { loadPublicProfile, profileStats, type PublicProfileResult } from "@/lib/profile/read";
+import { PROFILE_LIMITS } from "@/lib/profile/limits";
 
 export type ProfileTheme = "OCEAN_BLUE" | "SUNSET_ORANGE" | "FOREST_GREEN" | "PURPLE_DREAM" | "DARK_MODE";
 export type ProfileLayout = "DEFAULT" | "MINIMAL" | "SHOWCASE" | "PORTFOLIO";
@@ -75,7 +81,8 @@ export async function updateWorkExperience(id: string, data: {
     description?: string;
     bulletPoints?: string[];
     startDate?: Date;
-    endDate?: Date;
+    /** `null` clears it - `undefined` would leave the old date in place. */
+    endDate?: Date | null;
     isCurrentlyWorking?: boolean;
 }) {
     try {
@@ -133,6 +140,45 @@ export async function deleteWorkExperience(id: string) {
 
 // ================= PORTFOLIO PROJECT ACTIONS =================
 
+type ProjectLinkInput = { linkType: string; url: string; description?: string | null };
+type ProjectMediaInput = { mediaUrl: string; mediaType: string; caption?: string | null };
+
+/**
+ * One stored spelling per value (plan/profile PRF-7). Every writer goes through
+ * here, so a caller passing "Public", "LIVE SITE" or "Image" still stores the
+ * canonical value. A custom project type is kept as typed.
+ */
+function projectValues<T extends { status?: string; visibility?: string; projectType?: string }>(data: T): T {
+    const out = { ...data };
+    if (data.status !== undefined) out.status = normalizeProjectStatus(data.status) ?? "IN_PROGRESS";
+    if (data.visibility !== undefined) out.visibility = normalizeProjectVisibility(data.visibility) ?? "PUBLIC";
+    if (data.projectType !== undefined) out.projectType = normalizeProjectType(data.projectType) ?? data.projectType.trim();
+    return out;
+}
+
+/** Rows with no URL are the sheet's empty starter rows, not links. */
+function projectLinkRows(projectId: string, links: ProjectLinkInput[]) {
+    return links
+        .filter((l) => l.url?.trim())
+        .map((l) => ({
+            projectId,
+            linkType: normalizeProjectLinkType(l.linkType) ?? "LIVE_SITE",
+            url: l.url.trim(),
+            description: l.description?.trim() || null,
+        }));
+}
+
+function projectMediaRows(projectId: string, media: ProjectMediaInput[]) {
+    return media
+        .filter((m) => m.mediaUrl?.trim())
+        .map((m) => ({
+            projectId,
+            mediaUrl: m.mediaUrl.trim(),
+            mediaType: normalizeProjectMediaType(m.mediaType) ?? "IMAGE",
+            caption: m.caption?.trim() || null,
+        }));
+}
+
 export async function getPortfolioProjects() {
     try {
         const session = await getSession(headers());
@@ -178,22 +224,17 @@ export async function addPortfolioProject(data: {
 
         const { links, media, ...projectData } = data;
 
-        const [project] = await db.insert(portfolioProjects).values({
-            userId: session.user.id,
-            ...projectData
-        }).returning();
-
-        if (links && links.length > 0) {
-            await db.insert(projectLinks).values(
-                links.map(l => ({ projectId: project!.id, linkType: l.linkType, url: l.url, description: l.description || null }))
-            );
-        }
-
-        if (media && media.length > 0) {
-            await db.insert(projectMedia).values(
-                media.map(m => ({ projectId: project!.id, mediaUrl: m.mediaUrl, mediaType: m.mediaType, caption: m.caption || null }))
-            );
-        }
+        const project = await withTransaction(async (tx) => {
+            const [created] = await tx.insert(portfolioProjects).values({
+                userId: session.user.id,
+                ...projectValues(projectData),
+            }).returning();
+            const linkRows = projectLinkRows(created!.id, links ?? []);
+            const mediaRows = projectMediaRows(created!.id, media ?? []);
+            if (linkRows.length) await tx.insert(projectLinks).values(linkRows);
+            if (mediaRows.length) await tx.insert(projectMedia).values(mediaRows);
+            return created!;
+        });
 
         const fullProject = await db.query.portfolioProjects.findFirst({
             where: eq(portfolioProjects.id, project!.id),
@@ -217,7 +258,8 @@ export async function updatePortfolioProject(id: string, data: {
     visibility?: string;
     technologies?: string[];
     startDate?: Date;
-    endDate?: Date;
+    /** `null` clears it - `undefined` would leave the old date in place. */
+    endDate?: Date | null;
     thumbnailUrl?: string;
     links?: { linkType: string; url: string; description?: string | null }[];
     media?: { mediaUrl: string; mediaType: string; caption?: string | null }[];
@@ -241,37 +283,19 @@ export async function updatePortfolioProject(id: string, data: {
 
         await withTransaction(async (tx) => {
             if (Object.keys(projectData).length > 0) {
-                await tx.update(portfolioProjects).set(projectData).where(eq(portfolioProjects.id, id));
+                await tx.update(portfolioProjects).set(projectValues(projectData)).where(eq(portfolioProjects.id, id));
             }
 
             if (links !== undefined) {
                 await tx.delete(projectLinks).where(eq(projectLinks.projectId, id));
-                const validLinks = links.filter((l) => l.url?.trim());
-                if (validLinks.length > 0) {
-                    await tx.insert(projectLinks).values(
-                        validLinks.map((l) => ({
-                            projectId: id,
-                            linkType: l.linkType,
-                            url: l.url,
-                            description: l.description || null,
-                        }))
-                    );
-                }
+                const linkRows = projectLinkRows(id, links);
+                if (linkRows.length > 0) await tx.insert(projectLinks).values(linkRows);
             }
 
             if (media !== undefined) {
                 await tx.delete(projectMedia).where(eq(projectMedia.projectId, id));
-                const validMedia = media.filter((m) => m.mediaUrl?.trim());
-                if (validMedia.length > 0) {
-                    await tx.insert(projectMedia).values(
-                        validMedia.map((m) => ({
-                            projectId: id,
-                            mediaUrl: m.mediaUrl,
-                            mediaType: m.mediaType,
-                            caption: m.caption || null,
-                        }))
-                    );
-                }
+                const mediaRows = projectMediaRows(id, media);
+                if (mediaRows.length > 0) await tx.insert(projectMedia).values(mediaRows);
             }
         });
 
@@ -474,7 +498,8 @@ export async function updateUserEducation(id: string, data: {
     degree?: string;
     institution?: string;
     startDate?: Date;
-    endDate?: Date;
+    /** `null` clears it - `undefined` would leave the old date in place. */
+    endDate?: Date | null;
     bulletPoints?: string[];
     order?: number;
 }) {
@@ -548,6 +573,7 @@ export async function getPublicResumeByUsername(username: string) {
             },
         });
         if (!user) return { success: false, error: "Resume not found" };
+        const viewerId = (await getSession(headers()))?.user?.id ?? null;
 
         const [experiences, projects, userSkills, educations, certs, links] = await Promise.all([
             db.query.workExperiences.findMany({
@@ -555,7 +581,12 @@ export async function getPublicResumeByUsername(username: string) {
                 orderBy: [desc(workExperiences.isCurrentlyWorking), desc(workExperiences.startDate)]
             }),
             db.query.portfolioProjects.findMany({
-                where: eq(portfolioProjects.userId, user.id),
+                // Private projects stay private here too (plan/resume RES-25): this had
+                // no visibility filter, so a project set to Private still appeared on
+                // /ai/resume/<username> for anyone. Same rule as lib/profile/read.ts.
+                where: viewerId === user.id
+                    ? eq(portfolioProjects.userId, user.id)
+                    : and(eq(portfolioProjects.userId, user.id), sql`upper(${portfolioProjects.visibility}) = 'PUBLIC'`),
                 with: { links: true },
                 orderBy: [desc(portfolioProjects.startDate)]
             }),
@@ -711,7 +742,8 @@ export async function getOwnProfile() {
             db.query.userProfiles.findFirst({ where: eq(userProfiles.userId, user.id) }),
             db.query.portfolioProjects.findMany({
                 where: eq(portfolioProjects.userId, user.id),
-                with: { links: true },
+                // Media too: the editor's project sheet opens with the rows it has.
+                with: { links: true, media: true },
                 orderBy: [desc(portfolioProjects.startDate)]
             }),
             db.query.userProjectV2Progress.findMany({
@@ -793,213 +825,32 @@ export async function getOwnProfile() {
 }
 
 /**
- * Get public profile by username with access control
- */
-export async function getPublicProfile(username: string) {
-    try {
-        const session = await getSession(headers());
-        const viewerId = session?.user?.id;
-
-        // Find the profile owner
-        const profileOwner = await db.query.users.findFirst({
-            where: eq(users.username, username),
-        });
-
-        if (!profileOwner) {
-            return { success: false, error: "User not found" };
-        }
-
-        // Check if viewer is the owner
-        const isOwnProfile = viewerId === profileOwner.id;
-
-        // Get or create profile settings
-        let profile = await db.query.userProfiles.findFirst({
-            where: eq(userProfiles.userId, profileOwner.id)
-        });
-
-        if (!profile) {
-            // Create default profile if doesn't exist
-            const [newProfile] = await db.insert(userProfiles).values({
-                userId: profileOwner.id,
-            }).returning();
-            profile = newProfile!;
-        }
-
-        // Check access based on privacy settings
-        if (!isOwnProfile) {
-            if (profile.visibility === "PRIVATE") {
-                return { success: false, error: "This profile is private" };
-            }
-
-            if (profile.visibility === "FOLLOWERS") {
-                // Check if viewer is following the profile owner
-                const isFollowing = viewerId ? await db.query.follow.findFirst({
-                    where: and(
-                        eq(follow.followerId, viewerId),
-                        eq(follow.followingId, profileOwner.id)
-                    )
-                }) : null;
-
-                if (!isFollowing) {
-                    return {
-                        success: false,
-                        error: "This profile is only visible to followers",
-                    };
-                }
-            }
-
-            // Track profile view
-            await trackProfileView(profile.id, viewerId || null, "direct");
-        }
-
-        const [
-            userPortfolioProjects,
-            projectProgressList,
-            userSkills,
-            userRecentActivities,
-            userAchievementsList,
-            userExperiences,
-            userCertifications,
-            userSocialLinks,
-            userEdus,
-        ] = await Promise.all([
-            db.query.portfolioProjects.findMany({
-                where: eq(portfolioProjects.userId, profileOwner.id),
-                with: { links: true },
-                orderBy: [desc(portfolioProjects.startDate)]
-            }),
-            db.query.userProjectV2Progress.findMany({
-                where: eq(userProjectV2Progress.userId, profileOwner.id),
-                with: {
-                    project: {
-                        columns: {
-                            id: true,
-                            slug: true,
-                            title: true,
-                            shortDescription: true,
-                            description: true,
-                            technologies: true,
-                            generationType: true,
-                            difficulty: true,
-                        }
-                    }
-                },
-                orderBy: (t, { desc }) => [desc(t.createdAt)]
-            }),
-            db.query.skills.findMany({
-                where: eq(skills.userId, profileOwner.id),
-                with: { endorsements: true }
-            }),
-            db.query.recentActivities.findMany({
-                where: eq(recentActivities.userId, profileOwner.id),
-                orderBy: [desc(recentActivities.createdAt)],
-                limit: 20
-            }),
-            db.query.achievements.findMany({
-                where: eq(achievements.userId, profileOwner.id),
-                orderBy: (t, { desc }) => [desc(t.createdAt)],
-                limit: 10
-            }),
-            db.query.workExperiences.findMany({
-                where: eq(workExperiences.userId, profileOwner.id),
-                orderBy: [desc(workExperiences.startDate)]
-            }),
-            db.query.certifications.findMany({
-                where: eq(certifications.userId, profileOwner.id),
-                orderBy: [desc(certifications.issuedDate)]
-            }),
-            db.query.socialLinks.findMany({
-                where: eq(socialLinks.userId, profileOwner.id),
-                orderBy: [asc(socialLinks.order), desc(socialLinks.createdAt)]
-            }),
-            db.query.userEducations.findMany({
-                where: eq(userEducations.userId, profileOwner.id),
-                orderBy: [asc(userEducations.order), desc(userEducations.startDate)]
-            }),
-        ]);
-
-        const achievementsList = userAchievementsList.map(a => ({
-            id: a.id,
-            title: a.title,
-            description: a.description,
-        }));
-
-        const fullProfileOwner = {
-            ...profileOwner,
-            userProfile: profile,
-            portfolioProjects: userPortfolioProjects,
-            UserProjectV2Progress: projectProgressList,
-            skills: userSkills,
-            recentActivity: userRecentActivities,
-            achievements: achievementsList,
-            experiences: userExperiences,
-            certifications: userCertifications,
-            socialLinks: userSocialLinks,
-            educations: userEdus,
-        };
-
-        if (!isOwnProfile) {
-            const filteredUser = {
-                ...fullProfileOwner,
-                email: profile.showEmail ? profileOwner.email : null,
-                phone: null,
-                resume: profile.showResume ? profileOwner.resume : null,
-                resumeText: null,
-                recentActivity: profile.showActivity ? userRecentActivities : [],
-            };
-
-            return {
-                success: true,
-                user: filteredUser,
-                isOwnProfile: false,
-                canEdit: false,
-            };
-        }
-
-        return {
-            success: true,
-            user: fullProfileOwner,
-            isOwnProfile: true,
-            canEdit: true,
-        };
-    } catch (error) {
-        console.error("Error fetching public profile:", error);
-        return { success: false, error: "Failed to fetch profile" };
-    }
-}
-
-/**
  * Track a profile view for analytics
  */
-export async function trackProfileView(
-    profileId: string,
-    viewerId: string | null,
-    source: string = "direct"
-) {
+export async function trackProfileView(profileId: string, source: string = "direct") {
     try {
-        // Don't track owner's own views
+        // The viewer comes from the session, never from the caller: a client could
+        // otherwise pass anyone's id. Signed-out views count, with a null viewer.
+        const session = await getSession(headers());
+        const viewerId = session?.user?.id ?? null;
+
         const profile = await db.query.userProfiles.findFirst({
             where: eq(userProfiles.id, profileId),
             columns: { userId: true },
         });
-
-        if (profile?.userId === viewerId) {
+        if (!profile || profile.userId === viewerId) {
             return { success: true };
         }
 
-        await db.insert(profileViews).values({
-            profileId,
-            viewerId,
-            source,
-        });
-
-        // Increment profile view count
-        await db.update(userProfiles).set({
-            profileViews: sql`${userProfiles.profileViews} + 1`
-        }).where(eq(userProfiles.id, profileId));
+        await db.batch([
+            db.insert(profileViews).values({ profileId, viewerId, source }),
+            db.update(userProfiles).set({
+                profileViews: sql`${userProfiles.profileViews} + 1`
+            }).where(eq(userProfiles.id, profileId)),
+        ]);
 
         return { success: true };
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error tracking profile view:", error);
         return { success: false, error: "Failed to track view" };
     }
@@ -1048,49 +899,6 @@ export async function updateProfileSettings(data: {
     } catch (error) {
         console.error("Error updating profile settings:", error);
         return { success: false, error: "Failed to update profile" };
-    }
-}
-
-/**
- * Update profile privacy settings
- */
-export async function updatePrivacySettings(data: {
-    visibility?: ProfileVisibility;
-    showEmail?: boolean;
-    showResume?: boolean;
-    showActivity?: boolean;
-    showStats?: boolean;
-    allowEndorsements?: boolean;
-    allowMessages?: boolean;
-}) {
-    try {
-        const session = await getSession(headers());
-        if (!session?.user?.id) {
-            return { success: false, error: "Not authenticated" };
-        }
-
-        // Get or create profile
-        let profile = await db.query.userProfiles.findFirst({
-            where: eq(userProfiles.userId, session.user.id),
-        });
-
-        if (!profile) {
-            const [newProfile] = await db.insert(userProfiles).values({
-                userId: session.user.id,
-            }).returning();
-            profile = newProfile!;
-        }
-
-        // Update privacy settings
-        const [updatedProfile] = await db.update(userProfiles).set(data).where(
-            eq(userProfiles.id, profile.id)
-        ).returning();
-
-        revalidatePath("/profile");
-        return { success: true, profile: updatedProfile };
-    } catch (error) {
-        console.error("Error updating privacy settings:", error);
-        return { success: false, error: "Failed to update privacy settings" };
     }
 }
 
@@ -1333,181 +1141,145 @@ export async function calculateNewProfileCompletion(userId: string) {
 }
 
 /**
- * Get profile by username (for public viewing)
+ * A profile as the current viewer may see it (plan/profile PRF-8). The decision
+ * about what a stranger sees lives in `lib/profile/read.ts`; this is only the
+ * session lookup in front of it. Signed-out is a normal viewer, not an error.
  */
-export async function getProfileByUsername(username: string) {
+export async function getProfileByUsername(username: string): Promise<PublicProfileResult> {
     try {
         const session = await getSession(headers());
-        const viewerId = session?.user?.id;
-
-        // First check if it's own profile
-        const targetUser = await db.query.users.findFirst({
-            where: eq(users.username, username),
-            columns: { id: true },
-        });
-
-        if (!targetUser) {
-            return { success: false, error: "User not found" };
-        }
-
-        const isOwnProfile = viewerId === targetUser.id;
-
-        const user = await db.query.users.findFirst({
-            where: eq(users.username, username),
-        });
-
-        if (!user) {
-            return { success: false, error: "User not found" };
-        }
-
-        const [
-            userProfile,
-            userPortfolioProjects,
-            userSkills,
-            userExperiences,
-            userEducationsList,
-            userCertifications,
-            userAchievementsList,
-            userSocialLinks,
-            userRecentActivities,
-        ] = await Promise.all([
-            db.query.userProfiles.findFirst({ where: eq(userProfiles.userId, user.id) }),
-            db.query.portfolioProjects.findMany({
-                where: isOwnProfile
-                    ? eq(portfolioProjects.userId, user.id)
-                    : and(eq(portfolioProjects.userId, user.id), eq(portfolioProjects.visibility, "Public")),
-                with: { links: true, media: true },
-                orderBy: [desc(portfolioProjects.startDate)],
-                limit: 20,
-            }),
-            db.query.skills.findMany({
-                where: eq(skills.userId, user.id),
-                with: { endorsements: true }
-            }),
-            db.query.workExperiences.findMany({
-                where: eq(workExperiences.userId, user.id),
-                orderBy: [desc(workExperiences.startDate)]
-            }),
-            // Education was missing here while every other section was fetched,
-            // so a public profile silently showed "No education listed" no matter
-            // what the user had entered.
-            db.query.userEducations.findMany({
-                where: eq(userEducations.userId, user.id),
-                orderBy: [desc(userEducations.startDate)]
-            }),
-            db.query.certifications.findMany({
-                where: eq(certifications.userId, user.id),
-                orderBy: [desc(certifications.issuedDate)]
-            }),
-            db.query.achievements.findMany({
-                where: eq(achievements.userId, user.id),
-            }),
-            db.query.socialLinks.findMany({ where: eq(socialLinks.userId, user.id) }),
-            db.query.recentActivities.findMany({
-                where: eq(recentActivities.userId, user.id),
-                orderBy: [desc(recentActivities.createdAt)],
-                limit: 10
-            }),
-        ]);
-
-        // Check if viewer is following the user
-        let isFollowing = false;
-        if (viewerId && !isOwnProfile) {
-            const followRecord = await db.query.follow.findFirst({
-                where: and(
-                    eq(follow.followerId, viewerId),
-                    eq(follow.followingId, user.id)
-                ),
-            });
-            isFollowing = !!followRecord;
-        }
-
-        // Get follow counts
-        const [followersResult, followingResult] = await Promise.all([
-            db.select({ count: sql<number>`count(*)` }).from(follow).where(eq(follow.followingId, user.id)),
-            db.select({ count: sql<number>`count(*)` }).from(follow).where(eq(follow.followerId, user.id)),
-        ]);
-
-        const followersCount = Number(followersResult[0]?.count ?? 0);
-        const followingCount = Number(followingResult[0]?.count ?? 0);
-
-        return {
-            success: true,
-            user: {
-                ...user,
-                userProfile,
-                portfolioProjects: userPortfolioProjects,
-                skills: userSkills,
-                experiences: userExperiences,
-                educations: userEducationsList,
-                certifications: userCertifications,
-                achievements: userAchievementsList,
-                socialLinks: userSocialLinks,
-                recentActivity: userRecentActivities,
-                followersCount,
-                followingCount,
-            },
-            isOwnProfile,
-            isFollowing,
-        };
-    } catch (error) {
+        return await loadPublicProfile(username, session?.user?.id ?? null);
+    } catch (error: unknown) {
         console.error("Error fetching profile by username:", error);
-        return { success: false, error: "Failed to fetch profile" };
+        return { status: "not_found" };
     }
 }
 
 /**
- * Get user stats for profile
+ * The signed-in user's own profile numbers. It used to take any `userId` with no
+ * check, which let anyone read anyone's credit balance. Visitors get their numbers
+ * from `loadPublicProfile`; both come from `profileStats`, so they agree.
  */
-export async function getUserProfileStats(userId: string) {
+export async function getUserProfileStats() {
     try {
-        const [
-            portfolioCountResult,
-            platformCountResult,
-            skillsCountResult,
-            achievementsCountResult,
-            experienceCountResult,
-            followersCountResult,
-            followingCountResult,
-            user,
-        ] = await Promise.all([
-            db.select({ count: sql<number>`count(*)` }).from(portfolioProjects).where(eq(portfolioProjects.userId, userId)),
-            db.select({ count: sql<number>`count(*)` }).from(userProjectV2Progress).where(eq(userProjectV2Progress.userId, userId)),
-            db.select({ count: sql<number>`count(*)` }).from(skills).where(eq(skills.userId, userId)),
-            db.select({ count: sql<number>`count(*)` }).from(achievements).where(eq(achievements.userId, userId)),
-            db.select({ count: sql<number>`count(*)` }).from(workExperiences).where(eq(workExperiences.userId, userId)),
-            db.select({ count: sql<number>`count(*)` }).from(follow).where(eq(follow.followingId, userId)),
-            db.select({ count: sql<number>`count(*)` }).from(follow).where(eq(follow.followerId, userId)),
-            db.query.users.findFirst({
-                where: eq(users.id, userId),
-                columns: {
-                    currentXp: true,
-                    totalXp: true,
-                    currentLevel: true,
-                    credits: true,
+        const session = await getSession(headers());
+        if (!session?.user?.id) return { success: false as const, error: "Not authenticated" };
+        const stats = await profileStats(session.user.id, { includePrivateProjects: true });
+        return { success: true as const, stats };
+    } catch (error: unknown) {
+        console.error("Error fetching user profile stats:", error);
+        return { success: false as const, error: "Failed to fetch stats" };
+    }
+}
+
+// ================= EDIT PROFILE SHEET (plan/profile PRF-10) =================
+
+export interface ProfileDetailsInput {
+    name: string;
+    headline: string;
+    bio: string;
+    location: string;
+    website: string;
+    occupation: string;
+    company: string;
+    university: string;
+    openToWork: boolean;
+    careerGoals: string[];
+    targetCompanies: string[];
+    expectedSalary: string;
+    noticePeriod: string;
+    workExperience: string;
+    visibility: ProfileVisibility;
+    showEmail: boolean;
+    showResume: boolean;
+}
+
+
+function cleanText(v: unknown, max: number): string | null {
+    if (typeof v !== "string") return null;
+    const t = v.trim().slice(0, max);
+    return t || null;
+}
+
+/** http(s) only, scheme added when missing - a profile link is clicked by strangers. */
+function cleanWebsite(v: unknown): { url: string | null; error: string | null } {
+    const raw = typeof v === "string" ? v.trim() : "";
+    if (!raw) return { url: null, error: null };
+    try {
+        const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+        if (u.protocol !== "https:" && u.protocol !== "http:") return { url: null, error: "Website must be an http or https link" };
+        return { url: u.toString(), error: null };
+    } catch {
+        return { url: null, error: "Website is not a valid link" };
+    }
+}
+
+/**
+ * Everything the Edit Profile sheet saves, in one call and one batch.
+ *
+ * It replaces a pair of calls - `updateUserProfile` (a broad `Partial<UserProfile>`
+ * writer) then `updateProfileSettings` - with an explicit allow-list: every column
+ * this can touch is named below, and nothing else reaches `.set()`. Privacy lives
+ * here too, because the sheet is where a user opts out of the public-by-default
+ * profile (Niraj, 2026-09-25); `users.isPublicProfile` is kept in step with the
+ * visibility so follow rules and the public reader agree.
+ */
+export async function saveProfileDetails(input: ProfileDetailsInput) {
+    try {
+        const session = await getSession(headers());
+        if (!session?.user?.id) return { success: false as const, error: "Not authenticated" };
+        const userId = session.user.id;
+
+        const name = cleanText(input.name, PROFILE_LIMITS.name);
+        if (!name) return { success: false as const, error: "Your name cannot be empty", field: "name" as const };
+        const website = cleanWebsite(input.website);
+        if (website.error) return { success: false as const, error: website.error, field: "website" as const };
+
+        const visibility: ProfileVisibility =
+            input.visibility === "PRIVATE" || input.visibility === "FOLLOWERS" ? input.visibility : "PUBLIC";
+        const list = (v: unknown, max: number) =>
+            Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean))].slice(0, max) : [];
+        const headline = cleanText(input.headline, PROFILE_LIMITS.headline);
+
+        await db.batch([
+            db.update(users).set({
+                name,
+                bio: cleanText(input.bio, PROFILE_LIMITS.bio),
+                location: cleanText(input.location, PROFILE_LIMITS.short),
+                website: website.url,
+                occupation: cleanText(input.occupation, PROFILE_LIMITS.short),
+                company: cleanText(input.company, PROFILE_LIMITS.short),
+                university: cleanText(input.university, PROFILE_LIMITS.short),
+                openToWork: input.openToWork === true,
+                careerGoals: list(input.careerGoals, 5),
+                targetCompanies: list(input.targetCompanies, 20),
+                expectedSalary: cleanText(input.expectedSalary, 20),
+                noticePeriod: cleanText(input.noticePeriod, 40),
+                workExperience: cleanText(input.workExperience, 40),
+                isPublicProfile: visibility !== "PRIVATE",
+            }).where(eq(users.id, userId)),
+            db.insert(userProfiles).values({
+                userId,
+                tagline: headline,
+                visibility,
+                showEmail: input.showEmail === true,
+                showResume: input.showResume !== false,
+            }).onConflictDoUpdate({
+                target: userProfiles.userId,
+                set: {
+                    tagline: headline,
+                    visibility,
+                    showEmail: input.showEmail === true,
+                    showResume: input.showResume !== false,
                 },
             }),
         ]);
 
-        const projectsCount = Number(portfolioCountResult[0]?.count ?? 0) + Number(platformCountResult[0]?.count ?? 0);
-
-        return {
-            success: true,
-            stats: {
-                projectsCount,
-                skillsCount: Number(skillsCountResult[0]?.count ?? 0),
-                achievementsCount: Number(achievementsCountResult[0]?.count ?? 0),
-                experienceCount: Number(experienceCountResult[0]?.count ?? 0),
-                followersCount: Number(followersCountResult[0]?.count ?? 0),
-                followingCount: Number(followingCountResult[0]?.count ?? 0),
-                xp: user?.currentXp || 0,
-                totalXp: user?.totalXp || 0,
-                level: user?.currentLevel || 1,
-                credits: user?.credits || 0,
-            },
-        };
-    } catch (error) {
-        console.error("Error fetching user profile stats:", error);
-        return { success: false, error: "Failed to fetch stats" };
+        await calculateNewProfileCompletion(userId);
+        revalidatePath("/profile");
+        return { success: true as const };
+    } catch (error: unknown) {
+        console.error("Error saving profile details:", error);
+        return { success: false as const, error: "Could not save your profile" };
     }
 }

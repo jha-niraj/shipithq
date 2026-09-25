@@ -1,5 +1,6 @@
 "use server"
 
+import { requirePermission } from "@/lib/permissions"
 
 const ELEVENLABS_API = "https://api.elevenlabs.io/v1"
 
@@ -24,6 +25,9 @@ export async function transcribeAudio(
     options: TranscriptionOptions = {}
 ): Promise<TranscriptionResult> {
     try {
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, error: auth.error }
+
         if (!process.env.ELEVENLABS_API_KEY) {
             return { success: false, error: "ElevenLabs API key not configured" }
         }
@@ -73,10 +77,14 @@ export async function batchTranscribeAudio(
     audioFiles: Array<{ base64: string; mimeType: string }>,
     options: TranscriptionOptions = {}
 ): Promise<TranscriptionResult[]> {
+    const auth = await requirePermission()
+    if (!auth.ok) return audioFiles.map(() => ({ success: false, error: auth.error }))
     return Promise.all(audioFiles.map(f => transcribeAudio(f.base64, f.mimeType, options)))
 }
 
 export async function checkSpeechToTextAvailability(): Promise<{ available: boolean; message?: string }> {
+    const auth = await requirePermission()
+    if (!auth.ok) return { available: false, message: auth.error }
     if (!process.env.ELEVENLABS_API_KEY) {
         return { available: false, message: "Speech to text service is not configured" }
     }

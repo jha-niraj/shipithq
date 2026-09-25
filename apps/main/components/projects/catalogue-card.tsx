@@ -92,20 +92,20 @@ export function CatalogueCard({
                 )}
             </div>
 
-            <p className={cn("mt-2.5 truncate text-[11px]", INK_META)}>{technologies.map(pretty).slice(0, 4).join(" · ")}</p>
+            {/* The stack on the left and who made it on the right, one line
+                (Niraj, 2026-09-24: "move this by ShipItHQ to the right"). */}
+            <div className="mt-2.5 flex items-baseline justify-between gap-3">
+                <p className={cn("min-w-0 truncate text-[11px]", INK_META)}>{technologies.map(pretty).slice(0, 4).join(" · ")}</p>
+                {author && <span className={cn("max-w-[45%] shrink-0 truncate text-[11px]", INK_META)}>by {authorLabel(author)}</span>}
+            </div>
             {categories.length > 0 && (
                 <p className={cn("mt-1 truncate text-[11px] opacity-80", INK_META)}>{categories.map(pretty).slice(0, 3).join(" · ")}</p>
             )}
 
-            {(author || views != null) && (
-                <p className={cn("mt-2 flex items-center gap-2 truncate text-[11px]", INK_META)}>
-                    {author && <span className="truncate">by {authorLabel(author)}</span>}
-                    {views != null && (
-                        <span className="inline-flex shrink-0 items-center gap-1">
-                            <Eye className="h-3 w-3" aria-hidden />
-                            {views}
-                        </span>
-                    )}
+            {views != null && (
+                <p className={cn("mt-2 inline-flex items-center gap-1 text-[11px]", INK_META)}>
+                    <Eye className="h-3 w-3" aria-hidden />
+                    {views}
                 </p>
             )}
 

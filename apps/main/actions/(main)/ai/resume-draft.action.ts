@@ -18,6 +18,7 @@ import { revalidatePath } from 'next/cache'
 import { ResumeDraftContent, emptyResumeDraftContent, PLATFORM_TEMPLATES } from '@/types/resume-draft'
 import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
 import { priceOf } from '@/lib/credits/pricing'
+import { normalizeProjectLinkType } from '@repo/db/profile-values'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Seed platform templates (call once or on demand)
@@ -125,19 +126,6 @@ export async function getResumeDraft(id: string) {
     return { success: true, draft }
 }
 
-// GET by share slug (public)
-export async function getResumeDraftBySlug(slug: string) {
-    const draft = await db.query.resumeDraft.findFirst({
-        where: and(eq(resumeDraft.shareSlug, slug), eq(resumeDraft.isPublic, true)),
-        with: { user: { columns: { name: true, username: true, image: true } } },
-    })
-    if (!draft) return { success: false, error: 'Not found or private' }
-    // Increment view count
-    await db.update(resumeDraft)
-        .set({ viewCount: sql`${resumeDraft.viewCount} + 1` })
-        .where(eq(resumeDraft.id, draft.id))
-    return { success: true, draft }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CREATE a new draft
@@ -297,8 +285,8 @@ export async function createDraftFromProfile(name: string, templateSlug = 'clean
             name: p.projectName,
             description: p.description ?? '',
             technologies: (p.technologies as string[]) ?? [],
-            github: p.links.find((l) => l.linkType === 'GITHUB')?.url,
-            liveUrl: p.links.find((l) => l.linkType === 'LIVE_SITE' || l.linkType === 'DEMO')?.url,
+            github: p.links.find((l) => normalizeProjectLinkType(l.linkType) === 'GITHUB')?.url,
+            liveUrl: p.links.find((l) => { const t = normalizeProjectLinkType(l.linkType); return t === 'LIVE_SITE' || t === 'DEMO' })?.url,
             bullets: (p.bulletPoints as string[]) ?? [],
         })),
         education: userEdus.map((e) => ({
@@ -416,7 +404,14 @@ export async function duplicateResumeDraft(id: string) {
         name: `${original.name} (Copy)`,
         templateSlug: original.templateSlug,
         content: original.content ?? {} as any,
+        // Provenance travels with the copy (plan/resume RES-22): a duplicate of an
+        // imported or tailored resume is still one, and the hub's origin filter
+        // reads these columns.
         tailoredFor: original.tailoredFor,
+        tailoredForCompany: original.tailoredForCompany,
+        sourceDraftId: original.sourceDraftId,
+        importedFrom: original.importedFrom,
+        importedUrl: original.importedUrl,
     }).returning()
     revalidatePath('/ai/resume')
     return { success: true, draft: copy }

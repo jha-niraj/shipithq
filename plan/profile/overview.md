@@ -80,3 +80,61 @@ removed.
 - **`components/profile/sheets/*`.** The four add/edit sheets work and are reused
   as-is.
 - **Follow mechanics.** `toggleFollow` is unchanged; only where the button sits.
+
+---
+
+# Round two (2026-09-25)
+
+Niraj, 2026-09-25: the profile "needs to look professional", the sheets are not
+"properly mapped out", and the Edit Profile sheet is "the worst of all of them".
+The rest of a person's story should live on **a one-pager they can share, like
+a resume but from our side**, modelled on his own portfolio
+(`nirajjha.vercel.app/portfolio`, source in `~/Documents/nirajjha/niraj`).
+
+Round one made both routes render one component. Round two splits them by
+**job** instead of by owner: `/profile` is where you *maintain* your profile,
+`/profile/[username]` is what other people *read*. They share data and section
+renderers, not a layout.
+
+## Definition of done (round two)
+
+6. **`/profile` is a workspace-style editor** (Niraj's choice, 2026-09-25),
+   drawn in the language of `projects/[slug]/workspace`: an identity strip on
+   top; a left section list (Identity, Experience, Education, Projects, Skills,
+   Links, Resume, Career goals) with counts and a completion tick; the selected
+   section's rows on the right. Hairline borders, not floating cards. Every row
+   can be edited and deleted from where it is shown.
+
+7. **`/profile/[username]` is a shareable one-pager**, readable signed-out: a
+   single `max-w-4xl` column in the portfolio's order - hero (photo, name,
+   headline, location, links, CTAs, a stat strip), About, Experience timeline,
+   Projects grid, Skills by category, Education, Contact. One hairline section
+   header style. Link previews (OG) work because bots can read it.
+
+8. **Privacy is enforced, public by default** (Niraj, 2026-09-25: opt-out).
+   `user_profile.visibility` PUBLIC / FOLLOWERS / PRIVATE is honoured on the
+   read path; email and phone never show unless `showEmail`; the resume only if
+   `showResume`. A private profile renders "This profile is private", not a 404
+   and not the data.
+
+9. **Every sheet is complete.** Header, scrolling body, pinned footer with
+   Cancel + primary on the right (UI-9's pattern). No raw enum values anywhere a
+   user can read them. Tabs are the base `@repo/ui` `Tabs`, props only.
+
+10. **One set of numbers.** Owner and visitor see the same XP and project count.
+
+## Decisions (round two)
+
+- **Project status and visibility are stored enum-style**: `IN_PROGRESS` /
+  `COMPLETED` / `ARCHIVED`, `PUBLIC` / `PRIVATE`. Labels live in one map in
+  `lib/profile/labels.ts`; nothing else formats them. (Niraj, 2026-09-25.)
+- **Share = Link, Social, QR.** The QR is real and downloadable as PNG.
+  "Download card" and "Embed" are removed from the UI, not stubbed. (Niraj,
+  2026-09-25.)
+- **Same URL.** The one-pager stays at `/profile/[username]`, which
+  `publicProfileUrl()` already emits - every link shared so far keeps working.
+
+## Superseded from round one
+
+- "No schema work" - PRF-7 changes two column defaults.
+- "`components/profile/sheets/*` reused as-is" - they are rebuilt (PRF-9).

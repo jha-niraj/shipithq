@@ -473,73 +473,17 @@ export default function TransactionsPage({ embedded = false }: { embedded?: bool
 					defaultValue={initialTab}
 					className={embedded ? 'flex min-h-0 flex-1 flex-col gap-4' : 'space-y-6'}
 				>
-					<TabsList
-						className={cn(
-							// `grid`, not the shared component's `flex`: three equal columns.
-							// The border and background come from TabsList itself - repeating
-							// them here just layered a second surface under the pill.
-							'shrink-0 grid w-full grid-cols-3',
-							// A panel is 520px wide and the tab bar is navigation, not
-							// content. Full-height triggers made it the biggest thing on
-							// screen after the title.
-							embedded ? 'h-9 p-0.5' : 'p-1 sm:w-auto'
-						)}
-					>
-						<TabsTrigger
-							value="transactions"
-							// NO `data-[state=active]:bg-*` or `shadow-sm` here.
-							//
-							// The shared TabsList already renders a sliding indicator pill
-							// behind the triggers, and its own comment says that pill
-							// REPLACED per-trigger backgrounds precisely so the switch reads
-							// as one object moving. Re-adding them meant three things animated
-							// for one click: the pill sliding 300ms, and a background
-							// cross-fading in on the new tab while fading out on the old.
-							// That is the flashing.
-							//
-							// Colour only. The pill supplies the surface.
-							className={cn(
-								'flex items-center justify-center gap-2 rounded-md text-neutral-600 transition-colors data-[state=active]:text-neutral-900 dark:text-neutral-400 dark:data-[state=active]:text-white',
-								embedded ? 'h-8 text-xs' : 'text-sm'
-							)}
-						>
-							<CreditCard className="h-3.5 w-3.5" />
-							Usage
-						</TabsTrigger>
-						<TabsTrigger
-							value="purchases"
-							// Colour only - see the note on the trigger above for why no
-							// per-trigger background belongs here.
-							className={cn(
-								'flex items-center justify-center gap-2 rounded-md text-neutral-600 transition-colors data-[state=active]:text-neutral-900 dark:text-neutral-400 dark:data-[state=active]:text-white',
-								embedded ? 'h-8 text-xs' : 'text-sm'
-							)}
-						>
-							<Receipt className="h-3.5 w-3.5" />
-							Purchases
-						</TabsTrigger>
-						<TabsTrigger
-							value="referrals"
-							// NO `data-[state=active]:bg-*` or `shadow-sm` here.
-							//
-							// The shared TabsList already renders a sliding indicator pill
-							// behind the triggers, and its own comment says that pill
-							// REPLACED per-trigger backgrounds precisely so the switch reads
-							// as one object moving. Re-adding them meant three things animated
-							// for one click: the pill sliding 300ms, and a background
-							// cross-fading in on the new tab while fading out on the old.
-							// That is the flashing.
-							//
-							// Colour only. The pill supplies the surface.
-							className={cn(
-								'flex items-center justify-center gap-2 rounded-md text-neutral-600 transition-colors data-[state=active]:text-neutral-900 dark:text-neutral-400 dark:data-[state=active]:text-white',
-								embedded ? 'h-8 text-xs' : 'text-sm'
-							)}
-						>
-							<Gift className="h-3.5 w-3.5" />
-							Referrals
-						</TabsTrigger>
-					</TabsList>
+					{/* No className on the list or the triggers: the shared TabsList already
+						draws the surface and the sliding pill, and per-trigger backgrounds under
+						it made three things animate for one click. The wrapper only keeps the
+						strip from shrinking in the embedded flex column. */}
+					<div className="shrink-0">
+						<TabsList size={embedded ? 'sm' : 'default'}>
+							<TabsTrigger value="transactions" icon={<CreditCard />}>Usage</TabsTrigger>
+							<TabsTrigger value="purchases" icon={<Receipt />}>Purchases</TabsTrigger>
+							<TabsTrigger value="referrals" icon={<Gift />}>Referrals</TabsTrigger>
+						</TabsList>
+					</div>
 
 					{/* ── Usage ──
 						Spends and grants. The SCROLL REGION in embedded mode: `min-h-0`

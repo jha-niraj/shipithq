@@ -1,76 +1,22 @@
-import Footer from "@/components/landingpage/footer";
-import Navbar from "@/components/landingpage/navbar";
 import { Metadata } from "next";
+import { PublicHeader } from "@/components/public-header";
 
-// Canonical origin for this deploy. Overridable per environment so preview
-// builds emit their own absolute URLs instead of the production ones.
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://hiring.shipithq.com'
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://hire.shipithq.com'
 
+// The hiring app is a signed-in product; its public pages are not for search.
+// The companies marketing page is shipithq.com/hire (apps/web).
 export const metadata: Metadata = {
-    title: {
-        default: "ShipItHQ Legal's",
-        template: "%s | ShipItHQ"
-    },
-    description: "The Engineering Intelligence Platform for Computer Science Students",
-    keywords: ["Learn", "Build Projects", "Computer Science", "Programming", "Coding", "Developer", "Tech Community", "Coding Resources", "Tech Articles", "Coding Tutorials"],
-    authors: [{ name: "Niraj Jha" }],
-    creator: "Shunya Tech",
-    publisher: "Shunya Tech",
+    title: { default: "ShipItHQ Hiring", template: "%s | ShipItHQ Hiring" },
+    description: "Set your own interview rounds and receive candidates who have already passed them.",
     metadataBase: new URL(BASE_URL),
-    alternates: {
-        canonical: "/",
-    },
-    openGraph: {
-        type: "website",
-        locale: "en_US",
-        url: BASE_URL,
-        siteName: "ShipItHQ Legal's",
-        title: "ShipItHQ - The Engineering Intelligence Platform for Computer Science Students",
-        description: "The Engineering Intelligence Platform for Computer Science Students",
-        images: [
-            {
-                url: "/og/home.webp",
-                width: 1200,
-                height: 630,
-                alt: "ShipItHQ - The Engineering Intelligence Platform for Computer Science Students",
-            },
-        ],
-    },
-    twitter: {
-        card: "summary_large_image",
-        title: "ShipItHQ - The Engineering Intelligence Platform for Computer Science Students",
-        description: "The Engineering Intelligence Platform for Computer Science Students",
-        images: ["/og/home.webp"],
-        creator: "@shipithq",
-    },
-    robots: {
-        index: true,
-        follow: true,
-        googleBot: {
-            index: true,
-            follow: true,
-            "max-video-preview": -1,
-            "max-image-preview": "large",
-            "max-snippet": -1,
-        },
-    },
-    verification: {
-        // Add your verification codes here when you have them
-        // google: "your-google-verification-code",
-        // yandex: "your-yandex-verification-code",
-    },
+    robots: { index: false, follow: false },
 };
 
-export default function LegalLayout({
-    children,
-}: Readonly<{
-    children: React.ReactNode;
-}>) {
+export default function LegalLayout({ children }: Readonly<{ children: React.ReactNode }>) {
     return (
         <>
-            <Navbar />
+            <PublicHeader />
             {children}
-            <Footer />
         </>
     );
 }

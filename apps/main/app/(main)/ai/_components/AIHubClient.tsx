@@ -137,45 +137,46 @@ export default function AiToolsPage({
     const cards = statCards(stats)
 
     return (
-        <div className="font-sans selection:bg-neutral-100 dark:selection:bg-neutral-800">
-            <section className="relative overflow-hidden border-b border-neutral-100 pt-12 pb-16 lg:pt-20 lg:pb-24 dark:border-neutral-800">
-                <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] dark:bg-neutral-950" />
-                <div className="absolute -top-24 left-1/2 -z-10 h-[320px] w-[320px] -translate-x-1/2 rounded-full bg-neutral-900/10 opacity-50 blur-[100px] dark:bg-neutral-200/20" />
+        // An overview in the page frame (plan/ui-pass UI-10), not a landing page: the
+        // hero, the numbers and the tools at the scale of /home and /mock.
+        <div className="page-frame space-y-8 px-page pt-6 pb-10 font-sans selection:bg-neutral-100 dark:selection:bg-neutral-800">
+            <section className="relative overflow-hidden rounded-2xl border border-neutral-200 bg-white px-6 py-8 lg:px-8 dark:border-neutral-800 dark:bg-neutral-950">
+                <div className="absolute inset-0 h-full w-full bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] dark:bg-neutral-950" />
+                <div className="absolute -top-24 left-1/2 h-[320px] w-[320px] -translate-x-1/2 rounded-full bg-neutral-900/10 opacity-50 blur-[100px] dark:bg-neutral-200/20" />
 
-                <div className="w-full relative z-10 px-6">
-                    <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_22rem]">
+                <div className="relative z-10 w-full">
+                    <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
                         <motion.div
-                            className="space-y-7"
+                            className="space-y-4"
                             initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5 }}
                         >
                             <Badge
                                 variant="outline"
-                                className="rounded-full border-neutral-200 bg-neutral-50 px-4 py-1.5 text-sm font-medium text-neutral-600 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400"
+                                className="rounded-full border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-600 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400"
                             >
                                 <Sparkles className="mr-2 h-3.5 w-3.5 text-neutral-900 dark:text-neutral-100" />
                                 Three tools, one source of truth
                             </Badge>
 
-                            <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-neutral-950 md:text-6xl dark:text-white">
+                            <h1 className="max-w-2xl text-2xl font-semibold tracking-tight text-neutral-950 md:text-3xl dark:text-white">
                                 Your resume, your letter, and your interview{" "}
                                 <span className="text-neutral-600 dark:text-neutral-400">
                                     built from the same history.
                                 </span>
                             </h1>
 
-                            <p className="max-w-2xl text-lg leading-relaxed font-light text-neutral-600 md:text-xl dark:text-neutral-400">
+                            <p className="max-w-2xl text-sm leading-relaxed text-neutral-600 md:text-base dark:text-neutral-400">
                                 Import your experience once. Every tool here reads that one profile, so the
                                 resume you send, the letter attached to it and the questions you practise are
                                 describing the same person.
                             </p>
 
-                            <div className="flex flex-wrap items-center gap-4 pt-1">
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
                                 <Button
                                     asChild
-                                    size="lg"
-                                    className="h-12 cursor-pointer rounded-full bg-neutral-900 px-8 text-base text-white shadow-xl shadow-neutral-500/10 transition-all duration-300 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+                                    className="cursor-pointer rounded-full bg-neutral-900 px-5 text-white transition-all duration-300 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
                                 >
                                     <Link href="/ai/resume">
                                         Open Resume Builder
@@ -184,9 +185,8 @@ export default function AiToolsPage({
                                 </Button>
                                 <Button
                                     asChild
-                                    size="lg"
                                     variant="outline"
-                                    className="h-12 cursor-pointer rounded-full border-neutral-200 bg-transparent px-8 text-base text-neutral-900 hover:bg-neutral-50 dark:border-neutral-800 dark:text-white dark:hover:bg-neutral-900"
+                                    className="cursor-pointer rounded-full border-neutral-200 bg-transparent px-5 text-neutral-900 hover:bg-neutral-50 dark:border-neutral-800 dark:text-white dark:hover:bg-neutral-900"
                                 >
                                     <Link href="/ai/resume/import">Import from LinkedIn</Link>
                                 </Button>
@@ -197,11 +197,11 @@ export default function AiToolsPage({
                             template picker draws, so the hero cannot show a layout that is not on
                             offer. Decorative, so it is hidden from assistive tech and dropped
                             entirely on small screens rather than squashed. */}
-                        <div aria-hidden className="relative hidden h-[22rem] lg:block">
+                        <div aria-hidden className="relative hidden h-[15rem] lg:block">
                             {HERO_CARDS.map((c) => (
                                 <motion.div
                                     key={c.shape}
-                                    className="absolute top-1/2 left-1/2 w-44 rounded-xl border border-neutral-200 bg-white p-2 text-neutral-900 shadow-xl shadow-neutral-900/5 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white dark:shadow-black/40"
+                                    className="absolute top-1/2 left-1/2 w-32 rounded-xl border border-neutral-200 bg-white p-2 text-neutral-900 shadow-xl shadow-neutral-900/5 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white dark:shadow-black/40"
                                     initial={{ x: "-50%", y: "-50%", rotate: c.r, scale: 0.94, opacity: 0 }}
                                     animate={{
                                         x: `calc(-50% + ${c.x}%)`,
@@ -224,8 +224,8 @@ export default function AiToolsPage({
                 </div>
             </section>
 
-            <section className="border-b border-neutral-100 bg-white py-12 dark:border-neutral-800 dark:bg-neutral-950">
-                <div className="w-full px-6">
+            <section>
+                <div className="w-full">
                     {/* Linked to the page it counts. A number the reader can go and
                         check is a different kind of claim from one they cannot. */}
                     <StatBand cols={3} items={cards} />
@@ -234,7 +234,7 @@ export default function AiToolsPage({
                         than created per session, so counting them would report one
                         point ever and call it activity - see the note beside `ai` in
                         module-activity.action.ts. */}
-                    <div className="mt-10 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+                    <div className="mt-4 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
                         <div className="mb-1 flex items-baseline justify-between gap-3">
                             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">
                                 Cover letters written
@@ -257,16 +257,16 @@ export default function AiToolsPage({
                 </div>
             </section>
 
-            <section id="studio" className="bg-neutral-50/50 py-20 dark:bg-neutral-950">
-                <div className="w-full px-6">
+            <section id="studio">
+                <div className="w-full">
                     <div className="max-w-2xl">
-                        <h2 className="mb-4 text-3xl font-bold text-neutral-900 dark:text-white">The tools</h2>
-                        <p className="text-lg leading-relaxed font-light text-neutral-500 dark:text-neutral-400">
+                        <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">The tools</h2>
+                        <p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">
                             Three of them. Each one reads the profile the others write to.
                         </p>
                     </div>
 
-                    <div className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                         {tools.map((tool, index) => (
                             <motion.div
                                 key={tool.id}
@@ -279,21 +279,21 @@ export default function AiToolsPage({
                                     middle-click, it can be copied, and it is reachable by keyboard. */}
                                 <Link
                                     href={tool.href}
-                                    className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white transition-all duration-500 hover:shadow-2xl hover:shadow-neutral-900/5 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-black/50"
+                                    className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white transition-all duration-500 hover:border-neutral-400 dark:hover:border-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:shadow-black/50"
                                 >
-                                    <div className="flex flex-1 flex-col p-8">
-                                        <div className="mb-6 flex items-start justify-between gap-3">
-                                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-neutral-100 bg-neutral-50 text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
-                                                <tool.icon className="h-7 w-7" />
+                                    <div className="flex flex-1 flex-col p-5">
+                                        <div className="mb-4 flex items-start justify-between gap-3">
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neutral-100 bg-neutral-50 text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
+                                                <tool.icon className="h-5 w-5" />
                                             </div>
                                             <Badge className="bg-neutral-50 text-right text-neutral-700 dark:bg-neutral-800 dark:text-neutral-100">
                                                 {tool.price}
                                             </Badge>
                                         </div>
-                                        <h3 className="mb-3 text-2xl font-bold text-neutral-900 dark:text-white">
+                                        <h3 className="mb-1.5 text-base font-semibold text-neutral-900 dark:text-white">
                                             {tool.name}
                                         </h3>
-                                        <p className="mb-6 text-base leading-relaxed text-neutral-500 dark:text-neutral-400">
+                                        <p className="mb-4 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
                                             {tool.description}
                                         </p>
                                         <div className="mt-auto flex items-center justify-end text-sm font-bold text-neutral-900 transition-transform group-hover:translate-x-1 dark:text-white">
@@ -307,18 +307,18 @@ export default function AiToolsPage({
                 </div>
             </section>
 
-            <section className="border-t border-neutral-100 bg-white py-20 dark:border-neutral-800 dark:bg-neutral-950">
-                <div className="w-full px-6">
+            <section>
+                <div className="w-full">
                     <div className="max-w-2xl">
-                        <h2 className="mb-4 text-3xl font-bold text-neutral-900 dark:text-white">
+                        <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
                             How a run through it goes
                         </h2>
-                        <p className="text-lg leading-relaxed font-light text-neutral-500 dark:text-neutral-400">
+                        <p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">
                             Import once, then point the tools at whatever you are applying for.
                         </p>
                     </div>
 
-                    <ol className="mt-10 grid gap-8 md:grid-cols-3">
+                    <ol className="mt-4 grid gap-3 md:grid-cols-3">
                         {steps.map((step, i) => (
                             <motion.li
                                 key={step.title}
@@ -326,18 +326,18 @@ export default function AiToolsPage({
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ duration: 0.3, delay: i * 0.1 }}
-                                className="flex flex-col rounded-2xl border border-neutral-200 bg-neutral-50/50 p-8 dark:border-neutral-800 dark:bg-neutral-900/40"
+                                className="flex flex-col rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900"
                             >
-                                <div className="mb-5 flex items-center gap-3">
+                                <div className="mb-3 flex items-center gap-3">
                                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-900 text-sm font-bold text-white dark:bg-white dark:text-neutral-900">
                                         {i + 1}
                                     </span>
                                     <step.icon className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
                                 </div>
-                                <h3 className="mb-2 text-lg font-bold text-neutral-900 dark:text-white">
+                                <h3 className="mb-1.5 text-base font-semibold text-neutral-900 dark:text-white">
                                     {step.title}
                                 </h3>
-                                <p className="mb-6 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
+                                <p className="mb-4 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
                                     {step.body}
                                 </p>
                                 <Link
@@ -353,14 +353,14 @@ export default function AiToolsPage({
                 </div>
             </section>
 
-            <section className="border-t border-neutral-100 bg-neutral-50/50 py-20 dark:border-neutral-800 dark:bg-neutral-950">
-                <div className="w-full px-6">
-                    <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+            <section>
+                <div className="w-full">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
                         <div>
-                            <h2 className="mb-4 text-3xl font-bold text-neutral-900 dark:text-white">
+                            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
                                 What each thing costs
                             </h2>
-                            <p className="mb-8 max-w-2xl text-lg leading-relaxed font-light text-neutral-500 dark:text-neutral-400">
+                            <p className="mt-0.5 mb-4 max-w-2xl text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
                                 Credits are held when an operation starts and refunded if it fails. This table
                                 is generated from the same prices the charge sites read, so it cannot say one
                                 thing while you are billed another.
@@ -398,12 +398,12 @@ export default function AiToolsPage({
                             </div>
                         </div>
 
-                        <div className="rounded-2xl border border-neutral-200 bg-white p-8 dark:border-neutral-800 dark:bg-neutral-900">
+                        <div className="rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
                             <div className="flex items-center gap-2 text-sm font-medium text-neutral-500 dark:text-neutral-400">
                                 <Zap className="h-4 w-4" />
                                 Your balance
                             </div>
-                            <div className="mt-2 text-4xl font-bold tabular-nums text-neutral-900 dark:text-white">
+                            <div className="mt-2 text-3xl font-semibold tabular-nums text-neutral-900 dark:text-white">
                                 {stats.credits}
                             </div>
                             <p className="mt-3 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
@@ -412,7 +412,7 @@ export default function AiToolsPage({
                             </p>
                             <Button
                                 asChild
-                                className="mt-6 w-full cursor-pointer rounded-full bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+                                className="mt-4 w-full cursor-pointer rounded-full bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
                             >
                                 <Link href="/purchase">
                                     Top up credits

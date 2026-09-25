@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@repo/ui/components/ui/button'
 import {
-    Sheet, SheetContent, SheetHeader, SheetTitle
+    Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle
 } from '@repo/ui/components/ui/sheet'
 import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
 import ResourcesList from '@/components/projects/resources-list'
@@ -98,16 +98,18 @@ export function ProjectAssistantButtons({
                 </Button>
             </div>
             <Sheet open={resourcesOpen} onOpenChange={setResourcesOpen}>
-                <SheetContent side="right" className="w-full p-0 sm:max-w-3xl">
+                <SheetContent side="right" className="w-full p-0 sm:max-w-2xl">
                     <div className="h-full flex flex-col">
-                        <SheetHeader className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
-                            <SheetTitle className="flex items-center gap-2">
-                                <Book className="w-5 h-5 text-neutral-800 dark:text-neutral-200" />
-                                Resources Library
+                        {/* Body-size title: SheetTitle defaults to text-3xl (Niraj, 2026-09-24: "too big"). */}
+                        <SheetHeader className="space-y-0.5 border-b border-neutral-200 px-5 py-3.5 dark:border-neutral-800">
+                            <SheetTitle className="flex items-center gap-2 text-base">
+                                <Book className="h-4 w-4 text-neutral-700 dark:text-neutral-300" />
+                                Resources
                             </SheetTitle>
+                            <SheetDescription className="text-xs">What people found useful while building this: videos, docs, articles.</SheetDescription>
                         </SheetHeader>
                         <ScrollArea className="min-h-0 flex-1">
-                            <div className="w-full px-6 py-6">
+                            <div className="w-full px-5 py-4">
                                 <ResourcesList
                                     projectId={projectId}
                                     currentUserId={currentUserId}
@@ -119,16 +121,18 @@ export function ProjectAssistantButtons({
                 </SheetContent>
             </Sheet>
             <Sheet open={errorsOpen} onOpenChange={setErrorsOpen}>
-                <SheetContent side="right" className="w-full p-0 sm:max-w-3xl">
+                <SheetContent side="right" className="w-full p-0 sm:max-w-2xl">
                     <div className="h-full flex flex-col">
-                        <SheetHeader className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
-                            <SheetTitle className="flex items-center gap-2">
-                                <AlertTriangle className="w-5 h-5 text-neutral-800 dark:text-neutral-200" />
-                                Errors & Mistakes
+                        {/* Body-size title: SheetTitle defaults to text-3xl (Niraj, 2026-09-24: "too big"). */}
+                        <SheetHeader className="space-y-0.5 border-b border-neutral-200 px-5 py-3.5 dark:border-neutral-800">
+                            <SheetTitle className="flex items-center gap-2 text-base">
+                                <AlertTriangle className="h-4 w-4 text-neutral-700 dark:text-neutral-300" />
+                                Errors
                             </SheetTitle>
+                            <SheetDescription className="text-xs">Pitfalls people hit on this project, and how they fixed them.</SheetDescription>
                         </SheetHeader>
                         <ScrollArea className="min-h-0 flex-1">
-                            <div className="w-full px-6 py-6">
+                            <div className="w-full px-5 py-4">
                                 <ErrorsTab
                                     projectId={projectId}
                                     isEnrolled={isEnrolled}

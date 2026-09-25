@@ -1,40 +1,13 @@
 "use server"
 
 import { db, companyMembers, jobs, interviewProcesses, interviewRounds } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, desc, count, isNotNull, ne, asc } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import type { InterviewProcessInput } from "@/types"
 
 // Re-export types for backwards compatibility
 export type { InterviewProcessInput } from "@/types"
-
-// ============================================
-// HELPERS
-// ============================================
-
-export async function getCompanyMember() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) {
-        throw new Error("Unauthorized")
-    }
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    if (!member) {
-        throw new Error("Not a company member")
-    }
-
-    return member
-}
-
-function canManageInterviewConfig(role: string): boolean {
-    return ["FOUNDER", "ADMIN", "HIRING_MANAGER"].includes(role)
-}
 
 // ============================================
 // INTERVIEW PROCESS CRUD
@@ -43,7 +16,9 @@ function canManageInterviewConfig(role: string): boolean {
 // Get all interview processes for a company
 export async function getInterviewProcesses() {
     try {
-        const member = await getCompanyMember()
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const processes = await db.query.interviewProcesses.findMany({
             where: eq(interviewProcesses.companyId, member.companyId),
@@ -88,7 +63,9 @@ export async function getInterviewProcesses() {
 // Get a single interview process by ID
 export async function getInterviewProcess(processId: string) {
     try {
-        const member = await getCompanyMember()
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const process = await db.query.interviewProcesses.findFirst({
             where: and(
@@ -122,11 +99,9 @@ export async function getInterviewProcess(processId: string) {
 // Create a new interview process
 export async function createInterviewProcess(input: InterviewProcessInput) {
     try {
-        const member = await getCompanyMember()
-
-        if (!canManageInterviewConfig(member.role)) {
-            return { success: false, error: "You don't have permission to create interview processes" }
-        }
+        const auth = await requirePermission("manage_pipelines")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // If this is set as default, unset other defaults
         if (input.isDefault) {
@@ -195,11 +170,9 @@ export async function createInterviewProcess(input: InterviewProcessInput) {
 // Update an interview process
 export async function updateInterviewProcess(processId: string, input: Partial<InterviewProcessInput>) {
     try {
-        const member = await getCompanyMember()
-
-        if (!canManageInterviewConfig(member.role)) {
-            return { success: false, error: "You don't have permission to update interview processes" }
-        }
+        const auth = await requirePermission("manage_pipelines")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Verify the process belongs to this company
         const existingProcess = await db.query.interviewProcesses.findFirst({
@@ -259,11 +232,9 @@ export async function updateInterviewProcess(processId: string, input: Partial<I
 // Delete an interview process
 export async function deleteInterviewProcess(processId: string) {
     try {
-        const member = await getCompanyMember()
-
-        if (!canManageInterviewConfig(member.role)) {
-            return { success: false, error: "You don't have permission to delete interview processes" }
-        }
+        const auth = await requirePermission("manage_pipelines")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Verify the process belongs to this company
         const existingProcess = await db.query.interviewProcesses.findFirst({
@@ -300,11 +271,9 @@ export async function deleteInterviewProcess(processId: string) {
 // Clone/Duplicate an interview process
 export async function cloneInterviewProcess(processId: string, newName?: string) {
     try {
-        const member = await getCompanyMember()
-
-        if (!canManageInterviewConfig(member.role)) {
-            return { success: false, error: "You don't have permission to clone interview processes" }
-        }
+        const auth = await requirePermission("manage_pipelines")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Get the original process with all rounds
         const originalProcess = await db.query.interviewProcesses.findFirst({
@@ -385,7 +354,9 @@ export async function cloneInterviewProcess(processId: string, newName?: string)
 // Check if company has any interview processes configured
 export async function hasInterviewProcessConfigured() {
     try {
-        const member = await getCompanyMember()
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, hasConfig: false }
+        const member = auth.ctx.member
 
         const result = await db
             .select({ count: count() })
@@ -405,7 +376,9 @@ export async function hasInterviewProcessConfigured() {
 // Get interview process statistics
 export async function getInterviewProcessStats() {
     try {
-        const member = await getCompanyMember()
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const processCountRows = await db
             .select({ count: count() })

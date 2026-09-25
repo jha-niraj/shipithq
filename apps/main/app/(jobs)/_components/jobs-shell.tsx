@@ -4,15 +4,14 @@ import React from 'react'
 import Script from 'next/script'
 import Sidebar from '@/components/common/mainsidebar'
 import { jobsNavigation } from '@/lib/navigation'
-import { SidebarProvider, useSidebar } from '@/components/common/sidebarprovider'
-import { SidebarHotEdge } from '@/components/navigation/sidebar-hot-edge'
+import { SidebarProvider } from '@/components/common/sidebarprovider'
+import { ShellFrame } from '@repo/ui/components/shell/shell-frame'
 import { 
     WifiOff, RotateCcw 
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
-import { cn } from '@repo/ui/lib/utils'
-import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
+import { AiRail } from '@/components/ai/ai-rail'
 
 interface LayoutProps {
     children: React.ReactNode
@@ -21,42 +20,19 @@ interface LayoutProps {
 }
 
 const JobsContent = ({ children }: { children: React.ReactNode }) => {
-    const { isPinned } = useSidebar()
-
     return (
         <>
             {/* The SAME sidebar the rest of the app uses, with a different set of
-                links. What stood here was `jobssidebar.tsx`, a 319-line copy with its
-                own brand block, collapse control, theme toggle and user footer - all
-                of which looked subtly unlike the real one, because a copy always
-                does. Niraj: "the content only needs to change not the full side."
-                See JB-8. */}
-            <SidebarHotEdge />
-            <Sidebar primary={jobsNavigation} />
-            {/* The offset MATCHES `app/(main)/_components/main-shell.tsx`: pinned, the
-                sidebar is a fixed 15rem column (`lg:w-60`), so both shells use `lg:ml-60`;
-                unpinned it floats over the page and the offset is 0. Any change to the
-                sidebar's width has to change both shells. */}
-            <div className="flex h-dvh flex-1 flex-col overflow-hidden bg-neutral-50 transition-colors duration-300 dark:bg-black">
-                <main className={cn(
-                    "relative h-full transition-all duration-300 ease-in-out",
-                    "ml-0",
-                    // Matches the (main) shell.
-                    isPinned ? "lg:ml-60" : "lg:ml-0",
-                )}>
-                    <div className="relative h-full w-full bg-white dark:bg-neutral-950">
-                        {/* `reflow` pins this to vertical-only, same as the (main) shell's
-                            ScrollArea - without it Radix's shrink-to-fit content box sizes
-                            to a wide descendant (a table, a chart) and the page silently
-                            scrolls sideways under this card's rounded corner instead of the
-                            descendant scrolling on its own. See docs/responsiveness.md
-                            section 2. */}
-                        <ScrollArea className="h-full min-w-0 w-full" reflow>
-                            {children}
-                        </ScrollArea>
-                    </div>
-                </main>
-            </div>
+                links (JB-8), in the SAME frame as the main shell and apps/hiring
+                (plan/hiring-app HA-1). The page surface is opaque here: the jobs
+                pages were designed on white, not over the backdrop. */}
+            <ShellFrame
+                sidebar={<Sidebar primary={jobsNavigation} />}
+                rail={<AiRail />}
+                surfaceClassName="bg-white dark:bg-neutral-950"
+            >
+                {children}
+            </ShellFrame>
             <Script
                 src="https://checkout.razorpay.com/v1/checkout.js"
                 strategy="afterInteractive"

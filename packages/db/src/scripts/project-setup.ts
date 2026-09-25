@@ -1,9 +1,8 @@
 /**
- * Setup (sprint 0) for every curated project and every learner's copy
- * (plan/project-repos RP-3, RP-4).
+ * Add or refresh the Setup sprint on every curated project and learner copy (plan/project-repos RP-3, RP-4).
  *
- *   pnpm db:project-setup            preview: what would change, nothing written
- *   pnpm db:project-setup --apply    write it, then preview again (should be empty)
+ *   pnpm script project-setup            preview: what would change, nothing written
+ *   pnpm script project-setup --apply    write it, then preview again (should be empty)
  *
  * Preview first, always (Niraj, 2026-09-24): every data change ships as a script
  * like this one, so the output can be read before anything is touched.

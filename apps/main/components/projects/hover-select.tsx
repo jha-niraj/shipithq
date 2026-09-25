@@ -6,6 +6,7 @@ import { ChevronDown } from 'lucide-react'
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@repo/ui/components/ui/dropdown-menu'
+import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
 import { cn } from '@repo/ui/lib/utils'
 
 export interface HoverSelectOption<T extends string> {
@@ -89,21 +90,24 @@ export function HoverSelect<T extends string>({ value, onValueChange, options, a
                 align="start"
                 onPointerEnter={enter}
                 onPointerLeave={leave}
-                // The menu is exactly as wide as its trigger (Niraj, 2026-09-24),
-                // so the two read as one control rather than a box and a stray list.
-                className="max-h-80 w-[var(--radix-dropdown-menu-trigger-width)] min-w-0 overflow-y-auto"
+                // As wide as its trigger (Niraj, 2026-09-24), so the two read as one
+                // control; wider only when a label would otherwise wrap.
+                className="w-max min-w-[var(--radix-dropdown-menu-trigger-width)] overflow-hidden p-0"
             >
-                <DropdownMenuRadioGroup value={value} onValueChange={(v) => onValueChange(v as T)}>
-                    {
-                        options.map(({ value: v, label, icon: Icon, count }) => (
-                            <DropdownMenuRadioItem key={v} value={v} className="gap-2">
-                                {Icon && <Icon className="h-4 w-4 shrink-0" />}
-                                <span className="flex-1">{label}</span>
-                                {!!count && <span className="text-xs tabular-nums text-neutral-500 dark:text-neutral-400">{count}</span>}
-                            </DropdownMenuRadioItem>
-                        ))
-                    }
-                </DropdownMenuRadioGroup>
+                {/* Our ScrollArea, not the browser's bar (PJ-22): long lists scroll inside it. */}
+                <ScrollArea viewportClassName="max-h-80">
+                    <DropdownMenuRadioGroup value={value} onValueChange={(v) => onValueChange(v as T)} className="p-1">
+                        {
+                            options.map(({ value: v, label, icon: Icon, count }) => (
+                                <DropdownMenuRadioItem key={v} value={v} className="gap-2">
+                                    {Icon && <Icon className="h-4 w-4 shrink-0" />}
+                                    <span className="flex-1 whitespace-nowrap">{label}</span>
+                                    {!!count && <span className="text-xs tabular-nums text-neutral-500 dark:text-neutral-400">{count}</span>}
+                                </DropdownMenuRadioItem>
+                            ))
+                        }
+                    </DropdownMenuRadioGroup>
+                </ScrollArea>
             </DropdownMenuContent>
         </DropdownMenu>
     )

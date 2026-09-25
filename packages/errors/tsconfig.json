@@ -1,0 +1,20 @@
+{
+	"extends": "@repo/typescript-config/base.json",
+	"compilerOptions": {
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"module": "ESNext",
+		"target": "ES2022",
+		"moduleResolution": "Bundler",
+		"skipLibCheck": true,
+		"strict": true,
+		"declaration": false,
+		"declarationMap": false,
+		"esModuleInterop": true,
+		"isolatedModules": true,
+		"incremental": true,
+		"noEmit": true,
+		"types": ["node"]
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules", "dist"]
+}

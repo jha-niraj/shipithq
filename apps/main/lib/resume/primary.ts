@@ -3,6 +3,7 @@ import "server-only"
 import { db, users, resumeDraft, workExperiences, userEducations, skills, portfolioProjects, socialLinks, certifications } from "@repo/db"
 import { and, desc, eq, isNull, sql } from "drizzle-orm"
 import { renderResumeText, type ResumeDraftContent } from "@repo/db/resume"
+import { normalizeProjectLinkType } from "@repo/db/profile-values"
 
 export { renderResumeText }
 
@@ -199,8 +200,8 @@ export async function buildContentFromProfile(userId: string): Promise<ResumeDra
             name: p.projectName,
             description: p.description ?? undefined,
             technologies: (p.technologies as string[]) ?? [],
-            github: p.links.find((l) => l.linkType === "GITHUB")?.url,
-            liveUrl: p.links.find((l) => l.linkType === "LIVE_SITE" || l.linkType === "DEMO")?.url,
+            github: p.links.find((l) => normalizeProjectLinkType(l.linkType) === "GITHUB")?.url,
+            liveUrl: p.links.find((l) => { const t = normalizeProjectLinkType(l.linkType); return t === "LIVE_SITE" || t === "DEMO" })?.url,
             bullets: (p.bulletPoints as string[]) ?? [],
         })),
         education: edu.map((e) => ({

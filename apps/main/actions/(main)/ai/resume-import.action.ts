@@ -8,7 +8,7 @@ import { priceOf } from '@/lib/credits/pricing'
 // ─────────────────────────────────────────────────────────────────────────────
 // Building a resume from a user's public profiles.
 //
-// Both actions here are DISPATCHERS as of RES-9. The scraping and the model call
+// The action here is a DISPATCHER as of RES-9. The scraping and the model call
 // live in `apps/worker/src/jobs/resume-import.ts`; what is left in this file is
 // input validation and a job id.
 //
@@ -25,17 +25,6 @@ import { priceOf } from '@/lib/credits/pricing'
 // when the job lands, instead of a spinner that sometimes never resolves.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * How much pasted text is forwarded to the job.
- *
- * A Durable Object storage value is size-capped, and the job's input is stored
- * before the alarm runs - so an oversized paste would fail the dispatch rather
- * than the job, which is a worse error to explain. The cap is comfortably above
- * a long resume and well under the model's own 8,000-character prompt window,
- * so nothing that would have reached the model is lost by it.
- */
-const MAX_PASTED_CHARS = 20_000
-
 interface ImportDispatchResult {
     success: boolean
     jobId?: string
@@ -46,51 +35,13 @@ interface ImportDispatchResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The resume hub's import: LinkedIn URL, GitHub URL, or pasted text.
-// ─────────────────────────────────────────────────────────────────────────────
-export async function importAndCreateDraft(input: {
-    name: string
-    templateSlug: string
-    linkedinUrl?: string
-    githubUrl?: string
-    pastedText?: string
-}): Promise<ImportDispatchResult> {
-    try {
-        const session = await getSession(await headers())
-        if (!session?.user?.id) return { success: false, error: 'Unauthorized' }
-
-        // Nothing to import is refused BEFORE the hold, so a user who opens the
-        // dialog and submits it empty pays nothing. This is the only half of the
-        // old "charge only if a source produced text" rule that has to live on
-        // this side: whether a source produces text is exactly what the job
-        // exists to find out, and a job that finds nothing fails, which refunds.
-        const hasSource = Boolean(input.linkedinUrl?.trim() || input.githubUrl?.trim() || input.pastedText?.trim())
-        if (!hasSource) {
-            return { success: false, error: 'Please provide at least one source (LinkedIn, GitHub, or resume text).' }
-        }
-
-        return await dispatchImport({
-            variant: 'combined',
-            name: input.name,
-            templateSlug: input.templateSlug,
-            linkedinUrl: input.linkedinUrl?.trim() || undefined,
-            githubUrl: input.githubUrl?.trim() || undefined,
-            pastedText: input.pastedText?.trim().slice(0, MAX_PASTED_CHARS) || undefined,
-        })
-    } catch (e: unknown) {
-        return { success: false, error: e instanceof Error ? e.message : 'Import failed' }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// The import page: LinkedIn + GitHub username, optionally Twitter and a
-// portfolio site.
+// The Import with AI sheet (plan/resume RES-23): LinkedIn + GitHub username,
+// optionally Twitter and a portfolio site. The only import path since
+// 2026-09-25, when the old dialog's "combined" variant was removed.
 //
-// GitHub is read through the REST API here rather than scraped, which is why the
-// job carries `githubUsername` rather than `githubUrl` - it gets repo names,
-// star counts and languages instead of whatever the profile page happens to
-// render. The two paths are kept distinct on purpose; collapsing them would be a
-// behaviour change disguised as a refactor.
+// GitHub is read through the REST API, which is why the job carries
+// `githubUsername`: it gets repo names, star counts and languages instead of
+// whatever the profile page happens to render.
 // ─────────────────────────────────────────────────────────────────────────────
 interface ProfileImportInput {
     linkedinUrl: string
@@ -110,7 +61,6 @@ export async function importProfileAndCreateDraft(input: ProfileImportInput): Pr
         }
 
         return await dispatchImport({
-            variant: 'profile',
             // The old code named the draft from the model's output
             // (`${content.header.name} AI-Generated Resume`), which is not
             // available until the job has run. A fixed name is used instead and

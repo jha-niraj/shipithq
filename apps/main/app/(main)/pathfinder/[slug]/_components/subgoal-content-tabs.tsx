@@ -43,26 +43,24 @@ export function SubGoalContentTabs({
                 Hidden at one tab, shown at two. Not deleted: removing it would
                 take the Coding tab with it wherever `hasCoding` is true. */}
             {hasCoding && (
-                <TabsList className="mx-4 mt-4 h-auto flex-shrink-0 flex-wrap gap-1">
-                    <TabsTrigger value="notes" className="text-xs gap-1">
-                        <StickyNote className="w-3 h-3" />
-                        Notes
-                    </TabsTrigger>
-                    <TabsTrigger value="coding" className="text-xs gap-1">
-                        <Code2 className="w-3 h-3" />
-                        Coding
-                        {
-                            codingCompleted && (
-                                <CheckCircle2
-                                    className={cn(
-                                        'w-3 h-3',
-                                        codingPassed ? 'text-neutral-900 dark:text-neutral-100' : 'text-red-500'
-                                    )}
-                                />
-                            )
-                        }
-                    </TabsTrigger>
-                </TabsList>
+                <div className="mx-4 mt-4 flex-shrink-0">
+                    <TabsList size="sm" fit>
+                        <TabsTrigger value="notes" icon={<StickyNote />}>Notes</TabsTrigger>
+                        <TabsTrigger value="coding" icon={<Code2 />}>
+                            Coding
+                            {
+                                codingCompleted && (
+                                    <CheckCircle2
+                                        className={cn(
+                                            'ml-1 w-3 h-3',
+                                            codingPassed ? 'text-neutral-900 dark:text-neutral-100' : 'text-red-500'
+                                        )}
+                                    />
+                                )
+                            }
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
             )}
 
             <TabsContent value="notes" className="m-0 flex min-h-0 flex-1 overflow-hidden">

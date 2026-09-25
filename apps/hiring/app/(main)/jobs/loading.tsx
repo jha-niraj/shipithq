@@ -1,41 +1,43 @@
-// Hand-matched to jobs-content.tsx - same wrapper, same grids, same card chrome, so
-// nothing reflows when the real content mounts.
+// Hand-matched to jobs-content.tsx: the page frame, PageHeader with one button,
+// the six-cell StatBand, the search/status/view-toggle bar, then the job list
+// (list view is the default) - so nothing reflows when the real content mounts.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
 import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
-        <div className="min-h-full p-6 lg:p-8">
+        <div className="page-frame space-y-5 px-page py-6">
             <ShimmerStyles />
 
-            <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="space-y-2">
-                    <Shimmer className="h-8 w-56" />
-                    <Shimmer className="h-4 w-80" delay={0.06} />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1.5">
+                    <Shimmer className="h-6 w-36" />
+                    <Shimmer className="h-4 w-72 max-w-full" delay={0.04} />
                 </div>
-                <Shimmer className="h-10 w-36 rounded-xl" delay={0.12} />
+                <Shimmer className="h-9 w-40 rounded-xl" delay={0.06} />
             </div>
 
-            <StatBandSkeleton count={6} cols={6} className="mb-8" />
+            <StatBandSkeleton count={6} cols={6} />
 
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row">
-                <Shimmer className="h-10 flex-1 rounded-lg" />
-                <Shimmer className="h-10 w-full rounded-lg sm:w-44" delay={0.06} />
+            <div className="flex flex-col gap-4 sm:flex-row">
+                <Shimmer className="h-9 flex-1 rounded-xl" />
+                <Shimmer className="h-9 w-full rounded-xl sm:w-[160px]" delay={0.04} />
+                <Shimmer className="h-10 w-20 rounded-xl" delay={0.06} />
             </div>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
+            <div className="space-y-4">
+                {Array.from({ length: 5 }).map((_, i) => (
                     <div key={i} className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">
-                        <div className="flex items-start justify-between">
-                            <Shimmer className="h-11 w-11 rounded-xl" delay={i * 0.05} />
-                            <Shimmer className="h-6 w-20 rounded-full" delay={i * 0.05} />
+                        <div className="flex items-center gap-3">
+                            <Shimmer className="h-6 w-56" delay={i * 0.05} />
+                            <Shimmer className="h-5 w-16 rounded-full" delay={i * 0.05} />
                         </div>
-                        <Shimmer className="mt-4 h-5 w-3/4" delay={i * 0.05} />
-                        <Shimmer className="mt-2 h-4 w-1/2" delay={i * 0.05} />
-                        <div className="mt-4 flex items-center justify-between border-t border-neutral-100 pt-4 dark:border-neutral-800">
-                            <Shimmer className="h-3.5 w-24" delay={i * 0.05} />
-                            <Shimmer className="h-3.5 w-16" delay={i * 0.05} />
+                        <div className="mt-3 flex flex-wrap gap-4">
+                            {Array.from({ length: 4 }).map((__, j) => (
+                                <Shimmer key={j} className="h-4 w-24" delay={i * 0.05} />
+                            ))}
                         </div>
+                        <Shimmer className="mt-3 h-3 w-32" delay={i * 0.05} />
                     </div>
                 ))}
             </div>

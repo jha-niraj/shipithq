@@ -1,10 +1,10 @@
 "use server"
 
 import { getSession } from "@repo/auth";
-import { requireProjectAccess } from "@/lib/projects/access"
+import { requireProjectAccess, requireProjectReadAccess } from "@/lib/projects/access"
 import { headers } from "next/headers";
 import { db, projectV2Resources, projectsV2 } from "@repo/db";
-import { eq, and, desc, sql, type SQL } from "drizzle-orm";
+import { eq, and, desc, inArray, sql, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache"
 
 /**
@@ -103,11 +103,12 @@ export async function getProjectResources(params: {
 }) {
     try {
         // Had no auth at all: a project id was enough to read everything anyone
-        // had attached to a private project.
-        const access = await requireProjectAccess(params.projectId)
+        // had attached to a private project. Now: the people on the project, or
+        // anyone for a PUBLIC one; a copy reads its original's too (PJ-21).
+        const access = await requireProjectReadAccess(params.projectId)
         if (!access.ok) return { success: false, error: access.error }
 
-        const conditions: SQL[] = [eq(projectV2Resources.projectId, params.projectId)]
+        const conditions: SQL[] = [inArray(projectV2Resources.projectId, access.projectIds)]
 
         if (params.type) {
             conditions.push(eq(projectV2Resources.type, params.type as any))

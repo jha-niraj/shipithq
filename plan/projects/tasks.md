@@ -1069,3 +1069,24 @@ The code review is the one that will fail first, because its input size is whate
 **Edge cases.** Community empty today: its empty state says how a project gets listed (Make public). A learner's COPY is private and never listed. Search is server-side, so it filters the whole catalogue, not one page.
 
 **Done when.** `/projects/explore` shows Browse with all 10 projects; `?made=community` shows the empty state; `?tab=ideas` and `?tab=community` land on Browse (the second filtered); filters, search and sort change the URL and survive a reload; the sidebar has no separate Community tab page; `tsc` clean.
+
+## PJ-20 Resources and Errors sheets, and the card's author
+- [x] Status: done 2026-09-24. Verified in the browser: both sheets titled at body size with a one-line description; with server actions delayed 2s both show row skeletons and no dot loader; resources render as compact monochrome rows (seen with two test resources on the test copy); the duplicate "Errors & Mistakes" heading is gone and "Share an error" sits on the filter row; a viewer who is not on the project is told why the sheet is empty (resources and errors are owner/enrolled only, `lib/projects/access.ts`) instead of "No resources yet"; the catalogue card shows "by ShipItHQ" at the right of the stack line. Niraj, 2026-09-24: "too big text", "use the skeleton not the loader", "move this by ShipItHQ to the right".
+
+**Why.** The two sheets on the project page render their titles at the shared `SheetTitle`'s `text-3xl`, cards at `text-lg` with off-palette red and pink type badges, the Errors pane repeats its own sheet's title, and both show a centred dot loader where the content will be. On catalogue cards "by ShipItHQ" sat alone on its own line.
+**Files.** `app/(main)/projects/[slug]/_components/project-assistant-buttons.tsx`, `components/projects/resources-list.tsx`, `components/projects/errors-tab.tsx`, `components/projects/add-resource-sheet.tsx`, `components/projects/catalogue-card.tsx`, the workspace's Errors tab (`workspace-client.tsx`).
+**Steps.** Sheet headers at `text-base` with a one-line description; resources as compact monochrome rows (type icon, title, host, who and when, views, helpful, delete) in one bordered list; errors without the duplicate heading, filters and "Share an error" on one row, compact rows; skeletons shaped like those rows while loading; the author on the right of the stack line.
+**Done when.** In a real page both sheets read at body size with no loader while loading (a skeleton of rows instead), and cards show the author at the right of the stack line; `tsc` clean.
+
+## PJ-21 Public projects share their Resources and Errors
+- [x] Status: done 2026-09-24. `requireProjectReadAccess` in `lib/projects/access.ts` (on the project, or anyone for a PUBLIC one; a copy also reads its public original). Resources, errors and error stats read through it; `getProjectErrors`/stats had NO check before, so a private project's errors were readable by any signed-in user - closed. Writes unchanged. The copy's delete button now follows the server rule (author, or creator of the project the resource was shared ON). Verified: a non-enrolled viewer sees the Habit Tracker's 2 resources; the test copy lists the original's resource (no delete) beside its own two (delete). Also 2026-09-24: the shared `SheetTitle` default is `text-lg` (was `text-3xl`; 32 sheets used the default). Niraj, 2026-09-24: "Public projects share them".
+**Why.** Reading was owner/enrolled only, so a public project's page showed an empty library to everyone else, and a learner's copy never saw what was shared on the original.
+**Files.** `lib/projects/access.ts` (a read check), `actions/(main)/projects/resources.action.ts`, `actions/(main)/projects/project-errors.action.ts`.
+**Steps.** Anyone signed in may READ the resources and errors of a PUBLIC project; a copy reads its own plus its original's (when the original is public). Adding, voting and deleting keep the owner/enrolled rule. Private projects stay owner-only.
+**Edge cases.** A resource shown on a copy but owned by the original: deleting it from the copy is not allowed (only its author or the original's creator). Stats count both lists.
+**Done when.** A signed-in viewer who is not enrolled sees a public project's resources; the test copy shows the original's resources beside its own; a private project still shows "not yours"; `tsc` clean.
+
+## PJ-22 The resources and errors dropdowns scroll with the ScrollArea
+- [x] Status: done 2026-09-24, verified in the browser against Done when.
+**Files.** `components/projects/hover-select.tsx` (shared by both).
+**Done when.** The resource-type menu and the three errors menus scroll inside our ScrollArea (thin themed bar) when taller than the space; `tsc` clean.

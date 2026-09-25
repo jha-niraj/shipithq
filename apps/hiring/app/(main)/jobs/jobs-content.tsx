@@ -11,6 +11,7 @@ import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
     DropdownMenuSeparator, DropdownMenuTrigger
@@ -141,27 +142,23 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
     }
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                        Job Listings
-                    </h1>
-                    <p className="text-neutral-500 mt-1">
-                        Manage and track all your open positions
-                    </p>
-                </div>
-                <Link href="/jobs/new">
-                    <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create New Job
-                    </Button>
-                </Link>
-            </div>
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="Job Listings"
+                subtitle="Manage and track all your open positions"
+                actions={
+                    <Link href="/jobs/new">
+                        <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Create New Job
+                        </Button>
+                    </Link>
+                }
+            />
 
             {
                 stats && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <StatBand
                             cols={6}
                             items={[
@@ -177,7 +174,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                 )
             }
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <Input

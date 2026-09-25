@@ -57,7 +57,7 @@ export function PracticeDashboard({ stats, dailyChallenge, activity }: PracticeD
     }
 
     return (
-        <div className="w-full space-y-6 px-page pb-6 pt-2">
+        <div className="page-frame space-y-6 px-page pb-6 pt-2">
             <PageHeader
                 title="Practice"
                 subtitle="Sharpen your skills with hands-on coding challenges"
@@ -196,7 +196,7 @@ function DailyChallengeCard({ challenge }: { challenge: DailyChallengeData }) {
 
 function EmptyDashboard({ dailyChallenge }: { dailyChallenge?: DailyChallengeData | null }) {
     return (
-        <div className="px-page py-6 space-y-8 max-w-6xl mx-auto">
+        <div className="page-frame px-page py-6 space-y-8">
             <div>
                 <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
                     Practice

@@ -71,8 +71,9 @@ export const JOB_TYPES = [
     "practice_tests_generate",
     "practice_memory_update",
     "practice_reflect",
-    // The workspace's Project AI (plan/project-workspace WS-15): one reply per
-    // message - an answer, a question back, or a proposed task or sprint.
+    // The workspace's Project AI (plan/project-workspace WS-15). No longer run:
+    // it replies inline since WS-22 (2026-09-24). Kept so past job rows still
+    // have a valid type.
     "project_ai",
     // A sprint's quiz (plan/project-workspace WS-12): ten questions from the
     // sprint's tasks and the learner's own notes on them.
@@ -80,6 +81,9 @@ export const JOB_TYPES = [
     // A sprint's mock interview (plan/project-workspace WS-13): one job type,
     // three steps - open (holds the session's credits), each turn, feedback.
     "sprint_mock",
+    // Reading a company's own site into a draft profile (plan/hiring-rounds
+    // HR-5): a Firecrawl map and up to 12 page scrapes, then one model pass.
+    "company_scrape",
 ] as const;
 
 export type JobType = (typeof JOB_TYPES)[number];

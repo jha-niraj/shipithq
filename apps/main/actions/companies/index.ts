@@ -96,6 +96,8 @@ export async function browseCompanies(filters: CompanyFilters = {}, page = 1, li
 
         const processCountByCompany = new Map<string, number>()
         for (const proc of processRows) {
+            // ShipItHQ's platform pipelines have no company (plan/hiring-rounds HR-1).
+            if (!proc.companyId) continue
             processCountByCompany.set(proc.companyId, (processCountByCompany.get(proc.companyId) || 0) + 1)
         }
 
@@ -256,6 +258,8 @@ export async function getFeaturedCompanies(limit = 6) {
 
         const processCountByCompany = new Map<string, number>()
         for (const proc of processRows) {
+            // ShipItHQ's platform pipelines have no company (plan/hiring-rounds HR-1).
+            if (!proc.companyId) continue
             processCountByCompany.set(proc.companyId, (processCountByCompany.get(proc.companyId) || 0) + 1)
         }
 
@@ -426,6 +430,8 @@ export async function getFollowedCompanies() {
 
         const processCountByCompany = new Map<string, number>()
         for (const proc of processRows) {
+            // ShipItHQ's platform pipelines have no company (plan/hiring-rounds HR-1).
+            if (!proc.companyId) continue
             processCountByCompany.set(proc.companyId, (processCountByCompany.get(proc.companyId) || 0) + 1)
         }
 

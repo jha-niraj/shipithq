@@ -1,11 +1,12 @@
 "use client"
 
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import {
     Plus, Trash2, GripVertical, Mic, ChevronDown, ChevronUp,
-    Save, Loader2
+    Save
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
@@ -188,7 +189,7 @@ export function InterviewProcessForm({ onClose, initialTemplate }: InterviewProc
             } else {
                 setError(result.error || "Failed to create interview process")
             }
-        } catch (err) {
+        } catch (err: unknown) {
             setError("An unexpected error occurred")
             console.error(err)
         } finally {
@@ -459,7 +460,7 @@ export function InterviewProcessForm({ onClose, initialTemplate }: InterviewProc
                     {
                         isSubmitting ? (
                             <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                <InlineLoader size="sm" className="mr-2" />
                                 Creating...
                             </>
                         ) : (

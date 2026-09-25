@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import {
-    Receipt, Download, Filter, Search, Loader2, AlertCircle, 
+    Receipt, Download, Filter, Search, AlertCircle, 
     CheckCircle, XCircle, Clock, FileText, Eye, ChevronLeft, 
     ChevronRight, Building2, Mail, MapPin
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
+import Loading from "./loading"
 import { Input } from "@repo/ui/components/ui/input"
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -362,7 +364,7 @@ export default function InvoicesPage() {
                 if (overviewResult.success && overviewResult.data) {
                     setOverview(overviewResult.data)
                 }
-            } catch (err) {
+            } catch (err: unknown) {
                 setError("Failed to load invoices")
                 console.error(err)
             } finally {
@@ -407,14 +409,7 @@ export default function InvoicesPage() {
     )
 
     if (loading) {
-        return (
-            <div className="min-h-dvh flex items-center justify-center">
-                <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
-                    <p className="mt-2 text-neutral-500">Loading invoices...</p>
-                </div>
-            </div>
-        )
+        return <Loading />
     }
 
     // Calculate stats
@@ -423,14 +418,11 @@ export default function InvoicesPage() {
     const totalAmount = paidInvoices.reduce((sum, i) => sum + i.totalAmount, 0)
 
     return (
-        <div className="p-6 lg:p-8 space-y-8">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Invoices</h1>
-                <p className="text-neutral-500 dark:text-neutral-400 mt-1">
-                    View and download your billing invoices
-                </p>
-            </div>
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="Invoices"
+                subtitle="View and download your billing invoices"
+            />
 
             {/* Error Alert */}
             {error && (

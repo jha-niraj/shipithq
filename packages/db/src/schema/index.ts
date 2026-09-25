@@ -10,6 +10,7 @@ export * from "./comments";
 export * from "./hiring";
 export * from "./jobmock";
 export * from "./jobs";
+export * from "./hiring-rounds";
 export * from "./worker";
 export * from "./credits";
 export * from "./knowme";

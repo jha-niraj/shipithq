@@ -39,7 +39,7 @@ export default async function HomePage() {
     const hasContinueLearning = inProgressProjects.length > 0 || recentStudios.length > 0;
 
     return (
-        <div className="w-full pb-4">
+        <div className="page-frame pb-4">
             {/* The analytics dashboard IS the page now: headline counters, then a stack
                 of module rows pairing counters with a 6-month trend line, then the
                 activity mix + feed. The two surfaces below it are kept because they do

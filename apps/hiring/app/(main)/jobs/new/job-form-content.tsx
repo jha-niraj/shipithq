@@ -19,6 +19,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@repo/ui/components/ui/select"
 import Link from "next/link"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import toast from "@repo/ui/components/ui/sonner"
 import { createJob } from "@/actions/jobs"
 import { createJobSchema } from "@/types/job-schema"
@@ -843,583 +844,21 @@ export default function JobFormContent({ interviewProcesses }: JobFormContentPro
     }
 
     return (
-        <div className="h-dvh bg-neutral-50 dark:bg-neutral-950">
-            <div className="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
-                <div className="container mx-auto px-6 py-6">
-                    <Link
-                        href="/jobs"
-                        className="inline-flex items-center gap-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm mb-4 transition-colors"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        Back to Jobs
-                    </Link>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">Create New Job</h1>
-                            <p className="text-neutral-500 dark:text-neutral-400 mt-1">Fill in the details to post a new job opening</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <Button
-                                variant="outline"
-                                onClick={() => handleSubmit("DRAFT")}
-                                disabled={isPending}
-                            >
-                                <Save className="h-4 w-4 mr-2" />
-                                Save Draft
-                            </Button>
-                            <Button
-                                onClick={() => handleSubmit("ACTIVE")}
-                                disabled={isPending}
-                                className="bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black"
-                            >
-                                <Send className="h-4 w-4 mr-2" />
-                                Publish Job
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div className="container mx-auto px-6 py-8">
-                <div className="max-w-4xl mx-auto space-y-8">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
-                    >
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                                <Briefcase className="h-5 w-5 text-neutral-900 dark:text-white" />
-                            </div>
-                            <div>
-                                <h2 className="font-semibold text-neutral-900 dark:text-white">Basic Information</h2>
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Job title and description</p>
-                            </div>
-                        </div>
-                        <div className="space-y-4">
-                            <div>
-                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Job Title *</Label>
-                                <Input
-                                    value={formData.title}
-                                    onChange={(e) => updateField("title", e.target.value)}
-                                    placeholder="e.g., Senior Frontend Developer"
-                                    className={`h-11 mt-1 ${errors.title ? "border-red-500" : ""}`}
-                                />
-                                {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
-                            </div>
-                            <div>
-                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Description *</Label>
-                                <Textarea
-                                    value={formData.description}
-                                    onChange={(e) => updateField("description", e.target.value)}
-                                    placeholder="Describe the role, responsibilities, and what makes this opportunity exciting..."
-                                    rows={6}
-                                    className={`mt-1 ${errors.description ? "border-red-500" : ""}`}
-                                />
-                                {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
-                            </div>
-                            <div>
-                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Department</Label>
-                                <Input
-                                    value={formData.department}
-                                    onChange={(e) => updateField("department", e.target.value)}
-                                    placeholder="e.g., Engineering, Product, Design"
-                                    className="h-11 mt-1"
-                                />
-                            </div>
-                        </div>
-                    </motion.div>
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
-                    >
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                                <MapPin className="h-5 w-5 text-neutral-900 dark:text-white" />
-                            </div>
-                            <div>
-                                <h2 className="font-semibold text-neutral-900 dark:text-white">Location & Employment</h2>
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Work arrangement and job type</p>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Work Type *</Label>
-                                <Select
-                                    value={formData.locationType}
-                                    onValueChange={(v) => updateField("locationType", v as JobLocationType)}
-                                >
-                                    <SelectTrigger className="h-11 mt-1">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {
-                                            LOCATION_TYPES.map((type) => (
-                                                <SelectItem key={type.value} value={type.value}>
-                                                    {type.label}
-                                                </SelectItem>
-                                            ))
-                                        }
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Employment Type *</Label>
-                                <Select
-                                    value={formData.employmentType}
-                                    onValueChange={(v) => updateField("employmentType", v as EmploymentType)}
-                                >
-                                    <SelectTrigger className="h-11 mt-1">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {
-                                            EMPLOYMENT_TYPES.map((type) => (
-                                                <SelectItem key={type.value} value={type.value}>
-                                                    {type.label}
-                                                </SelectItem>
-                                            ))
-                                        }
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {
-                                formData.locationType !== "REMOTE" && (
-                                    <div className="md:col-span-2">
-                                        <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Location</Label>
-                                        <Input
-                                            value={formData.location}
-                                            onChange={(e) => updateField("location", e.target.value)}
-                                            placeholder="e.g., Bangalore, India"
-                                            className="h-11 mt-1"
-                                        />
-                                    </div>
-                                )
-                            }
-                        </div>
-                    </motion.div>
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.15 }}
-                        className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
-                    >
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                                <Clock className="h-5 w-5 text-neutral-900 dark:text-white" />
-                            </div>
-                            <div>
-                                <h2 className="font-semibold text-neutral-900 dark:text-white">Experience Level</h2>
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Required years of experience</p>
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2 mb-4">
-                            {
-                                EXPERIENCE_PRESETS.map((preset) => (
-                                    <Button
-                                        key={preset.label}
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setExperiencePreset(preset)}
-                                        className={`${formData.experienceMin === preset.min.toString() &&
-                                                formData.experienceMax === preset.max.toString()
-                                                ? "bg-neutral-900 dark:bg-white text-white dark:text-black border-neutral-900 dark:border-white"
-                                                : ""
-                                            }`}
-                                    >
-                                        {preset.label} ({preset.min}-{preset.max} yrs)
-                                    </Button>
-                                ))
-                            }
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Minimum (years)</Label>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    value={formData.experienceMin}
-                                    onChange={(e) => updateField("experienceMin", e.target.value)}
-                                    placeholder="0"
-                                    className="h-11 mt-1"
-                                />
-                            </div>
-                            <div>
-                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Maximum (years)</Label>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    value={formData.experienceMax}
-                                    onChange={(e) => updateField("experienceMax", e.target.value)}
-                                    placeholder="5"
-                                    className="h-11 mt-1"
-                                />
-                            </div>
-                        </div>
-                        {errors.experienceMin && <p className="text-red-500 text-sm mt-2">{errors.experienceMin}</p>}
-                    </motion.div>
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
-                    >
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                                    <DollarSign className="h-5 w-5 text-neutral-900 dark:text-white" />
-                                </div>
-                                <div>
-                                    <h2 className="font-semibold text-neutral-900 dark:text-white">Compensation</h2>
-                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Salary range for this position</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Switch
-                                    checked={formData.salaryDisclosed}
-                                    onCheckedChange={(v) => updateField("salaryDisclosed", v)}
-                                />
-                                <Label className="text-sm text-neutral-500 dark:text-neutral-400">Show salary</Label>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Currency</Label>
-                                <Select
-                                    value={formData.salaryCurrency}
-                                    onValueChange={(v) => updateField("salaryCurrency", v)}
-                                >
-                                    <SelectTrigger className="h-11 mt-1">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {
-                                            CURRENCIES.map((curr) => (
-                                                <SelectItem key={curr.value} value={curr.value}>
-                                                    {curr.label}
-                                                </SelectItem>
-                                            ))
-                                        }
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Minimum (Annual)</Label>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    value={formData.salaryMin}
-                                    onChange={(e) => updateField("salaryMin", e.target.value)}
-                                    placeholder="e.g., 800000"
-                                    className="h-11 mt-1"
-                                />
-                            </div>
-                            <div>
-                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Maximum (Annual)</Label>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    value={formData.salaryMax}
-                                    onChange={(e) => updateField("salaryMax", e.target.value)}
-                                    placeholder="e.g., 1500000"
-                                    className="h-11 mt-1"
-                                />
-                            </div>
-                        </div>
-                        {errors.salaryMin && <p className="text-red-500 text-sm mt-2">{errors.salaryMin}</p>}
-                    </motion.div>
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.25 }}
-                        className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
-                    >
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                                <Sparkles className="h-5 w-5 text-neutral-900 dark:text-white" />
-                            </div>
-                            <div>
-                                <h2 className="font-semibold text-neutral-900 dark:text-white">Skills</h2>
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Required and preferred skills</p>
-                            </div>
-                        </div>
-                        <div className="space-y-6">
-                            <SkillsInput
-                                label="Required Skills *"
-                                skills={formData.skillsRequired}
-                                onAdd={(skill) => addToList("skillsRequired", skill)}
-                                onRemove={(index) => removeFromList("skillsRequired", index)}
-                            />
-
-                            {errors.skillsRequired && <p className="text-red-500 text-sm">{errors.skillsRequired}</p>}
-
-                            <SkillsInput
-                                label="Preferred Skills"
-                                skills={formData.skillsPreferred}
-                                onAdd={(skill) => addToList("skillsPreferred", skill)}
-                                onRemove={(index) => removeFromList("skillsPreferred", index)}
-                            />
-                        </div>
-                    </motion.div>
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
-                    >
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                                <FileText className="h-5 w-5 text-neutral-900 dark:text-white" />
-                            </div>
-                            <div>
-                                <h2 className="font-semibold text-neutral-900 dark:text-white">Job Details</h2>
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Requirements, responsibilities, and benefits</p>
-                            </div>
-                        </div>
-                        <div className="space-y-6">
-                            <ListInput
-                                label="Requirements"
-                                placeholder="Add a requirement"
-                                items={formData.requirements}
-                                onAdd={(item) => addToList("requirements", item)}
-                                onRemove={(index) => removeFromList("requirements", index)}
-                            />
-
-                            <ListInput
-                                label="Responsibilities"
-                                placeholder="Add a responsibility"
-                                items={formData.responsibilities}
-                                onAdd={(item) => addToList("responsibilities", item)}
-                                onRemove={(index) => removeFromList("responsibilities", index)}
-                            />
-
-                            <ListInput
-                                label="Benefits"
-                                placeholder="Add a benefit"
-                                items={formData.benefits}
-                                onAdd={(item) => addToList("benefits", item)}
-                                onRemove={(index) => removeFromList("benefits", index)}
-                            />
-                        </div>
-                    </motion.div>
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.35 }}
-                        className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
-                    >
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                                <Users className="h-5 w-5 text-neutral-900 dark:text-white" />
-                            </div>
-                            <div>
-                                <h2 className="font-semibold text-neutral-900 dark:text-white">Interview Process</h2>
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Select an interview process for this job</p>
-                            </div>
-                        </div>
-
-                        {
-                            interviewProcesses.length > 0 ? (
-                                <Select
-                                    value={formData.interviewProcessId}
-                                    onValueChange={(v) => updateField("interviewProcessId", v)}
-                                >
-                                    <SelectTrigger className="h-11">
-                                        <SelectValue placeholder="Select an interview process" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {
-                                            interviewProcesses.map((process) => (
-                                                <SelectItem key={process.id} value={process.id}>
-                                                    <div className="flex items-center gap-2">
-                                                        {process.name}
-                                                        {
-                                                            process.isDefault && (
-                                                                <Badge variant="secondary" className="text-xs">Default</Badge>
-                                                            )
-                                                        }
-                                                    </div>
-                                                </SelectItem>
-                                            ))
-                                        }
-                                    </SelectContent>
-                                </Select>
-                            ) : (
-                                <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg text-center">
-                                    <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-2">No interview processes configured yet</p>
-                                    <Link href="/interview-config">
-                                        <Button variant="outline" size="sm">
-                                            Configure Interview Process
-                                        </Button>
-                                    </Link>
-                                </div>
-                            )
-                        }
-                    </motion.div>
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
-                    >
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                                    <Building2 className="h-5 w-5 text-neutral-900 dark:text-white" />
-                                </div>
-                                <div>
-                                    <h2 className="font-semibold text-neutral-900 dark:text-white">Take-Home Assignment</h2>
-                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Optional coding assignment for candidates</p>
-                                </div>
-                            </div>
-                            <Switch
-                                checked={formData.hasAssignment}
-                                onCheckedChange={(v) => {
-                                    updateField("hasAssignment", v)
-                                    if (!v) {
-                                        updateField("assignmentAddLater", false)
-                                    }
-                                }}
-                            />
-                        </div>
-
-                        {
-                            formData.hasAssignment && (
-                                <div className="space-y-4">
-                                    {/* Add Now or Later Toggle */}
-                                    <div className="flex items-center gap-2 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-neutral-200 dark:border-neutral-700">
-                                        <div className="flex-1">
-                                            <p className="text-sm font-medium text-neutral-900 dark:text-white">When would you like to add assignment details?</p>
-                                            <p className="text-xs text-neutral-500 dark:text-neutral-400">You can always edit this later from the job settings</p>
-                                        </div>
-                                        <div className="flex items-center gap-2 bg-white dark:bg-neutral-900 rounded-lg p-1 border border-neutral-200 dark:border-neutral-700">
-                                            <button
-                                                type="button"
-                                                onClick={() => updateField("assignmentAddLater", false)}
-                                                className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-                                                    !formData.assignmentAddLater
-                                                        ? "bg-neutral-900 dark:bg-white text-white dark:text-black"
-                                                        : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-                                                }`}
-                                            >
-                                                Add Now
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => updateField("assignmentAddLater", true)}
-                                                className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-                                                    formData.assignmentAddLater
-                                                        ? "bg-neutral-900 dark:bg-white text-white dark:text-black"
-                                                        : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-                                                }`}
-                                            >
-                                                Add Later
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Assignment Details - Only show if not adding later */}
-                                    {
-                                        !formData.assignmentAddLater ? (
-                                            <>
-                                                <div>
-                                                    <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Assignment Title *</Label>
-                                                    <Input
-                                                        value={formData.assignmentTitle}
-                                                        onChange={(e) => updateField("assignmentTitle", e.target.value)}
-                                                        placeholder="e.g., Build a REST API"
-                                                        className="h-11 mt-1"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Assignment Description *</Label>
-                                                    <Textarea
-                                                        value={formData.assignmentDescription}
-                                                        onChange={(e) => updateField("assignmentDescription", e.target.value)}
-                                                        placeholder="Describe what candidates need to build..."
-                                                        rows={4}
-                                                        className="mt-1"
-                                                    />
-                                                </div>
-                                                <div className="w-48">
-                                                    <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Deadline (days)</Label>
-                                                    <Input
-                                                        type="number"
-                                                        min="1"
-                                                        max="30"
-                                                        value={formData.assignmentDeadlineDays}
-                                                        onChange={(e) => updateField("assignmentDeadlineDays", e.target.value)}
-                                                        className="h-11 mt-1"
-                                                    />
-                                                </div>
-                                                {
-                                                    errors.assignmentDeadlineDays && (
-                                                        <p className="text-red-500 text-sm">{errors.assignmentDeadlineDays}</p>
-                                                    )
-                                                }
-                                            </>
-                                        ) : (
-                                            <div className="p-4 bg-neutral-50 dark:bg-neutral-900/30 rounded-lg border border-neutral-200 dark:border-neutral-800/50">
-                                                <p className="text-sm text-neutral-800 dark:text-neutral-100">
-                                                    <span className="font-medium">Assignment details will be added later.</span>{" "}
-                                                    You can configure the assignment from the job settings after publishing. 
-                                                    Candidates won&apos;t see the assignment until you complete it.
-                                                </p>
-                                            </div>
-                                        )
-                                    }
-                                </div>
-                            )
-                        }
-                    </motion.div>
-                    {/* Custom Questions Section */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.45 }}
-                        className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
-                    >
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                                <HelpCircle className="h-5 w-5 text-neutral-900 dark:text-white" />
-                            </div>
-                            <div>
-                                <h2 className="font-semibold text-neutral-900 dark:text-white">Custom Questions</h2>
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                                    Add specific questions for candidates to answer during application
-                                </p>
-                            </div>
-                        </div>
-                        <div className="mb-4 p-3 bg-neutral-50 dark:bg-neutral-900/30 rounded-lg border border-neutral-200 dark:border-neutral-800/50">
-                            <p className="text-sm text-neutral-800 dark:text-neutral-100">
-                                <span className="font-medium">Tip:</span> Use custom questions to gather information not covered in the standard application form.
-                                Examples: availability date, portfolio links, specific experience questions.
-                            </p>
-                        </div>
-                        <CustomQuestionsBuilder
-                            questions={formData.customQuestions}
-                            onAdd={addCustomQuestion}
-                            onUpdate={updateCustomQuestion}
-                            onRemove={removeCustomQuestion}
-                            onReorder={reorderCustomQuestions}
-                        />
-                        {
-                            formData.customQuestions.length > 0 && (
-                                <div className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
-                                    {formData.customQuestions.length} question{formData.customQuestions.length > 1 ? "s" : ""} added
-                                    {" • "}
-                                    {formData.customQuestions.filter(q => q.required).length} required
-                                </div>
-                            )
-                        }
-                    </motion.div>
-                    <div className="flex items-center gap-3 lg:hidden pb-8">
+        <div className="page-frame space-y-5 px-page py-6">
+            <Link
+                href="/jobs"
+                className="inline-flex items-center gap-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-sm transition-colors"
+            >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Jobs
+            </Link>
+            <PageHeader
+                title="Create New Job"
+                subtitle="Fill in the details to post a new job opening"
+                actions={
+                    <>
                         <Button
                             variant="outline"
-                            className="flex-1"
                             onClick={() => handleSubmit("DRAFT")}
                             disabled={isPending}
                         >
@@ -1427,14 +866,570 @@ export default function JobFormContent({ interviewProcesses }: JobFormContentPro
                             Save Draft
                         </Button>
                         <Button
-                            className="flex-1 bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black"
                             onClick={() => handleSubmit("ACTIVE")}
                             disabled={isPending}
+                            className="bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black"
                         >
                             <Send className="h-4 w-4 mr-2" />
-                            Publish
+                            Publish Job
                         </Button>
+                    </>
+                }
+            />
+            <div className="max-w-4xl space-y-6">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
+                >
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                            <Briefcase className="h-5 w-5 text-neutral-900 dark:text-white" />
+                        </div>
+                        <div>
+                            <h2 className="font-semibold text-neutral-900 dark:text-white">Basic Information</h2>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">Job title and description</p>
+                        </div>
                     </div>
+                    <div className="space-y-4">
+                        <div>
+                            <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Job Title *</Label>
+                            <Input
+                                value={formData.title}
+                                onChange={(e) => updateField("title", e.target.value)}
+                                placeholder="e.g., Senior Frontend Developer"
+                                className={`h-11 mt-1 ${errors.title ? "border-red-500" : ""}`}
+                            />
+                            {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
+                        </div>
+                        <div>
+                            <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Description *</Label>
+                            <Textarea
+                                value={formData.description}
+                                onChange={(e) => updateField("description", e.target.value)}
+                                placeholder="Describe the role, responsibilities, and what makes this opportunity exciting..."
+                                rows={6}
+                                className={`mt-1 ${errors.description ? "border-red-500" : ""}`}
+                            />
+                            {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
+                        </div>
+                        <div>
+                            <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Department</Label>
+                            <Input
+                                value={formData.department}
+                                onChange={(e) => updateField("department", e.target.value)}
+                                placeholder="e.g., Engineering, Product, Design"
+                                className="h-11 mt-1"
+                            />
+                        </div>
+                    </div>
+                </motion.div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
+                >
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                            <MapPin className="h-5 w-5 text-neutral-900 dark:text-white" />
+                        </div>
+                        <div>
+                            <h2 className="font-semibold text-neutral-900 dark:text-white">Location & Employment</h2>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">Work arrangement and job type</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Work Type *</Label>
+                            <Select
+                                value={formData.locationType}
+                                onValueChange={(v) => updateField("locationType", v as JobLocationType)}
+                            >
+                                <SelectTrigger className="h-11 mt-1">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {
+                                        LOCATION_TYPES.map((type) => (
+                                            <SelectItem key={type.value} value={type.value}>
+                                                {type.label}
+                                            </SelectItem>
+                                        ))
+                                    }
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Employment Type *</Label>
+                            <Select
+                                value={formData.employmentType}
+                                onValueChange={(v) => updateField("employmentType", v as EmploymentType)}
+                            >
+                                <SelectTrigger className="h-11 mt-1">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {
+                                        EMPLOYMENT_TYPES.map((type) => (
+                                            <SelectItem key={type.value} value={type.value}>
+                                                {type.label}
+                                            </SelectItem>
+                                        ))
+                                    }
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {
+                            formData.locationType !== "REMOTE" && (
+                                <div className="md:col-span-2">
+                                    <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Location</Label>
+                                    <Input
+                                        value={formData.location}
+                                        onChange={(e) => updateField("location", e.target.value)}
+                                        placeholder="e.g., Bangalore, India"
+                                        className="h-11 mt-1"
+                                    />
+                                </div>
+                            )
+                        }
+                    </div>
+                </motion.div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
+                >
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                            <Clock className="h-5 w-5 text-neutral-900 dark:text-white" />
+                        </div>
+                        <div>
+                            <h2 className="font-semibold text-neutral-900 dark:text-white">Experience Level</h2>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">Required years of experience</p>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        {
+                            EXPERIENCE_PRESETS.map((preset) => (
+                                <Button
+                                    key={preset.label}
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setExperiencePreset(preset)}
+                                    className={`${formData.experienceMin === preset.min.toString() &&
+                                            formData.experienceMax === preset.max.toString()
+                                            ? "bg-neutral-900 dark:bg-white text-white dark:text-black border-neutral-900 dark:border-white"
+                                            : ""
+                                        }`}
+                                >
+                                    {preset.label} ({preset.min}-{preset.max} yrs)
+                                </Button>
+                            ))
+                        }
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Minimum (years)</Label>
+                            <Input
+                                type="number"
+                                min="0"
+                                value={formData.experienceMin}
+                                onChange={(e) => updateField("experienceMin", e.target.value)}
+                                placeholder="0"
+                                className="h-11 mt-1"
+                            />
+                        </div>
+                        <div>
+                            <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Maximum (years)</Label>
+                            <Input
+                                type="number"
+                                min="0"
+                                value={formData.experienceMax}
+                                onChange={(e) => updateField("experienceMax", e.target.value)}
+                                placeholder="5"
+                                className="h-11 mt-1"
+                            />
+                        </div>
+                    </div>
+                    {errors.experienceMin && <p className="text-red-500 text-sm mt-2">{errors.experienceMin}</p>}
+                </motion.div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
+                >
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                                <DollarSign className="h-5 w-5 text-neutral-900 dark:text-white" />
+                            </div>
+                            <div>
+                                <h2 className="font-semibold text-neutral-900 dark:text-white">Compensation</h2>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Salary range for this position</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Switch
+                                checked={formData.salaryDisclosed}
+                                onCheckedChange={(v) => updateField("salaryDisclosed", v)}
+                            />
+                            <Label className="text-sm text-neutral-500 dark:text-neutral-400">Show salary</Label>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Currency</Label>
+                            <Select
+                                value={formData.salaryCurrency}
+                                onValueChange={(v) => updateField("salaryCurrency", v)}
+                            >
+                                <SelectTrigger className="h-11 mt-1">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {
+                                        CURRENCIES.map((curr) => (
+                                            <SelectItem key={curr.value} value={curr.value}>
+                                                {curr.label}
+                                            </SelectItem>
+                                        ))
+                                    }
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Minimum (Annual)</Label>
+                            <Input
+                                type="number"
+                                min="0"
+                                value={formData.salaryMin}
+                                onChange={(e) => updateField("salaryMin", e.target.value)}
+                                placeholder="e.g., 800000"
+                                className="h-11 mt-1"
+                            />
+                        </div>
+                        <div>
+                            <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Maximum (Annual)</Label>
+                            <Input
+                                type="number"
+                                min="0"
+                                value={formData.salaryMax}
+                                onChange={(e) => updateField("salaryMax", e.target.value)}
+                                placeholder="e.g., 1500000"
+                                className="h-11 mt-1"
+                            />
+                        </div>
+                    </div>
+                    {errors.salaryMin && <p className="text-red-500 text-sm mt-2">{errors.salaryMin}</p>}
+                </motion.div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 }}
+                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
+                >
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                            <Sparkles className="h-5 w-5 text-neutral-900 dark:text-white" />
+                        </div>
+                        <div>
+                            <h2 className="font-semibold text-neutral-900 dark:text-white">Skills</h2>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">Required and preferred skills</p>
+                        </div>
+                    </div>
+                    <div className="space-y-6">
+                        <SkillsInput
+                            label="Required Skills *"
+                            skills={formData.skillsRequired}
+                            onAdd={(skill) => addToList("skillsRequired", skill)}
+                            onRemove={(index) => removeFromList("skillsRequired", index)}
+                        />
+
+                        {errors.skillsRequired && <p className="text-red-500 text-sm">{errors.skillsRequired}</p>}
+
+                        <SkillsInput
+                            label="Preferred Skills"
+                            skills={formData.skillsPreferred}
+                            onAdd={(skill) => addToList("skillsPreferred", skill)}
+                            onRemove={(index) => removeFromList("skillsPreferred", index)}
+                        />
+                    </div>
+                </motion.div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
+                >
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                            <FileText className="h-5 w-5 text-neutral-900 dark:text-white" />
+                        </div>
+                        <div>
+                            <h2 className="font-semibold text-neutral-900 dark:text-white">Job Details</h2>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">Requirements, responsibilities, and benefits</p>
+                        </div>
+                    </div>
+                    <div className="space-y-6">
+                        <ListInput
+                            label="Requirements"
+                            placeholder="Add a requirement"
+                            items={formData.requirements}
+                            onAdd={(item) => addToList("requirements", item)}
+                            onRemove={(index) => removeFromList("requirements", index)}
+                        />
+
+                        <ListInput
+                            label="Responsibilities"
+                            placeholder="Add a responsibility"
+                            items={formData.responsibilities}
+                            onAdd={(item) => addToList("responsibilities", item)}
+                            onRemove={(index) => removeFromList("responsibilities", index)}
+                        />
+
+                        <ListInput
+                            label="Benefits"
+                            placeholder="Add a benefit"
+                            items={formData.benefits}
+                            onAdd={(item) => addToList("benefits", item)}
+                            onRemove={(index) => removeFromList("benefits", index)}
+                        />
+                    </div>
+                </motion.div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.35 }}
+                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
+                >
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                            <Users className="h-5 w-5 text-neutral-900 dark:text-white" />
+                        </div>
+                        <div>
+                            <h2 className="font-semibold text-neutral-900 dark:text-white">Interview Process</h2>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">Select an interview process for this job</p>
+                        </div>
+                    </div>
+
+                    {
+                        interviewProcesses.length > 0 ? (
+                            <Select
+                                value={formData.interviewProcessId}
+                                onValueChange={(v) => updateField("interviewProcessId", v)}
+                            >
+                                <SelectTrigger className="h-11">
+                                    <SelectValue placeholder="Select an interview process" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {
+                                        interviewProcesses.map((process) => (
+                                            <SelectItem key={process.id} value={process.id}>
+                                                <div className="flex items-center gap-2">
+                                                    {process.name}
+                                                    {
+                                                        process.isDefault && (
+                                                            <Badge variant="secondary" className="text-xs">Default</Badge>
+                                                        )
+                                                    }
+                                                </div>
+                                            </SelectItem>
+                                        ))
+                                    }
+                                </SelectContent>
+                            </Select>
+                        ) : (
+                            <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg text-center">
+                                <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-2">No interview processes configured yet</p>
+                                <Link href="/interview-config">
+                                    <Button variant="outline" size="sm">
+                                        Configure Interview Process
+                                    </Button>
+                                </Link>
+                            </div>
+                        )
+                    }
+                </motion.div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
+                >
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                                <Building2 className="h-5 w-5 text-neutral-900 dark:text-white" />
+                            </div>
+                            <div>
+                                <h2 className="font-semibold text-neutral-900 dark:text-white">Take-Home Assignment</h2>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Optional coding assignment for candidates</p>
+                            </div>
+                        </div>
+                        <Switch
+                            checked={formData.hasAssignment}
+                            onCheckedChange={(v) => {
+                                updateField("hasAssignment", v)
+                                if (!v) {
+                                    updateField("assignmentAddLater", false)
+                                }
+                            }}
+                        />
+                    </div>
+
+                    {
+                        formData.hasAssignment && (
+                            <div className="space-y-4">
+                                {/* Add Now or Later Toggle */}
+                                <div className="flex items-center gap-2 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-neutral-200 dark:border-neutral-700">
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium text-neutral-900 dark:text-white">When would you like to add assignment details?</p>
+                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">You can always edit this later from the job settings</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-white dark:bg-neutral-900 rounded-lg p-1 border border-neutral-200 dark:border-neutral-700">
+                                        <button
+                                            type="button"
+                                            onClick={() => updateField("assignmentAddLater", false)}
+                                            className={`px-3 py-1.5 text-sm rounded-md transition-all ${
+                                                !formData.assignmentAddLater
+                                                    ? "bg-neutral-900 dark:bg-white text-white dark:text-black"
+                                                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                                            }`}
+                                        >
+                                            Add Now
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => updateField("assignmentAddLater", true)}
+                                            className={`px-3 py-1.5 text-sm rounded-md transition-all ${
+                                                formData.assignmentAddLater
+                                                    ? "bg-neutral-900 dark:bg-white text-white dark:text-black"
+                                                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                                            }`}
+                                        >
+                                            Add Later
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Assignment Details - Only show if not adding later */}
+                                {
+                                    !formData.assignmentAddLater ? (
+                                        <>
+                                            <div>
+                                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Assignment Title *</Label>
+                                                <Input
+                                                    value={formData.assignmentTitle}
+                                                    onChange={(e) => updateField("assignmentTitle", e.target.value)}
+                                                    placeholder="e.g., Build a REST API"
+                                                    className="h-11 mt-1"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Assignment Description *</Label>
+                                                <Textarea
+                                                    value={formData.assignmentDescription}
+                                                    onChange={(e) => updateField("assignmentDescription", e.target.value)}
+                                                    placeholder="Describe what candidates need to build..."
+                                                    rows={4}
+                                                    className="mt-1"
+                                                />
+                                            </div>
+                                            <div className="w-48">
+                                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Deadline (days)</Label>
+                                                <Input
+                                                    type="number"
+                                                    min="1"
+                                                    max="30"
+                                                    value={formData.assignmentDeadlineDays}
+                                                    onChange={(e) => updateField("assignmentDeadlineDays", e.target.value)}
+                                                    className="h-11 mt-1"
+                                                />
+                                            </div>
+                                            {
+                                                errors.assignmentDeadlineDays && (
+                                                    <p className="text-red-500 text-sm">{errors.assignmentDeadlineDays}</p>
+                                                )
+                                            }
+                                        </>
+                                    ) : (
+                                        <div className="p-4 bg-neutral-50 dark:bg-neutral-900/30 rounded-lg border border-neutral-200 dark:border-neutral-800/50">
+                                            <p className="text-sm text-neutral-800 dark:text-neutral-100">
+                                                <span className="font-medium">Assignment details will be added later.</span>{" "}
+                                                You can configure the assignment from the job settings after publishing. 
+                                                Candidates won&apos;t see the assignment until you complete it.
+                                            </p>
+                                        </div>
+                                    )
+                                }
+                            </div>
+                        )
+                    }
+                </motion.div>
+                {/* Custom Questions Section */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.45 }}
+                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
+                >
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
+                            <HelpCircle className="h-5 w-5 text-neutral-900 dark:text-white" />
+                        </div>
+                        <div>
+                            <h2 className="font-semibold text-neutral-900 dark:text-white">Custom Questions</h2>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                                Add specific questions for candidates to answer during application
+                            </p>
+                        </div>
+                    </div>
+                    <div className="mb-4 p-3 bg-neutral-50 dark:bg-neutral-900/30 rounded-lg border border-neutral-200 dark:border-neutral-800/50">
+                        <p className="text-sm text-neutral-800 dark:text-neutral-100">
+                            <span className="font-medium">Tip:</span> Use custom questions to gather information not covered in the standard application form.
+                            Examples: availability date, portfolio links, specific experience questions.
+                        </p>
+                    </div>
+                    <CustomQuestionsBuilder
+                        questions={formData.customQuestions}
+                        onAdd={addCustomQuestion}
+                        onUpdate={updateCustomQuestion}
+                        onRemove={removeCustomQuestion}
+                        onReorder={reorderCustomQuestions}
+                    />
+                    {
+                        formData.customQuestions.length > 0 && (
+                            <div className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
+                                {formData.customQuestions.length} question{formData.customQuestions.length > 1 ? "s" : ""} added
+                                {" • "}
+                                {formData.customQuestions.filter(q => q.required).length} required
+                            </div>
+                        )
+                    }
+                </motion.div>
+                <div className="flex items-center gap-3 lg:hidden">
+                    <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleSubmit("DRAFT")}
+                        disabled={isPending}
+                    >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Draft
+                    </Button>
+                    <Button
+                        className="flex-1 bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black"
+                        onClick={() => handleSubmit("ACTIVE")}
+                        disabled={isPending}
+                    >
+                        <Send className="h-4 w-4 mr-2" />
+                        Publish
+                    </Button>
                 </div>
             </div>
         </div>

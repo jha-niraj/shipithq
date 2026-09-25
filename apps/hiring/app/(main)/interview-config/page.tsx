@@ -1,11 +1,9 @@
 import { Suspense } from "react"
+import Loading from "./loading"
 import { 
     getInterviewProcesses, getInterviewProcessStats 
 } from "@/actions/interview-config"
 import { InterviewConfigContent } from "./interview-config-content"
-import { 
-    Loader2 
-} from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -25,11 +23,7 @@ export default async function InterviewConfigPage() {
 
     return (
         <Suspense 
-            fallback={
-                <div className="min-h-full flex items-center justify-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
-                </div>
-            }
+            fallback={<Loading />}
         >
             <InterviewConfigContent 
                 initialProcesses={processes ?? []}

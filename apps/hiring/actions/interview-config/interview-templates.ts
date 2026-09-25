@@ -1,11 +1,15 @@
 "use server"
 
+import { requirePermission } from "@/lib/permissions"
+
 // ============================================
 // INTERVIEW ROUND TEMPLATES
 // ============================================
 
 // Get round templates (pre-built templates for common round types)
 export async function getRoundTemplates() {
+    const auth = await requirePermission()
+    if (!auth.ok) return { success: false, error: auth.error, data: [] }
     return {
         success: true,
         data: [

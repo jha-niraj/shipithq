@@ -807,3 +807,63 @@ server action, which the working agreement says belongs in `apps/worker`.
 They are free and the user watches the sheet, so the harm is a killed request
 rather than a lost charge. Candidate: move both to one
 `practice_problem_draft` job. Not a deletion; listed for a decision.
+
+## Profile and resume round two (2026-09-25) - DELETED 2026-09-25, approved by Niraj
+
+Every file and function below was deleted after Niraj approved all of them
+(2026-09-25). `git rm`, so all of it is in history. `components/profile/index.ts`
+now exports only `ShareProfileModal`. Checks after: `tsc --noEmit` clean in
+`apps/main` (apart from `main-shell.tsx`, the hiring session's file), no import of
+any deleted path remains, `/profile`, `/profile/<username>` and `/r/<slug>` load.
+Also removed with `importAndCreateDraft`: the unreachable Import branch of the New
+Resume sheet, its three pieces of form state, `MAX_PASTED_CHARS`, and two imports
+only it used.
+
+Found while doing `plan/profile` PRF-7 to PRF-14, `plan/resume` RES-20 to RES-25
+and `plan/ui-pass` UI-1 to UI-3. Nothing below is deleted. Each count is the number
+of files that import it, checked with a grep over `apps/main/{app,components,lib}`
+on 2026-09-25; "0*" means the only reference is a re-export in
+`components/profile/index.ts` that nothing consumes.
+
+| File (under `apps/main/`) | Lines | Importers | Replaced by |
+|---|---:|---:|---|
+| `components/profile/sheets/add-project-sheet.tsx` | 320 | 0 | `sheets/project-sheet.tsx` (PRF-9) |
+| `components/profile/sheets/add-work-experience-sheet.tsx` | 247 | 0 | `sheets/experience-sheet.tsx` |
+| `components/profile/sheets/add-education-sheet.tsx` | 213 | 0 | `sheets/education-sheet.tsx` |
+| `components/profile/sheets/add-skills-sheet.tsx` | 210 | 0 | `sheets/skills-sheet.tsx` |
+| `components/profile/modals/edit-profile-modal.tsx` | 529 | 0* | `sheets/edit-profile-sheet.tsx` (PRF-10) |
+| `components/profile/profile-view.tsx` | 723 | 0* | the editor (PRF-11) and the one-pager (PRF-12) |
+| `components/profile/profile-view-skeleton.tsx` | 55 | 0* | `profile-editor/skeleton.tsx`, the one-pager's `loading.tsx` |
+| `app/(public)/profile/[username]/_components/public-profile-client.tsx` | 165 | 0 | `_components/one-pager.tsx` |
+| `components/profile/sheets/profile-strength-sheet.tsx` | 227 | 0 | nothing; also hotlinks a Bing image |
+| `app/(main)/profile/_components/documentupload.tsx` | 229 | 0 | nothing |
+| `app/(main)/profile/_components/profile-data-edit-sheet.tsx` | 7 | 0 | nothing (a type stub) |
+| `app/(main)/ai/resume/import/_components/import-client.tsx` | 360 | 0 | `ai/resume/_components/import-sheet.tsx` (RES-23) |
+| `app/(main)/ai/resume/import/loading.tsx` | - | - | the route is a redirect now |
+| `app/(main)/ai/_components/pricing-section.tsx` | 138 | 0 | nothing; fixed in UI-1 before this was noticed |
+
+Functions with no callers:
+- `getPublicProfile` in `actions/(main)/user/profile.action.ts` - superseded by
+  `lib/profile/read.ts`.
+- `getResumeDraftBySlug` in `actions/(main)/ai/resume-draft.action.ts` - superseded
+  by `lib/resume/public.ts` (and no longer counts views).
+- `updatePrivacySettings` in `profile.action.ts` - zero callers (checked). The Edit
+  Profile sheet writes privacy through `saveProfileDetails`. It also passes client
+  JSON straight into `.set()`, so any caller could write `profileViews` or
+  `completionScore`: a reason to delete rather than keep.
+- The `importAndCreateDraft` branch of `handleCreate` in
+  `ai/resume/_components/resume-hub.tsx` (NewResumeSheet) - unreachable since the
+  Import tile opens the import sheet.
+
+Deleting the `index.ts` re-exports goes with the three `0*` files.
+
+## Worker `resume_import` "combined" variant has no dispatcher (2026-09-25)
+
+**Removed 2026-09-25, approved by Niraj** (see RES-23's outcome).
+
+Found while deleting `importAndCreateDraft` (above). That action was the only
+caller of `dispatchImport({ variant: 'combined', ... })`, so the combined path in
+`apps/worker/src/jobs/resume-import.ts` (LinkedIn URL + GitHub URL + pasted text)
+can no longer be reached; only the `profile` variant is dispatched. Worker code,
+so not deleted without a decision. Candidate: drop the variant from the job and
+from `dispatchImport`'s input type.

@@ -36,15 +36,27 @@ Deletions are proposed in a task and approved by Niraj, never assumed.
 
 ## Long-running work
 
-Anything that calls an LLM, or sleeps waiting on someone else's API, runs in
-`apps/worker` as a Durable Object + Alarm - never in a server action. A Worker
-request has a hard budget and a 60-second completion is killed long before it
-finishes, usually after the user has been charged.
+**What runs where is decided by how long it takes** (Niraj, 2026-09-25):
 
-Dispatch with `startBackgroundJob(type, input, { cost })` from
+- **Inline** (in a server action or route handler, with a timeout): AI chat
+  replies and any single model call that reliably finishes in under about
+  30 seconds, which is usually 5 to 10. This includes the ShipItHQ AI chat
+  (`/api/ai/chat`, streamed), the workspace's Project AI, the company AI
+  panel, and every conversational turn: mock interview questions and answers
+  are chat, not jobs. Use a 25-second timeout. When a reply fails, put the
+  user's text back so they can resend it.
+- **Worker** (`apps/worker`, a Durable Object and Alarm): anything that can run
+  45 seconds or more, or waits on someone else's API. That means generating a
+  project, a sprint, a quiz set or a resume; scraping; running a judge; waiting
+  for a transcript (ElevenLabs); and multi-step pipelines. A Worker request has
+  a hard time budget, and a long completion is killed partway, usually after
+  the user has been charged.
+
+Dispatch worker jobs with `startBackgroundJob(type, input, { cost })` from
 `actions/(main)/workers/jobs.action.ts`; follow it with `useBackgroundJob` /
 `awaitBackgroundJob`. Credits are held on dispatch and settled or refunded when
-the app sees a terminal status - the worker never touches credits.
+the app sees a terminal status - the worker never touches credits. An inline
+call that costs credits holds and settles them itself, in the same action.
 `apps/worker/README.md` has the five edits needed to add a job type - and
 the story of the fifth, which was missing from the list until a job shipped
 bound to a class the entry point never exported.
@@ -107,11 +119,28 @@ applying it.
 
 **Every change to data ships as a script that previews first** (Niraj,
 2026-09-24). A migration, a backfill, a reseed, a one-off fix: a script in
-`packages/db/src/scripts/` with a `db:<name>` command that, by default, prints
-the database host and exactly what it WOULD change, per row or project, and
-writes nothing; with `--apply` it writes, then plans again and shows that
-nothing is left. Give Niraj both commands to run and read. Existing examples:
-`pnpm db:migrations` and `pnpm db:project-setup`.
+`packages/db/src/scripts/` that, by default, prints the database host and
+exactly what it WOULD change, per row or project, and writes nothing; with
+`--apply` it writes, then plans again and shows that nothing is left. Give
+Niraj both commands to run and read.
+
+**A script is a file, never a new `package.json` line** (Niraj, 2026-09-25).
+Every script runs through one runner, from `packages/db`:
+
+```bash
+pnpm script                              # list every script and its purpose
+pnpm script <name>                       # run src/scripts/<name>.ts: the preview
+pnpm script <name> --apply               # the same, writing
+```
+
+Adding a script means adding `src/scripts/<name>.ts` (kebab-case) and nothing
+else: do not add a `db:<name>` entry to `packages/db/package.json`. The runner
+(`src/scripts/_run.ts`) loads `apps/main/.env` and passes the flags through.
+Start the file with a `/** ... */` whose FIRST line is the one-sentence purpose:
+`pnpm script` prints it beside the name. Files starting with `_` are helpers,
+not scripts. Examples: `pnpm script profile-project-values`, `pnpm script
+project-setup`. Migrations keep their own commands (`pnpm db:generate`,
+`pnpm db:migrations`), which also run as `pnpm script migrations`.
 
 ## App shell (apps/main)
 
@@ -188,13 +217,20 @@ secret and only needs a redeploy.
   themes, and no `dark:` variant helps when the surface never changes. If a
   surface is constant across themes, its ink must be constant too. AA is 4.5:1
   for body, 3:1 for large text.
-- **No spinners.** Full page: `ShipItHQLoader` from
-  `@repo/ui/components/ui/shipithq-loader`. Buttons and inline:
-  `InlineLoader` from `@repo/ui/components/ui/inline-loader` (`sm` in a button,
-  `md` in a row, `lg` in a panel). Inside an already-rendered page a skeleton
-  matching the real layout still beats both. A rotating ring is the one loading
-  affordance every product uses, which makes it the one that says nothing about
-  this one - and at button size it is a grey smudge.
+- **No spinners, and the right loading state for the size of the thing**
+  (Niraj, 2026-09-24):
+  - **Inline only - a button, a row, a line of text:** `InlineLoader` from
+    `@repo/ui/components/ui/inline-loader` (`sm` in a button, `md` in a row).
+    The dot-matrix loader is for inline waits, never for a block.
+  - **Anything block-sized - a list, a panel, a sheet's body, a card grid, a
+    tab:** a skeleton shaped like the content that will arrive (`Shimmer` from
+    `@repo/ui/components/skeleton-kit`). Never a loader centred where content
+    will be; a skeleton that does not match the real layout is worse than none.
+  - **The whole page is (re)loading:** `ShipItHQLoader` from
+    `@repo/ui/components/ui/shipithq-loader`.
+  A rotating ring is the one loading affordance every product uses, which
+  makes it the one that says nothing about this one - and at button size it is
+  a grey smudge.
 - **Headline numbers use `StatBand`** from `@repo/ui/components/ui/stat-band`, with
   `StatBandSkeleton` (same `count`, `cols`, `size`) in the loading state. Never write a
   local `StatCard` / `StatTile` / `MiniStat` or an inline grid of number cards. Read

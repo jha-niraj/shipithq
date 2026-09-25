@@ -202,9 +202,37 @@ function isPublicKnowMeProfile(pathname: string): boolean {
 	return !KNOWME_OWNER_SEGMENTS.has(segments[1]!)
 }
 
+/**
+ * `/profile/<username>` - the public one-pager (plan/profile PRF-12).
+ *
+ * Public by default (Niraj, 2026-09-25), so a shared link works for a recruiter
+ * and for link-preview bots. Exactly two segments: `/profile` itself is the
+ * owner's editor and stays behind the gate. Who may see WHAT is decided on the
+ * server by `lib/profile/read.ts` (private -> not found, followers-only -> a
+ * face and a Follow prompt), not here; this only lets the request reach it.
+ */
+function isPublicProfilePage(pathname: string): boolean {
+	const segments = pathname.split('/').filter(Boolean)
+	return segments.length === 2 && segments[0] === 'profile'
+}
+
+/**
+ * `/r/<slug>` - a resume its owner made public (plan/resume RES-24), and the PDF
+ * behind its Download button. The hub has always called these "share links", and
+ * both were behind the gate. The route and the loader refuse a draft that is not
+ * `is_public`, so opening the gate here exposes nothing private.
+ */
+function isPublicResume(pathname: string): boolean {
+	const s = pathname.split('/').filter(Boolean)
+	if (s.length === 2 && s[0] === 'r') return true
+	return s.length === 4 && s[0] === 'api' && s[1] === 'resume' && s[2] === 'pdf'
+}
+
 function isPublicRoute(pathname: string): boolean {
 	if (PUBLIC_EXACT.has(pathname)) return true
 	if (isPublicKnowMeProfile(pathname)) return true
+	if (isPublicProfilePage(pathname)) return true
+	if (isPublicResume(pathname)) return true
 	return PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
 }
 

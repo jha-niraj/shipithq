@@ -200,18 +200,12 @@ export function CodingVerification({ goalId, questions, status, score }: CodingV
             </div>
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Tabs defaultValue="problem" className="flex-1 flex flex-col overflow-hidden">
-                    <div className="border-b border-neutral-200 dark:border-neutral-800 px-4">
-                        <TabsList className="bg-transparent border-0 p-0 h-auto">
-                            <TabsTrigger
-                                value="problem"
-                                className="pb-3 px-4 rounded-none border-b-2 border-transparent bg-transparent"
-                            >
+                    <div className="px-4 pt-3">
+                        <TabsList variant="segmented" size="sm" fit>
+                            <TabsTrigger value="problem">
                                 Problem
                             </TabsTrigger>
-                            <TabsTrigger
-                                value="solution"
-                                className="pb-3 px-4 rounded-none border-b-2 border-transparent bg-transparent"
-                            >
+                            <TabsTrigger value="solution">
                                 Solution
                             </TabsTrigger>
                         </TabsList>
@@ -316,9 +310,9 @@ export function CodingVerification({ goalId, questions, status, score }: CodingV
                             <div className="w-1/2 flex flex-col overflow-hidden">
                                 <div className="p-2 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
                                     <Tabs value={language} onValueChange={handleLanguageChange}>
-                                        <TabsList className="h-8">
-                                            <TabsTrigger value="javascript" className="text-xs px-3 py-1">JavaScript</TabsTrigger>
-                                            <TabsTrigger value="python" className="text-xs px-3 py-1">Python</TabsTrigger>
+                                        <TabsList size="sm" fit>
+                                            <TabsTrigger value="javascript">JavaScript</TabsTrigger>
+                                            <TabsTrigger value="python">Python</TabsTrigger>
                                         </TabsList>
                                     </Tabs>
                                     <div className="flex items-center gap-2">

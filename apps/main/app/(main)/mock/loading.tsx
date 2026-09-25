@@ -6,7 +6,7 @@ import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 // have drawn one page and then replaced it with another.
 export default function Loading() {
     return (
-        <div className="w-full px-page pt-6 pb-4">
+        <div className="page-frame px-page pt-6 pb-4">
             <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="space-y-2">
                     <div className="h-8 w-56 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />

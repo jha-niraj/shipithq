@@ -19,6 +19,8 @@
 		"@paralleldrive/cuid2": "^2.2.2",
 		"@repo/ai": "workspace:*",
 		"@repo/db": "workspace:*",
+		"@repo/exa": "workspace:*",
+		"@repo/firecrawl": "workspace:*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {

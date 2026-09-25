@@ -11,6 +11,7 @@ import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import type {
     ApplicationStats, JobApplicationStats
 } from "@/actions/applications"
@@ -35,19 +36,15 @@ export function ApplicationsContent({ stats, jobStats }: ApplicationsContentProp
     )
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            <div className="mb-8">
-                <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                    Applications
-                </h1>
-                <p className="text-neutral-500 mt-1">
-                    Review and manage job applications across all positions
-                </p>
-            </div>
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="Applications"
+                subtitle="Review and manage job applications across all positions"
+            />
 
             {
                 stats && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <StatBand
                             cols={4}
                             items={statCards.map((stat) => ({
@@ -67,7 +64,7 @@ export function ApplicationsContent({ stats, jobStats }: ApplicationsContentProp
                 )
             }
 
-            <div className="mb-6">
+            <div>
                 <div className="relative max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <Input
@@ -232,7 +229,7 @@ export function ApplicationsContent({ stats, jobStats }: ApplicationsContentProp
 
             {
                 filteredJobs.some(j => j.total > 0) && (
-                    <div className="mt-6 flex flex-wrap gap-4 text-sm text-neutral-500">
+                    <div className="flex flex-wrap gap-4 text-sm text-neutral-500">
                         <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full bg-neutral-900" />
                             <span>New</span>

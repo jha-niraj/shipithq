@@ -18,6 +18,11 @@ export type InterviewRoundType =
     | "CULTURE_FIT"
     | "HR_FINAL"
     | "CUSTOM"
+    // Scored hiring rounds (plan/hiring-rounds HR-1); the builder offers them from HR-10.
+    | "APTITUDE"
+    | "DSA"
+    | "VOICE_BEHAVIOURAL"
+    | "VOICE_CULTURE"
 
 export type InterviewFormat = 
     | "VOICE"
@@ -98,7 +103,8 @@ export interface InterviewProcessInput {
 
 export interface InterviewProcess {
     id: string
-    companyId: string
+    /** Null only for ShipItHQ's platform pipelines (plan/hiring-rounds HR-1). */
+    companyId: string | null
     name: string
     description: string | null
     isDefault: boolean

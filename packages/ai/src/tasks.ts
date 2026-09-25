@@ -42,6 +42,8 @@ export const AI_TASKS = {
     sprintQuiz: DEFAULT_CHAT_MODEL,
     /** A sprint mock interview: questions, follow-ups and the feedback (plan/project-workspace WS-13). */
     sprintMock: DEFAULT_CHAT_MODEL,
+    /** A company's draft profile, drafted from its own site's pages (plan/hiring-rounds HR-5). */
+    companyProfileDraft: DEFAULT_CHAT_MODEL,
 } as const satisfies Record<string, ModelId>
 
 export type AiTask = keyof typeof AI_TASKS

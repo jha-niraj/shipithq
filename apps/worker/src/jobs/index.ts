@@ -19,9 +19,9 @@ export { InterviewPrepGeneration } from "./interview-prep-generation"
 export { PracticeTestsGenerate } from "./practice-tests-generate"
 export { PracticeMemoryUpdate } from "./practice-memory-update"
 export { PracticeReflect } from "./practice-reflect"
-export { ProjectAi } from "./project-ai"
 export { SprintQuiz } from "./sprint-quiz"
 export { SprintMock } from "./sprint-mock"
+export { CompanyScrape } from "./company-scrape"
 
 /**
  * Resolve the Durable Object that owns a job type.

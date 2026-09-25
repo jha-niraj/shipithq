@@ -7,6 +7,7 @@ import {
 } from "lucide-react"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -60,15 +61,8 @@ interface AnalyticsContentProps {
 export function AnalyticsContent({ analytics, recruiterPerformance }: AnalyticsContentProps) {
     if (!analytics) {
         return (
-            <div className="min-h-full p-6 lg:p-8">
-                <div className="mb-8">
-                    <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                        Analytics
-                    </h1>
-                    <p className="text-neutral-500 mt-1">
-                        Track your hiring pipeline performance
-                    </p>
-                </div>
+            <div className="page-frame space-y-5 px-page py-6">
+                <PageHeader title="Analytics" subtitle="Track your hiring pipeline performance" />
                 <div className="text-center py-16 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl">
                     <div className="w-20 h-20 rounded-2xl bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mx-auto mb-6">
                         <BarChart3 className="w-10 h-10 text-neutral-400" />
@@ -137,19 +131,12 @@ export function AnalyticsContent({ analytics, recruiterPerformance }: AnalyticsC
     ]
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            <div className="mb-8">
-                <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                    Analytics
-                </h1>
-                <p className="text-neutral-500 mt-1">
-                    Track your hiring pipeline performance
-                </p>
-            </div>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader title="Analytics" subtitle="Track your hiring pipeline performance" />
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                 <StatBand cols={6} items={statsCards} />
             </motion.div>
-            <div className="grid lg:grid-cols-3 gap-6 mb-8">
+            <div className="grid lg:grid-cols-3 gap-6">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -220,9 +207,9 @@ export function AnalyticsContent({ analytics, recruiterPerformance }: AnalyticsC
                                             transition={{ delay: 0.5 + i * 0.05 }}
                                             className="flex items-center gap-3"
                                         >
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${i === 0 ? "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800" :
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${i === 0 ? "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100" :
                                                 i === 1 ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300" :
-                                                    i === 2 ? "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800" :
+                                                    i === 2 ? "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100" :
                                                         "bg-neutral-100 dark:bg-neutral-800 text-neutral-500"
                                                 }`}>
                                                 {i + 1}
@@ -262,7 +249,7 @@ export function AnalyticsContent({ analytics, recruiterPerformance }: AnalyticsC
                         className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
                     >
                         <h2 className="font-semibold text-lg text-neutral-900 dark:text-white mb-6 flex items-center gap-2">
-                            <Award className="w-5 h-5 text-neutral-900" />
+                            <Award className="w-5 h-5 text-neutral-900 dark:text-white" />
                             Team Performance
                         </h2>
                         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">

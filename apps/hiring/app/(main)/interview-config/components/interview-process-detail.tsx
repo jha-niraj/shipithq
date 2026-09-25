@@ -68,7 +68,7 @@ const roundTypeColors: Record<string, string> = {
     SYSTEM_DESIGN: "bg-neutral-900",
     BEHAVIORAL: "bg-neutral-900",
     TAKE_HOME: "bg-neutral-900",
-    PANEL: "bg-pink-500",
+    PANEL: "bg-neutral-900",
     HIRING_MANAGER: "bg-neutral-900",
     CULTURE_FIT: "bg-neutral-900",
     HR_FINAL: "bg-neutral-900",

@@ -2,9 +2,8 @@
 "use server"
 
 import { db, companyMembers, jobs, jobApplications, users } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, count, avg, isNull, inArray, desc } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import type {
     AssignmentStats,
@@ -16,34 +15,14 @@ import type {
 export type { AssignmentStats, AssignmentDetails, ScoreAssignmentInput }
 
 // ============================================
-// HELPERS
-// ============================================
-
-async function getCompanyMember() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) {
-        throw new Error("Unauthorized")
-    }
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    if (!member) {
-        throw new Error("Not a company member")
-    }
-
-    return member
-}
-
-// ============================================
 // GET ASSESSMENT STATS
 // ============================================
 
 export async function getAssessmentStats() {
     try {
-        const member = await getCompanyMember()
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Jobs with assignments enabled
         const jobsWithAssessmentsRows = await db
@@ -127,7 +106,9 @@ export async function getAssessmentStats() {
 
 export async function getJobsWithAssessments() {
     try {
-        const member = await getCompanyMember()
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const jobList = await db.query.jobs.findMany({
             where: and(
@@ -179,7 +160,9 @@ export async function getJobsWithAssessments() {
 
 export async function getJobAssessmentDetails(jobSlug: string) {
     try {
-        const member = await getCompanyMember()
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const job = await db.query.jobs.findFirst({
             where: and(
@@ -233,7 +216,9 @@ export async function updateJobAssignment(
     }
 ) {
     try {
-        const member = await getCompanyMember()
+        const auth = await requirePermission("invite_decline")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Verify job belongs to company
         const existingJob = await db.query.jobs.findFirst({
@@ -274,7 +259,9 @@ export async function updateJobAssignment(
 
 export async function sendAssignmentToCandidate(applicationId: string) {
     try {
-        const member = await getCompanyMember()
+        const auth = await requirePermission("invite_decline")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobIds = await db
             .select({ id: jobs.id })
@@ -333,7 +320,9 @@ export async function scoreAssignment(
     }
 ) {
     try {
-        const member = await getCompanyMember()
+        const auth = await requirePermission("invite_decline")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobIds = await db
             .select({ id: jobs.id })
@@ -379,7 +368,9 @@ export async function scoreAssignment(
 
 export async function getAssignmentSubmissions(jobSlug?: string) {
     try {
-        const member = await getCompanyMember()
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobsQuery = db
             .select({ id: jobs.id })

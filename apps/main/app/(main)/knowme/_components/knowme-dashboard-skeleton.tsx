@@ -10,7 +10,7 @@ import { Skeleton } from "@repo/ui/components/ui/skeleton";
 
 export default function KnowMeDashboardSkeleton() {
     return (
-        <div className="flex h-screen min-h-0 w-full flex-col px-4 py-4 sm:px-6">
+        <div className="page-frame flex h-screen min-h-0 flex-col px-page py-4">
             <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-3">
                 <div className="flex min-h-[26rem] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white lg:col-span-2 lg:min-h-0 dark:border-neutral-800 dark:bg-neutral-900">
                     <div className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">

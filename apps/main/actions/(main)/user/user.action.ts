@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache"
 import {
     ContactInfo, UserCertification, UserProfile, UserSkill
 } from "@/types/user"
-import { eq, ilike } from "drizzle-orm"
+import { and, eq, ilike } from "drizzle-orm"
 
 export async function getUserProfile() {
     const session = await getSession(headers())
@@ -199,7 +199,9 @@ export async function updateUserSkills(skillsList: UserSkill[]) {
                 level: typeof skill.level === 'number' ? String(skill.level) : skill.level,
                 category: skill.category || 'FRONTEND',
                 ...(skill.order !== undefined && { order: skill.order }),
-            }).where(eq(skills.id, skill.id))
+            // Scoped to the caller: this matched on id alone, so anyone could rewrite
+            // anyone's skill by sending its id (plan/profile PRF-9).
+            }).where(and(eq(skills.id, skill.id), eq(skills.userId, user.id)))
         } else {
             await db.insert(skills).values({
                 name: skill.name,

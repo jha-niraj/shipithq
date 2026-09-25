@@ -1,9 +1,8 @@
 "use server"
 
 import { db, companyMembers, companyPayments, companySubscriptions } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, or, desc } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import {
     dodoClient, HIRING_SUBSCRIPTION_PLANS, getDodoPayment, type HiringSubscriptionPlanType
@@ -12,22 +11,6 @@ import type { PaymentRecord, WebhookPaymentData } from "@/types"
 
 // Re-export types for backward compatibility
 export type { PaymentRecord, WebhookPaymentData }
-
-// ============================================
-// HELPERS
-// ============================================
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) return null
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    return member
-}
 
 // ============================================
 // SERVER ACTIONS
@@ -42,10 +25,9 @@ export async function getPaymentHistory(limit: number = 10): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, payments: [], error: "Unauthorized" }
-        }
+        const auth = await requirePermission("billing")
+        if (!auth.ok) return { success: false, payments: [], error: auth.error }
+        const member = auth.ctx.member
 
         const payments = await db.query.companyPayments.findMany({
             where: eq(companyPayments.companyId, member.companyId),
@@ -79,10 +61,9 @@ export async function verifyPayment(paymentId: string): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("billing")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Get payment record from database
         const payment = await db.query.companyPayments.findFirst({
@@ -181,96 +162,5 @@ export async function verifyPayment(paymentId: string): Promise<{
     } catch (error) {
         console.error("Verify payment error:", error)
         return { success: false, error: "Failed to verify payment" }
-    }
-}
-
-/**
- * Handle webhook payment event from DodoPayments
- * This should be called from a webhook API route
- */
-export async function handlePaymentWebhook(data: WebhookPaymentData): Promise<{
-    success: boolean
-    error?: string
-}> {
-    try {
-        const { paymentId, amount, currency, status, metadata } = data
-
-        // Find company by payment checkout session
-        const payment = await db.query.companyPayments.findFirst({
-            where: or(
-                eq(companyPayments.dodoPaymentId, paymentId),
-                eq(companyPayments.dodoCheckoutSessionId, paymentId)
-            )
-        })
-
-        if (!payment) {
-            console.error("Webhook: Payment not found:", paymentId)
-            return { success: false, error: "Payment not found" }
-        }
-
-        const plan = (metadata?.plan || "PRO") as HiringSubscriptionPlanType
-        const billingCycle = metadata?.billingCycle || "monthly"
-
-        const paymentStatus = status === "succeeded" ? "SUCCEEDED" :
-            status === "failed" ? "FAILED" : "PENDING"
-
-        // Update payment record
-        await db.update(companyPayments)
-            .set({
-                status: paymentStatus,
-                dodoPaymentId: paymentId,
-                paidAt: status === "succeeded" ? new Date() : undefined,
-                failedAt: status === "failed" ? new Date() : undefined
-            })
-            .where(eq(companyPayments.id, payment.id))
-
-        // If payment succeeded, update subscription
-        if (status === "succeeded") {
-            const planConfig = HIRING_SUBSCRIPTION_PLANS[plan]
-            if (planConfig) {
-                const periodEnd = new Date()
-                periodEnd.setMonth(periodEnd.getMonth() + (billingCycle === "annual" ? 12 : 1))
-
-                const subData = {
-                    plan,
-                    status: "ACTIVE" as const,
-                    amount,
-                    currency,
-                    billingCycle,
-                    currentPeriodStart: new Date(),
-                    currentPeriodEnd: periodEnd,
-                    maxJobPosts: planConfig.maxJobPosts,
-                    maxApplications: planConfig.maxApplications,
-                    maxInterviewTemplates: planConfig.maxInterviewTemplates,
-                    maxTeamMembers: planConfig.maxTeamMembers,
-                    hasAIScreening: planConfig.hasAIScreening,
-                    hasCustomAssignments: planConfig.hasCustomAssignments,
-                    hasPrioritySupport: planConfig.hasPrioritySupport,
-                    hasAPIAccess: planConfig.hasAPIAccess,
-                    hasSSO: planConfig.hasSSO,
-                    hasWhiteLabel: planConfig.hasWhiteLabel
-                }
-
-                const existingSub = await db.query.companySubscriptions.findFirst({
-                    where: eq(companySubscriptions.companyId, payment.companyId)
-                })
-
-                if (existingSub) {
-                    await db.update(companySubscriptions)
-                        .set(subData)
-                        .where(eq(companySubscriptions.companyId, payment.companyId))
-                } else {
-                    await db.insert(companySubscriptions).values({
-                        companyId: payment.companyId,
-                        ...subData
-                    })
-                }
-            }
-        }
-
-        return { success: true }
-    } catch (error) {
-        console.error("Payment webhook error:", error)
-        return { success: false, error: "Webhook processing failed" }
     }
 }

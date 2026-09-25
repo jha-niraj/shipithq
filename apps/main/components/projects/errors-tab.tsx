@@ -29,7 +29,9 @@ import {
     getProjectErrorStats
 } from '@/actions/(main)/projects/project-errors.action'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
 import { HoverSelect } from "./hover-select"
+import { NotYours } from "./resources-list"
 
 // ============================================================================
 // Types
@@ -84,7 +86,7 @@ const categoryConfig: Record<string, { icon: typeof Bug; color: string; label: s
 }
 
 const severityConfig = {
-    HIGH: { color: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800', label: 'Common' },
+    HIGH: { color: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900', label: 'Common' },
     MEDIUM: { color: 'bg-neutral-100 text-neutral-700 border-neutral-200 dark:bg-neutral-800/30 dark:text-neutral-100 dark:border-neutral-800', label: 'Occasional' },
     LOW: { color: 'bg-neutral-100 text-neutral-700 border-neutral-200 dark:bg-neutral-800/30 dark:text-neutral-100 dark:border-neutral-800', label: 'Rare' },
 }
@@ -106,26 +108,23 @@ function ErrorCard({
             layout
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden hover:shadow-lg transition-shadow"
+            className="overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
         >
-            <div className="p-4">
+            <div className="px-3.5 py-3">
                 <div className="flex items-start gap-3">
-                    <div className={cn(
-                        'p-2 rounded-lg text-white',
-                        categoryConfig[error.category]?.color || 'bg-neutral-500'
-                    )}>
-                        <CategoryIcon className="w-4 h-4" />
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300" title={categoryConfig[error.category]?.label}>
+                        <CategoryIcon className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-1">
-                            <h4 className="font-semibold text-neutral-900 dark:text-white line-clamp-1">
+                            <h4 className="line-clamp-1 text-sm font-medium text-neutral-900 dark:text-white">
                                 {error.title}
                             </h4>
                             <Badge className={cn('text-xs px-1.5 shrink-0 border', severityConfig[error.severity].color)}>
                                 {severityConfig[error.severity].label}
                             </Badge>
                         </div>
-                        <p className="text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2 mb-2">
+                        <p className="mb-2 line-clamp-2 text-xs text-neutral-700 dark:text-neutral-300">
                             {error.description}
                         </p>
                         {
@@ -297,17 +296,17 @@ function SubmitErrorSheet({
     return (
         <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-                <Button className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Share Error
+                <Button size="sm" className="gap-1.5">
+                    <Plus className="h-4 w-4" />
+                    Share an error
                 </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-full sm:max-w-2xl">
                 <section className="w-full max-w-5xl mx-auto">
                     <SheetHeader>
-                        <SheetTitle className="flex items-center gap-2">
-                            <AlertTriangle className="w-5 h-5 text-neutral-900 dark:text-neutral-100" />
-                            Share an Error or Mistake
+                        <SheetTitle className="flex items-center gap-2 text-base">
+                            <AlertTriangle className="h-4 w-4 text-neutral-900 dark:text-neutral-100" />
+                            Share an error or mistake
                         </SheetTitle>
                         <SheetDescription>
                             Help others avoid the same pitfalls you encountered
@@ -442,6 +441,7 @@ function SubmitErrorSheet({
 export default function ErrorsTab({ projectId, isEnrolled, isCreator }: ErrorsTabProps) {
     const [errors, setErrors] = useState<ProjectError[]>([])
     const [loading, setLoading] = useState(true)
+    const [denied, setDenied] = useState(false)
     const [stats, setStats] = useState<{ totalErrors: number; bySeverity?: { HIGH?: number; MEDIUM?: number; LOW?: number } } | null>(null)
     const [filter, setFilter] = useState({
         category: 'ALL',
@@ -461,6 +461,7 @@ export default function ErrorsTab({ projectId, isEnrolled, isCreator }: ErrorsTa
                 getProjectErrorStats(projectId),
             ])
 
+            setDenied(!errorsResult.success)
             if (errorsResult.success) {
                 setErrors(errorsResult.data?.errors || [])
             }
@@ -480,23 +481,12 @@ export default function ErrorsTab({ projectId, isEnrolled, isCreator }: ErrorsTa
 
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-neutral-900 dark:text-neutral-100" />
-                        Errors & Mistakes
-                    </h3>
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        Community-shared pitfalls and solutions
-                    </p>
-                </div>
-                {
-                    (isEnrolled || isCreator) && (
-                        <SubmitErrorSheet projectId={projectId} onSubmit={fetchErrors} />
-                    )
-                }
-            </div>
+        /*
+         * No heading of its own: the sheet or tab around it already says "Errors"
+         * (Niraj, 2026-09-24 - it said it twice). Filters and "Share an error"
+         * share one row; a skeleton, not a loader, while the list loads.
+         */
+        <div className="space-y-4">
             {
                 stats && stats.totalErrors > 0 && (
                     <StatBand
@@ -512,7 +502,7 @@ export default function ErrorsTab({ projectId, isEnrolled, isCreator }: ErrorsTa
                 )
             }
             {/* Hover-opening, shared with the sprint board's copy (PJ-16 item 3). */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
                 <HoverSelect
                     ariaLabel="Filter by category"
                     className="w-40"
@@ -541,32 +531,32 @@ export default function ErrorsTab({ projectId, isEnrolled, isCreator }: ErrorsTa
                     value={filter.sortBy}
                     onValueChange={(v) => setFilter(prev => ({ ...prev, sortBy: v }))}
                     options={[
-                        { value: 'helpful', label: 'Most Helpful' },
-                        { value: 'encountered', label: 'Most Faced' },
+                        { value: 'helpful', label: 'Most helpful' },
+                        { value: 'encountered', label: 'Most faced' },
                         { value: 'recent', label: 'Recent' },
                     ]}
                 />
+                {(isEnrolled || isCreator) && (
+                    <div className="ml-auto">
+                        <SubmitErrorSheet projectId={projectId} onSubmit={fetchErrors} />
+                    </div>
+                )}
             </div>
             {
                 loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <InlineLoader size="lg" className="text-neutral-600 dark:text-neutral-400" />
-                    </div>
+                    <ErrorsSkeleton />
+                ) : denied ? (
+                    <NotYours message="Errors people hit show up here once this project is yours: enrol to get your own copy." />
                 ) : errors.length === 0 ? (
-                    <div className="text-center py-12">
-                        <AlertTriangle className="w-12 h-12 mx-auto mb-3 text-neutral-600 dark:text-neutral-400" />
-                        <h4 className="font-medium text-neutral-700 dark:text-neutral-300 mb-1">No errors shared yet</h4>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
-                            Be the first to help others by sharing common pitfalls
+                    <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-10 text-center dark:border-neutral-700">
+                        <AlertTriangle className="mx-auto h-5 w-5 text-neutral-500" />
+                        <p className="mt-2 text-sm font-medium text-neutral-900 dark:text-white">No errors shared yet</p>
+                        <p className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-400">
+                            Hit something confusing while building this? Share it and how you fixed it.
                         </p>
-                        {
-                            (isEnrolled || isCreator) && (
-                                <SubmitErrorSheet projectId={projectId} onSubmit={fetchErrors} />
-                            )
-                        }
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         {
                             errors.map((error) => (
                                 <ErrorCard
@@ -578,6 +568,25 @@ export default function ErrorsTab({ projectId, isEnrolled, isCreator }: ErrorsTa
                     </div>
                 )
             }
+        </div>
+    )
+}
+
+/* The list's shape while it loads: three rows with the category tile. */
+function ErrorsSkeleton() {
+    return (
+        <div className="space-y-2" aria-busy aria-label="Loading errors">
+            <ShimmerStyles />
+            {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-start gap-3 rounded-xl border border-neutral-200 px-3.5 py-3 dark:border-neutral-800">
+                    <Shimmer className="h-8 w-8 rounded-lg" delay={i * 0.05} />
+                    <div className="min-w-0 flex-1 space-y-2">
+                        <Shimmer className="h-3.5 w-1/2" delay={i * 0.05 + 0.03} />
+                        <Shimmer className="h-2.5 w-4/5" delay={i * 0.05 + 0.06} />
+                    </div>
+                    <Shimmer className="h-5 w-16 rounded-full" delay={i * 0.05 + 0.08} />
+                </div>
+            ))}
         </div>
     )
 }

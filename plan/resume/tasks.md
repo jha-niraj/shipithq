@@ -27,6 +27,12 @@ each was verified before being marked done.
 | RES-17 | Scrape quality, the worker dispatch, and the AI panel | - | done (2026-08-25) |
 | RES-18 | Delete the two superseded resume files | 9 | done (2026-08-27) |
 | RES-19 | Correct `docs/resume-system.md` against the shipped schema | - | done (2026-08-27) |
+| RES-20 | New Resume sheet scrolls, footer pinned | - | done (2026-09-25) |
+| RES-21 | Hub: card actions in a menu, bigger cards, base tabs | - | done (2026-09-25) |
+| RES-22 | Origin filters, and duplicating keeps the origin | - | done (2026-09-25) |
+| RES-23 | AI Import becomes a sheet on the hub | 1 | done (2026-09-25) |
+| RES-24 | Public resume links (`/r/<slug>`) readable signed-out | - | done (2026-09-25) |
+| RES-25 | `getPublicResumeByUsername` leaks private projects | - | done (2026-09-25) |
 
 Credit charging for this module's operations is tracked in
 `plan/credits/tasks.md` as `CR-4` through `CR-8`.
@@ -895,3 +901,232 @@ explanation for the mismatch, which is the thing this task exists to record.
 **Verified:** `grep -n "isPrimary\|big_rhino"` returns nothing; both migration
 filenames the doc now quotes exist in `packages/db/drizzle/`; no em or en dashes
 introduced.
+
+
+---
+
+# Round two (2026-09-25)
+
+Paths under `apps/main/app/(main)/ai/resume/` unless absolute.
+
+## RES-20 - New Resume sheet scrolls, footer pinned
+
+**Status:** done (2026-09-25)
+
+**Why.** Niraj, 2026-09-25: the Create New Resume sheet "is not scrolling and
+button should be sticky to the bottom". `_components/resume-hub.tsx:212` passes
+`scroll={false}` (correct, per UI-9) but the body at `:218` is `flex-1 p-6`
+with no `min-h-0 overflow-y-auto`, and the Create button lives inside that body.
+With five templates the button falls below the fold and nothing scrolls to it.
+
+**Files** `_components/resume-hub.tsx` (NewResumeSheet, lines 84-391).
+
+**Steps** header `shrink-0`; body `min-h-0 flex-1 overflow-y-auto` (or
+`ScrollArea`); Create moves to a `shrink-0 border-t` footer with Cancel beside it.
+The four "Populate from" tiles become a `TabsList variant="segmented"` or stay
+a card picker only if a picker is what reads right - decide in-file, say why.
+
+**Done when** at a 700px-tall window the template list scrolls and the Create
+button stays visible throughout.
+
+**Outcome.** Body is `ScrollArea className="min-h-0 flex-1" reflow`; header and
+footer are `shrink-0`; the footer is Cancel (ghost) + Create (base Button, the
+hand-styled `bg-neutral-900 ... h-11` override removed), right-aligned, with real
+padding instead of `pt-0` against the border. The source tiles stay a card
+picker: each option carries a description, which a segmented tab cannot.
+**Verified** in the browser at 1280x700: the template list scrolls to Modern
+Creative and the footer stays on screen throughout.
+
+## RES-21 - Hub: card actions in a menu, bigger cards, base tabs
+
+**Status:** done (2026-09-25)
+
+**Why.** Niraj, 2026-09-25: "the tabs are not perfect and card is also not
+perfect so put all the options on the top right button on dropdown ... and
+make this somewhat bigger". Today each card has a full-width Edit plus a row of
+six unlabelled 28px icon buttons; the tabs are the full-width card variant, so
+two tabs stretch across 1300px.
+
+**Files** `_components/resume-hub.tsx` (ResumeCard 394-558, header 624-677),
+`loading.tsx`.
+
+**Steps**
+1. Tabs: `TabsList variant="segmented" size="sm" fit`, sitting on the same row
+   as the filters from RES-22.
+2. Card: whole card is the Edit link; top-right `...` `DropdownMenu` with labelled
+   items - Download PDF, Set as default, Make public/private, Copy link, Open
+   public page (if public), Duplicate, separator, Delete (confirm).
+3. Card body: name (2 lines max), tailored-for line, a small template thumbnail,
+   badges (Default, origin from RES-22, ATS), updated date. Grid 1/2/3 with
+   `min-h` so a card is a little larger than today, not dramatically.
+4. The dashed "New" and "Import" tiles go - both live in the header (New Resume
+   button + AI Import) and the empty state.
+5. Skeleton rebuilt to match.
+
+**Edge cases** menu item clicks must not trigger the card link
+(`stopPropagation` on the trigger); keyboard: card focusable, menu reachable by Tab.
+
+**Done when** no icon-only button remains on a card; every action works from
+the menu; loading -> loaded has no shift.
+
+## RES-22 - Origin filters, and duplicating keeps the origin
+
+**Status:** done (2026-09-25)
+
+**Why.** Niraj wants to tell imported, uploaded and hand-made resumes apart.
+Chosen 2026-09-25: grouped by kind. No schema change - derived from
+`imported_from` and `tailored_for`.
+
+**Files** `_components/resume-hub.tsx`; new `lib/resume/origin.ts`;
+`actions/(main)/ai/resume-draft.action.ts` (`duplicateResumeDraft`, 405-424).
+
+**Steps**
+1. `originOf(draft)`: `tailored_for` set -> Tailored; `imported_from` = `profile`
+   -> From profile; `upload` -> Uploaded; any of linkedin/github/twitter/
+   portfolio/text -> Imported (with the source list); null -> Created by you.
+2. Filter strip: All / Created by you / From profile / Uploaded / Imported /
+   Tailored, each with a count, hiding zero-count kinds except All. Filter in
+   the URL (`?origin=imported`).
+3. Card badge shows the origin; Imported shows small LinkedIn/GitHub/X icons.
+4. `duplicateResumeDraft` copies `importedFrom`, `importedUrl`, `sourceDraftId`.
+
+**Edge cases** tailored from an imported draft counts as Tailored only; unknown
+`imported_from` values -> Imported with no icons; a filter that becomes empty
+after a delete falls back to All.
+
+**Done when** each of the dev account's drafts lands in the right bucket, the
+counts sum to the total, and a duplicate shows the same origin as its source.
+
+## RES-23 - AI Import becomes a sheet on the hub
+
+**Status:** done (2026-09-25)
+**Serves:** 1
+
+**Why.** Niraj, 2026-09-25: the import page's only job is to start an import,
+so it belongs in a sheet. Chosen: sheet on the hub, old URL redirects.
+
+**Files** `import/_components/import-client.tsx` -> `_components/import-sheet.tsx`;
+`import/page.tsx` -> `redirect('/ai/resume?import=1')`; `import/loading.tsx`
+(delete with the route body); `resume-hub.tsx`, `page.tsx` (fetch
+`getMyProfileLinks()` for the prefill).
+
+**Steps**
+1. Same form and 4-stage progress inside the PRF-9-style shell (pinned footer:
+   cost + Import).
+2. Opens from the header's AI Import, from New Resume's "Import" source (which
+   today only links away), and from `?import=1`.
+3. Job progress in `useResumeHubStore` so closing and reopening the sheet
+   resumes the progress view; on success, go to the draft.
+4. Remove the now-unreachable `importAndCreateDraft` branch in NewResumeSheet
+   only after confirming no other caller (propose if it has none).
+
+**Edge cases** closing mid-job must not cancel it or double-charge on reopen;
+failure refunds (worker path unchanged) and puts the inputs back; `?import=1`
+is stripped from the URL after opening so a reload does not reopen it.
+
+**Done when** `/ai/resume/import` redirects and opens the sheet prefilled; an
+import started, closed and reopened shows live progress and lands on the new
+draft; the credit hold settles once.
+
+
+**Outcome (RES-21, RES-22, RES-23, built together: one row holds the tabs and
+the filters, and the card and the import sheet share the hub).**
+- Card: the whole card is the Edit link (overlay `<Link>`; the menu sits above it
+  at `z-10`); a template thumbnail band; name, "For <job>" when tailored, badges
+  (Default, origin with source icons, Public with views, ATS); template and edit
+  date. Every action is a labelled item in the `...` menu. Delete now confirms (it
+  did not before). `min-h-64`: a little larger, as asked.
+- The dashed "New" and "Import" tiles are gone; both live in the header and the
+  empty state. The header's stats line went too: the filter counts say the same.
+- Tabs: `TabsList variant="segmented" size="sm" fit` for My resumes / Templates,
+  and the origin filter is a second segmented list on the same row, scrolling
+  sideways on a phone. Kinds with no resumes are hidden; `?origin=` is written with
+  `history.replaceState` and read by `page.tsx`.
+- `lib/resume/origin.ts` derives the kind; `duplicateResumeDraft` now copies
+  `importedFrom`, `importedUrl`, `sourceDraftId`, `tailoredForCompany`.
+- Import: `_components/import-sheet.tsx` on the profile sheet shell, always
+  mounted so its job state survives closing ("Hide" while running). Opens from the
+  header, from New resume's Import tile, and from `?import=1`, which
+  `/ai/resume/import` now redirects to; the flag is removed after opening.
+- **Verified in the browser** on Niraj's dev account: three drafts classify as
+  From profile 2 / Tailored 1; the Tailored filter shows one and writes
+  `?origin=tailored`; the menu opens without following the card link; Duplicate
+  made a copy that stayed Tailored (2, All 4); Delete asked and removed it (All 3);
+  `/ai/resume/import` landed on the hub with the sheet open, links prefilled, URL
+  cleaned. **Real import, run later the same day (Niraj approved):** the sheet
+  dispatched the job and showed the stage checklist; the local job worker was not
+  running, so the dispatch came back `Worker rejected the job (503)`, the sheet
+  returned to the filled form with an error toast, the 20-credit hold was
+  `released` ("Refund (failed)" in credit history) and the balance was unchanged.
+  The success path needs `apps/worker` running with its keys (it has no
+  `.dev.vars` locally) or the deployed worker. Phone width (390px): no overflow.
+- The worker's unused "combined" import variant was removed (Niraj, 2026-09-25):
+  `apps/worker/src/jobs/resume-import.ts` reads LinkedIn (capped at 5,000 chars),
+  GitHub through the REST API, Twitter and a portfolio; a job queued with the old
+  fields still runs and ignores them. Takes effect when the worker is deployed.
+- Now unreferenced, for Niraj to approve deleting (with the profile list in
+  `plan/cleanup/candidates.md`): `import/_components/import-client.tsx`,
+  `import/loading.tsx`, and the unreachable `importAndCreateDraft` branch in
+  NewResumeSheet's `handleCreate`.
+
+## RES-24 - Public resume links (`/r/<slug>`) readable signed-out
+
+**Status:** done (2026-09-25)
+
+**Why.** Found 2026-09-25 while building PRF-12. The hub copies `/r/<slug>` as a
+"share link", but `app/(main)/r/[slug]` is behind the session gate
+(`middleware.ts` has no public entry for it), so everyone it is shared with gets
+a sign-in page. Niraj, 2026-09-25: make it public, only for drafts marked public;
+the profile one-pager's Resume button points at it.
+
+**Files** `middleware.ts` (exactly `/r/<slug>`, one segment), move
+`app/(main)/r/[slug]` to `app/(public)/r/[slug]`, its loader/action (check it
+refuses `is_public = false` and a missing slug with `notFound()`).
+
+**Edge cases** a private draft's slug must 404, not "sign in"; no owner-only data
+(email, phone) on the page unless the draft's own contact block holds it, which
+the owner typed into a document they chose to publish; `view_count` increments
+once per view, never for the owner.
+
+**Done when** a signed-out `curl` of a public draft's `/r/<slug>` returns 200 with
+its name, and a private draft's returns 404.
+
+**Outcome.** Route moved (`git mv`) to `app/(public)/r/[slug]`; `middleware.ts`
+`isPublicResume` opens exactly `/r/<slug>` and `/api/resume/pdf/<id>` (the PDF
+route already refused non-public drafts to strangers, but the gate bounced them
+first, so Download PDF was broken for every visitor). New `lib/resume/public.ts`
+(`server-only`): `loadPublicResume` behind React `cache`, so metadata and page
+share one query, and `countResumeView`, which skips the owner.
+**Two bugs fixed:** the page counted every view twice (the old action ran in
+`generateMetadata` and in the page, and incremented each time), and that action,
+being an exported server action, let anyone inflate a count by POSTing to it; it
+no longer counts and has no callers (cleanup candidate).
+**Verified** signed-out against Niraj's default draft, made public for the test
+and restored after: private `/r` renders the 404 page with `noindex` and none of
+the resume; public `/r` is 200, `<title>` "Niraj Jha's Resume"; the PDF is 200
+`application/pdf`; one view counted once (reset to 0 after); private again, the
+PDF is 404. As with the profile, a missing slug answers HTTP 200 with the
+not-found page because `loading.tsx` starts the stream first.
+**Left open:** an anonymous PDF request regenerates the PDF each time (and
+re-uploads it to R2). Cheap today; worth a cache if `/r` links get traffic.
+
+## RES-25 - `getPublicResumeByUsername` leaks private projects
+
+**Status:** done (2026-09-25), with the caveat in its outcome
+
+**Why.** Found 2026-09-25: it selects `portfolio_project` rows with no visibility
+filter, so a project a user set to Private appears in `/ai/resume/<username>`.
+
+**Files** `actions/(main)/user/profile.action.ts` (`getPublicResumeByUsername`).
+
+**Steps** filter `upper(visibility) = 'PUBLIC'` unless the viewer is the owner,
+the same rule as `lib/profile/read.ts`; consider whether the route should reuse
+`loadPublicProfile` instead of a third reader.
+
+**Done when** a private project is absent from that page for any other viewer.
+
+**Outcome.** The projects query now filters `upper(visibility) = 'PUBLIC'` unless
+the session user is the owner - the predicate verified on the dev DB in PRF-7/8.
+**Caveat:** not exercised end to end: `/ai/resume/<username>` is behind the session
+gate and there is one account on the dev DB, so "another viewer" was not
+reproduced. Folding this reader into `loadPublicProfile` is left as a follow-up.

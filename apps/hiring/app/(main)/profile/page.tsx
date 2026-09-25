@@ -1,17 +1,20 @@
 "use client"
 
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import {
     User, Building2, Shield, Mail, Phone, Calendar, MapPin, Globe,
     Briefcase, Crown, Edit2, Save, X, Eye, EyeOff, Check, AlertCircle,
-    Loader2, Link as LinkIcon, Lock, Key
+    Link as LinkIcon, Lock, Key
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
+import Loading from "./loading"
 import { Label } from "@repo/ui/components/ui/label"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import {
@@ -141,7 +144,7 @@ export default function ProfilePage() {
                         displayName: memberRes.data.displayName || "",
                     }))
                 }
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error("Failed to fetch profile data:", error)
             } finally {
                 setLoading(false)
@@ -181,7 +184,7 @@ export default function ProfilePage() {
             } else {
                 setProfileMessage({ type: "error", text: result.error || "Failed to update profile" })
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Profile update error:", error)
             setProfileMessage({ type: "error", text: "An unexpected error occurred" })
         } finally {
@@ -220,7 +223,7 @@ export default function ProfilePage() {
             } else {
                 setPasswordMessage({ type: "error", text: result.error || "Failed to change password" })
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Password change error:", error)
             setPasswordMessage({ type: "error", text: "An unexpected error occurred" })
         } finally {
@@ -248,7 +251,7 @@ export default function ProfilePage() {
             } else {
                 setCompanyMessage({ type: "error", text: result.error || "Failed to update company" })
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Company update error:", error)
             setCompanyMessage({ type: "error", text: "An unexpected error occurred" })
         } finally {
@@ -257,31 +260,20 @@ export default function ProfilePage() {
     }
 
     if (loading) {
-        return (
-            <div className="min-h-full flex items-center justify-center p-6">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
-                    <p className="text-neutral-500">Loading profile...</p>
-                </div>
-            </div>
-        )
+        return <Loading />
     }
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            <div className="mb-8">
-                <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                    Profile
-                </h1>
-                <p className="text-neutral-500 mt-1">
-                    Manage your personal and company information
-                </p>
-            </div>
-            <div className="max-w-4xl">
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="Profile"
+                subtitle="Manage your personal and company information"
+            />
+            <div className="max-w-4xl space-y-5">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden mb-8"
+                    className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden"
                 >
                     <div className="relative bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-900 h-32">
                         <div className="absolute inset-0 bg-black/10" />
@@ -452,7 +444,7 @@ export default function ProfilePage() {
                                                 {
                                                     savingProfile ? (
                                                         <>
-                                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                            <InlineLoader size="sm" className="mr-2" />
                                                             Saving...
                                                         </>
                                                     ) : (
@@ -692,7 +684,7 @@ export default function ProfilePage() {
                                                 {
                                                     savingCompany ? (
                                                         <>
-                                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                            <InlineLoader size="sm" className="mr-2" />
                                                             Saving...
                                                         </>
                                                     ) : (
@@ -953,7 +945,7 @@ export default function ProfilePage() {
                                         {
                                             savingPassword ? (
                                                 <>
-                                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                    <InlineLoader size="sm" className="mr-2" />
                                                     Changing Password...
                                                 </>
                                             ) : (

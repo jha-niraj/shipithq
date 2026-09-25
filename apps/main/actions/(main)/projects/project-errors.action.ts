@@ -6,7 +6,8 @@ import {
     db, projectV2Errors, projectsV2, userProjectV2Progress, projectV2Tasks,
     withTransaction
 } from "@repo/db";
-import { eq, and, desc, asc, sql } from "drizzle-orm";
+import { eq, and, desc, asc, inArray, sql } from "drizzle-orm";
+import { requireProjectReadAccess } from "@/lib/projects/access";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { toErrorMessage } from "@/lib/errors"
@@ -84,20 +85,16 @@ export async function getProjectErrors(
             includeAll = false
         } = options || {};
 
-        // Check if user is owner or admin
-        const [project] = await db
-            .select({ createdBy: projectsV2.createdBy, slug: projectsV2.slug })
-            .from(projectsV2)
-            .where(eq(projectsV2.id, projectId))
-            .limit(1);
+        // Read access (PJ-21): the people on the project, or anyone for a PUBLIC
+        // one, and a copy reads its original's errors too. This had no check at
+        // all: any signed-in user could read any project's errors, private ones
+        // included.
+        const access = await requireProjectReadAccess(projectId);
+        if (!access.ok) return { success: false, error: access.error };
 
-        if (!project) {
-            return { success: false, error: "Project not found" };
-        }
+        const isOwnerOrAdmin = access.isCreator || user.role === "Admin";
 
-        const isOwnerOrAdmin = project.createdBy === user.id || user.role === "Admin";
-
-        const conditions: any[] = [eq(projectV2Errors.projectId, projectId)];
+        const conditions: any[] = [inArray(projectV2Errors.projectId, access.projectIds)];
 
         if (!includeAll || !isOwnerOrAdmin) {
             conditions.push(eq(projectV2Errors.status, "APPROVED"));
@@ -423,8 +420,10 @@ export async function deleteProjectError(errorId: string): Promise<ActionRespons
  */
 export async function getProjectErrorStats(projectId: string): Promise<ActionResponse> {
     try {
+        const access = await requireProjectReadAccess(projectId);
+        if (!access.ok) return { success: false, error: access.error };
         const baseCondition = and(
-            eq(projectV2Errors.projectId, projectId),
+            inArray(projectV2Errors.projectId, access.projectIds),
             eq(projectV2Errors.status, "APPROVED")
         );
 

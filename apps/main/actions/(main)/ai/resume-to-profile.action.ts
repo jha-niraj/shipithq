@@ -8,6 +8,7 @@ import {
 } from "@repo/db"
 import { and, eq } from "drizzle-orm"
 import type { ResumeDraftContent } from "@/types/resume-draft"
+import { normalizeProjectLinkType } from "@repo/db/profile-values"
 
 /**
  * Push what the user typed into a resume back onto their profile.
@@ -200,10 +201,11 @@ export async function syncResumeDraftToProfile(
             if (projectId) {
                 const links = await db.select({ id: projectLinks.id, linkType: projectLinks.linkType })
                     .from(projectLinks).where(eq(projectLinks.projectId, projectId))
-                for (const [linkType, url] of [["GITHUB", p.github], ["LIVE SITE", p.liveUrl]] as const) {
+                for (const [linkType, url] of [["GITHUB", p.github], ["LIVE_SITE", p.liveUrl]] as const) {
                     const value = url?.trim()
                     if (!value) continue
-                    const existing = links.find(l => l.linkType === linkType)
+                    // Compared normalised: rows from before PRF-7 say "LIVE SITE".
+                    const existing = links.find(l => normalizeProjectLinkType(l.linkType) === linkType)
                     if (existing) {
                         await db.update(projectLinks).set({ url: value }).where(eq(projectLinks.id, existing.id))
                     } else {

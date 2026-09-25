@@ -1,5 +1,6 @@
 "use client"
 
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { useState, useTransition, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { format } from "date-fns"
@@ -7,10 +8,11 @@ import Link from "next/link"
 import {
     X, Mail, Phone, MapPin, Calendar, FileText, ExternalLink,
     Briefcase, Award, Star, CheckCircle, XCircle, MessageSquare, 
-    Mic, MicOff, Sparkles, Loader2, Send, AlertTriangle, Globe, 
+    Mic, MicOff, Sparkles, Send, AlertTriangle, Globe, 
     Github, Linkedin
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { Input } from "@repo/ui/components/ui/input"
@@ -107,8 +109,33 @@ export function ApplicationDetailSheet({
                                 <div className="overflow-y-auto h-[calc(80dvh-80px)] p-6">
                                     {
                                         isLoading ? (
-                                            <div className="flex items-center justify-center h-full">
-                                                <Loader2 className="w-8 h-8 animate-spin text-neutral-800" />
+                                            <div className="space-y-6" aria-busy="true">
+                                                <ShimmerStyles />
+                                                <div className="flex items-center gap-4">
+                                                    <Shimmer className="h-16 w-16 rounded-xl" />
+                                                    <div className="space-y-2">
+                                                        <Shimmer className="h-6 w-48" delay={0.04} />
+                                                        <Shimmer className="h-4 w-32" delay={0.06} />
+                                                        <Shimmer className="h-5 w-20 rounded-full" delay={0.08} />
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    {
+                                                        Array.from({ length: 4 }).map((_, i) => (
+                                                            <Shimmer key={i} className="h-[60px] rounded-xl" delay={0.1 + i * 0.04} />
+                                                        ))
+                                                    }
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Shimmer className="h-5 w-32" delay={0.2} />
+                                                    <Shimmer className="h-4 w-full" delay={0.22} />
+                                                    <Shimmer className="h-4 w-5/6" delay={0.24} />
+                                                    <Shimmer className="h-4 w-2/3" delay={0.26} />
+                                                </div>
+                                                <div className="flex gap-3">
+                                                    <Shimmer className="h-10 flex-1 rounded-md" delay={0.3} />
+                                                    <Shimmer className="h-10 flex-1 rounded-md" delay={0.32} />
+                                                </div>
                                             </div>
                                         ) : application ? (
                                             <div className="space-y-6">
@@ -568,7 +595,7 @@ function RejectDialog({
                     } else {
                         setMessage(prev => prev + "\n\n[Voice note - transcription failed]")
                     }
-                } catch (error) {
+                } catch (error: unknown) {
                     console.error("Transcription error:", error)
                     setMessage(prev => prev + "\n\n[Voice note - transcription failed]")
                 } finally {
@@ -578,7 +605,7 @@ function RejectDialog({
 
             mediaRecorder.start()
             setIsRecording(true)
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Failed to start recording:", error)
         }
     }
@@ -639,7 +666,7 @@ function RejectDialog({
                             {
                                 isTranscribing ? (
                                     <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        <InlineLoader size="sm" className="mr-2" />
                                         Transcribing...
                                     </>
                                 ) : isRecording ? (
@@ -665,7 +692,7 @@ function RejectDialog({
                         >
                             {
                                 isEnhancing ? (
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    <InlineLoader size="sm" className="mr-2" />
                                 ) : (
                                     <Sparkles className="w-4 h-4 mr-2" />
                                 )
@@ -685,7 +712,7 @@ function RejectDialog({
                     >
                         {
                             isPending ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                <InlineLoader size="sm" className="mr-2" />
                             ) : (
                                 <Send className="w-4 h-4 mr-2" />
                             )
@@ -753,7 +780,7 @@ function AcceptDialog({
                         </DialogDescription>
                     </DialogHeader>
                     <div className="p-4 bg-neutral-50 dark:bg-neutral-800/20 rounded-xl border border-neutral-200 dark:border-neutral-800">
-                        <p className="text-sm font-medium text-neutral-800 dark:text-neutral-700 mb-2">
+                        <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-2">
                             Interview Link
                         </p>
                         <div className="flex items-center gap-2">
@@ -848,7 +875,7 @@ function AcceptDialog({
                     >
                         {
                             isPending ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                <InlineLoader size="sm" className="mr-2" />
                             ) : (
                                 <CheckCircle className="w-4 h-4 mr-2" />
                             )
@@ -922,7 +949,7 @@ function AddNoteDialog({
                     } else {
                         setNote(prev => prev + "\n\n[Voice note - transcription failed]")
                     }
-                } catch (error) {
+                } catch (error: unknown) {
                     console.error("Transcription error:", error)
                     setNote(prev => prev + "\n\n[Voice note - transcription failed]")
                 } finally {
@@ -932,7 +959,7 @@ function AddNoteDialog({
 
             mediaRecorder.start()
             setIsRecording(true)
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Failed to start recording:", error)
         }
     }
@@ -973,7 +1000,7 @@ function AddNoteDialog({
                             {
                                 isTranscribing ? (
                                     <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        <InlineLoader size="sm" className="mr-2" />
                                         Transcribing...
                                     </>
                                 ) : isRecording ? (
@@ -998,7 +1025,7 @@ function AddNoteDialog({
                     <Button onClick={handleAddNote} disabled={isPending || !note.trim()}>
                         {
                             isPending ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                <InlineLoader size="sm" className="mr-2" />
                             ) : (
                                 <MessageSquare className="w-4 h-4 mr-2" />
                             )

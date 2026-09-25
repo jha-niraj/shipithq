@@ -1,40 +1,13 @@
 "use server"
 
 import { db, companyMembers, interviewProcesses, interviewRounds } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import type { InterviewRoundInput } from "@/types"
 
 // Re-export types for backwards compatibility
 export type { InterviewRoundInput } from "@/types"
-
-// ============================================
-// HELPERS
-// ============================================
-
-async function getCompanyMember() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) {
-        throw new Error("Unauthorized")
-    }
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    if (!member) {
-        throw new Error("Not a company member")
-    }
-
-    return member
-}
-
-function canManageInterviewConfig(role: string): boolean {
-    return ["FOUNDER", "ADMIN", "HIRING_MANAGER"].includes(role)
-}
 
 // ============================================
 // INTERVIEW ROUND MANAGEMENT
@@ -43,11 +16,9 @@ function canManageInterviewConfig(role: string): boolean {
 // Add a round to an interview process
 export async function addInterviewRound(processId: string, round: InterviewRoundInput) {
     try {
-        const member = await getCompanyMember()
-
-        if (!canManageInterviewConfig(member.role)) {
-            return { success: false, error: "You don't have permission to modify interview rounds" }
-        }
+        const auth = await requirePermission("manage_pipelines")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Verify the process belongs to this company
         const existingProcess = await db.query.interviewProcesses.findFirst({
@@ -91,11 +62,9 @@ export async function addInterviewRound(processId: string, round: InterviewRound
 // Update an interview round
 export async function updateInterviewRound(roundId: string, input: Partial<InterviewRoundInput>) {
     try {
-        const member = await getCompanyMember()
-
-        if (!canManageInterviewConfig(member.role)) {
-            return { success: false, error: "You don't have permission to modify interview rounds" }
-        }
+        const auth = await requirePermission("manage_pipelines")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Verify the round belongs to this company
         const existingRound = await db.query.interviewRounds.findFirst({
@@ -144,11 +113,9 @@ export async function updateInterviewRound(roundId: string, input: Partial<Inter
 // Delete an interview round
 export async function deleteInterviewRound(roundId: string) {
     try {
-        const member = await getCompanyMember()
-
-        if (!canManageInterviewConfig(member.role)) {
-            return { success: false, error: "You don't have permission to delete interview rounds" }
-        }
+        const auth = await requirePermission("manage_pipelines")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Verify the round belongs to this company
         const existingRound = await db.query.interviewRounds.findFirst({
@@ -177,11 +144,9 @@ export async function deleteInterviewRound(roundId: string) {
 // Reorder interview rounds
 export async function reorderInterviewRounds(processId: string, roundIds: string[]) {
     try {
-        const member = await getCompanyMember()
-
-        if (!canManageInterviewConfig(member.role)) {
-            return { success: false, error: "You don't have permission to reorder interview rounds" }
-        }
+        const auth = await requirePermission("manage_pipelines")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Verify the process belongs to this company
         const existingProcess = await db.query.interviewProcesses.findFirst({

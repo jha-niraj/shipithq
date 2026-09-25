@@ -1,12 +1,14 @@
 "use client"
 
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { ShipItHQLoader } from "@repo/ui/components/ui/shipithq-loader"
 import type React from "react"
 import { Logo } from "@repo/ui/components/logo"
 import { useState, useRef, useEffect, Suspense } from "react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import {
-    CheckCircle2, RefreshCw, ShieldCheck, Loader2, ArrowRight
+    CheckCircle2, RefreshCw, ShieldCheck, ArrowRight
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import toast from '@repo/ui/components/ui/sonner'
@@ -138,7 +140,7 @@ function VerifyContent() {
 
     if (isVerified) {
         return (
-            <div className="min-h-dvh w-full bg-white dark:bg-neutral-950 flex flex-col items-center justify-center mx-auto w-full max-w-7xl">
+            <div className="min-h-dvh w-full bg-white dark:bg-neutral-950 flex flex-col items-center justify-center">
                 <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
@@ -219,7 +221,7 @@ function VerifyContent() {
                             {
                                 isLoading ? (
                                     <>
-                                        <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                                        <InlineLoader size="sm" className="mr-2" />
                                         Verifying...
                                     </>
                                 ) : (
@@ -238,7 +240,7 @@ function VerifyContent() {
                                 disabled={!canResend}
                                 className="text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
                             >
-                                <RefreshCw className={`mr-2 h-3 w-3 ${!canResend && "animate-spin"}`} />
+                                <RefreshCw className="mr-2 h-3 w-3" />
                                 {canResend ? "Resend Code" : `Resend in ${timer}s`}
                             </Button>
                         </div>
@@ -251,11 +253,7 @@ function VerifyContent() {
 
 export default function Verify() {
     return (
-        <Suspense fallback={
-            <div className="flex min-h-dvh items-center justify-center bg-white dark:bg-neutral-950">
-                <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
-            </div>
-        }>
+        <Suspense fallback={<ShipItHQLoader />}>
             <VerifyContent />
         </Suspense>
     )

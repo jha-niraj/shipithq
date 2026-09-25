@@ -1,5 +1,6 @@
 'use client'
 
+import { Tabs, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@repo/ui/components/ui/sheet'
@@ -140,25 +141,13 @@ export function CreateInterviewPrepSheet({ open, onOpenChange }: CreateInterview
 
                         <div className="space-y-2">
                             <Label>The posting</Label>
-                            <div className="flex gap-2">
-                                {(['paste', 'url'] as Mode[]).map((m) => (
-                                    <button
-                                        key={m}
-                                        type="button"
-                                        onClick={() => setMode(m)}
-                                        disabled={submitting}
-                                        className={cn(
-                                            'flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
-                                            mode === m
-                                                ? 'border-neutral-900 bg-neutral-100 text-neutral-900 dark:border-neutral-100 dark:bg-neutral-800 dark:text-neutral-100'
-                                                : 'border-neutral-200 text-neutral-600 hover:border-neutral-300 dark:border-neutral-800 dark:text-neutral-400 dark:hover:border-neutral-700',
-                                        )}
-                                    >
-                                        {m === 'paste' ? <ClipboardPaste className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
-                                        {m === 'paste' ? 'Paste the text' : 'From a link'}
-                                    </button>
-                                ))}
-                            </div>
+                            {/* The shared segmented control (plan/ui-pass UI-2), not two bordered buttons. */}
+                            <Tabs value={mode} onValueChange={(v) => !submitting && setMode(v as Mode)}>
+                                <TabsList variant="segmented" size="sm">
+                                    <TabsTrigger value="paste" icon={<ClipboardPaste />} disabled={submitting}>Paste the text</TabsTrigger>
+                                    <TabsTrigger value="url" icon={<Link2 />} disabled={submitting}>From a link</TabsTrigger>
+                                </TabsList>
+                            </Tabs>
 
                             {mode === 'paste' ? (
                                 <>

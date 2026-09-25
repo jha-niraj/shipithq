@@ -24,11 +24,12 @@ export type VirtualTab = keyof typeof VIRTUAL_TABS
 export const TASK_TAB: VirtualTab = '@task'
 export const AI_TAB: VirtualTab = '@ai'
 /*
- * Pinned: always open, always first, never closed or dragged (Niraj,
- * 2026-09-24). The AI is where you ask for a new task or sprint; the Task tab
- * is the brief you are working to.
+ * Nothing is pinned any more (Niraj, 2026-09-24, WS-20): the Project AI moved
+ * out of the tab row into its own panel on the right, and every tab - Task
+ * included - closes like any other. Kept as an empty list so callers that
+ * ask "is this pinned?" keep working.
  */
-export const PINNED_TABS: readonly string[] = [AI_TAB, TASK_TAB]
+export const PINNED_TABS: readonly string[] = []
 export const isPinned = (tab: string) => PINNED_TABS.includes(tab)
 /** Pinned tabs first, in their order; everything else after, deduplicated. */
 export const withPinned = (tabs: readonly string[]) => [...PINNED_TABS, ...[...new Set(tabs)].filter((t) => !isPinned(t))]
@@ -57,7 +58,8 @@ export function loadTabs(projectId: string, existing: ReadonlySet<string>): Save
         const tabs = (Array.isArray(parsed.tabs) ? parsed.tabs : [])
             // "TASK.md" was the task tab's id before 2026-09-24.
             .map((t) => (t === 'TASK.md' ? TASK_TAB : t))
-            .filter((t): t is string => typeof t === 'string' && (isVirtual(t) || existing.has(t)))
+            // The AI is a panel now, not a tab (WS-20): an old saved "@ai" tab is dropped.
+            .filter((t): t is string => typeof t === 'string' && t !== AI_TAB && (isVirtual(t) || existing.has(t)))
         const storedActive = parsed.active === 'TASK.md' ? TASK_TAB : parsed.active
         const active = typeof storedActive === 'string' && tabs.includes(storedActive) ? storedActive : tabs[0] ?? null
         return { tabs: [...new Set(tabs)], active }
@@ -175,4 +177,29 @@ export function foldersOf(paths: readonly string[]): string[] {
         for (let i = 1; i < parts.length; i++) out.add('/' + parts.slice(0, i).join('/'))
     }
     return [...out]
+}
+
+/*
+ * The Project AI panel (WS-20): open by default, and how wide, remembered per
+ * browser. Guarded like the tabs: storage can be missing or throw.
+ */
+export const AI_PANEL_DEFAULT = 40
+export const AI_PANEL_MIN = 25
+export const AI_PANEL_MAX = 55
+
+export function loadAiPanel(): { open: boolean; size: number } {
+    try {
+        const open = window.localStorage.getItem('workspace:ai-open') !== '0'
+        const size = Number(window.localStorage.getItem('workspace:ai-size'))
+        return { open, size: size >= AI_PANEL_MIN && size <= AI_PANEL_MAX ? size : AI_PANEL_DEFAULT }
+    } catch {
+        return { open: true, size: AI_PANEL_DEFAULT }
+    }
+}
+
+export function saveAiPanel(value: { open?: boolean; size?: number }): void {
+    try {
+        if (value.open !== undefined) window.localStorage.setItem('workspace:ai-open', value.open ? '1' : '0')
+        if (value.size !== undefined) window.localStorage.setItem('workspace:ai-size', String(Math.round(value.size)))
+    } catch { /* not remembered; the page still works */ }
 }

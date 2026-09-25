@@ -1,5 +1,6 @@
 'use client';
 
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { AuthVisual } from "@repo/ui/components/auth-visual";
 import { Logo } from "@repo/ui/components/logo"
 import {
@@ -10,7 +11,7 @@ import { Input } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";
 import { Button } from "@repo/ui/components/ui/button";
 import {
-    RefreshCw, CheckCircle2, Lock, Loader2, ArrowRight
+    RefreshCw, CheckCircle2, Lock, ArrowRight
 } from "lucide-react";
 import toast from '@repo/ui/components/ui/sonner';
 import { motion } from 'framer-motion';
@@ -259,7 +260,7 @@ const ResetPassword = (): JSX.Element | null => {
                         >
                             {
                                 isLoading ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <InlineLoader size="sm" />
                                 ) : (
                                     <>
                                         Reset Password
@@ -276,7 +277,7 @@ const ResetPassword = (): JSX.Element | null => {
                                 disabled={!canResend}
                                 className="text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
                             >
-                                <RefreshCw className={`mr-2 h-3 w-3 ${!canResend && "animate-spin"}`} />
+                                <RefreshCw className="mr-2 h-3 w-3" />
                                 {canResend ? "Resend Code" : `Resend in ${timer}s`}
                             </Button>
                         </div>

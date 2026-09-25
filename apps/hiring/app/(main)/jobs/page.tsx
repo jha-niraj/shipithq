@@ -1,7 +1,5 @@
 import { Suspense } from "react"
-import { 
-    Loader2 
-} from "lucide-react"
+import Loading from "./loading"
 import { 
     getJobs, getOverallJobStats 
 } from "@/actions/jobs"
@@ -28,11 +26,7 @@ export default async function JobsPage() {
 
     return (
         <Suspense 
-            fallback={
-                <div className="min-h-full flex items-center justify-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
-                </div>
-            }
+            fallback={<Loading />}
         >
             <JobsContent 
                 initialJobs={jobs}

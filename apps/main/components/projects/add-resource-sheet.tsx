@@ -96,7 +96,7 @@ export default function AddResourceSheet({ projectId }: AddResourceSheetProps) {
             <SheetTrigger asChild>
                 <Button size="sm" className="w-fit gap-2">
                     <Plus className="w-4 h-4" />
-                    Add Learning Resource
+                    Add resource
                 </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-full sm:max-w-lg">

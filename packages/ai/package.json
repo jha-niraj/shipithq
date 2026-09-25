@@ -11,6 +11,7 @@
     ".": "./src/index.ts",
     "./models": "./src/models.ts",
     "./tasks": "./src/tasks.ts",
+    "./project-ai": "./src/project-ai.ts",
     "./sarvam": "./src/sarvam/index.ts"
   },
   "scripts": {

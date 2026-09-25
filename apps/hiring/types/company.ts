@@ -157,7 +157,12 @@ export interface TeamMember {
     id: string
     userId: string
     companyId: string
+    /** LEGACY fixed role; permissions come from `roleId` (plan/hiring-app HA-6). */
     role: CompanyMemberRole
+    /** The member's company role, and its name and owner flag, for display. */
+    roleId: string | null
+    roleName: string
+    isOwner: boolean
     jobTitle: CompanyMemberJobTitle | null
     jobTitleCustom: string | null
     displayName: string | null
@@ -189,6 +194,9 @@ export interface UpdateTeamMemberPayload {
 export interface InviteTeamMemberPayload {
     email: string
     name?: string
+    /** The company role the invitee joins with (plan/hiring-app HA-8). */
+    roleId: string
+    /** LEGACY; derived from `roleId` when not given. */
     role?: CompanyMemberRole
     jobTitle?: CompanyMemberJobTitle
     permissions?: Permission[]

@@ -225,6 +225,48 @@
       "when": 1790245411805,
       "tag": "0031_final_quiz_mock",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790317255807,
+      "tag": "0032_project_value_casing",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790319960789,
+      "tag": "0033_company_website_domain",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790322539319,
+      "tag": "0034_company_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790328013758,
+      "tag": "0035_hiring_rounds_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790328314050,
+      "tag": "0036_hiring_runs_sends_aptitude",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790329146341,
+      "tag": "0037_company_profile_draft",
+      "breakpoints": true
     }
   ]
 }

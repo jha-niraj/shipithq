@@ -195,7 +195,7 @@ export function SwipeCard({
                             )}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <h2 className="text-xl font-bold text-neutral-900 dark:text-white truncate">
+                            <h2 className="line-clamp-2 text-xl font-bold text-neutral-900 sm:line-clamp-1 dark:text-white">
                                 {job.title}
                             </h2>
                             <p className="text-neutral-500 dark:text-neutral-400 font-medium">{job.company.name}</p>

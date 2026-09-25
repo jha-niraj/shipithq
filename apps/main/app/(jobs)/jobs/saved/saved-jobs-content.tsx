@@ -85,14 +85,14 @@ export function SavedJobsContent({ initialData, isAuthenticated }: SavedJobsCont
     // Not authenticated state
     if (requiresAuth || !isAuthenticated) {
         return (
-            <div className="p-4 lg:p-6">
+            <div className="page-frame px-page py-4">
                 <AuthRequiredState />
             </div>
         )
     }
 
     return (
-        <div className="p-4 lg:p-6">
+        <div className="page-frame px-page py-4">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">

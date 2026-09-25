@@ -93,7 +93,7 @@ export function FollowingContent({ initialData, isAuthenticated }: FollowingCont
     // Not authenticated state
     if (requiresAuth || !isAuthenticated) {
         return (
-            <div className="p-4 lg:p-6">
+            <div className="page-frame px-page py-4">
                 <AuthRequiredState />
             </div>
         )
@@ -102,14 +102,14 @@ export function FollowingContent({ initialData, isAuthenticated }: FollowingCont
     // Empty state - no followed companies
     if (isEmpty) {
         return (
-            <div className="p-4 lg:p-6">
+            <div className="page-frame px-page py-4">
                 <FollowingEmptyState />
             </div>
         )
     }
 
     return (
-        <div className="p-4 lg:p-6">
+        <div className="page-frame px-page py-4">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">

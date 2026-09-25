@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { Bell, Shield, Save, User } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import { Input } from "@repo/ui/components/ui/input"
 import { Label } from "@repo/ui/components/ui/label"
 import { Switch } from "@repo/ui/components/ui/switch"
@@ -20,16 +21,8 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                    Settings
-                </h1>
-                <p className="text-neutral-500 mt-1">
-                    Manage your account preferences
-                </p>
-            </div>
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader title="Settings" subtitle="Manage your account preferences" />
 
             <motion.div
                 initial={{ opacity: 0, y: 20 }}

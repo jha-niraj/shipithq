@@ -99,7 +99,7 @@ export function CreatorEarningsSheet({
                     </SheetDescription>
                 </SheetHeader>
                 <Tabs defaultValue="earnings" className="mt-6">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList>
                         <TabsTrigger value="earnings">Price & Earnings</TabsTrigger>
                         <TabsTrigger value="purchases">Who Purchased</TabsTrigger>
                     </TabsList>

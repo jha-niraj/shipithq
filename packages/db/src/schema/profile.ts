@@ -82,8 +82,9 @@ export const portfolioProjects = pgTable("portfolio_project", {
     projectType: text("project_type").notNull(),
     description: text("description"),
     bulletPoints: text("bullet_points").array().notNull().default([]),
-    status: text("status").notNull().default("In Progress"),
-    visibility: text("visibility").notNull().default("Public"),
+    // Stored spellings: packages/db/src/profile-values.ts (plan/profile PRF-7).
+    status: text("status").notNull().default("IN_PROGRESS"),
+    visibility: text("visibility").notNull().default("PUBLIC"),
     technologies: text("technologies").array().notNull().default([]),
     startDate: timestamp("start_date").notNull(),
     endDate: timestamp("end_date"),

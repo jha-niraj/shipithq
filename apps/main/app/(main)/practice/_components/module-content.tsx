@@ -266,10 +266,7 @@ export function ModuleContent({
                     <div className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
                         <Tabs value={tab} onValueChange={(v) => setTab(v as "path" | "all")}>
                             <TabsList variant="segmented" size="sm" fit aria-label="Which problems">
-                                <TabsTrigger value="path">
-                                    <Sparkles className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                                    Path
-                                </TabsTrigger>
+                                <TabsTrigger value="path" icon={<Sparkles />}>Path</TabsTrigger>
                                 <TabsTrigger value="all">All</TabsTrigger>
                             </TabsList>
                         </Tabs>

@@ -4,7 +4,7 @@ Read `overview.md` first: it holds the standard every task here measures
 against. Taken in order; UI-1 is the only one with a visible bug in it.
 
 ## UI-1 The three tab strips that are actually broken
-- [ ] Status: not started.
+- [x] Status: done (2026-09-25), outcome in the note after UI-3.
 
 **Why.** Three of the findings are defects, not drift.
 
@@ -29,7 +29,7 @@ against. Taken in order; UI-1 is the only one with a visible bug in it.
 `bg-*` classes; no `layoutId` in `apps/main` is a hardcoded shared string.
 
 ## UI-2 Hand-rolled tab strips become the shared component
-- [ ] Status: not started.
+- [x] Status: done (2026-09-25), outcome in the note after UI-3.
 
 **Why.** Six strips are built from `div`s and buttons that re-implement what
 `Tabs` already draws, and one of them is a character-for-character copy of the
@@ -64,7 +64,7 @@ keep it only if the strip genuinely does not fit, and say so in the file.
 outside `packages/ui` finds nothing in `apps/main`.
 
 ## UI-3 Tab strips that override the component into a different thing
-- [ ] Status: not started.
+- [x] Status: done (2026-09-25), outcome in the note after UI-3.
 
 **Why.** Fourteen strips pass classNames that replace the built-in look:
 `grid grid-cols-*` over the component's flex, a second border and background
@@ -95,6 +95,51 @@ comment saying why.
 
 **Done when.** No `TabsList` in `apps/main` carries a `bg-*`, `grid`, `h-*` or
 `rounded-*` class, and no `TabsTrigger` carries a `data-[state=active]:*` class.
+
+**Refreshed 2026-09-25 (audit before doing UI-1..3).** Niraj asked for the
+whole of `apps/main` to use the base tabs "with nothing styled on top".
+- Also overridden, not listed above: `pathfinder/[slug]/_components/pathfinder-videos-tab.tsx:29`
+  (`w-fit` -> `fit`, `text-xs` -> `size="sm"`),
+  `pathfinder/[slug]/_components/subgoal-content-tabs.tsx:46` (`h-auto flex-wrap`),
+  `pathfinder/[slug]/verify/_components/coding-verification.tsx:319` (`h-8`, `px-3 py-1`),
+  `knowme/settings/_components/knowme-settings.tsx:210` (icons with `mr-2` -> `icon` prop).
+- Hand-rolled 2-option switches for UI-2: `practice/_components/add-problem-sheet.tsx:167`,
+  `pathfinder/_components/create-interview-prep-sheet.tsx:143`.
+- `jobs-tabs.tsx` is IN scope (Niraj, 2026-09-25), even though the hiring
+  session has uncommitted edits in `(jobs)/` - re-read the file right before
+  editing and change only the strip.
+- Absorbed by the profile/resume work: `edit-profile-modal.tsx` (PRF-10),
+  `share-profile-modal.tsx` (PRF-13), `resume-hub.tsx` (RES-21).
+- Kept hand-rolled, deliberately: `projects/[slug]/workspace/_components/editor-tabs.tsx`
+  (IDE file tabs with close buttons, not a view switch).
+
+**Outcome (UI-1, UI-2, UI-3, 2026-09-25).**
+- UI-1: `pricing-section.tsx` tabs are props-only and the `#29584a` green is
+  neutral. **That file has no importers** - dead, listed for deletion. The
+  edit-profile modal's double `bg-*` is moot: PRF-10 replaced that modal, which is
+  now unreferenced. `jobs-tabs.tsx`'s global `layoutId="activeTab"` is gone with
+  the file's rewrite (UI-2).
+- UI-2: `jobs-tabs.tsx` is `TabsNav` (the phone dropdown is gone; the strip scrolls
+  like every other section's; the layout's Suspense fallback moved to `h-8` to match);
+  pathfinder's mobile Goals/Overview, the applications List/Timeline toggle
+  (icon-only triggers with sr-only labels), add-problem's From URL/From Name and
+  interview-prep's Paste/From a link are `Tabs variant="segmented" size="sm"`.
+  `ideas-pane.tsx` no longer exists. **Deliberately not converted:** the home
+  dashboard's header pills are links to other pages, not a tab strip; the mock hub's
+  job list is a master list with a detail pane; the workspace task-status
+  radiogroup and the profile sheets' `Segmented` pick a VALUE in a form.
+- UI-3 (done by a subagent, reviewed): knowme settings, pathfinder videos /
+  subgoal content / subgoal coding / creator earnings / both verify pages, credits
+  transactions, and the resume editor (the one sticky exception, now on a wrapper
+  div with a comment). The four underline bars are now the segmented chip.
+- Done-when greps: no `data-[state=active]` and no `rounded-xl bg-neutral-100 p-1`
+  in `apps/main`; the only `TabsList`/`TabsTrigger` classNames left are in
+  `components/profile/modals/edit-profile-modal.tsx`, which nothing imports
+  (PRF-15). `tsc --noEmit` clean apart from `main-shell.tsx`, which the hiring
+  session is editing.
+- Seen in the browser: /jobs/applications (TabsNav with Applied active, filters,
+  the view toggle switching to the timeline), the resume hub, the profile editor.
+  The pathfinder, knowme, credits and verify strips were typechecked, not opened.
 
 ## UI-4 One page padding, one rhythm, one heading scale
 - [ ] Status: not started.
@@ -273,3 +318,145 @@ sheet and the onboarding widget. `sprint-generation-sheet.tsx` is NOT one of
 them - its button row is an in-flow block with `pt-4 border-t`, not a pinned
 footer, so it is a different design rather than the same bug.
 
+
+## UI-10 Overviews and reading pages sit in a centred 1280px frame
+- [x] Status: done 2026-09-24, verified in the browser against Done when (notes at the end).
+
+**Why.** With the sidebar unpinned (hover to reveal), /ai, /mock and the other
+overviews stretch across the whole window: a hero with an empty right half,
+StatBands 2000px wide. Decided (Niraj, 2026-09-24): overviews and reading pages
+are capped at `max-w-7xl` and centred; grids and tools (Explore, Browse All,
+the workspace, the editors) stay full width. Capping is enough on its own: next
+to a pinned sidebar the column is narrower than 1280px on a laptop, so the page
+fills it; unpinned, it centres with even margins.
+
+**Files.** `packages/ui/src/styles/globals.css` (a `page-frame` utility beside
+`px-page`); the roots and `loading.tsx` of `home`, `ai`, `mock`, `practice`,
+`projects` (overview), `pathfinder`, `knowme`; `(jobs)/jobs/spark/spark-content.tsx`,
+`applications/applications-content.tsx`, `saved`, `following` and their loading files.
+
+**Steps.** `@utility page-frame { width:100%; max-width:80rem; margin-inline:auto }`.
+Put it on each listed page's content root and on its `loading.tsx` root, with
+`px-page` where the root used `px-4`/`px-6`. /ai's hero loses its marketing size
+(`text-4xl md:text-6xl` to the scale of the other overviews) so it reads as a page, not a landing.
+
+**Edge cases.** A page and its skeleton must share the frame or it jumps on
+hydrate. Full-height pages (pathfinder, knowme) keep their height; only width changes.
+
+**Done when.** At 1440px with the sidebar unpinned, each listed page's content is
+1280px wide and centred (equal left/right margins, within 1px); pinned, it fills
+the column; Explore and Browse All still span the full column.
+
+## UI-11 The jobs header and tab strip at the size of the rest of the app
+- [x] Status: done 2026-09-24, verified in the browser against Done when (notes at the end).
+
+**Why.** The jobs header is `p-6` with a `text-2xl` title and 44px tabs with
+`px-4 py-2.5` - roughly twice the height of every other page header, and the
+Spark page stacks a second icon-tile header under it.
+
+**Files.** `(jobs)/jobs/layout.tsx`, `jobs/components/jobs-tabs.tsx`,
+`jobs/spark/spark-content.tsx`, the jobs `loading.tsx` files.
+
+**Steps.** Header row `px-page py-3`, title `text-xl font-semibold` like
+`PageHeader`; tabs `h-9` container, `h-7 px-3 text-[13px]` triggers, `h-3.5` icons,
+count as plain muted tabular text instead of a Badge. Spark's inner header drops
+the gradient icon tile and becomes one compact line.
+
+**Done when.** The jobs header is at most 64px tall at 1440px, the tabs 36px.
+
+## UI-12 Jobs pages load with skeletons, not a centred loader
+- [x] Status: done 2026-09-24, verified in the browser against Done when (notes at the end).
+
+**Why.** Browse All and eight other jobs pages wrap their content in a
+`<Suspense>` whose fallback is a big `InlineLoader` in the middle of the page,
+against the loading rule (blocks get skeletons). `jobs/layout.tsx` does the same
+around every child.
+
+**Files.** `jobs/layout.tsx:68`, `jobs/{page,spark,saved,following,applications,browse,[slug]}/page.tsx`,
+`companies/page.tsx`, `companies/[slug]/page.tsx`, `companies/[slug]/mock/page.tsx`;
+their `loading.tsx` skeletons (reused as the fallbacks); `browse/loading.tsx` rebuilt to match the sticky toolbar.
+
+**Done when.** No `InlineLoader size="lg"` remains as a Suspense fallback under `app/(jobs)`,
+and Browse All's skeleton matches its toolbar and rows (no reflow when it lands).
+
+## UI-13 The application cards
+- [x] Status: done 2026-09-24, verified in the browser against Done when (notes at the end).
+
+**Why.** Each application card is ~290px tall for four facts: a 56px tile, a
+`text-lg` title, a base-size company, and two full buttons.
+
+**Files.** `jobs/applications/applications-content.tsx` (list card, timeline card), `applications/loading.tsx`.
+
+**Steps.** Row card `p-4`, 40px tile, `text-[15px]` title, `text-sm` company, meta
+`text-xs`; actions become compact `sm` buttons on the right of the meta row; page
+root `px-page py-5` inside the frame (UI-10). Fix the logo tile's missing `relative`.
+
+**Done when.** An application card without an interview box is at most 120px tall,
+and the page's padding matches its skeleton.
+
+## UI-14 The AI rail opens on the jobs pages
+- [x] Status: done 2026-09-24, verified in the browser against Done when (notes at the end).
+
+**Why.** "ShipItHQ AI" in the sidebar flips the store on /jobs but nothing renders:
+`AIPanel` is only mounted by `main-shell.tsx`.
+
+**Files.** a new `components/ai/ai-rail.tsx` (the docked rail, resize handle and
+mobile Sheet, moved out of `main-shell.tsx`), `main-shell.tsx`, `(jobs)/_components/jobs-shell.tsx`.
+
+**Steps.** Move the rail into `AiRail`; both shells render it beside the page, and
+it unpins the sidebar while docked as it does in the main shell.
+
+**Done when.** On /jobs, the sidebar's ShipItHQ AI button opens the docked rail,
+it resizes and closes, and /home behaves exactly as before.
+
+**Verified 2026-09-24 (UI-10 to UI-14), 1440x900, headless.**
+- UI-10: unpinned, /home, /ai, /mock, /pathfinder, /jobs, /jobs/applications and /jobs/saved measure 1280px starting at x=80 (80px each side); pinned, each fills the 1200px column; /practice 1200px pinned. /projects and /knowme showed the test user's onboarding, which is not framed; their overview roots carry the same class. /ai was rebuilt as an overview (hero card, StatBand and chart, tools, steps, prices) at the /home type scale, with a new matching skeleton. The jobs header's contents sit in the frame too, so "Jobs" lines up with the page under it.
+- UI-11: jobs header 60px (was ~100px), tab strip 36px; the Spark page's second header is one line.
+- UI-12: all 13 jobs/companies Suspense fallbacks render the route's own loading.tsx; the jobs layout's fallback is null; Spark has one shared deck skeleton sized like the real max-w-3xl deck, also used for "loading more"; Browse's skeleton matches its toolbar and JobCard.
+- UI-13: every application row measured 115px (no interview box); actions share the meta row. Test data came from the new preview-first `pnpm script seed-applications --email=<email> [--apply]` (8 rows for e2e-projects@shipithq.dev, re-check clean).
+- UI-14: on /jobs/browse the sidebar's ShipItHQ AI button opened the docked rail (380px) beside the page, which narrowed; /home's rail is the same component.
+
+## UI-15 The application filter tabs match the jobs tabs
+- [x] Status: done 2026-09-25, verified (notes below). Asked for in the UI pass, missed in UI-13.
+
+**Why.** "The tabs are too bad" on My applications: All (8) / Active (5) / Offers (1) /
+Closed (2) and the list/timeline toggle are a second pill strip with their own sizes,
+right under the jobs tabs they should echo.
+
+**Files.** `jobs/applications/applications-content.tsx` (TabsList, view toggle), `applications/loading.tsx`.
+
+**Steps.** The same geometry as `jobs-tabs.tsx`: a `h-9` track with `p-1`, `h-7 px-3 text-[13px]`
+triggers, the count as a muted tabular number instead of "(8)"; the view toggle becomes the
+same track with two `h-7 w-7` icon buttons. Skeleton widths follow.
+
+**Done when.** The filter track and the toggle are 36px tall, no label contains parentheses,
+and the skeleton's header row matches within 2px.
+
+## UI-16 The /projects and /knowme overviews, seen for real
+- [ ] Status: /projects done 2026-09-25; /knowme blocked locally (notes below).
+
+**Why.** UI-10 framed both, but the test account only ever reached their onboarding.
+
+**Steps.** Get a test account past both onboardings (complete the flows in the browser as
+the e2e user, or use a second e2e user that has), then measure the frame pinned and
+unpinned and compare each page to its skeleton.
+
+**Done when.** Both overviews measure 1280px centred unpinned and fill the column pinned,
+and neither reflows when the skeleton is replaced.
+
+## UI-17 The changed pages at phone and tablet width
+- [x] Status: done 2026-09-25, verified (notes below).
+
+**Why.** Every UI-10 to UI-15 check was at 1440px.
+
+**Steps.** Screenshot /home, /ai, /mock, /practice, /jobs, /jobs/browse,
+/jobs/applications and /jobs/saved at 390x844 and 768x1024; fix anything that overflows,
+clips or wraps badly.
+
+**Done when.** No horizontal page scroll at either width (scrollWidth equals clientWidth on
+the page's scroller), and no button, tab or header text is clipped.
+
+**Verified 2026-09-25 (UI-15 to UI-17).**
+- UI-15: the filter strip is the shared `TabsList variant="segmented" fit` (it was the bordered card variant overridden down); strip 294x36, view toggle 70x36, labels "All 8", "Active 5", "Offers 1", "Closed 2"; skeleton widths set to the same 294 and 70px; checked light and dark.
+- UI-16 /projects: the e2e user completed the real onboarding in the browser (9 questions, inline model, no worker); the overview renders in the frame. /knowme: setup reaches its last step and fails with "Failed to generate embeddings" because local `next dev` has no Vectorize binding and `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` are not in apps/main/.env (the REST fallback). Environment, not code; production has the binding. The e2e user's KnowMe profile is left in SETUP.
+- UI-17: at 390x844 and 768x1024, /home, /ai, /mock, /practice, /projects, /jobs, /jobs/browse, /jobs/applications and /jobs/saved have no horizontal scroll on the page scroller. Two fixes: JobCard's title wrapper lacked `min-w-0`, so long titles ran past the card at 390px (it now stacks the match badge under a two-line title on phones, 44px logo); the Spark deck's fanned cards scrolled the page sideways by 44px (390) and 28px (768), now `max-lg:overflow-x-clip` on the page (not on lg+, where it would cut a swiped card at the frame's edge). The horizontally scrolling StatBand strips at 390 are by design.

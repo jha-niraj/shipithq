@@ -1,28 +1,9 @@
 "use server"
 
 import { db, companyMembers, jobs, jobApplications } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, inArray } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
-
-// ============================================
-// HELPERS
-// ============================================
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) {
-        return null
-    }
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    return member
-}
 
 // ============================================
 // CANDIDATE STATUS MANAGEMENT
@@ -35,10 +16,9 @@ export async function updateCandidateStatus(
     notes?: string
 ) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("invite_decline")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Verify this application belongs to our company
         const companyJobIds = await db
@@ -82,10 +62,9 @@ export async function updateCandidateStatus(
 // Add note to candidate
 export async function addCandidateNote(applicationId: string, note: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Verify this application belongs to our company
         const companyJobIds = await db
@@ -129,10 +108,9 @@ export async function addCandidateNote(applicationId: string, note: string) {
 // Reject candidate with mandatory feedback
 export async function rejectCandidate(applicationId: string, feedback: string, reason: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("invite_decline")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         if (!feedback || feedback.trim().length < 20) {
             return { success: false, error: "Feedback must be at least 20 characters" }

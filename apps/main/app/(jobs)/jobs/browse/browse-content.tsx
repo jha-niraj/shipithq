@@ -108,7 +108,7 @@ export function BrowseContent({ initialData, isAuthenticated }: BrowseContentPro
         // it reading as stacked. See JB-17.
         <div>
             <div
-                className="sticky z-10 px-4 pt-4 lg:px-6"
+                className="sticky z-10 px-page pt-4"
                 style={{ top: "var(--jobs-header-h, 96px)" }}
             >
             <div className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
@@ -161,7 +161,7 @@ export function BrowseContent({ initialData, isAuthenticated }: BrowseContentPro
             </div>
             </div>
 
-            <div className="p-4 pt-5 lg:p-6">
+            <div className="px-page pt-5 pb-6">
             <AnimatePresence mode="popLayout">
                 {jobs.length > 0 ? (
                     <div className="space-y-4">
@@ -193,7 +193,7 @@ export function BrowseContent({ initialData, isAuthenticated }: BrowseContentPro
                 and respects its width. It is the last child of the scrolling
                 content, so it pins while the list moves behind it. See JB-13. */}
             {jobs.length > 0 && (
-                <div className="sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t border-neutral-200 bg-white px-4 py-3 lg:px-6 dark:border-neutral-800 dark:bg-neutral-950">
+                <div className="sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t border-neutral-200 bg-white px-page py-3 dark:border-neutral-800 dark:bg-neutral-950">
                     <p className="text-sm text-neutral-500 dark:text-neutral-400">
                         Showing <span className="font-medium text-neutral-900 tabular-nums dark:text-white">{jobs.length}</span> of {total} jobs
                     </p>

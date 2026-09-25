@@ -6,7 +6,7 @@ import { headers } from "next/headers"
 import { db, jobApplications, jobs, companies, interviewProcesses, interviewRounds, interviewPrepProgress } from "@repo/db"
 import { eq, and, asc } from "drizzle-orm"
 import { InterviewJourneyLayout } from "./components/interview-journey-layout"
-import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import Loading from "./loading"
 
 interface InterviewJourneyPageProps {
     params: Promise<{
@@ -164,11 +164,7 @@ export default async function InterviewJourneyPage({ params }: InterviewJourneyP
 
     return (
         <Suspense
-            fallback={
-                <div className="min-h-screen flex items-center justify-center">
-                    <InlineLoader size="lg" className="text-neutral-600 dark:text-neutral-400" />
-                </div>
-            }
+            fallback={<Loading />}
         >
             <InterviewJourneyLayout application={application} />
         </Suspense>

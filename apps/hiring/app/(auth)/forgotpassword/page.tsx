@@ -1,5 +1,6 @@
 "use client"
 
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { Button } from "@repo/ui/components/ui/button";
 import { Logo } from "@repo/ui/components/logo"
 import { AuthVisual } from "@repo/ui/components/auth-visual";
@@ -9,7 +10,7 @@ import React, { useState } from "react";
 import toast from "@repo/ui/components/ui/sonner";
 import { useRouter } from "next/navigation";
 import {
-    ArrowLeft, KeyRound, Loader2, Mail, ArrowRight
+    ArrowLeft, KeyRound, Mail, ArrowRight
 } from "lucide-react";
 import Link from "next/link";
 import { emailOtp } from "@repo/auth/client";
@@ -54,7 +55,7 @@ export default function ForgotPassword() {
     }
 
     return (
-        <div className="min-h-dvh w-full bg-white dark:bg-neutral-950 flex flex-col items-center justify-center relative p-4 mx-auto w-full max-w-7xl">
+        <div className="min-h-dvh w-full bg-white dark:bg-neutral-950 flex flex-col items-center justify-center relative p-4">
             <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
                 {/* Replaces the static 40px grid. The grid read as a form field
                     behind a card; a slow monochrome motif gives the panel depth
@@ -77,7 +78,7 @@ export default function ForgotPassword() {
                             <Logo className="h-[19px] w-[19px] text-white dark:text-black" />
                         </div>
                         <span className="text-lg font-bold tracking-tight text-neutral-900 dark:text-white">
-                            CODER&apos;Z <span className="text-neutral-500 font-mono font-normal">HIRING</span>
+                            ShipItHQ <span className="text-neutral-500 font-mono font-normal">HIRING</span>
                         </span>
                     </Link>
                 </div>
@@ -125,7 +126,7 @@ export default function ForgotPassword() {
                             {
                                 sending ? (
                                     <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        <InlineLoader size="sm" className="mr-2" />
                                         Sending...
                                     </>
                                 ) : (

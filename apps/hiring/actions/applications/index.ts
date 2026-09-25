@@ -1,9 +1,8 @@
 "use server"
 
 import { db, companyMembers, jobs, jobApplications, users } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, desc, inArray, gte, lte, isNotNull, isNull, count } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import type {
     ApplicationStatus
@@ -139,21 +138,6 @@ export interface ApplicationFilters {
 }
 
 // ============================================
-// HELPERS
-// ============================================
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) return null
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-    return member
-}
-
-// ============================================
 // GET APPLICATION STATS
 // ============================================
 
@@ -163,8 +147,9 @@ export async function getApplicationStats(): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobIds = await db
             .select({ id: jobs.id })
@@ -239,8 +224,9 @@ export async function getJobApplicationStats(): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const jobList = await db.query.jobs.findMany({
             where: eq(jobs.companyId, member.companyId),
@@ -292,8 +278,9 @@ export async function getApplications(
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Get company job IDs
         const companyJobsQuery = db
@@ -426,8 +413,9 @@ export async function getApplicationDetail(applicationId: string): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Get company job IDs first
         const companyJobIds = await db
@@ -552,8 +540,9 @@ export async function updateApplicationStatus(
     hrNotes?: string
 ): Promise<{ success: boolean; error?: string }> {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("invite_decline")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobIds = await db
             .select({ id: jobs.id })
@@ -598,6 +587,8 @@ export async function rejectApplication(
     applicationId: string,
     rejectionReason: string
 ): Promise<{ success: boolean; error?: string }> {
+    const auth = await requirePermission("invite_decline")
+    if (!auth.ok) return { success: false, error: auth.error }
     return updateApplicationStatus(applicationId, "REJECTED", rejectionReason)
 }
 
@@ -609,6 +600,8 @@ export async function shortlistApplication(
     applicationId: string,
     notes?: string
 ): Promise<{ success: boolean; error?: string }> {
+    const auth = await requirePermission("invite_decline")
+    if (!auth.ok) return { success: false, error: auth.error }
     return updateApplicationStatus(applicationId, "SHORTLISTED", undefined, notes)
 }
 
@@ -622,8 +615,9 @@ export async function scheduleInterview(
     notes?: string
 ): Promise<{ success: boolean; interviewLink?: string; error?: string }> {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("invite_decline")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobIds = await db
             .select({ id: jobs.id })
@@ -674,8 +668,9 @@ export async function addApplicationNote(
     note: string
 ): Promise<{ success: boolean; error?: string }> {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobIds = await db
             .select({ id: jobs.id })
@@ -730,8 +725,9 @@ export async function getJobBySlug(slug: string): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const job = await db.query.jobs.findFirst({
             where: and(eq(jobs.slug, slug), eq(jobs.companyId, member.companyId)),
@@ -757,6 +753,9 @@ export async function makeMessageProfessional(
     message: string
 ): Promise<{ success: boolean; data?: string; error?: string }> {
     try {
+        const auth = await requirePermission("use_ai")
+        if (!auth.ok) return { success: false, error: auth.error }
+
         // For now, return a formatted version
         // TODO: Integrate with OpenAI
         const professional = `Dear Applicant,

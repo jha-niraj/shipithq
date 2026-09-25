@@ -30,6 +30,7 @@ import toast from "@repo/ui/components/ui/sonner"
 import Image from "next/image"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { cn } from "@repo/ui/lib/utils"
 
 interface Application {
     id: string
@@ -239,13 +240,13 @@ export function ApplicationsContent({ applications: initialApplications }: Appli
     }
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
+        <div className="page-frame min-h-full px-page py-5">
             {/* One header row: title on the left, the status filter and the view
                 toggle on the right. It used to be four stacked rows - back arrow,
                 icon + 3xl title, subtitle, then a full-width four-tab strip - which
                 is five rows of chrome before the first application. Niraj,
                 2026-08-29. */}
-            <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-center gap-2">
                     <Button
                         variant="ghost"
@@ -257,7 +258,7 @@ export function ApplicationsContent({ applications: initialApplications }: Appli
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <div className="min-w-0">
-                        <h1 className="truncate text-xl font-bold text-neutral-900 dark:text-white">
+                        <h1 className="truncate text-lg font-semibold text-neutral-900 dark:text-white">
                             My applications
                         </h1>
                         <p className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -267,56 +268,41 @@ export function ApplicationsContent({ applications: initialApplications }: Appli
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                    {/* The shared segmented control (plan/ui-pass UI-15), not the bordered
+                        card variant squeezed down with overrides; counts are muted numbers. */}
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsList className="h-9 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-800">
-                            <TabsTrigger value="all" className="h-7 flex-none rounded-lg px-3 text-xs">
-                                All ({applications.length})
-                            </TabsTrigger>
-                            <TabsTrigger value="active" className="h-7 flex-none rounded-lg px-3 text-xs">
-                                Active ({activeCount})
-                            </TabsTrigger>
-                            <TabsTrigger value="offers" className="h-7 flex-none rounded-lg px-3 text-xs">
-                                Offers ({offersCount})
-                            </TabsTrigger>
-                            <TabsTrigger value="closed" className="h-7 flex-none rounded-lg px-3 text-xs">
-                                Closed ({closedCount})
-                            </TabsTrigger>
+                        <TabsList variant="segmented" fit>
+                            {([
+                                ["all", "All", applications.length],
+                                ["active", "Active", activeCount],
+                                ["offers", "Offers", offersCount],
+                                ["closed", "Closed", closedCount],
+                            ] as const).map(([value, label, count]) => (
+                                <TabsTrigger key={value} value={value}>
+                                    {label} <span className="ml-0.5 tabular-nums text-neutral-400 dark:text-neutral-500">{count}</span>
+                                </TabsTrigger>
+                            ))}
                         </TabsList>
                     </Tabs>
 
-                    {/* These two DO work - they swap the list for a dated timeline.
-                        With zero applications both views rendered the same empty
-                        state, so there was nothing to tell them apart, and neither
-                        button said what it was. They are labelled now. */}
-                    <div className="flex items-center gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-800">
-                        <Button
-                            variant={viewMode === "list" ? "secondary" : "ghost"}
-                            size="icon"
-                            className="h-7 w-7 rounded-lg"
-                            onClick={() => setViewMode("list")}
-                            aria-label="List view"
-                            aria-pressed={viewMode === "list"}
-                            title="List view"
-                        >
-                            <LayoutList className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant={viewMode === "timeline" ? "secondary" : "ghost"}
-                            size="icon"
-                            className="h-7 w-7 rounded-lg"
-                            onClick={() => setViewMode("timeline")}
-                            aria-label="Timeline view"
-                            aria-pressed={viewMode === "timeline"}
-                            title="Timeline view"
-                        >
-                            <History className="h-4 w-4" />
-                        </Button>
-                    </div>
+                    {/* These two DO work - they swap the list for a dated timeline. The shared
+                        segmented control with icon-only triggers (plan/ui-pass UI-2); it was a
+                        second strip hand-built to look like the one beside it. */}
+                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as typeof viewMode)}>
+                        <TabsList variant="segmented" fit aria-label="View">
+                            <TabsTrigger value="list" icon={<LayoutList />} title="List view">
+                                <span className="sr-only">List view</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="timeline" icon={<History />} title="Timeline view">
+                                <span className="sr-only">Timeline view</span>
+                            </TabsTrigger>
+                        </TabsList>
+                    </Tabs>
                 </div>
             </div>
             <StatBand
                 cols={4}
-                className="mb-6"
+                className="mb-4"
                 items={[
                     { icon: Briefcase, label: "Total", value: applications.length },
                     { icon: TrendingUp, label: "Active", value: activeCount },
@@ -328,7 +314,9 @@ export function ApplicationsContent({ applications: initialApplications }: Appli
                 {
                     filteredApplications.length > 0 ? (
                         viewMode === "list" ? (
-                            <div className="space-y-4">
+                            // Compact rows (plan/ui-pass UI-13): four facts and two actions
+                            // were a ~290px card; the actions now share the meta row.
+                            <div className="space-y-2.5">
                                 {
                                     filteredApplications.map((application, index) => (
                                         <motion.div
@@ -337,11 +325,11 @@ export function ApplicationsContent({ applications: initialApplications }: Appli
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.95 }}
                                             transition={{ delay: index * 0.03 }}
-                                            className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 hover:shadow-lg hover:border-neutral-300 dark:hover:border-neutral-700 transition-all"
+                                            className="rounded-2xl border border-neutral-200 bg-white p-4 transition-colors hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
                                         >
-                                            <div className="flex items-start gap-4">
+                                            <div className="flex items-start gap-3">
                                                 <Link href={`/jobs/${application.job.slug}`}>
-                                                    <div className="w-14 h-14 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0">
+                                                    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800">
                                                         {
                                                             application.job.company.logoUrl ? (
                                                                 <Image
@@ -351,29 +339,29 @@ export function ApplicationsContent({ applications: initialApplications }: Appli
                                                                     fill
                                                                 />
                                                             ) : (
-                                                                <Building2 className="w-7 h-7 text-neutral-600 dark:text-neutral-400" />
+                                                                <Building2 className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
                                                             )
                                                         }
                                                     </div>
                                                 </Link>
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex items-start justify-between gap-4 mb-2">
-                                                        <div className="flex-1">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0 flex-1">
                                                             <Link href={`/jobs/${application.job.slug}`}>
-                                                                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white hover:text-neutral-800 dark:hover:text-neutral-100 transition-colors">
+                                                                <h3 className="truncate text-[15px] font-semibold leading-snug text-neutral-900 transition-colors hover:text-neutral-700 dark:text-white dark:hover:text-neutral-200">
                                                                     {application.job.title}
                                                                 </h3>
                                                             </Link>
                                                             <Link href={`/companies/${application.job.company.slug}`}>
-                                                                <p className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-white transition-colors">
+                                                                <p className="truncate text-sm text-neutral-600 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
                                                                     {application.job.company.name}
                                                                 </p>
                                                             </Link>
                                                         </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Badge className={statusColors[application.status]}>
+                                                        <div className="flex shrink-0 items-center gap-1">
+                                                            <Badge className={cn(statusColors[application.status], "text-xs")}>
                                                                 {getStatusIcon(application.status)}
-                                                                <span className="ml-1.5">{statusLabels[application.status]}</span>
+                                                                <span className="ml-1">{statusLabels[application.status]}</span>
                                                             </Badge>
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
@@ -417,139 +405,142 @@ export function ApplicationsContent({ applications: initialApplications }: Appli
                                                             </DropdownMenu>
                                                         </div>
                                                     </div>
-                                                    <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500 dark:text-neutral-400 mb-4">
-                                                        <div className="flex items-center gap-1">
-                                                            <MapPin className="w-4 h-4" />
-                                                            <span>{application.job.location || locationTypeLabels[application.job.locationType]}</span>
-                                                        </div>
-                                                        {
-                                                            application.appliedAt && (
-                                                                <div className="flex items-center gap-1">
-                                                                    <Calendar className="w-4 h-4" />
-                                                                    <span>Applied {formatDate(application.appliedAt)}</span>
-                                                                </div>
-                                                            )
-                                                        }
-                                                        <div className="flex items-center gap-1">
-                                                            <Clock className="w-4 h-4" />
-                                                            <span>Updated {formatRelativeDate(application.updatedAt)}</span>
-                                                        </div>
-                                                    </div>
-
-                                                    {
-                                                        application.job.interviewProcess && (
-                                                            <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800 mb-4">
-                                                                <div className="flex items-center justify-between mb-3">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <CheckCircle2 className="w-4 h-4 text-neutral-900 dark:text-neutral-100" />
-                                                                        <span className="text-sm font-medium text-neutral-900 dark:text-white">
-                                                                            {application.job.interviewProcess.rounds.length} Interview Rounds
-                                                                        </span>
+                                                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400">
+                                                            <div className="flex items-center gap-1">
+                                                                <MapPin className="h-3.5 w-3.5" />
+                                                                <span>{application.job.location || locationTypeLabels[application.job.locationType]}</span>
+                                                            </div>
+                                                            {
+                                                                application.appliedAt && (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <Calendar className="h-3.5 w-3.5" />
+                                                                        <span>Applied {formatDate(application.appliedAt)}</span>
                                                                     </div>
+                                                                )
+                                                            }
+                                                            <div className="flex items-center gap-1">
+                                                                <Clock className="h-3.5 w-3.5" />
+                                                                <span>Updated {formatRelativeDate(application.updatedAt)}</span>
+                                                            </div>
+                                                        </div>
+                                                        {/* Up to 3 full-text buttons here (~420-460px) with no wrap
+                                                            overflowed a 328px phone card. See
+                                                            docs/responsiveness.md section 4. */}
+                                                        <div className="flex flex-wrap items-center gap-1.5">
+                                                            {/* Interview Journey button for shortlisted/interviewing statuses */}
+                                                            {
+                                                                ["SHORTLISTED", "ASSIGNMENT_SENT", "ASSIGNMENT_SUBMITTED", "INTERVIEW_SCHEDULED", "INTERVIEWED", "OFFER_EXTENDED", "HIRED"].includes(application.status) && (
+                                                                    <Button size="sm" className="h-8 gap-1.5 rounded-lg bg-neutral-800 text-xs text-white hover:bg-neutral-700" asChild><Link href={`/jobs/applications/${application.id}/interview`}>
+                                                                        <Play className="h-3.5 w-3.5" />
+                                                                        Interview Journey
+                                                                    </Link></Button>
+                                                                )
+                                                            }
+                                                            {
+                                                                ["INTERESTED", "PREPARING"].includes(application.status) && application.job.interviewProcess && (
+                                                                    <Button size="sm" className="h-8 gap-1.5 rounded-lg bg-neutral-900 text-xs text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200" asChild><Link href={`/companies/${application.job.company.slug}/mock`}>
+                                                                        <Mic className="h-3.5 w-3.5" />
+                                                                        Practice Interview
+                                                                    </Link></Button>
+                                                                )
+                                                            }
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-8 gap-1.5 rounded-lg text-xs"
+                                                                onClick={() => openApplicationDetails(application)}
+                                                            >
+                                                                <Eye className="h-3.5 w-3.5" />
+                                                                Timeline
+                                                            </Button>
+                                                            <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg text-xs">
+                                                                <Link href={`/jobs/${application.job.slug}`}>
+                                                                    View job
+                                                                    <ExternalLink className="h-3.5 w-3.5" />
+                                                                </Link>
+                                                            </Button>
+                                                        </div>
+
+                                                        {
+                                                            application.job.interviewProcess && (
+                                                                <div className="mt-3 rounded-xl bg-neutral-50 p-3 dark:bg-neutral-800">
+                                                                    <div className="flex items-center justify-between mb-3">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <CheckCircle2 className="w-4 h-4 text-neutral-900 dark:text-neutral-100" />
+                                                                            <span className="text-sm font-medium text-neutral-900 dark:text-white">
+                                                                                {application.job.interviewProcess.rounds.length} Interview Rounds
+                                                                            </span>
+                                                                        </div>
+                                                                        {
+                                                                            application.prepProgress && (
+                                                                                <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                                                                                    {application.prepProgress.readinessScore}% ready
+                                                                                </span>
+                                                                            )
+                                                                        }
+                                                                    </div>
+
                                                                     {
                                                                         application.prepProgress && (
-                                                                            <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                                                                                {application.prepProgress.readinessScore}% ready
-                                                                            </span>
+                                                                            <Progress
+                                                                                value={application.prepProgress.overallReadinessScore || application.prepProgress.readinessScore || 0}
+                                                                                className="h-2 mb-3"
+                                                                            />
                                                                         )
                                                                     }
-                                                                </div>
 
-                                                                {
-                                                                    application.prepProgress && (
-                                                                        <Progress
-                                                                            value={application.prepProgress.overallReadinessScore || application.prepProgress.readinessScore || 0}
-                                                                            className="h-2 mb-3"
-                                                                        />
-                                                                    )
-                                                                }
-
-                                                                <div className="flex flex-wrap gap-2">
-                                                                    {
-                                                                        application.job.interviewProcess.rounds.slice(0, 4).map((round) => {
-                                                                            const roundsCompleted = application.prepProgress?.roundsCompleted
-                                                                            const isCompleted = Array.isArray(roundsCompleted)
-                                                                                ? roundsCompleted.includes(round.roundNumber)
-                                                                                : (typeof roundsCompleted === 'number' && roundsCompleted >= round.roundNumber)
-                                                                            return (
-                                                                                <div
-                                                                                    key={round.id}
-                                                                                    className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg ${isCompleted
-                                                                                        ? "bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100"
-                                                                                        : "bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400"
-                                                                                        }`}
-                                                                                >
-                                                                                    {isCompleted && <CheckCircle2 className="w-3 h-3" />}
-                                                                                    <span>R{round.roundNumber}: {round.title}</span>
-                                                                                    {
-                                                                                        round.hasMockInterview && !isCompleted && (
-                                                                                            <Mic className="w-3 h-3 text-neutral-900 dark:text-neutral-100" />
-                                                                                        )
-                                                                                    }
-                                                                                </div>
+                                                                    <div className="flex flex-wrap gap-2">
+                                                                        {
+                                                                            application.job.interviewProcess.rounds.slice(0, 4).map((round) => {
+                                                                                const roundsCompleted = application.prepProgress?.roundsCompleted
+                                                                                const isCompleted = Array.isArray(roundsCompleted)
+                                                                                    ? roundsCompleted.includes(round.roundNumber)
+                                                                                    : (typeof roundsCompleted === 'number' && roundsCompleted >= round.roundNumber)
+                                                                                return (
+                                                                                    <div
+                                                                                        key={round.id}
+                                                                                        className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg ${isCompleted
+                                                                                            ? "bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100"
+                                                                                            : "bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400"
+                                                                                            }`}
+                                                                                    >
+                                                                                        {isCompleted && <CheckCircle2 className="w-3 h-3" />}
+                                                                                        <span>R{round.roundNumber}: {round.title}</span>
+                                                                                        {
+                                                                                            round.hasMockInterview && !isCompleted && (
+                                                                                                <Mic className="w-3 h-3 text-neutral-900 dark:text-neutral-100" />
+                                                                                            )
+                                                                                        }
+                                                                                    </div>
+                                                                                )
+                                                                            })
+                                                                        }
+                                                                        {
+                                                                            application.job.interviewProcess.rounds.length > 4 && (
+                                                                                <span className="text-xs text-neutral-500 dark:text-neutral-400 px-2 py-1">
+                                                                                    +{application.job.interviewProcess.rounds.length - 4} more
+                                                                                </span>
                                                                             )
-                                                                        })
-                                                                    }
-                                                                    {
-                                                                        application.job.interviewProcess.rounds.length > 4 && (
-                                                                            <span className="text-xs text-neutral-500 dark:text-neutral-400 px-2 py-1">
-                                                                                +{application.job.interviewProcess.rounds.length - 4} more
-                                                                            </span>
-                                                                        )
-                                                                    }
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    }
-                                                    {
-                                                        application.feedback && (
-                                                            <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-100 dark:border-neutral-800 mb-4">
-                                                                <div className="flex items-start gap-2">
-                                                                    <Bell className="w-4 h-4 text-neutral-900 dark:text-neutral-100 mt-0.5" />
-                                                                    <div>
-                                                                        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-100">Recruiter Feedback</span>
-                                                                        <p className="text-sm text-neutral-800 dark:text-neutral-100 mt-1">{application.feedback}</p>
+                                                                        }
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        )
-                                                    }
+                                                            )
+                                                        }
+                                                        {
+                                                            application.feedback && (
+                                                                <div className="mt-3 rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-800/20">
+                                                                    <div className="flex items-start gap-2">
+                                                                        <Bell className="w-4 h-4 text-neutral-900 dark:text-neutral-100 mt-0.5" />
+                                                                        <div>
+                                                                            <span className="text-sm font-medium text-neutral-700 dark:text-neutral-100">Recruiter Feedback</span>
+                                                                            <p className="text-sm text-neutral-800 dark:text-neutral-100 mt-1">{application.feedback}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )
+                                                        }
 
-                                                    {/* Up to 3 full-text buttons here (~420-460px) with no wrap
-                                                        overflowed a 328px phone card. See
-                                                        docs/responsiveness.md section 4. */}
-                                                    <div className="flex flex-wrap items-center gap-3">
-                                                        {/* Interview Journey button for shortlisted/interviewing statuses */}
-                                                        {
-                                                            ["SHORTLISTED", "ASSIGNMENT_SENT", "ASSIGNMENT_SUBMITTED", "INTERVIEW_SCHEDULED", "INTERVIEWED", "OFFER_EXTENDED", "HIRED"].includes(application.status) && (
-                                                                <Button className="rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white gap-2" asChild><Link href={`/jobs/applications/${application.id}/interview`}>
-                                                                    <Play className="w-4 h-4" />
-                                                                    Interview Journey
-                                                                </Link></Button>
-                                                            )
-                                                        }
-                                                        {
-                                                            ["INTERESTED", "PREPARING"].includes(application.status) && application.job.interviewProcess && (
-                                                                <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 gap-2" asChild><Link href={`/companies/${application.job.company.slug}/mock`}>
-                                                                    <Mic className="w-4 h-4" />
-                                                                    Practice Interview
-                                                                </Link></Button>
-                                                            )
-                                                        }
-                                                        <Button
-                                                            variant="outline"
-                                                            className="rounded-xl gap-1"
-                                                            onClick={() => openApplicationDetails(application)}
-                                                        >
-                                                            <Eye className="w-4 h-4" />
-                                                            View Timeline
-                                                        </Button>
-                                                        <Link href={`/jobs/${application.job.slug}`}>
-                                                            <Button variant="ghost" className="rounded-xl gap-1">
-                                                                View Job
-                                                                <ExternalLink className="w-4 h-4" />
-                                                            </Button>
-                                                        </Link>
                                                     </div>
                                                 </div>
                                             </div>
@@ -560,7 +551,7 @@ export function ApplicationsContent({ applications: initialApplications }: Appli
                         ) : (
                             <div className="relative">
                                 <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-900 dark:from-neutral-100 dark:via-neutral-100 dark:to-neutral-100" />
-                                <div className="space-y-6">
+                                <div className="space-y-3">
                                     {
                                         filteredApplications.map((application, index) => (
                                             <motion.div
@@ -579,9 +570,9 @@ export function ApplicationsContent({ applications: initialApplications }: Appli
                                                     }`}>
                                                     {getStatusIcon(application.status)}
                                                 </div>
-                                                <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 hover:shadow-lg transition-shadow">
-                                                    <div className="flex items-start gap-4">
-                                                        <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0">
+                                                <div className="rounded-2xl border border-neutral-200 bg-white p-4 transition-colors hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800">
                                                             {
                                                                 application.job.company.logoUrl ? (
                                                                     <Image
@@ -591,7 +582,7 @@ export function ApplicationsContent({ applications: initialApplications }: Appli
                                                                         fill
                                                                     />
                                                                 ) : (
-                                                                    <Building2 className="w-6 h-6 text-neutral-600 dark:text-neutral-400" />
+                                                                    <Building2 className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
                                                                 )
                                                             }
                                                         </div>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { handlePaymentWebhook } from "@/actions/billing/payment.action"
+import { handlePaymentWebhook } from "@/lib/payment-webhook"
 
 // DodoPayments Webhook Handler
 export async function POST(req: NextRequest) {

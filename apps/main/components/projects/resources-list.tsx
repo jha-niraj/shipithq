@@ -1,17 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import {
-    Card, CardContent, CardHeader, CardTitle
-} from '@repo/ui/components/ui/card'
 import { Button } from '@repo/ui/components/ui/button'
-import { Badge } from '@repo/ui/components/ui/badge'
-import {
-    Avatar, AvatarFallback, AvatarImage
-} from '@repo/ui/components/ui/avatar'
+import { Shimmer, ShimmerStyles } from '@repo/ui/components/skeleton-kit'
+import { cn } from '@repo/ui/lib/utils'
 import {
     Youtube, FileText, BookOpen, GraduationCap, MessageCircle, Wrench, Video, Newspaper,
-    Palette, Sparkles, Github, ExternalLink, ThumbsUp, Eye, Trash2, Shield
+    Palette, Sparkles, Github, ExternalLink, ThumbsUp, Eye, Trash2, ShieldCheck
 } from 'lucide-react'
 import {
     getProjectResources, toggleResourceHelpful, deleteProjectResource,
@@ -52,18 +47,28 @@ const RESOURCE_ICONS: Record<ResourceType, React.ComponentType<{ className?: str
     OTHER: FileText,
 }
 
-const RESOURCE_COLORS: Record<ResourceType, string> = {
-    YOUTUBE_VIDEO: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    VIDEO: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100',
-    DOCUMENTATION: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100',
-    BLOG_ARTICLE: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100',
-    COURSE: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100',
-    DISCORD_COMMUNITY: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100',
-    TOOL_RECOMMENDATION: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100',
-    DESIGN_MOCKUP: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
-    DESIGN_INSPIRATION: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100',
-    GITHUB_REPO: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
-    OTHER: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-900/30 dark:text-neutral-400',
+/** What a type is called in a row. */
+const TYPE_LABEL: Record<ResourceType, string> = {
+    YOUTUBE_VIDEO: 'YouTube',
+    VIDEO: 'Video',
+    DOCUMENTATION: 'Docs',
+    BLOG_ARTICLE: 'Article',
+    COURSE: 'Course',
+    DISCORD_COMMUNITY: 'Community',
+    TOOL_RECOMMENDATION: 'Tool',
+    DESIGN_MOCKUP: 'Mockup',
+    DESIGN_INSPIRATION: 'Inspiration',
+    GITHUB_REPO: 'GitHub',
+    OTHER: 'Link',
+}
+
+/** "nirajjha.com" from a link, or the link when it is not a URL. */
+function hostOf(link: string): string {
+    try {
+        return new URL(link).host.replace(/^www\./, '')
+    } catch {
+        return link
+    }
 }
 
 interface ResourcesListProps {
@@ -74,6 +79,8 @@ interface ResourcesListProps {
 
 interface ResourceItem {
     id: string
+    /** The project it was shared on: this one, or the original a copy reads from (PJ-21). */
+    projectId: string
     type: ResourceType
     title: string
     description?: string | null
@@ -95,12 +102,15 @@ export default function ResourcesList({ projectId, currentUserId, isCreator }: R
     const [resources, setResources] = useState<ResourceItem[]>([])
     const [filteredResources, setFilteredResources] = useState<ResourceItem[]>([])
     const [loading, setLoading] = useState(true)
+    // Why there is nothing to show, when it is not "there is nothing yet".
+    const [denied, setDenied] = useState<string | null>(null)
     const [selectedType, setSelectedType] = useState<string>('ALL')
     const [markedHelpful, setMarkedHelpful] = useState<Record<string, boolean>>({})
 
     const fetchResources = useCallback(async () => {
         setLoading(true)
         const result = await getProjectResources({ projectId })
+        setDenied(result.success ? null : (result.error || 'Resources could not be loaded.'))
         if (result.success && result.resources) {
             setResources(result.resources)
             setFilteredResources(result.resources)
@@ -191,13 +201,15 @@ export default function ResourcesList({ projectId, currentUserId, isCreator }: R
         void incrementResourceView(resource.id)
     }
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center py-12">
-                <InlineLoader size="lg" />
-            </div>
-        )
-    }
+    /*
+     * Rows, not cards (Niraj, 2026-09-24: "too big text"), monochrome - the red
+     * and pink type badges were off-palette - and a skeleton of rows while
+     * loading, never a loader where content will be (CLAUDE.md, loading).
+     */
+    if (loading) return <ResourcesSkeleton />
+    // Resources are for the project's owner and the people building it
+    // (lib/projects/access.ts); say so rather than claiming there are none.
+    if (denied) return <NotYours message="Resources show up here once this project is yours: enrol to get your own copy." />
 
     const typeCounts = resources.reduce((acc, r) => {
         acc[r.type] = (acc[r.type] || 0) + 1
@@ -205,143 +217,117 @@ export default function ResourcesList({ projectId, currentUserId, isCreator }: R
     }, {} as Record<string, number>)
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
                 {/* One dropdown, not eleven chips wrapping onto three lines (PJ-16 item 3). */}
                 <HoverSelect
                     ariaLabel="Filter resources by type"
                     value={selectedType}
                     onValueChange={setSelectedType}
-                    className="w-full sm:w-52"
+                    className="w-44"
                     options={RESOURCE_TYPES.map((type) => ({
                         ...type,
                         count: type.value === 'ALL' ? resources.length : (typeCounts[type.value] || 0),
                     }))}
                 />
-                {
-                    (currentUserId || isCreator) && (
-                        <AddResourceSheet projectId={projectId} />
-                    )
-                }
+                {(currentUserId || isCreator) && <AddResourceSheet projectId={projectId} />}
             </div>
-            {
-                filteredResources.length === 0 ? (
-                    <div className="text-center py-12">
-                        <FileText className="w-12 h-12 mx-auto text-neutral-600 dark:text-neutral-400 mb-4" />
-                        <p className="text-neutral-600 dark:text-neutral-400">
-                            {
-                                selectedType === 'ALL'
-                                    ? 'No resources added yet. Be the first to share!'
-                                    : `No ${RESOURCE_TYPES.find(t => t.value === selectedType)?.label} resources found`
-                            }
-                        </p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 gap-4">
-                        {
-                            filteredResources.map((resource) => {
-                                const Icon = RESOURCE_ICONS[resource.type as ResourceType]
-                                const colorClass = RESOURCE_COLORS[resource.type as ResourceType]
-                                const canDelete = currentUserId && (resource.userId === currentUserId || isCreator)
+            {filteredResources.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-10 text-center dark:border-neutral-700">
+                    <FileText className="mx-auto h-5 w-5 text-neutral-500" />
+                    <p className="mt-2 text-sm font-medium text-neutral-900 dark:text-white">
+                        {selectedType === 'ALL' ? 'No resources yet' : `No ${RESOURCE_TYPES.find(t => t.value === selectedType)?.label.toLowerCase()} yet`}
+                    </p>
+                    <p className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-400">Share a video, doc or article that helped you build this.</p>
+                </div>
+            ) : (
+                <ul className="divide-y divide-neutral-200 overflow-hidden rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+                    {filteredResources.map((resource) => {
+                        const Icon = RESOURCE_ICONS[resource.type as ResourceType] ?? FileText
+                        // As the server decides it: the author, or the creator of the project it
+                        // was shared ON - not the owner of a copy showing an original's resource.
+                        const canDelete = currentUserId && (resource.userId === currentUserId || (isCreator && resource.projectId === projectId))
+                        const busy = busyId === resource.id
+                        return (
+                            <li key={resource.id} className="group flex items-start gap-3 px-3.5 py-3 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-900/60">
+                                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                                    <Icon className="h-4 w-4" />
+                                </span>
+                                <button type="button" onClick={() => handleResourceClick(resource)} className="min-w-0 flex-1 cursor-pointer text-left">
+                                    <span className="flex items-center gap-1.5">
+                                        <span className="truncate text-sm font-medium text-neutral-900 group-hover:underline group-hover:underline-offset-4 dark:text-white">{resource.title}</span>
+                                        {resource.isOfficial && (
+                                            <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-neutral-600 dark:text-neutral-400" title="Added by the project's creator">
+                                                <ShieldCheck className="h-3 w-3" /> Official
+                                            </span>
+                                        )}
+                                        <ExternalLink className="h-3 w-3 shrink-0 text-neutral-400 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
+                                    </span>
+                                    {resource.description && (
+                                        <span className="mt-0.5 line-clamp-2 block text-xs text-neutral-700 dark:text-neutral-300">{resource.description}</span>
+                                    )}
+                                    <span className="mt-1 block truncate text-[11px] text-neutral-600 dark:text-neutral-400">
+                                        {TYPE_LABEL[resource.type as ResourceType] ?? 'Link'} · {hostOf(resource.link)} · {resource.user.username || resource.user.name || 'someone'} · {formatDistanceToNow(new Date(resource.createdAt), { addSuffix: true })}
+                                    </span>
+                                </button>
+                                <div className="flex shrink-0 items-center gap-0.5 text-xs text-neutral-600 dark:text-neutral-400">
+                                    <span className="inline-flex items-center gap-1 px-1.5" title="Views"><Eye className="h-3.5 w-3.5" />{resource.views}</span>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        disabled={busy}
+                                        aria-pressed={!!markedHelpful[resource.id]}
+                                        aria-label="Mark as helpful"
+                                        onClick={() => handleToggleHelpful(resource.id)}
+                                        className={cn('h-7 gap-1 px-1.5 text-xs', markedHelpful[resource.id] && 'text-neutral-900 dark:text-white')}
+                                    >
+                                        {busy ? <InlineLoader size="sm" /> : <ThumbsUp className={cn('h-3.5 w-3.5', markedHelpful[resource.id] && 'fill-current')} />}
+                                        {resource.helpfulCount}
+                                    </Button>
+                                    {canDelete && (
+                                        <Button variant="ghost" size="sm" disabled={busy} aria-label="Delete this resource" onClick={() => handleDelete(resource.id)} className="h-7 w-7 p-0">
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                    )}
+                                </div>
+                            </li>
+                        )
+                    })}
+                </ul>
+            )}
+        </div>
+    )
+}
 
-                                return (
-                                    <Card key={resource.id} className="hover:shadow-lg transition-shadow">
-                                        <CardHeader className="pb-3">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <Badge className={`${colorClass} gap-1`}>
-                                                            <Icon className="w-3 h-3" />
-                                                            {resource.type.replace(/_/g, ' ')}
-                                                        </Badge>
-                                                        {
-                                                            resource.isOfficial && (
-                                                                <Badge variant="outline" className="gap-1">
-                                                                    <Shield className="w-3 h-3" />
-                                                                    Official
-                                                                </Badge>
-                                                            )
-                                                        }
-                                                    </div>
-                                                    <CardTitle className="text-lg break-words">
-                                                        {resource.title}
-                                                    </CardTitle>
-                                                </div>
-                                                {
-                                                    canDelete && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            disabled={busyId === resource.id}
-                                                            aria-label="Delete this resource"
-                                                            onClick={() => handleDelete(resource.id)}
-                                                            className="flex-shrink-0"
-                                                        >
-                                                            {busyId === resource.id
-                                                                ? <InlineLoader size="sm" />
-                                                                : <Trash2 className="w-4 h-4" />}
-                                                        </Button>
-                                                    )
-                                                }
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                            {
-                                                resource.description && (
-                                                    <p className="text-sm text-neutral-700 dark:text-neutral-300">
-                                                        {resource.description}
-                                                    </p>
-                                                )
-                                            }
-                                            <Button
-                                                variant="outline"
-                                                className="w-full justify-between"
-                                                onClick={() => handleResourceClick(resource)}
-                                            >
-                                                <span className="truncate text-sm">{resource.link}</span>
-                                                <ExternalLink className="w-4 h-4 ml-2 flex-shrink-0" />
-                                            </Button>
-                                            <div className="flex items-center justify-between pt-2 border-t border-neutral-200 dark:border-neutral-800">
-                                                <div className="flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-400">
-                                                    <div className="flex items-center gap-1">
-                                                        <Avatar className="h-6 w-6">
-                                                            <AvatarImage src={resource.user.image || undefined} />
-                                                            <AvatarFallback>{resource.user.name?.[0]}</AvatarFallback>
-                                                        </Avatar>
-                                                        <span>{resource.user.username || resource.user.name}</span>
-                                                    </div>
-                                                    <span>•</span>
-                                                    <span>{formatDistanceToNow(new Date(resource.createdAt), { addSuffix: true })}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex items-center gap-1 text-sm text-neutral-600 dark:text-neutral-400">
-                                                        <Eye className="w-4 h-4" />
-                                                        <span>{resource.views}</span>
-                                                    </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        disabled={busyId === resource.id}
-                                                        onClick={() => handleToggleHelpful(resource.id)}
-                                                        className={markedHelpful[resource.id] ? 'text-neutral-800 dark:text-neutral-200' : ''}
-                                                    >
-                                                        {busyId === resource.id ? (
-                                                            <InlineLoader size="sm" />
-                                                        ) : (
-                                                            <ThumbsUp className={`w-4 h-4 ${markedHelpful[resource.id] ? 'fill-current' : ''}`} />
-                                                        )}
-                                                        <span className="ml-1">{resource.helpfulCount}</span>
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                )
-                            })
-                        }
+/* The shape of the list while it loads: the toolbar, then three rows. */
+function ResourcesSkeleton() {
+    return (
+        <div className="space-y-4" aria-busy aria-label="Loading resources">
+            <ShimmerStyles />
+            <div className="flex items-center justify-between">
+                <Shimmer className="h-9 w-44 rounded-lg" />
+                <Shimmer className="h-8 w-32 rounded-lg" delay={0.05} />
+            </div>
+            <div className="divide-y divide-neutral-200 rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+                {[0, 1, 2].map((i) => (
+                    <div key={i} className="flex items-start gap-3 px-3.5 py-3">
+                        <Shimmer className="h-8 w-8 rounded-lg" delay={i * 0.05} />
+                        <div className="min-w-0 flex-1 space-y-2">
+                            <Shimmer className="h-3.5 w-2/5" delay={i * 0.05 + 0.03} />
+                            <Shimmer className="h-2.5 w-3/5" delay={i * 0.05 + 0.06} />
+                        </div>
+                        <Shimmer className="h-5 w-20 rounded" delay={i * 0.05 + 0.08} />
                     </div>
-                )
-            }
+                ))}
+            </div>
+        </div>
+    )
+}
+
+export function NotYours({ message }: { message: string }) {
+    return (
+        <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-10 text-center dark:border-neutral-700">
+            <p className="text-sm text-neutral-700 dark:text-neutral-300">{message}</p>
         </div>
     )
 }

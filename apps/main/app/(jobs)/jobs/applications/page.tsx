@@ -4,7 +4,7 @@ import { getSession } from "@repo/auth"
 import { headers } from 'next/headers'
 import { getMyApplications } from "@/actions/jobs"
 import { ApplicationsContent } from "./applications-content"
-import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import Loading from "./loading"
 
 export const dynamic = "force-dynamic"
 
@@ -24,11 +24,7 @@ export default async function ApplicationsPage() {
 
     return (
         <Suspense 
-            fallback={
-                <div className="flex items-center justify-center py-20">
-                    <InlineLoader size="lg" className="text-neutral-600 dark:text-neutral-400" />
-                </div>
-            }
+            fallback={<Loading />}
         >
             <ApplicationsContent 
                 applications={applications} 

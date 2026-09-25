@@ -7,11 +7,13 @@ import { format } from "date-fns"
 import Link from "next/link"
 import {
     ArrowLeft, Search, Filter, MoreHorizontal, Calendar, FileText,
-    ExternalLink, ChevronLeft, ChevronRight, Loader2
+    ExternalLink, ChevronLeft, ChevronRight
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
+import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
     DropdownMenuTrigger
@@ -149,22 +151,18 @@ export function JobApplicationsContent({
     }
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            <div className="mb-8">
-                <Link href="/applications">
-                    <Button variant="ghost" size="sm" className="mb-4 -ml-2">
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Back to Applications
-                    </Button>
-                </Link>
-                <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                    {job.title}
-                </h1>
-                <p className="text-neutral-500 mt-1">
-                    {applications.total} application{applications.total !== 1 ? "s" : ""} total
-                </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="page-frame space-y-5 px-page py-6">
+            <Link href="/applications" className="inline-block">
+                <Button variant="ghost" size="sm" className="-ml-2">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Applications
+                </Button>
+            </Link>
+            <PageHeader
+                title={job.title}
+                subtitle={`${applications.total} application${applications.total !== 1 ? "s" : ""} total`}
+            />
+            <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <Input
@@ -204,8 +202,25 @@ export function JobApplicationsContent({
 
                 {
                     isPending ? (
-                        <div className="flex items-center justify-center py-20">
-                            <Loader2 className="w-6 h-6 animate-spin text-neutral-800" />
+                        <div className="divide-y divide-neutral-200 dark:divide-neutral-800" aria-busy="true">
+                            <ShimmerStyles />
+                            {
+                                Array.from({ length: 6 }).map((_, i) => (
+                                    <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-4">
+                                        <div className="md:col-span-4 flex items-center gap-3">
+                                            <Shimmer className="h-10 w-10 shrink-0 rounded-full" delay={i * 0.04} />
+                                            <div className="flex-1 space-y-1.5">
+                                                <Shimmer className="h-4 w-32" delay={i * 0.04} />
+                                                <Shimmer className="h-4 w-44" delay={i * 0.04} />
+                                            </div>
+                                        </div>
+                                        <div className="md:col-span-2 flex items-center"><Shimmer className="h-5 w-20 rounded-full" delay={i * 0.04} /></div>
+                                        <div className="md:col-span-2 flex items-center"><Shimmer className="h-4 w-24" delay={i * 0.04} /></div>
+                                        <div className="md:col-span-2 flex items-center"><Shimmer className="h-2 w-20 rounded-full" delay={i * 0.04} /></div>
+                                        <div className="md:col-span-2 flex items-center justify-end"><Shimmer className="h-8 w-8 rounded-md" delay={i * 0.04} /></div>
+                                    </div>
+                                ))
+                            }
                         </div>
                     ) : applications.applications.length > 0 ? (
                         <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -241,7 +256,7 @@ export function JobApplicationsContent({
 
             {
                 applications.totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-6">
+                    <div className="flex items-center justify-between">
                         <p className="text-sm text-neutral-500">
                             Showing {((applications.page - 1) * applications.pageSize) + 1} to{" "}
                             {Math.min(applications.page * applications.pageSize, applications.total)} of{" "}

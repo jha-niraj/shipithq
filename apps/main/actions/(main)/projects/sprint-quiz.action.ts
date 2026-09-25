@@ -4,7 +4,7 @@ import { getSession } from '@repo/auth'
 import { headers } from 'next/headers'
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import {
-    backgroundJobs, db, projectsV2, projectV2Sprints, projectV2SprintQuizAttempts, projectV2SprintQuizzes, projectV2Tasks, userTaskV2Statuses,
+    backgroundJobs, db, projectsV2, projectV2Sprints, projectV2SprintMockSessions, projectV2SprintQuizAttempts, projectV2SprintQuizzes, projectV2Tasks, userTaskV2Statuses,
 } from '@repo/db'
 import { toErrorMessage } from '@/lib/errors'
 import { priceOf } from '@/lib/credits/pricing'
@@ -297,6 +297,29 @@ export async function startFinalQuiz(projectId: string): Promise<Result<{ jobId:
             return { success: false, error: started.error ?? 'Could not start the quiz', requiredCredits: started.required ?? cost }
         }
         return { success: true, data: { jobId: started.jobId } }
+    } catch (error: unknown) {
+        return { success: false, error: toErrorMessage(error) }
+    }
+}
+
+/**
+ * The build sprints whose quiz you have taken, and whose mock interview you have
+ * finished (plan/project-workspace WS-23), so the rail's Sprint quiz and Sprint
+ * mock buttons can open the first one still to do.
+ */
+export async function getSprintGatesDone(projectId: string): Promise<Result<{ quiz: string[]; mock: string[] }>> {
+    try {
+        const session = await getSession(headers())
+        const userId = session?.user?.id
+        if (!userId) return { success: false, error: 'Please sign in' }
+        const [quiz, mock] = await Promise.all([
+            db.selectDistinct({ sprintId: projectV2SprintQuizzes.sprintId }).from(projectV2SprintQuizAttempts)
+                .innerJoin(projectV2SprintQuizzes, eq(projectV2SprintQuizzes.id, projectV2SprintQuizAttempts.quizId))
+                .where(and(eq(projectV2SprintQuizzes.projectId, projectId), eq(projectV2SprintQuizAttempts.userId, userId), sql`${projectV2SprintQuizzes.sprintId} is not null`)),
+            db.selectDistinct({ sprintId: projectV2SprintMockSessions.sprintId }).from(projectV2SprintMockSessions)
+                .where(and(eq(projectV2SprintMockSessions.projectId, projectId), eq(projectV2SprintMockSessions.userId, userId), eq(projectV2SprintMockSessions.status, 'ended'), sql`${projectV2SprintMockSessions.sprintId} is not null`)),
+        ])
+        return { success: true, data: { quiz: quiz.map((r) => r.sprintId!), mock: mock.map((r) => r.sprintId!) } }
     } catch (error: unknown) {
         return { success: false, error: toErrorMessage(error) }
     }

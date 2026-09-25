@@ -1,31 +1,12 @@
 "use server"
 
 import { db, companyMembers, jobs, jobApplications, users } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, desc, inArray } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import type { CandidateFilters } from "@/types"
 
 // Re-export for backwards compatibility
 export type { CandidateFilters } from "@/types"
-
-// ============================================
-// HELPERS
-// ============================================
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) {
-        return null
-    }
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    return member
-}
 
 // ============================================
 // CANDIDATE QUERIES
@@ -34,10 +15,9 @@ async function getUserCompany() {
 // Get all candidates (applicants) for the company
 export async function getCandidates(filters: CandidateFilters = {}) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Get company job IDs
         const companyJobsQuery = db
@@ -113,10 +93,9 @@ export async function getCandidates(filters: CandidateFilters = {}) {
 // Get single candidate details
 export async function getCandidateDetails(applicationId: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobIds = await db
             .select({ id: jobs.id })
@@ -166,10 +145,9 @@ export async function getCandidateDetails(applicationId: string) {
 // Get company's jobs for filter dropdown
 export async function getCompanyJobsForFilter() {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const jobList = await db
             .select({
@@ -192,10 +170,9 @@ export async function getCompanyJobsForFilter() {
 // Get candidate statistics
 export async function getCandidateStats() {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobIds = await db
             .select({ id: jobs.id })

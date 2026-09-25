@@ -1,27 +1,8 @@
 "use server"
 
 import { db, companyMembers, jobs, jobApplications } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, count, gte, inArray } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
-
-// ============================================
-// HELPERS
-// ============================================
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) {
-        return null
-    }
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    return member
-}
 
 // ============================================
 // JOB ANALYTICS
@@ -29,10 +10,9 @@ async function getUserCompany() {
 
 export async function getJobStats(jobId: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("view_analytics")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const job = await db.query.jobs.findFirst({
             where: and(eq(jobs.id, jobId), eq(jobs.companyId, member.companyId)),
@@ -78,10 +58,9 @@ export async function getJobStats(jobId: string) {
 
 export async function getJobsOverview() {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("view_analytics")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const allJobIds = await db
             .select({ id: jobs.id })
@@ -137,10 +116,9 @@ export async function getJobsOverview() {
 // Get overall job stats for the jobs page
 export async function getOverallJobStats() {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("view_analytics")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const jobList = await db
             .select({

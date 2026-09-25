@@ -1,8 +1,7 @@
-// Reuses the exact skeleton the client renders while its data resolves, so the
-// route transition and the loading state are pixel-identical and the page only
-// paints once.
-import { ProfileSkeleton } from "@/components/profile/profile-view-skeleton";
+// The exact skeleton the editor renders while its data resolves, so the route
+// transition and the client's own loading state are the same picture (PRF-14).
+import { ProfileEditorSkeleton } from "./_components/profile-editor/skeleton";
 
 export default function Loading() {
-    return <ProfileSkeleton />;
+    return <ProfileEditorSkeleton />;
 }

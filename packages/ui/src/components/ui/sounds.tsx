@@ -291,127 +291,15 @@ function play(patch: { play: (name: string, opts?: object) => unknown }, cue: Cu
   })
 }
 
-const TOGGLE_SLOTS = new Set([
-  'switch',
-  'checkbox',
-  'toggle',
-  'toggle-group-item',
-  'radio-group-item',
-  'context-menu-checkbox-item',
-  'context-menu-radio-item',
-  'dropdown-menu-checkbox-item',
-  'dropdown-menu-radio-item',
-  'menubar-checkbox-item',
-  'menubar-radio-item',
-])
-
-const INTERACTIVE =
-  '[data-slot], button, a[href], [role="button"], [role="option"], [role="menuitem"], input[type="checkbox"], input[type="radio"]'
-
-const TEXT_ENTRY =
-  'input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, [contenteditable]'
-
-function isOn(el: Element) {
-
-  if (el instanceof HTMLInputElement) return el.checked
-  return (
-    el.getAttribute('aria-checked') === 'true' ||
-    el.getAttribute('aria-pressed') === 'true' ||
-    el.getAttribute('data-checked') !== null
-  )
-}
-
-function classify(el: HTMLElement): Cue | null {
-  const slot = el.dataset.slot ?? ''
-
-  const named = el.dataset.sound
-  if (named && named in PATCH.sounds) return { sound: named as SoundName }
-
-  if (
-    TOGGLE_SLOTS.has(slot) ||
-    el.matches(
-
-      'input[type="checkbox"], input[type="radio"], [aria-pressed], [role="menuitemcheckbox"], [role="menuitemradio"]',
-    )
-  ) {
-
-    return { sound: isOn(el) ? 'toggleOff' : 'toggleOn' }
-  }
-
-  if (el.dataset.variant === 'destructive') return { sound: 'destructive' }
-  if (slot.endsWith('-close')) return { sound: 'close' }
-
-  if (slot.endsWith('-clear') || slot.endsWith('-remove')) return { sound: 'chirp' }
-  if (slot.endsWith('-trigger')) {
-
-    const expanded = el.getAttribute('aria-expanded')
-    if (expanded === null) return { sound: 'select' }
-    return { sound: expanded === 'true' ? 'close' : 'open' }
-  }
-  if (slot.endsWith('-item') || slot.endsWith('-link') || slot.endsWith('-option')) {
-    return { sound: 'select', detune: rowPitch(el) }
-  }
-  if (slot === 'slider-thumb' || slot === 'slider-track') return { sound: 'tick' }
-  if (slot === 'button' || el.matches('button, a[href], [role="button"]')) {
-
-    const soft = el.dataset.variant === 'ghost' || el.dataset.variant === 'link'
-    return { sound: 'tap', velocity: soft ? 0.78 : 1 }
-  }
-  return null
-}
-
-function rowPitch(el: HTMLElement) {
-  const siblings = el.parentElement?.children
-  if (!siblings) return 0
-  return Math.min([...siblings].indexOf(el), 7) * 55
-}
-
-function soundFor(target: Element, keyed = false): Cue | null {
-
-  if (target.closest('.command-overlay')) {
-
-    const pointed = keyed ? target.getAttribute('aria-activedescendant') : null
-    const row = pointed ? document.getElementById(pointed) : target.closest('.command-option')
-    if (!row) return null
-    return { sound: row.querySelector('.command-option-more') ? 'chirp' : 'command' }
-  }
-
-  const labeled = target.closest('label')?.control ?? target
-
-  if (labeled.closest(TEXT_ENTRY)) return null
-
-  let el = labeled.closest<HTMLElement>(INTERACTIVE)
-  while (el) {
-
-    if (el.matches(':disabled, [aria-disabled="true"], [data-disabled]')) {
-      return { sound: 'blocked' }
-    }
-    const cue = classify(el)
-    if (cue) return cue
-    el = el.parentElement?.closest<HTMLElement>(INTERACTIVE) ?? null
-  }
-  return null
-}
-
-function span(min: number, max: number, value: number) {
-  return max === min ? 0 : Math.min(1, Math.max(0, (value - min) / (max - min)))
-}
-
-function sliderRange(el: HTMLElement) {
-  if (el instanceof HTMLInputElement) {
-    return {
-      min: Number(el.min || 0),
-      max: Number(el.max || 100),
-      step: Math.abs(Number(el.step)) || 1,
-    }
-  }
-  const read = (name: string, fallback: number) => {
-    const value = Number(el.getAttribute(name))
-    return Number.isFinite(value) ? value : fallback
-  }
-  return { min: read('aria-valuemin', 0), max: read('aria-valuemax', 100), step: 1 }
-}
-
+/*
+ * Sounds are for OCCASIONAL moments only (Niraj, 2026-09-24: a click happens
+ * too often to deserve a sound). So nothing here listens to clicks, keys,
+ * toggles, menus or sliders any more. What plays:
+ *  - a toast that says done (success) or failed (error);
+ *  - the swoosh when sounds are turned back on;
+ *  - any element that asks for a sound explicitly, `data-sound="<name>"`, when
+ *    it is pressed - for the rare moment worth marking.
+ */
 function SoundEffectListener() {
   const patch = usePatch(PATCH)
   const muted = useSoundMuted()
@@ -426,176 +314,26 @@ function SoundEffectListener() {
   useEffect(() => {
     if (!patch.ready) return
 
-    const TICK_GAP_MS = 28
-
-    const TICK_LAG_MS = 60
-
-    const DRAG_SLOP_PX = 3
-
-    let grab: { x: number; y: number; dragged: boolean } | null = null
-    let nextTickAt = 0
-    const queued = new Set<ReturnType<typeof setTimeout>>()
-
-    const stopTicking = () => {
-      for (const timer of queued) clearTimeout(timer)
-      queued.clear()
-      nextTickAt = 0
-    }
-
-    const tick = (detune: number, now: number) => {
-      if (nextTickAt - now > TICK_LAG_MS) return false
-      const wait = nextTickAt - now
-      nextTickAt += TICK_GAP_MS
-
-      const cue = { sound: 'sliderTick', detune } as const
-      if (wait <= 0) {
-        play(patch, cue)
-        return true
-      }
-      const timer = setTimeout(() => {
-        queued.delete(timer)
-        play(patch, cue)
-      }, wait)
-      queued.add(timer)
-      return true
-    }
-
-    const ratchet = (el: HTMLElement, from: number, to: number) => {
-      const { min, max, step } = sliderRange(el)
-      const crossed = Math.round(Math.abs(to - from) / step)
-      if (!Number.isFinite(crossed) || crossed < 1) return
-
-      const now = performance.now()
-      nextTickAt = Math.max(nextTickAt, now)
-      const direction = Math.sign(to - from)
-
-      for (let i = 1; i <= crossed; i++) {
-
-        const value = from + direction * step * i
-        if (!tick(span(min, max, value) * 900, now)) break
-      }
-    }
-
-    const onPointerDown = (event: PointerEvent) => {
-
-      if (event.button !== 0 || !(event.target instanceof Element)) return
-      const cue = soundFor(event.target)
-      if (!cue) return
-      if (cue.sound === 'tick') grab = { x: event.clientX, y: event.clientY, dragged: false }
-      play(patch, cue)
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Enter' && event.key !== ' ') return
-      if (event.repeat || !(event.target instanceof Element)) return
-      const typing = event.target.matches(TEXT_ENTRY)
-
-      const driving = event.key === 'Enter' && event.target.closest('.command-overlay')
-      if (typing && !driving) return
-      const cue = soundFor(event.target, true)
-      if (cue) play(patch, cue)
-    }
-
-    const onPointerMove = (event: PointerEvent) => {
-      if (!grab || grab.dragged) return
-      if (Math.hypot(event.clientX - grab.x, event.clientY - grab.y) > DRAG_SLOP_PX)
-        grab.dragged = true
-    }
-
-    const onPointerUp = () => {
-      if (grab) stopTicking()
-      grab = null
-    }
-
-    const onContextMenu = () => play(patch, { sound: 'open' })
-
-    // Toasts: a chime when one says done, a low one on an error; the rest are silent.
     const onToast = (event: Event) => {
       const state = (event as CustomEvent<{ state?: string }>).detail?.state
       if (state === 'success') play(patch, { sound: 'success' })
       else if (state === 'error') play(patch, { sound: 'error' })
     }
 
-    const onInput = (event: Event) => {
-
-      if (!event.isTrusted) return
-      const el = event.target
-      if (!(el instanceof HTMLInputElement) || !el.closest('[data-slot="input-otp"]')) return
-
-      const deleting = (event as InputEvent).inputType?.startsWith('delete') ?? false
-      play(patch, { sound: 'key', detune: el.value.length * 45 - (deleting ? 260 : 0) })
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0 || !(event.target instanceof Element)) return
+      const el = event.target.closest<HTMLElement>('[data-sound]')
+      const named = el?.dataset.sound
+      if (!el || !named || !(named in PATCH.sounds)) return
+      if (el.matches(':disabled, [aria-disabled="true"], [data-disabled]')) return
+      play(patch, { sound: named as SoundName })
     }
 
-    const observer = new MutationObserver((records) => {
-      let slid = false
-
-      for (const record of records) {
-        const el = record.target
-        if (!(el instanceof HTMLElement)) continue
-        const value = el.getAttribute(record.attributeName ?? '')
-
-        const entered = value !== null && value !== 'false' && value !== record.oldValue
-
-        switch (record.attributeName) {
-          case 'aria-valuenow': {
-
-            if (slid || !el.matches('input[type="range"], [role="slider"]')) break
-
-            if (value === null || record.oldValue === null) break
-
-            if (grab && !grab.dragged) break
-            slid = true
-            if (grab) {
-              ratchet(el, Number(record.oldValue), Number(value))
-              break
-            }
-
-            const { min, max } = sliderRange(el)
-            const now = performance.now()
-            nextTickAt = Math.max(nextTickAt, now)
-            tick(span(min, max, Number(value)) * 900, now)
-            break
-          }
-          case 'data-success': {
-            if (entered) play(patch, { sound: 'success' })
-            break
-          }
-          case 'aria-invalid': {
-            if (entered) play(patch, { sound: 'error' })
-            break
-          }
-          default:
-            break
-        }
-      }
-    })
-
-    observer.observe(document.body, {
-      subtree: true,
-      attributes: true,
-      attributeOldValue: true,
-      attributeFilter: ['aria-valuenow', 'aria-invalid', 'data-success'],
-    })
-
-    document.addEventListener('pointerdown', onPointerDown, true)
-    document.addEventListener('pointermove', onPointerMove, true)
-    document.addEventListener('pointerup', onPointerUp, true)
-    document.addEventListener('pointercancel', onPointerUp, true)
-    document.addEventListener('keydown', onKeyDown, true)
-    document.addEventListener('contextmenu', onContextMenu, true)
-    document.addEventListener('input', onInput, true)
     window.addEventListener(TOAST_EVENT, onToast)
+    document.addEventListener('pointerdown', onPointerDown, true)
     return () => {
       window.removeEventListener(TOAST_EVENT, onToast)
-      observer.disconnect()
-      stopTicking()
       document.removeEventListener('pointerdown', onPointerDown, true)
-      document.removeEventListener('pointermove', onPointerMove, true)
-      document.removeEventListener('pointerup', onPointerUp, true)
-      document.removeEventListener('pointercancel', onPointerUp, true)
-      document.removeEventListener('keydown', onKeyDown, true)
-      document.removeEventListener('contextmenu', onContextMenu, true)
-      document.removeEventListener('input', onInput, true)
     }
   }, [patch])
 

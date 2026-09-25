@@ -70,13 +70,14 @@ export function ProjectCard({ project, showProgress = false }: ProjectCardProps)
         ? project.creator.name.charAt(0).toUpperCase()
         : project.creator?.username
             ? project.creator.username.charAt(0).toUpperCase()
-            : '?'
+            : 'S'
+    const hasCreator = !!(project.creator?.name || project.creator?.username || project.isPlatformSeeded)
 
     return (
-        <Card className="h-full flex flex-col bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden hover:border-neutral-400 dark:hover:border-neutral-600 hover:shadow-sm transition-all duration-200">
+        <Card className="h-full flex flex-col bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-0 gap-0 shadow-none overflow-hidden hover:border-neutral-400 dark:hover:border-neutral-600 hover:shadow-sm transition-all duration-200">
             {/* Top: tech stack tags */}
-            <CardHeader className="px-6 pt-6 pb-4">
-                <div className="flex flex-wrap gap-1.5 mb-4">
+            <CardHeader className="space-y-0 px-4 pt-4 pb-2">
+                <div className="mb-2.5 flex flex-wrap gap-1.5">
                     {
                         project.technologies.slice(0, 4).map((tech) => (
                             <span
@@ -102,13 +103,13 @@ export function ProjectCard({ project, showProgress = false }: ProjectCardProps)
                 </h3>
 
                 {showProgress && userProgress && (
-                    <Badge className={`${statusColors[userProgress.status as keyof typeof statusColors]} text-xs w-fit mt-2`}>
+                    <Badge className={`${statusColors[userProgress.status as keyof typeof statusColors]} text-[11px] w-fit mt-1.5`}>
                         {userProgress.status.replace('_', ' ')}
                     </Badge>
                 )}
             </CardHeader>
 
-            <CardContent className="px-6 pb-4 flex-grow space-y-4">
+            <CardContent className="flex-grow space-y-3 px-4 pb-3">
                 <p className="text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-relaxed">
                     {description}
                 </p>
@@ -164,29 +165,31 @@ export function ProjectCard({ project, showProgress = false }: ProjectCardProps)
             </CardContent>
 
             {/* Bottom: creator + action */}
-            <CardFooter className="px-6 py-4 border-t border-neutral-100 dark:border-neutral-800">
+            <CardFooter className="border-t px-4 py-2.5 border-neutral-100 dark:border-neutral-800">
                 <div className="w-full flex items-center justify-between gap-2">
-                    {/* Creator */}
-                    <div className="flex items-center gap-2 min-w-0">
-                        {project.creator?.image ? (
-                            <Image
-                                src={project.creator.image}
-                                alt={project.creator.name || project.creator.username || 'Creator'}
-                                width={24}
-                                height={24}
-                                className="rounded-full object-cover flex-shrink-0"
-                            />
-                        ) : (
-                            <div className="w-6 h-6 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center flex-shrink-0">
-                                <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-300">
-                                    {creatorInitial}
-                                </span>
-                            </div>
-                        )}
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                            {project.creator?.name || project.creator?.username || 'Anonymous'}
-                        </span>
-                    </div>
+                    {/* Creator: left out when unknown, rather than "Anonymous" (a copy's list row carries none). */}
+                    {hasCreator ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                            {project.creator?.image ? (
+                                <Image
+                                    src={project.creator.image}
+                                    alt={project.creator.name || project.creator.username || 'Creator'}
+                                    width={24}
+                                    height={24}
+                                    className="rounded-full object-cover flex-shrink-0"
+                                />
+                            ) : (
+                                <div className="w-6 h-6 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-300">
+                                        {creatorInitial}
+                                    </span>
+                                </div>
+                            )}
+                            <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                                {project.creator?.name || project.creator?.username || 'ShipItHQ'}
+                            </span>
+                        </div>
+                    ) : <span />}
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -237,9 +240,9 @@ export function ProjectCard({ project, showProgress = false }: ProjectCardProps)
 
 export function ProjectCardSkeleton() {
     return (
-        <Card className="h-full flex flex-col bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden">
-            <CardHeader className="px-6 pt-6 pb-4">
-                <div className="flex flex-wrap gap-1.5 mb-4">
+        <Card className="h-full flex flex-col bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-0 gap-0 shadow-none overflow-hidden">
+            <CardHeader className="space-y-0 px-4 pt-4 pb-2">
+                <div className="mb-2.5 flex flex-wrap gap-1.5">
                     <Skeleton className="h-5 w-14 rounded-md" />
                     <Skeleton className="h-5 w-16 rounded-md" />
                     <Skeleton className="h-5 w-12 rounded-md" />
@@ -247,7 +250,7 @@ export function ProjectCardSkeleton() {
                 <Skeleton className="h-6 w-full mb-2" />
                 <Skeleton className="h-6 w-3/4" />
             </CardHeader>
-            <CardContent className="px-6 pb-4 flex-grow space-y-4">
+            <CardContent className="flex-grow space-y-3 px-4 pb-3">
                 <div className="space-y-2">
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-2/3" />
@@ -258,7 +261,7 @@ export function ProjectCardSkeleton() {
                     <Skeleton className="h-4 w-12" />
                 </div>
             </CardContent>
-            <CardFooter className="px-6 py-4 border-t border-neutral-100 dark:border-neutral-800">
+            <CardFooter className="border-t px-4 py-2.5 border-neutral-100 dark:border-neutral-800">
                 <div className="w-full flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Skeleton className="h-6 w-6 rounded-full" />

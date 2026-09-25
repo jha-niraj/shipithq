@@ -2,25 +2,26 @@
 
 import { getSession } from '@repo/auth'
 import { headers } from 'next/headers'
-import { and, desc, eq, inArray, max, sql } from 'drizzle-orm'
+import { and, desc, eq, max, sql } from 'drizzle-orm'
 import {
-    backgroundJobs, creditTransactions, db, projectAiMessages, projectsV2, projectV2Sprints, projectV2Tasks, userProjectV2Progress,
+    creditTransactions, db, projectAiMessages, projectsV2, projectV2Sprints, projectV2Tasks, userProjectV2Progress,
     userTaskV2Statuses, users, withTransaction,
 } from '@repo/db'
 import { toErrorMessage } from '@/lib/errors'
 import { priceOf } from '@/lib/credits/pricing'
 import { loadWorkspacePlan, type WorkspacePlanSprint } from '@/lib/projects/workspace-plan'
-import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
+import { writeProjectAiReply } from '@/lib/projects/project-ai-reply'
 import { isSetupSprint } from '@/lib/projects/sprints'
 
 /*
  * The workspace's Project AI (plan/project-workspace WS-15).
  *
- * Asking is free and runs on the worker (`project_ai`). The reply may carry a
+ * Asking is free and answered inline (WS-22; it was the worker's `project_ai`
+ * job until 2026-09-24). The reply may carry a
  * PROPOSED task or sprint; nothing is written until the owner presses Add,
  * which is where the 5 credits are taken - in the same transaction that writes
  * the rows, so a charge without the task, or a task without the charge, cannot
- * happen. Discard writes nothing and charges nothing.
+ * happen. Cancel writes nothing and charges nothing.
  */
 
 export interface AiMessage {
@@ -39,9 +40,11 @@ export type AiProposal =
 
 type Result<T> = { success: true; data: T } | { success: false; error: string }
 
-/** A message longer than this is cut at the call site; the job input stays small. */
+/** A message longer than this is cut. */
 const MAX_MESSAGE_CHARS = 2000
 const HISTORY_SHOWN = 60
+/** Longer than the reply's timeout: an older unanswered question was a crash, not a reply in flight. */
+const IN_FLIGHT_MS = 40_000
 
 async function ownedProject(projectId: string) {
     const session = await getSession(headers())
@@ -65,82 +68,70 @@ function toMessage(row: typeof projectAiMessages.$inferSelect): AiMessage {
     }
 }
 
-/** The conversation, and the job still writing a reply, if any (so a reload can wait for it). */
-export async function listAiMessages(projectId: string): Promise<Result<{ messages: AiMessage[]; pendingJobId: string | null }>> {
+/** The conversation, oldest first. */
+export async function listAiMessages(projectId: string): Promise<Result<{ messages: AiMessage[] }>> {
     try {
         const project = await ownedProject(projectId)
         if (!project) return { success: false, error: 'Project not found' }
-        const [rows, [inFlight]] = await Promise.all([
-            db.query.projectAiMessages.findMany({
-                where: eq(projectAiMessages.projectId, project.id),
-                orderBy: [desc(projectAiMessages.createdAt)],
-                limit: HISTORY_SHOWN,
-            }),
-            db.select({ jobId: backgroundJobs.jobId }).from(backgroundJobs).where(and(
-                eq(backgroundJobs.userId, project.userId),
-                eq(backgroundJobs.type, 'project_ai'),
-                inArray(backgroundJobs.status, ['waiting', 'active']),
-                sql`${backgroundJobs.input}->>'singleFlightKey' = ${`project_ai:${project.id}`}`,
-            )).limit(1),
-        ])
-        return { success: true, data: { messages: rows.reverse().map(toMessage), pendingJobId: inFlight?.jobId ?? null } }
+        const rows = await db.query.projectAiMessages.findMany({
+            where: eq(projectAiMessages.projectId, project.id),
+            orderBy: [desc(projectAiMessages.createdAt)],
+            limit: HISTORY_SHOWN,
+        })
+        return { success: true, data: { messages: rows.reverse().map(toMessage) } }
     } catch (error: unknown) {
         return { success: false, error: toErrorMessage(error) }
     }
 }
 
-/** Stores the learner's message and starts the reply. One reply at a time per project. */
+/**
+ * Stores the learner's message and writes the reply inline (WS-22): one short,
+ * free completion with a 25-second timeout. When the reply fails the question
+ * is removed again, so the conversation never holds a message nobody answered
+ * and the learner can simply send it again.
+ */
 export async function sendAiMessage(
     projectId: string,
     content: string,
     taskId: string | null,
-): Promise<Result<{ message: AiMessage; jobId: string }>> {
+): Promise<Result<{ question: AiMessage; reply: AiMessage }>> {
     try {
         const text = content.trim().slice(0, MAX_MESSAGE_CHARS)
         if (!text) return { success: false, error: 'Write a message first.' }
         const project = await ownedProject(projectId)
         if (!project) return { success: false, error: 'Project not found' }
 
-        // One reply at a time per project, checked BEFORE the message is stored:
-        // the dispatcher's single-flight hands back the running job, which only
-        // answers its own message, so a second message would sit unanswered.
-        const flightKey = `project_ai:${project.id}`
-        const [inFlight] = await db.select({ jobId: backgroundJobs.jobId }).from(backgroundJobs).where(and(
-            eq(backgroundJobs.userId, project.userId),
-            eq(backgroundJobs.type, 'project_ai'),
-            inArray(backgroundJobs.status, ['waiting', 'active']),
-            sql`${backgroundJobs.input}->>'singleFlightKey' = ${flightKey}`,
-        )).limit(1)
-        if (inFlight) return { success: false, error: 'The AI is still answering your last message.' }
+        // One reply at a time: a question newer than any reply is still being answered.
+        const [last] = await db.select({ role: projectAiMessages.role, createdAt: projectAiMessages.createdAt })
+            .from(projectAiMessages).where(eq(projectAiMessages.projectId, project.id))
+            .orderBy(desc(projectAiMessages.createdAt)).limit(1)
+        if (last?.role === 'user' && Date.now() - last.createdAt.getTime() < IN_FLIGHT_MS) {
+            return { success: false, error: 'The AI is still answering your last message.' }
+        }
 
-        const [row] = await db.insert(projectAiMessages).values({
+        const [question] = await db.insert(projectAiMessages).values({
             projectId: project.id, userId: project.userId, role: 'user', content: text, taskId,
         }).returning()
 
-        const started = await startBackgroundJob('project_ai', { projectId: project.id, messageId: row!.id, singleFlightKey: flightKey }, {
-            singleFlight: true,
-            singleFlightKey: flightKey,
-        })
-        if (!started.success || !started.jobId) {
-            await db.delete(projectAiMessages).where(eq(projectAiMessages.id, row!.id))
-            return { success: false, error: started.error || 'Could not reach the AI. Try again.' }
+        let reply: Awaited<ReturnType<typeof writeProjectAiReply>>
+        try {
+            reply = await writeProjectAiReply({ projectId: project.id, userId: project.userId, question: { id: question!.id, content: text, taskId } })
+        } catch (error: unknown) {
+            await db.delete(projectAiMessages).where(eq(projectAiMessages.id, question!.id))
+            const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
+            return { success: false, error: timedOut ? 'The AI took too long. Send it again.' : toErrorMessage(error) }
         }
-        await db.update(projectAiMessages).set({ jobId: started.jobId }).where(eq(projectAiMessages.id, row!.id))
-        return { success: true, data: { message: toMessage(row!), jobId: started.jobId } }
-    } catch (error: unknown) {
-        return { success: false, error: toErrorMessage(error) }
-    }
-}
 
-/** The reply a finished job wrote. */
-export async function getAiMessage(projectId: string, messageId: string): Promise<Result<AiMessage>> {
-    try {
-        const project = await ownedProject(projectId)
-        if (!project) return { success: false, error: 'Project not found' }
-        const row = await db.query.projectAiMessages.findFirst({
-            where: and(eq(projectAiMessages.id, messageId), eq(projectAiMessages.projectId, project.id)),
-        })
-        return row ? { success: true, data: toMessage(row) } : { success: false, error: 'That reply no longer exists' }
+        const [answer] = await db.insert(projectAiMessages).values({
+            projectId: project.id,
+            userId: project.userId,
+            role: 'assistant',
+            content: reply.content,
+            taskId,
+            proposal: reply.proposal ?? null,
+            proposalStatus: reply.proposal ? 'pending' : null,
+        }).returning()
+        return { success: true, data: { question: toMessage(question!), reply: toMessage(answer!) } }
     } catch (error: unknown) {
         return { success: false, error: toErrorMessage(error) }
     }

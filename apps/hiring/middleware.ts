@@ -5,7 +5,6 @@ type SessionUser = {
     email: string
     name: string
     image?: string
-    onboardingCompleted?: boolean
 }
 
 type SessionData = {
@@ -25,30 +24,32 @@ async function getSessionFromRequest(request: NextRequest): Promise<SessionData 
     }
 }
 
-// Protected routes that require authentication
-const protectedRoutes = [
-    // '/home' is the signed-in dashboard and was missing from this list, so it
-    // rendered for logged-out visitors instead of bouncing them to /signin.
-    '/home',
-    '/dashboard',
-    '/settings',
-    '/profile',
-    '/jobs',
-    '/candidates',
-    '/applications',
-    '/analytics',
-    '/team',
-    '/company',
-    '/interviews',
-    '/assignments',
+// Pages a signed-out visitor may open. EVERYTHING else needs a session
+// (plan/hiring-app HA-2). This used to be the opposite - a hand-written list of
+// protected prefixes - and it went stale: /billing, /interview-config, /mock,
+// /invoices and /transactions were never added, so they rendered for anyone.
+// A new page is now protected by default; only a public one needs a line here.
+const publicRoutes = [
+    '/signin',
+    '/register',
+    '/verify',
+    '/forgotpassword',
+    '/resetpassword',
+    '/invite',
+    '/help',
+    '/contactus',
+    '/privacy',
+    '/terms',
 ]
+
+const isPublicPath = (pathname: string) =>
+    pathname === '/' || publicRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 
 // API routes that should be excluded from auth checks
 const apiRoutes = [
     '/api/auth',
     '/api/health',
     '/api/webhooks',
-    '/api/user/verify-status',
 ]
 
 export default async function middleware(req: NextRequest) {
@@ -70,14 +71,9 @@ export default async function middleware(req: NextRequest) {
 
     const session = await getSessionFromRequest(req)
     const isLoggedIn = !!session?.user
-    const onboardingCompleted = session?.user?.onboardingCompleted ?? false
 
-    console.log(`[Hiring] Middleware: ${nextUrl.pathname}, isLoggedIn: ${isLoggedIn}, onboarding: ${onboardingCompleted}`)
-
-    // Check if current path is a protected route
-    const isProtectedRoute = protectedRoutes.some(route =>
-        nextUrl.pathname.startsWith(route)
-    )
+    // Onboarding needs a session too, but it is where an un-onboarded user is sent.
+    const isProtectedRoute = !isPublicPath(nextUrl.pathname)
 
     // If user is not logged in and trying to access protected route
     if (!isLoggedIn && isProtectedRoute) {
@@ -86,30 +82,12 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.redirect(signInUrl)
     }
 
-    // Handle post-login redirection logic
-    if (isLoggedIn) {
-        // Check onboarding status
-        if (!onboardingCompleted && nextUrl.pathname !== '/onboarding' && nextUrl.pathname !== '/verify') {
-            // Redirect to onboarding if not completed (except verify and onboarding itself)
-            return NextResponse.redirect(new URL('/onboarding', nextUrl.origin))
-        }
-
-        // If onboarding is completed and user tries to access onboarding page, redirect to dashboard
-        if (onboardingCompleted && nextUrl.pathname === '/onboarding') {
-            return NextResponse.redirect(new URL('/home', nextUrl.origin))
-        }
-
-        // If user is trying to access signin/register, redirect based on onboarding status
-        if (nextUrl.pathname === '/signin' || nextUrl.pathname === '/register') {
-            const redirectUrl = onboardingCompleted ? '/home' : '/onboarding'
-            return NextResponse.redirect(new URL(redirectUrl, nextUrl.origin))
-        }
-
-        // For the root path, redirect authenticated users based on onboarding status
-        if (nextUrl.pathname === '/') {
-            const redirectUrl = onboardingCompleted ? '/home' : '/onboarding'
-            return NextResponse.redirect(new URL(redirectUrl, nextUrl.origin))
-        }
+    // Signed in: the entry pages go to Home. Whether this person has a company
+    // yet is decided by the (main) layout from `company_member`, not here: the
+    // `onboardingCompleted` flag is shared with apps/main and set by the
+    // student onboarding, so it says nothing about hiring (plan/hiring-app HA-5).
+    if (isLoggedIn && ['/', '/signin', '/register'].includes(nextUrl.pathname)) {
+        return NextResponse.redirect(new URL('/home', nextUrl.origin))
     }
 
     return NextResponse.next()

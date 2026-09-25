@@ -103,6 +103,7 @@ const nextConfig = {
     // this site never talks to the auth API, it only links to the app origin.
     env: {
         NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+        NEXT_PUBLIC_HIRING_URL: process.env.NEXT_PUBLIC_HIRING_URL,
         NEXT_PUBLIC_WEB_URL: process.env.NEXT_PUBLIC_WEB_URL,
     },
 

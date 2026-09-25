@@ -11,6 +11,7 @@ import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import { Checkbox } from "@repo/ui/components/ui/checkbox"
 import {
     Sheet, SheetContent
@@ -66,12 +67,12 @@ const statusLabels: Record<string, string> = {
 
 // Kanban columns
 const kanbanColumns = [
-    { key: "APPLIED", label: "Applied", color: "border-t-blue-500" },
-    { key: "UNDER_REVIEW", label: "Reviewing", color: "border-t-neutral-900" },
-    { key: "SHORTLISTED", label: "Shortlisted", color: "border-t-purple-500" },
-    { key: "INTERVIEW_SCHEDULED", label: "Interviewing", color: "border-t-neutral-900" },
-    { key: "OFFER_EXTENDED", label: "Offered", color: "border-t-emerald-500" },
-    { key: "HIRED", label: "Hired", color: "border-t-green-500" },
+    { key: "APPLIED", label: "Applied", color: "border-t-neutral-300 dark:border-t-neutral-700" },
+    { key: "UNDER_REVIEW", label: "Reviewing", color: "border-t-neutral-400 dark:border-t-neutral-600" },
+    { key: "SHORTLISTED", label: "Shortlisted", color: "border-t-neutral-500 dark:border-t-neutral-500" },
+    { key: "INTERVIEW_SCHEDULED", label: "Interviewing", color: "border-t-neutral-700 dark:border-t-neutral-400" },
+    { key: "OFFER_EXTENDED", label: "Offered", color: "border-t-neutral-900 dark:border-t-neutral-200" },
+    { key: "HIRED", label: "Hired", color: "border-t-emerald-500" },
 ]
 
 export function CandidatesContent({ initialCandidates, stats, jobs }: CandidatesContentProps) {
@@ -157,22 +158,15 @@ export function CandidatesContent({ initialCandidates, stats, jobs }: Candidates
     }
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                        Candidates
-                    </h1>
-                    <p className="text-neutral-500 mt-1">
-                        View and manage all candidate applications
-                    </p>
-                </div>
-            </div>
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="Candidates"
+                subtitle="View and manage all candidate applications"
+            />
 
             {
                 stats && (
                     <StatBand
-                        className="mb-8"
                         cols={8}
                         items={[
                             { icon: Users, label: "Total", value: stats.total },
@@ -188,7 +182,7 @@ export function CandidatesContent({ initialCandidates, stats, jobs }: Candidates
                 )
             }
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <Input
@@ -253,7 +247,7 @@ export function CandidatesContent({ initialCandidates, stats, jobs }: Candidates
                     <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="flex items-center gap-4 p-4 mb-4 bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800 rounded-xl"
+                        className="flex items-center gap-4 p-4 bg-neutral-50 dark:bg-neutral-800/20 border border-neutral-200 dark:border-neutral-800 rounded-xl"
                     >
                         <span className="text-sm font-medium text-neutral-700 dark:text-neutral-100">
                             {selectedIds.size} selected
@@ -294,7 +288,7 @@ export function CandidatesContent({ initialCandidates, stats, jobs }: Candidates
 
             {
                 viewMode === "kanban" && (
-                    <div className="flex gap-4 overflow-x-auto pb-4 -mx-6 px-6">
+                    <div className="flex gap-4 overflow-x-auto pb-4 -mx-3 px-3 sm:-mx-4 sm:px-4">
                         {
                             kanbanColumns.map((column) => {
                                 const columnCandidates = filteredCandidates.filter(c => c.status === column.key)

@@ -1,9 +1,8 @@
 "use server"
 
-import { db, companyMembers, jobs, jobApplications, memberInvitations } from "@repo/db"
+import { db, companyMembers, companyRoles, jobs, jobApplications, memberInvitations } from "@repo/db"
+import { requirePermission, type CompanyContext } from "@/lib/permissions"
 import { eq, and, count, isNotNull, asc } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import type {
     Permission, TeamMember, UpdateTeamMemberPayload,
@@ -13,17 +12,6 @@ import type {
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) return null
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-    return member
-}
 
 function parsePermissions(permissions: unknown): Permission[] {
     if (!permissions) return []
@@ -37,6 +25,31 @@ function parsePermissions(permissions: unknown): Permission[] {
     }
 }
 
+/**
+ * The Owner invariants (plan/hiring-app HA-6): only an Owner can demote,
+ * deactivate or remove an Owner, and a company always keeps at least one
+ * active Owner. Returns the refusal, or null when the change may go ahead.
+ */
+async function ownerGuard(
+    ctx: CompanyContext,
+    target: { isActive: boolean; companyRole: { isOwner: boolean } | null }
+): Promise<string | null> {
+    if (!target.companyRole?.isOwner) return null
+    if (!ctx.isOwner) return "Only an Owner can change, deactivate or remove an Owner."
+    if (!target.isActive) return null
+    const [row] = await db
+        .select({ owners: count() })
+        .from(companyMembers)
+        .innerJoin(companyRoles, eq(companyRoles.id, companyMembers.roleId))
+        .where(and(
+            eq(companyMembers.companyId, ctx.companyId),
+            eq(companyMembers.isActive, true),
+            eq(companyRoles.isOwner, true)
+        ))
+    if ((row?.owners ?? 0) <= 1) return "A company must keep at least one Owner."
+    return null
+}
+
 // ============================================
 // TEAM MEMBER FETCHING ACTIONS
 // ============================================
@@ -45,29 +58,18 @@ function parsePermissions(permissions: unknown): Permission[] {
  * Get all team members of the current user's company
  */
 export async function getTeamMembers() {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const auth = await requirePermission()
+    if (!auth.ok) return { success: false, error: auth.error }
+    const { ctx } = auth
 
     try {
-        const currentMember = await db.query.companyMembers.findFirst({
-            where: eq(companyMembers.userId, session.user.id),
-            columns: { companyId: true, role: true }
-        })
+        const currentMember = ctx.member
 
-        if (!currentMember) {
-            return { success: false, error: "Not a member of any company" }
-        }
-
-        const members = await db.query.companyMembers.findMany({
+        const members = (await db.query.companyMembers.findMany({
             where: eq(companyMembers.companyId, currentMember.companyId),
-            orderBy: [
-                asc(companyMembers.role),
-                asc(companyMembers.createdAt)
-            ]
-        })
+            with: { companyRole: true },
+            orderBy: [asc(companyMembers.createdAt)]
+        })).sort((x, y) => Number(Boolean(y.companyRole?.isOwner)) - Number(Boolean(x.companyRole?.isOwner)))
 
         // Fetch user info separately
         const { users } = await import("@repo/db")
@@ -93,6 +95,9 @@ export async function getTeamMembers() {
             userId: member.userId,
             companyId: member.companyId,
             role: member.role as CompanyMemberRole,
+            roleId: member.roleId,
+            roleName: member.companyRole?.name ?? "No role",
+            isOwner: Boolean(member.companyRole?.isOwner),
             jobTitle: member.jobTitle as CompanyMemberJobTitle,
             jobTitleCustom: member.jobTitleCustom,
             displayName: member.displayName,
@@ -111,7 +116,7 @@ export async function getTeamMembers() {
         return {
             success: true,
             data: teamMembers,
-            isHead: currentMember.role === "FOUNDER"
+            isHead: ctx.can("manage_team")
         }
     } catch (error) {
         console.error("Get team members error:", error)
@@ -123,27 +128,19 @@ export async function getTeamMembers() {
  * Get a single team member by ID
  */
 export async function getTeamMember(memberId: string) {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const auth = await requirePermission()
+    if (!auth.ok) return { success: false, error: auth.error }
+    const { ctx } = auth
 
     try {
-        const currentMember = await db.query.companyMembers.findFirst({
-            where: eq(companyMembers.userId, session.user.id),
-            columns: { companyId: true, role: true }
-        })
-
-        if (!currentMember) {
-            return { success: false, error: "Not a member of any company" }
-        }
+        const currentMember = ctx.member
 
         const member = await db.query.companyMembers.findFirst({
             where: and(
                 eq(companyMembers.id, memberId),
                 eq(companyMembers.companyId, currentMember.companyId)
-            )
+            ),
+            with: { companyRole: true }
         })
 
         if (!member) {
@@ -168,6 +165,9 @@ export async function getTeamMember(memberId: string) {
             userId: member.userId,
             companyId: member.companyId,
             role: member.role as CompanyMemberRole,
+            roleId: member.roleId,
+            roleName: member.companyRole?.name ?? "No role",
+            isOwner: Boolean(member.companyRole?.isOwner),
             jobTitle: member.jobTitle as CompanyMemberJobTitle,
             jobTitleCustom: member.jobTitleCustom,
             displayName: member.displayName,
@@ -186,7 +186,7 @@ export async function getTeamMember(memberId: string) {
         return {
             success: true,
             data: teamMember,
-            isHead: currentMember.role === "FOUNDER"
+            isHead: ctx.can("manage_team")
         }
     } catch (error) {
         console.error("Get team member error:", error)
@@ -202,39 +202,38 @@ export async function getTeamMember(memberId: string) {
  * Update a team member's role and permissions
  */
 export async function updateTeamMember(memberId: string, payload: UpdateTeamMemberPayload) {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const auth = await requirePermission("manage_team")
+    if (!auth.ok) return { success: false, error: auth.error }
+    const { ctx } = auth
 
     try {
-        const currentMember = await db.query.companyMembers.findFirst({
-            where: eq(companyMembers.userId, session.user.id),
-            columns: { id: true, companyId: true, role: true }
-        })
+        const currentMember = ctx.member
 
-        if (!currentMember) {
-            return { success: false, error: "Not a member of any company" }
-        }
-
-        if (currentMember.role !== "FOUNDER") {
-            return { success: false, error: "Only HEAD can update team members" }
+        // Editing a member's permission list defines what they can do: manage_roles.
+        if (payload.permissions !== undefined && !ctx.can("manage_roles")) {
+            return { success: false, error: "You don't have permission to do this. Ask your company's owner." }
         }
 
         const targetMember = await db.query.companyMembers.findFirst({
             where: and(
                 eq(companyMembers.id, memberId),
                 eq(companyMembers.companyId, currentMember.companyId)
-            )
+            ),
+            with: { companyRole: true }
         })
 
         if (!targetMember) {
             return { success: false, error: "Member not found" }
         }
 
-        if (targetMember.id === currentMember.id && payload.role && payload.role !== "FOUNDER") {
+        const changesRole = payload.role !== undefined && payload.role !== targetMember.role
+        if (targetMember.id === currentMember.id && changesRole) {
             return { success: false, error: "Cannot demote yourself" }
+        }
+
+        if (changesRole || payload.isActive === false) {
+            const refusal = await ownerGuard(ctx, targetMember)
+            if (refusal) return { success: false, error: refusal }
         }
 
         const updateData: Record<string, unknown> = {}
@@ -265,12 +264,9 @@ export async function updateTeamMember(memberId: string, payload: UpdateTeamMemb
  */
 export async function updateMemberRole(memberId: string, newRole: CompanyMemberRole) {
     try {
-        const currentMember = await getUserCompany()
-        if (!currentMember) return { success: false, error: "Unauthorized" }
-
-        if (currentMember.role !== "FOUNDER") {
-            return { success: false, error: "Only team heads can change roles" }
-        }
+        const auth = await requirePermission("manage_team")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const currentMember = auth.ctx.member
 
         if (currentMember.id === memberId) {
             return { success: false, error: "You cannot change your own role" }
@@ -280,11 +276,17 @@ export async function updateMemberRole(memberId: string, newRole: CompanyMemberR
             where: and(
                 eq(companyMembers.id, memberId),
                 eq(companyMembers.companyId, currentMember.companyId)
-            )
+            ),
+            with: { companyRole: true }
         })
 
         if (!targetMember) {
             return { success: false, error: "Member not found" }
+        }
+
+        if (newRole !== targetMember.role) {
+            const refusal = await ownerGuard(auth.ctx, targetMember)
+            if (refusal) return { success: false, error: refusal }
         }
 
         await db.update(companyMembers)
@@ -303,25 +305,12 @@ export async function updateMemberRole(memberId: string, newRole: CompanyMemberR
  * Deactivate a team member (soft delete)
  */
 export async function deactivateTeamMember(memberId: string) {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const auth = await requirePermission("manage_team")
+    if (!auth.ok) return { success: false, error: auth.error }
+    const { ctx } = auth
 
     try {
-        const currentMember = await db.query.companyMembers.findFirst({
-            where: eq(companyMembers.userId, session.user.id),
-            columns: { id: true, companyId: true, role: true }
-        })
-
-        if (!currentMember) {
-            return { success: false, error: "Not a member of any company" }
-        }
-
-        if (currentMember.role !== "FOUNDER") {
-            return { success: false, error: "Only HEAD can deactivate team members" }
-        }
+        const currentMember = ctx.member
 
         if (currentMember.id === memberId) {
             return { success: false, error: "Cannot deactivate yourself" }
@@ -331,12 +320,16 @@ export async function deactivateTeamMember(memberId: string) {
             where: and(
                 eq(companyMembers.id, memberId),
                 eq(companyMembers.companyId, currentMember.companyId)
-            )
+            ),
+            with: { companyRole: true }
         })
 
         if (!targetMember) {
             return { success: false, error: "Member not found" }
         }
+
+        const refusal = await ownerGuard(ctx, targetMember)
+        if (refusal) return { success: false, error: refusal }
 
         await db.update(companyMembers)
             .set({ isActive: false })
@@ -354,31 +347,19 @@ export async function deactivateTeamMember(memberId: string) {
  * Reactivate a team member
  */
 export async function reactivateTeamMember(memberId: string) {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const auth = await requirePermission("manage_team")
+    if (!auth.ok) return { success: false, error: auth.error }
+    const { ctx } = auth
 
     try {
-        const currentMember = await db.query.companyMembers.findFirst({
-            where: eq(companyMembers.userId, session.user.id),
-            columns: { companyId: true, role: true }
-        })
-
-        if (!currentMember) {
-            return { success: false, error: "Not a member of any company" }
-        }
-
-        if (currentMember.role !== "FOUNDER") {
-            return { success: false, error: "Only HEAD can reactivate team members" }
-        }
+        const currentMember = ctx.member
 
         const targetMember = await db.query.companyMembers.findFirst({
             where: and(
                 eq(companyMembers.id, memberId),
                 eq(companyMembers.companyId, currentMember.companyId)
-            )
+            ),
+            with: { companyRole: true }
         })
 
         if (!targetMember) {
@@ -402,12 +383,9 @@ export async function reactivateTeamMember(memberId: string) {
  */
 export async function removeTeamMember(memberId: string) {
     try {
-        const currentMember = await getUserCompany()
-        if (!currentMember) return { success: false, error: "Unauthorized" }
-
-        if (currentMember.role !== "FOUNDER") {
-            return { success: false, error: "Only team heads can remove members" }
-        }
+        const auth = await requirePermission("manage_team")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const currentMember = auth.ctx.member
 
         if (currentMember.id === memberId) {
             return { success: false, error: "You cannot remove yourself" }
@@ -417,12 +395,16 @@ export async function removeTeamMember(memberId: string) {
             where: and(
                 eq(companyMembers.id, memberId),
                 eq(companyMembers.companyId, currentMember.companyId)
-            )
+            ),
+            with: { companyRole: true }
         })
 
         if (!targetMember) {
             return { success: false, error: "Member not found" }
         }
+
+        const refusal = await ownerGuard(auth.ctx, targetMember)
+        if (refusal) return { success: false, error: refusal }
 
         await db.delete(companyMembers).where(eq(companyMembers.id, memberId))
 
@@ -443,8 +425,9 @@ export async function removeTeamMember(memberId: string) {
  */
 export async function getTeamStats() {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const membersCountRows = await db
             .select({ count: count() })

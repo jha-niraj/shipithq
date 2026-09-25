@@ -3,8 +3,7 @@
 
 import { db, interviewProcessTemplates, companyMembers } from "@repo/db"
 import { eq, desc } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
+import { requirePermission } from "@/lib/permissions"
 import { revalidatePath } from "next/cache"
 
 // Types
@@ -147,6 +146,9 @@ export async function getInterviewTemplates(filters?: {
     category?: string
 }) {
     try {
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, error: auth.error }
+
         // Try to fetch from database
         let templates: InterviewTemplate[]
 
@@ -202,6 +204,9 @@ export async function getInterviewTemplates(filters?: {
 
 export async function getInterviewTemplate(id: string) {
     try {
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, error: auth.error }
+
         // Check if it's a default template
         if (id.startsWith("default-")) {
             const idx = parseInt(id.replace("default-", ""))
@@ -249,6 +254,9 @@ export async function getInterviewTemplate(id: string) {
 
 export async function incrementTemplateUsage(id: string) {
     try {
+        const auth = await requirePermission("manage_pipelines")
+        if (!auth.ok) return { success: false, error: auth.error }
+
         if (id.startsWith("default-")) {
             return { success: true }
         }
@@ -282,11 +290,8 @@ interface AIGenerationInput {
 }
 
 export async function generateInterviewTemplate(input: AIGenerationInput) {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const auth = await requirePermission("manage_pipelines")
+    if (!auth.ok) return { success: false, error: auth.error }
 
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 
@@ -377,11 +382,6 @@ Generate a realistic and comprehensive interview process.`
 
         // Try to save to database
         try {
-            const member = await db.query.companyMembers.findFirst({
-                where: eq(companyMembers.userId, session.user.id),
-                columns: { companyId: true }
-            })
-
             const insertedTemplates = await db.insert(interviewProcessTemplates).values({
                 name: generated.name,
                 description: generated.description,
@@ -393,8 +393,8 @@ Generate a realistic and comprehensive interview process.`
                 isAiGenerated: true,
                 aiPrompt: userPrompt,
                 isPublic: true,
-                createdByCompanyId: member?.companyId || null,
-                createdByUserId: session.user.id
+                createdByCompanyId: auth.ctx.companyId,
+                createdByUserId: auth.ctx.userId
             }).returning()
 
             const template = insertedTemplates[0]
@@ -437,5 +437,7 @@ Generate a realistic and comprehensive interview process.`
 // ============================================
 
 export async function getTemplatesByStyle(style: "STARTUP" | "FAANG" | "MNC" | "ALL") {
+    const auth = await requirePermission()
+    if (!auth.ok) return { success: false, error: auth.error }
     return getInterviewTemplates({ style })
 }

@@ -32,9 +32,9 @@ export const JOB_BINDINGS = {
 	practice_tests_generate: "PRACTICE_TESTS_GENERATE",
 	practice_memory_update: "PRACTICE_MEMORY_UPDATE",
 	practice_reflect: "PRACTICE_REFLECT",
-	project_ai: "PROJECT_AI",
 	sprint_quiz: "SPRINT_QUIZ",
 	sprint_mock: "SPRINT_MOCK",
+	company_scrape: "COMPANY_SCRAPE",
 } as const satisfies Partial<Record<JobType, string>>
 
 export type RunnableJobType = keyof typeof JOB_BINDINGS
@@ -63,6 +63,11 @@ export type Env = {
 	 * something that is not broken.
 	 */
 	EXA_API_KEY?: string
+	/**
+	 * Firecrawl, for `company_scrape` (plan/hiring-rounds HR-5). Optional for the
+	 * same reason as Exa: that job fails on its first line without it.
+	 */
+	FIRECRAWL_API_KEY?: string
 	/**
 	 * GitHub token for the import job's REST calls. Genuinely optional - the
 	 * GitHub API serves unauthenticated requests at 60/hour, which is enough for

@@ -197,7 +197,7 @@ export default function KnowMeDashboard({ profile }: KnowMeDashboardProps) {
     };
 
     return (
-        <div className="flex h-screen min-h-0 w-full flex-col px-4 py-4 sm:px-6">
+        <div className="page-frame flex h-screen min-h-0 flex-col px-page py-4">
             {/* NO page header. The sidebar already carries "KnowMe" with Overview,
                 Analytics and Settings under it, so a title bar repeating the module
                 name and duplicating two of its own nav links spent the top ~70px of

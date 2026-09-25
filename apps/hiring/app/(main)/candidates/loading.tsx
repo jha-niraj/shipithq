@@ -1,4 +1,5 @@
-// Hand-matched to candidates-content.tsx.
+// Hand-matched to candidates-content.tsx: the page frame and PageHeader, then
+// the rest as below.
 //
 // Counts and chrome come from the component itself: an 8-cell StatBand
 // (cols 8, matching the real one), a toolbar of
@@ -11,22 +12,20 @@ import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
-        <div className="min-h-full p-6 lg:p-8">
+        <div className="page-frame space-y-5 px-page py-6">
             <ShimmerStyles />
 
-            <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="space-y-2">
-                    <Shimmer className="h-9 w-44" />
-                    <Shimmer className="h-4 w-72" delay={0.06} />
-                </div>
+            <div className="space-y-1.5">
+                <Shimmer className="h-6 w-32" />
+                <Shimmer className="h-4 w-72 max-w-full" delay={0.04} />
             </div>
 
-            <StatBandSkeleton count={8} cols={8} className="mb-8" />
+            <StatBandSkeleton count={8} cols={8} />
 
-            <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center">
-                <Shimmer className="h-10 flex-1 rounded-xl" />
-                <Shimmer className="h-10 w-full rounded-xl lg:w-[200px]" delay={0.06} />
-                <Shimmer className="h-10 w-full rounded-xl lg:w-[180px]" delay={0.09} />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <Shimmer className="h-9 flex-1 rounded-xl" />
+                <Shimmer className="h-9 w-full rounded-xl sm:w-[200px]" delay={0.06} />
+                <Shimmer className="h-9 w-full rounded-xl sm:w-[180px]" delay={0.09} />
                 <div className="flex items-center gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-900">
                     <Shimmer className="h-8 w-9 rounded-lg" delay={0.12} />
                     <Shimmer className="h-8 w-9 rounded-lg" delay={0.14} />

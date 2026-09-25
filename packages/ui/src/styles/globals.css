@@ -91,6 +91,19 @@
   }
 }
 
+/* ── Page frame ────────────────────────────────────────────────────────────
+   Overviews and reading pages are capped at 80rem (max-w-7xl) and centred
+   (Niraj, 2026-09-24, plan/ui-pass UI-10). Beside a pinned sidebar the column
+   is narrower than this on a laptop, so the page fills it; with the sidebar
+   unpinned it centres with even margins instead of stretching edge to edge.
+   Grids and tools (Explore, Browse All, the workspace, editors) do not use it.
+   A page and its loading.tsx put it on the same element, or the page jumps. */
+@utility page-frame {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+}
+
 @theme inline {
     --color-background: var(--background);
     --color-foreground: var(--foreground);

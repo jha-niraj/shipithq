@@ -9,6 +9,7 @@ import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import Link from "next/link"
 import { useState } from "react"
 import type { AssignmentStats, JobWithAssignment } from "@/types"
@@ -110,28 +111,23 @@ export default function AssignmentsContent({ stats, jobs }: AssignmentsContentPr
     )
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                        Assignments
-                    </h1>
-                    <p className="text-neutral-500 mt-1">
-                        Manage take-home assignments and track submissions
-                    </p>
-                </div>
-                <Link href="/jobs/new">
-                    <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
-                        <FileText className="w-4 h-4 mr-2" />
-                        Create Job with Assignment
-                    </Button>
-                </Link>
-            </div>
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="Assignments"
+                subtitle="Manage take-home assignments and track submissions"
+                actions={
+                    <Link href="/jobs/new">
+                        <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
+                            <FileText className="w-4 h-4 mr-2" />
+                            Create Job with Assignment
+                        </Button>
+                    </Link>
+                }
+            />
 
             {
                 stats && (
                     <StatBand
-                        className="mb-8"
                         cols={5}
                         items={[
                             { icon: Briefcase, label: "Jobs with Assignments", value: stats.totalJobsWithAssignments.toLocaleString() },
@@ -144,7 +140,7 @@ export default function AssignmentsContent({ stats, jobs }: AssignmentsContentPr
                 )
             }
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <Input
@@ -205,13 +201,13 @@ export default function AssignmentsContent({ stats, jobs }: AssignmentsContentPr
                 )
             }
 
-            <div className="mt-12 p-6 bg-neutral-50 dark:bg-neutral-900 rounded-2xl">
+            <div className="p-6 bg-neutral-50 dark:bg-neutral-900 rounded-2xl">
                 <h3 className="font-semibold text-neutral-900 dark:text-white mb-3">
                     How Assessments Work
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="flex gap-3">
-                        <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center shrink-0 text-neutral-800">
+                        <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center shrink-0 text-neutral-800 dark:text-neutral-100">
                             1
                         </div>
                         <div>
@@ -222,7 +218,7 @@ export default function AssignmentsContent({ stats, jobs }: AssignmentsContentPr
                         </div>
                     </div>
                     <div className="flex gap-3">
-                        <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center shrink-0 text-neutral-800">
+                        <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center shrink-0 text-neutral-800 dark:text-neutral-100">
                             2
                         </div>
                         <div>
@@ -233,7 +229,7 @@ export default function AssignmentsContent({ stats, jobs }: AssignmentsContentPr
                         </div>
                     </div>
                     <div className="flex gap-3">
-                        <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center shrink-0 text-neutral-800">
+                        <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800/30 flex items-center justify-center shrink-0 text-neutral-800 dark:text-neutral-100">
                             3
                         </div>
                         <div>

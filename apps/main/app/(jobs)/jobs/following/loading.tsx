@@ -3,7 +3,7 @@ import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
 
 export default function Loading() {
     return (
-        <div className="min-h-full p-4 lg:p-6">
+        <div className="page-frame min-h-full px-page py-4">
             <ShimmerStyles />
 
             <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

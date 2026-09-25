@@ -1,29 +1,14 @@
 "use server"
 
 import { db, companyMembers, jobs, interviewProcesses, interviewRounds } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, desc, inArray, ilike, or, asc } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import type { CreateJobInput } from "@/types"
 
 // ============================================
 // HELPERS
 // ============================================
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) {
-        return null
-    }
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    return member
-}
 
 function generateSlug(title: string): string {
     return title
@@ -38,10 +23,9 @@ function generateSlug(title: string): string {
 
 export async function createJob(input: CreateJobInput) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("manage_jobs")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const slug = generateSlug(input.title)
 
@@ -84,10 +68,9 @@ export async function createJob(input: CreateJobInput) {
 
 export async function updateJob(jobId: string, input: Partial<CreateJobInput>) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("manage_jobs")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         // Verify job belongs to company
         const existingJob = await db.query.jobs.findFirst({
@@ -145,10 +128,9 @@ export async function getJobs(filters: {
     search?: string
 } = {}) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const conditions = [eq(jobs.companyId, member.companyId)]
 
@@ -215,10 +197,9 @@ export async function getJobs(filters: {
 
 export async function getJobById(jobId: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const job = await db.query.jobs.findFirst({
             where: and(eq(jobs.id, jobId), eq(jobs.companyId, member.companyId)),
@@ -256,10 +237,9 @@ export async function getJobById(jobId: string) {
 
 export async function getJobBySlug(slug: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const job = await db.query.jobs.findFirst({
             where: and(eq(jobs.slug, slug), eq(jobs.companyId, member.companyId)),
@@ -297,10 +277,9 @@ export async function getJobBySlug(slug: string) {
 
 export async function deleteJob(jobId: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("manage_jobs")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         await db.delete(jobs).where(and(eq(jobs.id, jobId), eq(jobs.companyId, member.companyId)))
 

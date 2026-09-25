@@ -15,7 +15,9 @@
         "./project-setup": "./src/project-setup.ts",
         "./project-gates": "./src/project-gates.ts",
         "./practice": "./src/practice.ts",
-        "./assistant": "./src/assistant-types.ts"
+        "./assistant": "./src/assistant-types.ts",
+        "./profile-values": "./src/profile-values.ts",
+        "./hiring-permissions": "./src/hiring-permissions.ts"
     },
     "scripts": {
         "db:generate": "dotenv -e ../../apps/main/.env -- drizzle-kit generate",
@@ -25,8 +27,8 @@
         "db:pull": "dotenv -e ../../apps/main/.env -- drizzle-kit introspect",
         "db:seed": "dotenv -e ../../apps/main/.env -- tsx src/seed/index.ts",
         "starters:check": "tsx src/seed/starters/verify.ts",
-        "db:project-setup": "dotenv -e ../../apps/main/.env -- tsx src/scripts/project-setup.ts",
-        "db:migrations": "dotenv -e ../../apps/main/.env -- tsx src/scripts/migrations.ts"
+        "db:migrations": "dotenv -e ../../apps/main/.env -- tsx src/scripts/migrations.ts",
+        "script": "dotenv -e ../../apps/main/.env -- tsx src/scripts/_run.ts"
     },
     "keywords": [],
     "author": "",

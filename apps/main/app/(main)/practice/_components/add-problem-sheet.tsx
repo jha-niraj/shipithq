@@ -1,5 +1,6 @@
 "use client";
 
+import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Link, Type, Sparkles, Check, AlertCircle } from "lucide-react";
@@ -162,31 +163,14 @@ export function AddProblemSheet({ module, onProblemAdded }: AddProblemSheetProps
                     />
                 ) : (
                 <div className="space-y-5">
-                    {/* Mode Toggle */}
-                    <div className="flex rounded-lg border border-neutral-200 dark:border-neutral-800 p-0.5">
-                        <button
-                            onClick={() => setMode("url")}
-                            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-colors ${
-                                mode === "url"
-                                    ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-                                    : "text-neutral-500 hover:text-neutral-700 dark:hover:text-white dark:text-neutral-400"
-                            }`}
-                        >
-                            <Link className="h-3.5 w-3.5" />
-                            From URL
-                        </button>
-                        <button
-                            onClick={() => setMode("name")}
-                            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium transition-colors ${
-                                mode === "name"
-                                    ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-                                    : "text-neutral-500 hover:text-neutral-700 dark:hover:text-white dark:text-neutral-400"
-                            }`}
-                        >
-                            <Type className="h-3.5 w-3.5" />
-                            From Name
-                        </button>
-                    </div>
+                    {/* The shared segmented control (plan/ui-pass UI-2); this was the same
+                        switch hand-built from two buttons, with no tab semantics. */}
+                    <Tabs value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
+                        <TabsList variant="segmented" size="sm">
+                            <TabsTrigger value="url" icon={<Link />}>From URL</TabsTrigger>
+                            <TabsTrigger value="name" icon={<Type />}>From Name</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
 
                     {/* Input Field */}
                     {mode === "url" ? (

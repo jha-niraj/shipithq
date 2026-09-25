@@ -4,7 +4,7 @@ import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-    Sparkles, LayoutList, PartyPopper,
+    LayoutList, PartyPopper,
     Building2, RefreshCw, ArrowRight
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
@@ -14,7 +14,8 @@ import { SkillGapModal } from "../components/skill-gap-modal"
 import { recordSwipeAction, getSparkJobs } from "@/actions/jobs/tabs"
 import { toggleSaveJob, type FeedJobResult } from "@/actions/jobs"
 import { toast } from "@repo/ui/components/ui/sonner"
-import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { ShimmerStyles } from "@repo/ui/components/skeleton-kit"
+import { SparkDeckSkeleton } from "../components/spark-skeleton"
 
 interface SparkContentProps {
     initialJobs: FeedJobResult[]
@@ -129,26 +130,23 @@ export function SparkContent({ initialJobs, pagination, isAuthenticated }: Spark
     }
 
     return (
-        <div className="p-4 lg:p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center">
-                        <Sparkles className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
-                            Discover Jobs
-                        </h2>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                            Swipe right on jobs you like
-                        </p>
-                    </div>
-                </div>
+        // overflow-x-clip below lg: the fanned cards behind the top one lean past the
+        // column and made the whole page scroll sideways on a phone (UI-17). `clip`,
+        // not `hidden`, so it is not a scroll container and nothing vertical is cut;
+        // not on lg+, where the frame sits inside the window and a swiped card
+        // flying out would be cut at the frame's edge.
+        <div className="page-frame px-page py-4 max-lg:overflow-x-clip">
+            {/* One compact line under the jobs header (plan/ui-pass UI-11), not a
+                second icon-tile header. */}
+            <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                    <span className="font-medium text-neutral-900 dark:text-white">Discover</span>
+                    {" · "}Swipe right on jobs you like
+                </p>
                 <Link href="/jobs/browse">
-                    <Button variant="outline" size="sm" className="rounded-xl gap-2">
-                        <LayoutList className="w-4 h-4" />
-                        <span className="hidden sm:inline">List View</span>
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-lg text-xs">
+                        <LayoutList className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">List view</span>
                     </Button>
                 </Link>
             </div>
@@ -182,14 +180,10 @@ export function SparkContent({ initialJobs, pagination, isAuthenticated }: Spark
                         </div>
                     </motion.div>
                 ) : loading ? (
-                    <motion.div
-                        key="loading"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex flex-col items-center justify-center py-20"
-                    >
-                        <InlineLoader size="lg" className="text-neutral-600 dark:text-neutral-400 mb-4" />
-                        <p className="text-neutral-500 dark:text-neutral-400">Loading more jobs...</p>
+                    // The next card is on its way: its skeleton, not a loader (UI-12).
+                    <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} aria-busy aria-label="Loading more jobs">
+                        <ShimmerStyles />
+                        <SparkDeckSkeleton />
                     </motion.div>
                 ) : (
                     <AllCaughtUpState 

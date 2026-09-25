@@ -11,8 +11,9 @@ files).
 
 ## Definition of done
 
-1. Every app mounts the sound layer once; clicking a button, a toggle, a menu
-   trigger or a select item plays its sound.
+1. Every app mounts the sound layer once. Sounds are for occasional moments
+   only (Niraj, 2026-09-24): toasts, unmuting, and elements that opt in with
+   `data-sound`. Clicks, toggles and menus are silent.
 2. A speaker toggle in the sidebar footer mutes and unmutes; the choice is
    remembered per browser and shared across tabs.
 3. A success toast plays the success chime and an error toast the error one;
@@ -34,4 +35,5 @@ files).
 | Add the sounds | Yes, every app |
 | Default | ON; the toggle mutes |
 | Toasts | Success and error chime; nothing else |
+| Clicks | Silent (revised 2026-09-24: too frequent for a sound) |
 | Package | `@web-kits/audio` 0.2.x (early version: pinned, re-checked on upgrade) |

@@ -26,6 +26,7 @@ import {
     Collapsible, CollapsibleContent, CollapsibleTrigger
 } from '@repo/ui/components/ui/collapsible'
 // Tabs imports reserved for future use
+import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
 import { cn } from '@repo/ui/lib/utils'
 import { StatBand } from '@repo/ui/components/ui/stat-band'
 import {
@@ -684,7 +685,7 @@ export function PathfinderDashboard({ initialGoals, initialGroups, activity }: P
         <div className="h-dvh flex flex-col">
             {/* Header */}
             <div className="shrink-0 px-4 py-3 border-b border-neutral-200/60 dark:border-neutral-800/60 bg-white dark:bg-neutral-900/80 backdrop-blur-sm">
-                <div className="w-full mx-auto flex items-center justify-between">
+                <div className="page-frame flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800">
                             <Target className="w-5 h-5 text-neutral-700 dark:text-neutral-300" />
@@ -704,31 +705,19 @@ export function PathfinderDashboard({ initialGoals, initialGroups, activity }: P
 
             {/* Mobile Tabs */}
             <div className="lg:hidden shrink-0 px-4 py-2 border-b border-neutral-200/60 dark:border-neutral-800/60 bg-white dark:bg-neutral-900/80">
-                <div className="flex gap-1 bg-neutral-100 dark:bg-neutral-800/50 rounded-lg p-0.5">
-                    <button
-                        onClick={() => setMobileTab('goals')}
-                        className={cn(
-                            "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors",
-                            mobileTab === 'goals' ? "bg-white dark:bg-neutral-800 shadow-sm text-neutral-900 dark:text-white" : "text-neutral-500"
-                        )}
-                    >
-                        <Target className="w-3.5 h-3.5" /> Goals
-                    </button>
-                    <button
-                        onClick={() => setMobileTab('overview')}
-                        className={cn(
-                            "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors",
-                            mobileTab === 'overview' ? "bg-white dark:bg-neutral-800 shadow-sm text-neutral-900 dark:text-white" : "text-neutral-500"
-                        )}
-                    >
-                        <TrendingUp className="w-3.5 h-3.5" /> Overview
-                    </button>
-                </div>
+                {/* The shared segmented control (plan/ui-pass UI-2), not a hand-built copy
+                    of its classes. The panels below stay controlled by `mobileTab`. */}
+                <Tabs value={mobileTab} onValueChange={(v) => setMobileTab(v as 'goals' | 'overview')}>
+                    <TabsList variant="segmented" size="sm">
+                        <TabsTrigger value="goals" icon={<Target />}>Goals</TabsTrigger>
+                        <TabsTrigger value="overview" icon={<TrendingUp />}>Overview</TabsTrigger>
+                    </TabsList>
+                </Tabs>
             </div>
 
             {/* Content */}
             <div className="flex-1 overflow-hidden">
-                <div className="h-full w-full mx-auto flex">
+                <div className="page-frame flex h-full">
                     {/* Goals Panel - Desktop always, Mobile conditional */}
                     <div className={cn(
                         "w-full lg:w-[400px] xl:w-[440px] border-r border-neutral-200/60 dark:border-neutral-800/60 flex flex-col bg-white dark:bg-neutral-900/30",

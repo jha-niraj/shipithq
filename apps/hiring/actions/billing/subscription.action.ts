@@ -1,9 +1,8 @@
 "use server"
 
 import { db, companyMembers, companySubscriptions, jobs, jobApplications, interviewProcesses } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, count, gte } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import {
     HIRING_SUBSCRIPTION_PLANS, type HiringSubscriptionPlanType
@@ -12,22 +11,6 @@ import type { SubscriptionDetails, UsageStats } from "@/types"
 
 // Re-export types for backward compatibility
 export type { SubscriptionDetails, UsageStats }
-
-// ============================================
-// HELPERS
-// ============================================
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) return null
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    return member
-}
 
 // ============================================
 // SERVER ACTIONS
@@ -42,10 +25,9 @@ export async function getCurrentSubscription(): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, subscription: null, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("billing")
+        if (!auth.ok) return { success: false, subscription: null, error: auth.error }
+        const member = auth.ctx.member
 
         const subscription = await db.query.companySubscriptions.findFirst({
             where: eq(companySubscriptions.companyId, member.companyId)
@@ -121,10 +103,9 @@ export async function getUsageStats(): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, usage: null, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("billing")
+        if (!auth.ok) return { success: false, usage: null, error: auth.error }
+        const member = auth.ctx.member
 
         // Get subscription limits
         const subscription = await db.query.companySubscriptions.findFirst({
@@ -211,10 +192,9 @@ export async function cancelSubscription(): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("billing")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const subscription = await db.query.companySubscriptions.findFirst({
             where: eq(companySubscriptions.companyId, member.companyId)
@@ -255,6 +235,9 @@ export async function checkSubscriptionLimit(action: 'job' | 'application' | 'te
     limit?: number
 }> {
     try {
+        const auth = await requirePermission("billing")
+        if (!auth.ok) return { allowed: false, message: auth.error }
+
         const usageResult = await getUsageStats()
         if (!usageResult.success || !usageResult.usage) {
             return { allowed: false, message: "Failed to check limits" }

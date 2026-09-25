@@ -181,9 +181,9 @@ export function JobCard({
                     : "bg-neutral-300 dark:bg-neutral-600",
             )} />
 
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3 sm:gap-4">
                 {/* Company Logo */}
-                <div className="w-14 h-14 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0 relative">
+                <div className="h-11 w-11 sm:w-14 sm:h-14 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0 relative">
                     {job.company.logoUrl ? (
                         <Image
                             src={job.company.logoUrl}
@@ -192,16 +192,21 @@ export function JobCard({
                             fill
                         />
                     ) : (
-                        <Building2 className="w-7 h-7 text-neutral-600 dark:text-neutral-400" />
+                        <Building2 className="h-5 w-5 sm:w-7 sm:h-7 text-neutral-600 dark:text-neutral-400" />
                     )}
                 </div>
 
                 <div className="flex-1 min-w-0">
                     {/* Title and Match Score */}
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                        <div>
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors truncate">
+                    <div className="mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                        {/* Stacked on a phone, so the title gets the whole width and the
+                            match badge sits under it. */}
+                        {/* min-w-0 down the chain, or a long title widens this column
+                            past the card and is cut at its edge instead of truncating
+                            (390px, plan/ui-pass UI-17). */}
+                        <div className="min-w-0">
+                            <div className="flex min-w-0 items-center gap-2 mb-0.5">
+                                <h3 className="min-w-0 text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors line-clamp-2 sm:line-clamp-1">
                                     {job.title}
                                 </h3>
                                 {job.isFollowingCompany && (
@@ -218,7 +223,7 @@ export function JobCard({
                                     </TooltipProvider>
                                 )}
                             </div>
-                            <p className="text-neutral-500 dark:text-neutral-400">{job.company.name}</p>
+                            <p className="truncate text-neutral-500 dark:text-neutral-400">{job.company.name}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                             {showMatchScore && (

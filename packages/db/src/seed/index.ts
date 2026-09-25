@@ -55,6 +55,7 @@ import {
 } from "../index";
 import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { COMPANIES, JOBS, PROJECTS } from "./data";
+import { applyApplications, planApplications } from "./applications";
 
 // ── Safety ───────────────────────────────────────────────────────────────────
 
@@ -567,76 +568,15 @@ async function seedProjectBlueprints(): Promise<{ projects: number; sprints: num
     return { projects: projectCount, sprints: sprintCount, tasks: taskCount, skipped };
 }
 
-/**
- * A believable application history for ONE named user.
- *
- * The statuses are spread across the pipeline on purpose: the applications page
- * groups into All / Active / Offers / Closed, and every one of those buckets
- * needs a row or the tabs cannot be told apart - which is the actual complaint.
- */
-const APPLICATION_PLAN: { jobSlug: string; status: string; daysAgo: number }[] = [
-    { jobSlug: "lumen-labs-backend-engineer-traces", status: "INTERVIEW_SCHEDULED", daysAgo: 9 },
-    { jobSlug: "northwind-payments-backend-engineer", status: "UNDER_REVIEW", daysAgo: 5 },
-    { jobSlug: "cobalt-security-rust-engineer", status: "OFFER_EXTENDED", daysAgo: 21 },
-    { jobSlug: "verdant-health-fullstack-intern", status: "APPLIED", daysAgo: 2 },
-    { jobSlug: "atlas-mobility-mobile-engineer", status: "REJECTED", daysAgo: 30 },
-    { jobSlug: "quanta-retail-data-engineer", status: "SHORTLISTED", daysAgo: 12 },
-    { jobSlug: "lumen-labs-frontend-engineer", status: "INTERESTED", daysAgo: 1 },
-    { jobSlug: "cobalt-security-frontend-intern", status: "WITHDRAWN", daysAgo: 40 },
-];
-
+/** Applications for ONE named user; the plan and the writes live in ./applications. */
 async function seedApplications(email: string): Promise<number> {
-    const user = await db.query.users.findFirst({
-        where: eq(users.email, email),
-        columns: { id: true, email: true },
-    });
-
-    if (!user) {
+    const plan = await planApplications(email);
+    if (!plan.userId) {
         console.warn(`  ! no user with email ${email} - skipping applications`);
         return 0;
     }
-
-    const jobRows = await db
-        .select({ id: jobs.id, slug: jobs.slug })
-        .from(jobs)
-        .where(inArray(jobs.slug, APPLICATION_PLAN.map((a) => a.jobSlug)));
-
-    const jobIdBySlug = new Map(jobRows.map((r) => [r.slug, r.id]));
-    let n = 0;
-
-    for (const plan of APPLICATION_PLAN) {
-        const jobId = jobIdBySlug.get(plan.jobSlug);
-        if (!jobId) continue;
-
-        const when = daysAgo(plan.daysAgo);
-
-        // No unique constraint on (jobId, userId) to conflict against, so this
-        // checks first. Re-running must not stack eight more applications.
-        const existing = await db
-            .select({ id: jobApplications.id })
-            .from(jobApplications)
-            .where(and(eq(jobApplications.jobId, jobId), eq(jobApplications.userId, user.id)))
-            .limit(1);
-
-        if (existing.length > 0) {
-            await db
-                .update(jobApplications)
-                .set({ status: plan.status as never, appliedAt: when })
-                .where(eq(jobApplications.id, existing[0]!.id));
-        } else {
-            await db.insert(jobApplications).values({
-                jobId,
-                userId: user.id,
-                status: plan.status as never,
-                appliedAt: when,
-                createdAt: when,
-                matchScore: Math.round(55 + Math.random() * 40),
-            });
-        }
-        n++;
-    }
-
-    return n;
+    await applyApplications(plan.userId, plan.steps);
+    return plan.steps.filter((s) => s.kind !== "missing-job").length;
 }
 
 // ── Clearing ─────────────────────────────────────────────────────────────────
@@ -826,7 +766,7 @@ async function main() {
     // (plan/project-repos RP-4).
     if (args.includes("--only=project-setup")) {
         // Kept for the full-seed flow; the preview-first way is
-        // `pnpm db:project-setup` (src/scripts/project-setup.ts).
+        // `pnpm script project-setup` (src/scripts/project-setup.ts).
         const plan = await planSetupSprints();
         const written = await applySetupSprints(plan);
         console.log(`  setup      ${written} of ${plan.targets.length} projects and copies changed${plan.skipped.length ? ` (skipped: ${plan.skipped.join(", ")})` : ""}`);

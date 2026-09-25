@@ -668,3 +668,67 @@ and `/aimock` redirects once nothing links to them for a release; remove
 `sprint-generation.action.ts`'s board-only exports if WS-15 does not use them.
 **Done when.** No progress row points at a project its user does not own, and
 the redirects are gone with no 404s in the logs.
+
+## WS-20 The Project AI as a docked right panel; every tab closable
+- [x] Status: done 2026-09-24. Default 40% wide (25-55%), per Niraj's example width; header "Project AI" with a close button, the icon removed and the description cut to one line (Niraj, mid-task). Verified in the browser: open by default at 460px of 1152; dragging the handle widened it to 610px and the width survived a reload; its X closed it and it stayed closed after a reload; the rail reopened it; the Task tab has a close button and closing it leaves "Nothing open"; `?file=@ai` opens the panel. The workspace skeleton includes the panel. Niraj, 2026-09-24: keep the AI "on the right side opened", closable, wider, resizable; Task, Resources, Errors and the rest closable too.
+
+**Files.** `workspace/_components/workspace-client.tsx`, `workspace-model.ts`, `editor-tabs.tsx`, `ai-assistant.tsx`, `loading.tsx`.
+**Steps.** The AI leaves the tab row and becomes a resizable panel on the right (about a third of the width by default, 22-50%), open by default, with a close button in its header; the rail's AI button and the title bar toggle it; open/closed and width remembered per browser. No pinned tabs: Task closes like any other; with nothing open the centre says how to open something. `?file=@ai` opens the panel.
+**Edge cases.** Old saved tabs containing `@ai` are dropped from the tab row. Narrow windows: the panel keeps a sensible minimum.
+**Done when.** In a real page the AI is open on the right beside the Task tab, closes and reopens, resizes by dragging, and stays closed after a reload once closed; Task closes; `tsc` clean.
+
+## WS-21 Back and Next on the Task tab
+- [x] Status: done 2026-09-24. Verified: the first task shows no Back; Next from Setup's last step opens Sprint 1 task 1 and moves `?task=`; Alt+Left and Alt+Right step back and forward; each button names the neighbour and where it is ("Setup, step 6", "Sprint 1, task 2"). Niraj, 2026-09-24: "add the back and next button ... easier for the users".
+**Files.** `workspace/_components/task-brief.tsx`, `workspace-client.tsx`.
+**Steps.** Under the brief, "Previous" and "Next" buttons naming the neighbouring task, crossing sprint boundaries (Setup -> Sprint 1 -> ...); disabled at either end; Alt+Left / Alt+Right as shortcuts; the URL's `?task=` follows.
+**Done when.** In a real page Next moves from Setup's last step to Sprint 1 task 1 and Back returns; the first task has no Back; `tsc` clean.
+
+## WS-22 Project AI: inline, a cleaner panel, and a new mark
+- [x] Status: done 2026-09-24, verified in the browser against Done when.
+**Why.** A reply is a single short completion (well under 30s) and free, so a Durable Object round trip only adds a failure point ("Could not start the job" whenever the worker is down). The dashed "How it goes" example and the description line read as clutter; the two-spark star "is not looking right".
+**Files.** `actions/(main)/projects/project-ai.action.ts` (inline reply), `packages/ai/src/project-ai.ts` (the prompt and validation, moved from the worker so the app and the worker share them), `workspace/_components/ai-assistant.tsx`, `workspace-client.tsx`, `packages/ui/src/components/ui/ai-mark.tsx` (the Orbit mark), `apps/main/components/navigation/sidebar.tsx`, `CLAUDE.md` (the exception).
+**Steps.** `sendAiMessage` stores the question, calls the model inline with a 25s timeout, validates the proposal with the same code the worker used, stores the reply, returns both; no job, no polling. Remove the dashed example and the description; an empty conversation shows the suggestion chips only. Proposal cards keep Add (5 credits) and Cancel; a new sprint is appended after the last one. The Orbit mark (a dot with a broken ring) replaces the two sparks everywhere AIGlyph is used.
+**Edge cases.** Model timeout or bad JSON: the question is removed again and put back in the input with the error, so nothing unanswered is left in the thread; no credits involved. Two sends at once: a question newer than any reply (under 40s old) blocks the next.
+**Done when.** With the worker NOT running, asking "Add a task to sprint 2 for exporting CSV" returns a proposal card in one request; Add creates the task at the end of sprint 2 and charges 5; Cancel discards; "Plan a new sprint on accessibility" proposes a sprint that Add appends after the last sprint; `tsc` clean.
+
+## WS-23 The rail: quiz and mock open the next one not done; the gates sit at the bottom
+- [x] Status: done 2026-09-24, verified in the browser against Done when.
+**Steps.** "Sprint quiz" opens the first build sprint whose quiz you have not taken (no attempt yet), and "Sprint mock interview" the first whose mock you have not finished; when all are done, the last sprint's. The final quiz/mock buttons sit at the very bottom of the rail; the rail no longer reserves room for Next's dev badge (development only, and draggable - moving it to the bottom right put it over the AI panel's send button).
+**Done when.** With sprint 1's quiz taken, the rail's quiz opens sprint 2; the rail's mock opens sprint 1 while it has no ended session; the final gates are at the rail's foot.
+**Verified 2026-09-24 (WS-22, WS-23).** With no worker running: "Add a task for a dark mode toggle" asked which sprint and listed Sprints 1 to 5 only; "Put the dark mode task in Sprint 4" proposed it there; "Plan a new sprint on offline support..." proposed Sprint 6 at once with a one-line reply; Cancel showed "Cancelled."; Add on the accessibility sprint created Sprint 5 at the bottom and took 5 credits. Replies took 4 to 9 seconds. Two things the prompt alone did not hold, so they are enforced in code (`lib/projects/project-ai-reply.ts`): the valid sprints are stated in the request, and a reply longer than 320 characters beside a card is replaced by one sentence. The rail's Sprint quiz and Sprint mock opened Sprint 2 (Sprint 1's were done), and the final gates sit 8px from the rail's foot. The worker's `ProjectAi` class was then removed (approved by Niraj, 2026-09-24): binding, exports and file gone, wrangler migration `v12` deletes the class, and the `project_ai` job type stays in `JOB_TYPES` so past job rows remain valid.
+
+
+## WS-24 The sprint mock interview talks inline, not through the worker
+- [ ] Status: not started. Niraj, 2026-09-25.
+
+**Why.** Every question and answer in a sprint mock is a chat turn, and each
+one is dispatched as a `sprint_mock` worker job (`step: 'turn'`). The new rule
+in CLAUDE.md "Long-running work" says chat runs inline. A turn takes a few
+seconds, and the job round trip only adds failure points: it's the same
+"Could not start the job" failure the Project AI had.
+
+**Files.**
+- `apps/main/actions/(main)/projects/sprint-mock.action.ts`: the `open`,
+  `turn` and `feedback` steps
+- `apps/worker/src/jobs/sprint-mock-core.ts`: the prompts and validation,
+  moved to `packages/ai` as the Project AI's were
+- `sprint-mock.tsx`, where client polling is replaced by awaiting the action
+
+**Steps.**
+- **Turns and opening question:** answered inline, with a 25-second timeout.
+- **The session's credits:** held by the action when the session opens and
+  settled at feedback, as the job did.
+- **Feedback:** inline too, if it reliably finishes in under 30 seconds.
+  Measure it first, and keep it in the worker if not.
+- Remove the `SprintMock` class once nothing dispatches it, with a wrangler
+  `deleted_classes` migration, as was done for `ProjectAi`.
+
+**Edge cases.**
+- A turn that fails puts the learner's answer back into the box so they can
+  resend it. It is never lost.
+- Two answers sent at once: only one is in flight per session.
+
+**Done when.**
+- With the worker stopped, a full sprint mock (opening question, 5 turns,
+  feedback) completes.
+- The credits held at open are settled exactly once.

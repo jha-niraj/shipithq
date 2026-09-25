@@ -211,12 +211,10 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-                    <div className="border-b border-neutral-200 dark:border-neutral-800 px-4">
-                        <TabsList className="bg-transparent border-0 p-0 h-auto gap-2">
+                    <div className="px-4 pt-3">
+                        <TabsList variant="segmented" size="sm" fit>
                             <TabsTrigger
-                                value="quiz"
-                                className="pb-2 px-2 rounded-none border-b-2 border-transparent bg-transparent text-sm"
-                            >
+                                value="quiz">
                                 <SectionTab
                                     icon={<Brain className="w-4 h-4" />}
                                     label="Quiz"
@@ -225,9 +223,7 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
                                 />
                             </TabsTrigger>
                             <TabsTrigger
-                                value="coding"
-                                className="pb-2 px-2 rounded-none border-b-2 border-transparent bg-transparent text-sm"
-                            >
+                                value="coding">
                                 <SectionTab
                                     icon={<Code className="w-4 h-4" />}
                                     label="Coding"
@@ -236,9 +232,7 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
                                 />
                             </TabsTrigger>
                             <TabsTrigger
-                                value="mock"
-                                className="pb-2 px-2 rounded-none border-b-2 border-transparent bg-transparent text-sm"
-                            >
+                                value="mock">
                                 <SectionTab
                                     icon={<Mic className="w-4 h-4" />}
                                     label="Mock Interview"
@@ -249,9 +243,7 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
                             {
                                 hasProject && (
                                     <TabsTrigger
-                                        value="project"
-                                        className="pb-2 px-2 rounded-none border-b-2 border-transparent bg-transparent text-sm"
-                                    >
+                                        value="project">
                                         <SectionTab
                                             icon={<Wrench className="w-4 h-4" />}
                                             label="Project"

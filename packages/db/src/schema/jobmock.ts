@@ -9,8 +9,9 @@ import {
     index,
     uniqueIndex,
     real,
+    check,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { users } from "./schema";
 import { companies } from "./hiring";
@@ -30,7 +31,21 @@ export const interviewRoundTypeEnum = pgEnum("interview_round_type", [
     "CULTURE_FIT",
     "HR_FINAL",
     "CUSTOM",
+    // Hiring rounds (plan/hiring-rounds HR-1): the scored round types students take.
+    "APTITUDE",
+    "DSA",
+    "VOICE_BEHAVIOURAL",
+    "VOICE_CULTURE",
 ]);
+
+/** Who owns a pipeline: a company, or ShipItHQ's generic role pipelines (HR-4). */
+export const pipelineOwnerKindEnum = pgEnum("pipeline_owner_kind", ["COMPANY", "PLATFORM"]);
+/** HARD: below the pass mark, the next round stays locked. ADVISORY: scored and shown, never blocks. */
+export const roundGateModeEnum = pgEnum("round_gate_mode", ["HARD", "ADVISORY"]);
+/** How a voice round may be answered (HR-16). */
+export const roundResponseModeEnum = pgEnum("round_response_mode", ["VOICE", "TYPED", "EITHER"]);
+/** What a round's pool item points at (HR-11). */
+export const roundPoolItemKindEnum = pgEnum("round_pool_item_kind", ["PRACTICE_PROBLEM", "APTITUDE_QUESTION", "DESIGN_PROMPT"]);
 
 export const interviewFormatEnum = pgEnum("interview_format", [
     "VOICE",
@@ -66,9 +81,16 @@ export const interviewProcesses = pgTable(
         id: text("id")
             .primaryKey()
             .$defaultFn(() => createId()),
+        /** Null only for PLATFORM pipelines (a check constraint holds it). */
         companyId: text("company_id")
-            .notNull()
             .references(() => companies.id, { onDelete: "cascade" }),
+        ownerKind: pipelineOwnerKindEnum("owner_kind").notNull().default("COMPANY"),
+        /** A template jobs pick from; false for a job's own edited copy (HR-12). */
+        isTemplate: boolean("is_template").notNull().default(true),
+        /** The template a job's copy was made from. */
+        sourceTemplateId: text("source_template_id"),
+        /** Set on a job's own copy. Plain column: jobs.ts owns the FK the other way. */
+        jobId: text("job_id"),
         name: text("name").notNull(),
         description: text("description"),
         isDefault: boolean("is_default").notNull().default(false),
@@ -86,6 +108,8 @@ export const interviewProcesses = pgTable(
     (table) => [
         index("idx_interview_process_company_id").on(table.companyId),
         index("idx_interview_process_is_default").on(table.isDefault),
+        index("idx_interview_process_job_id").on(table.jobId),
+        check("chk_interview_process_owner", sql`(${table.ownerKind} = 'PLATFORM') or (${table.companyId} is not null)`),
     ],
 );
 
@@ -115,6 +139,17 @@ export const interviewRounds = pgTable(
         interviewerGuide: text("interviewer_guide"),
         hasMockInterview: boolean("has_mock_interview").notNull().default(true),
         mockKnowledgeBase: text("mock_knowledge_base"),
+        // Gating (plan/hiring-rounds HR-1). Existing rounds are ADVISORY at 0, so
+        // nothing that worked before starts blocking anyone.
+        gateMode: roundGateModeEnum("gate_mode").notNull().default("ADVISORY"),
+        passMark: integer("pass_mark").notNull().default(0),
+        timeLimitMinutes: integer("time_limit_minutes"),
+        /** How many items each attempt draws from the pool. */
+        drawCount: integer("draw_count").notNull().default(1),
+        cooldownHours: integer("cooldown_hours").notNull().default(24),
+        /** For AI-scored rounds: the criteria and weights the score is given against. */
+        rubric: jsonb("rubric"),
+        responseMode: roundResponseModeEnum("response_mode").notNull().default("EITHER"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at")
             .notNull()
@@ -127,6 +162,28 @@ export const interviewRounds = pgTable(
         ),
         index("idx_interview_round_process_id").on(table.processId),
         index("idx_interview_round_round_type").on(table.roundType),
+    ],
+);
+
+/** One item a round's attempts draw from (plan/hiring-rounds HR-1, HR-11). */
+export const hiringRoundPoolItems = pgTable(
+    "hiring_round_pool_item",
+    {
+        id: text("id")
+            .primaryKey()
+            .$defaultFn(() => createId()),
+        roundId: text("round_id")
+            .notNull()
+            .references(() => interviewRounds.id, { onDelete: "cascade" }),
+        kind: roundPoolItemKindEnum("kind").notNull(),
+        /** The practice problem, aptitude question or design prompt's id. */
+        refId: text("ref_id").notNull(),
+        weight: integer("weight").notNull().default(1),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("uq_hiring_round_pool_item_round_kind_ref").on(table.roundId, table.kind, table.refId),
+        index("idx_hiring_round_pool_item_round_id").on(table.roundId),
     ],
 );
 
@@ -230,7 +287,15 @@ export const interviewProcessesRelations = relations(interviewProcesses, ({ one,
     rounds: many(interviewRounds),
 }));
 
+export const hiringRoundPoolItemsRelations = relations(hiringRoundPoolItems, ({ one }) => ({
+    round: one(interviewRounds, {
+        fields: [hiringRoundPoolItems.roundId],
+        references: [interviewRounds.id],
+    }),
+}));
+
 export const interviewRoundsRelations = relations(interviewRounds, ({ one, many }) => ({
+    poolItems: many(hiringRoundPoolItems),
     process: one(interviewProcesses, {
         fields: [interviewRounds.processId],
         references: [interviewProcesses.id],

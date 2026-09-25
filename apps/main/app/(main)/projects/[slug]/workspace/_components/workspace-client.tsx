@@ -6,8 +6,9 @@ import { useSearchParams } from 'next/navigation'
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels'
 import {
     AlertTriangle, ArrowLeft, Book, Brain, ChevronDown, ChevronUp, Code2, FlaskConical, GraduationCap, ListTodo,
-    Mic, MonitorPlay, Presentation, Sparkles, PanelBottom, PanelLeft, PanelRight, PanelRightClose, PanelRightOpen, Play, TerminalSquare, X,
+    Mic, MonitorPlay, Presentation, PanelBottom, PanelLeft, PanelRight, PanelRightClose, PanelRightOpen, Play, TerminalSquare, X,
 } from 'lucide-react'
+import { AIIcon } from '@repo/ui/components/ui/ai-mark'
 import toast from '@repo/ui/components/ui/sonner'
 import { cn } from '@repo/ui/lib/utils'
 import { isSetupSprint, sprintLabel } from '@/lib/projects/sprints'
@@ -15,6 +16,7 @@ import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui/components/ui/tooltip'
 import { createFile, deleteFile, renameFile, saveFile, type WorkspaceFile } from '@/actions/(main)/projects/workspace.action'
 import { saveTaskNote, updateTaskStatus } from '@/actions/(main)/projects/project.action'
+import { getSprintGatesDone } from '@/actions/(main)/projects/sprint-quiz.action'
 import ResourcesList from '@/components/projects/resources-list'
 import ErrorsTab from '@/components/projects/errors-tab'
 import DailyStandupTab from '../../_components/daily-standup-tab'
@@ -31,11 +33,11 @@ import { FileTree } from './file-tree'
 import { FullPage } from './sprint-pages'
 import { FinalMockTab, SprintMockTab } from './sprint-mock'
 import { FinalQuizTab, SprintQuizTab } from './sprint-quiz'
-import { TaskBrief } from './task-brief'
+import { TaskBrief, type Neighbour } from './task-brief'
 import { TaskPanel, type SprintPage } from './task-panel'
 import {
     AI_TAB, DEFAULT_EDITOR_SETTINGS, TASK_TAB, baseName, foldersOf, isPinned, isVirtual, languageOf, loadEditorSettings,
-    loadTabs, saveEditorSettings, saveTabs, withPinned, type EditorSettings, type VirtualTab,
+    AI_PANEL_MAX, AI_PANEL_MIN, loadAiPanel, loadTabs, saveAiPanel, saveEditorSettings, saveTabs, withPinned, type EditorSettings, type VirtualTab,
 } from './workspace-model'
 
 export type TaskStatus = 'TO_DO' | 'IN_PROGRESS' | 'COMPLETED'
@@ -153,6 +155,17 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
     const [bottomOpen, setBottomOpen] = useState(true)
     const [settings, setSettings] = useState<EditorSettings>(DEFAULT_EDITOR_SETTINGS)
     const restored = useRef(false)
+    /*
+     * The Project AI docks on the right, open by default (Niraj, 2026-09-24,
+     * WS-20): a panel beside whatever tab is open, not a tab of its own. Open
+     * or closed, and how wide, are remembered per browser.
+     */
+    const [aiOpen, setAiOpenState] = useState(true)
+    const [aiSize, setAiSize] = useState<number | null>(null)
+    const setAiOpen = useCallback((open: boolean) => {
+        setAiOpenState(open)
+        saveAiPanel({ open })
+    }, [])
     // The editor's open tabs are kept under their own key while it is off, so
     // turning it back on finds the file tabs where the learner left them.
     const tabsStore = editorOn ? project.id : `${project.id}:control`
@@ -165,8 +178,14 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
         let nextTabs = saved.tabs
         let nextActive = saved.active
 
+        const aiPanel = loadAiPanel()
+        setAiOpenState(aiPanel.open)
+        setAiSize(aiPanel.size)
+
         const urlFile = searchParams.get('file')
-        if (urlFile && ((editorOn && pathSet.has(urlFile)) || isVirtual(urlFile))) {
+        // Old links to the AI tab open the panel instead.
+        if (urlFile === AI_TAB) setAiOpenState(true)
+        else if (urlFile && ((editorOn && pathSet.has(urlFile)) || isVirtual(urlFile))) {
             if (!nextTabs.includes(urlFile)) nextTabs = [...nextTabs, urlFile]
             nextActive = urlFile
         }
@@ -177,11 +196,10 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
         if (urlSprint && sprints.some((sp) => sp.id === urlSprint)) setPageSprintId(urlSprint)
 
         // A first visit: the brief, and the file you will most likely edit.
-        if (nextTabs.filter((t) => !isPinned(t)).length === 0 && !nextActive) {
-            nextTabs = editorOn ? ['/src/App.tsx', '/src/App.jsx'].filter((p) => pathSet.has(p)).slice(0, 1) : []
+        if (nextTabs.length === 0 && !nextActive) {
+            nextTabs = [TASK_TAB, ...(editorOn ? ['/src/App.tsx', '/src/App.jsx'].filter((p) => pathSet.has(p)).slice(0, 1) : [])]
             nextActive = TASK_TAB
         }
-        // The AI and the Task tab are pinned: always there, always first.
         nextTabs = withPinned(nextTabs)
         setTabs(nextTabs)
         setActiveTab(nextActive ?? nextTabs[0] ?? null)
@@ -238,6 +256,21 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
 
     const openSprintPage = (kind: SprintPage, sprintId: string) => {
         setPageSprintId(sprintId)
+        openTab(kind === 'quiz' ? '@quiz' : '@mock')
+    }
+
+    /*
+     * The rail's Sprint quiz / Sprint mock (WS-23): the first build sprint whose
+     * quiz you have not taken, or whose mock you have not finished; the last
+     * sprint once every one is done. Asked on each click, so it is never stale.
+     */
+    const openNextSprintPage = async (kind: SprintPage) => {
+        const done = buildSprints.length > 0 ? await getSprintGatesDone(project.id) : null
+        if (done?.success) {
+            const finished = new Set(done.data[kind])
+            const next = buildSprints.find((sp) => !finished.has(sp.id)) ?? buildSprints[buildSprints.length - 1]!
+            setPageSprintId(next.id)
+        }
         openTab(kind === 'quiz' ? '@quiz' : '@mock')
     }
 
@@ -307,6 +340,21 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
     }, [saveNow, closeTab, activeTab, editorOn])
+
+    // Alt+Left / Alt+Right step through the tasks (WS-21), except while typing.
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (!e.altKey || e.metaKey || e.ctrlKey || (e.code !== 'ArrowLeft' && e.code !== 'ArrowRight')) return
+            const el = e.target as HTMLElement | null
+            if (el?.closest('input, textarea, [contenteditable="true"], .monaco-editor')) return
+            const to = e.code === 'ArrowLeft' ? neighbours.prev : neighbours.next
+            if (!to) return
+            e.preventDefault()
+            selectTask(to.id)
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    })
 
     // Leaving with unsaved edits asks first.
     useEffect(() => {
@@ -421,13 +469,21 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
     const activeSprintPage = isSprintPage && pageSprint ? { kind: (activeTab === '@quiz' ? 'quiz' : 'mock') as SprintPage, sprintId: pageSprint.id } : null
     const saveLabel = saving > 0 ? 'Saving' : saveError ? 'Could not save' : dirty.size > 0 ? 'Unsaved changes' : 'All changes saved'
 
+    // The tasks either side of the current one, in plan order (WS-21).
+    const neighbours = useMemo(() => {
+        const at = current ? allTasks.findIndex((x) => x.task.id === current.task.id) : -1
+        const describe = (x: (typeof allTasks)[number] | undefined): Neighbour | null =>
+            x ? { id: x.task.id, title: x.task.title, where: `${sprintLabel(x.sprint.number)}, ${isSetupSprint(x.sprint.number) ? 'step' : 'task'} ${x.task.number}` } : null
+        return { prev: at > 0 ? describe(allTasks[at - 1]) : null, next: at >= 0 ? describe(allTasks[at + 1]) : null }
+    }, [allTasks, current])
+
     const renderVirtual = (tab: VirtualTab) => {
         switch (tab) {
             case '@ai':
                 return null // rendered outside the scroll area: it pins its own input row
             case '@task':
                 return current
-                    ? <TaskBrief sprint={current.sprint} task={current.task} testPath={editorOn ? testPath : null} onOpenFile={openTab} onStatus={setStatus} onSaveNote={saveNote} onCheck={runsInBrowser ? checkTask : undefined} checking={checking} />
+                    ? <TaskBrief sprint={current.sprint} task={current.task} testPath={editorOn ? testPath : null} onOpenFile={openTab} onStatus={setStatus} onSaveNote={saveNote} prev={neighbours.prev} next={neighbours.next} onGo={selectTask} onCheck={runsInBrowser ? checkTask : undefined} checking={checking} />
                     : <Empty title="No task selected" body="Pick one from Tasks on the left." />
             case '@quiz':
                 return pageSprint ? <SprintQuizTab sprint={pageSprint} /> : <Empty title="No sprints yet" body="A quiz belongs to a sprint." />
@@ -440,7 +496,7 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
             case '@resources':
                 return <FullPage title="Resources"><ResourcesList projectId={project.id} currentUserId={currentUserId} isCreator /></FullPage>
             case '@errors':
-                return <FullPage><ErrorsTab projectId={project.id} isEnrolled isCreator /></FullPage>
+                return <FullPage title="Errors"><ErrorsTab projectId={project.id} isEnrolled isCreator /></FullPage>
             case '@standup':
                 return <FullPage><DailyStandupTab projectId={project.id} projectSlug={project.slug} projectTitle={project.title} userCredits={userCredits} /></FullPage>
         }
@@ -475,9 +531,7 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
                         <span className="hidden truncate text-xs text-neutral-500 xl:inline">your copy of {project.forkedFrom.title}</span>
                     )}
                     <div className="mx-auto min-w-0 max-w-md truncate text-center text-xs text-neutral-500 dark:text-neutral-400">
-                        {activeTab === AI_TAB
-                            ? <span className="text-neutral-800 dark:text-neutral-200">Project AI</span>
-                            : isSprintPage && pageSprint
+                        {isSprintPage && pageSprint
                             ? <>{sprintLabel(pageSprint.number)} · <span className="text-neutral-800 dark:text-neutral-200">{activeTab === '@quiz' ? 'Quiz' : 'Mock interview'}</span></>
                             : current ? <>{sprintLabel(current.sprint.number)} · <span className="text-neutral-800 dark:text-neutral-200">{current.task.title}</span></> : 'No task selected'}
                     </div>
@@ -487,6 +541,7 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
                         <LayoutToggle label="Tasks (Ctrl/Cmd+B)" on={sideOpen} onClick={() => setSideOpen((o) => !o)}><PanelLeft className="h-4 w-4" /></LayoutToggle>
                         {editorOn && <LayoutToggle label="Tests and console (Ctrl/Cmd+J)" on={bottomOpen} onClick={() => setBottomOpen((o) => !o)}><PanelBottom className="h-4 w-4" /></LayoutToggle>}
                         {editorOn && <LayoutToggle label="Explorer (Ctrl/Cmd+Alt+B)" on={explorerOpen} onClick={() => setExplorerOpen((o) => !o)}><PanelRight className="h-4 w-4" /></LayoutToggle>}
+                        <LayoutToggle label={aiOpen ? 'Close Project AI' : 'Open Project AI'} on={aiOpen} onClick={() => setAiOpen(!aiOpen)}><AIIcon className="h-4 w-4" /></LayoutToggle>
                     </span>
                 </header>
 
@@ -495,24 +550,26 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
                     <TooltipProvider delayDuration={200}>
                         <nav
                             aria-label="Workspace"
-                            className={cn(
-                                'flex w-12 shrink-0 flex-col items-center gap-1 border-r border-neutral-200 pt-2 dark:border-neutral-800',
-                                // Next's dev badge sits over this corner in development
-                                // only; leave it room so the last rail buttons stay clickable.
-                                process.env.NODE_ENV === 'development' ? 'pb-14' : 'pb-2'
-                            )}
+                            // No room kept for Next's dev badge: the final gates sit at the
+                            // very foot (WS-23). The badge is development-only and draggable.
+                            className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-neutral-200 pb-2 pt-2 dark:border-neutral-800"
                         >
                             <RailButton label={sideOpen ? 'Hide tasks (Ctrl/Cmd+B)' : 'Show tasks (Ctrl/Cmd+B)'} active={sideOpen} onClick={() => setSideOpen((o) => !o)}><ListTodo className="h-5 w-5" /></RailButton>
                             <span className="my-1 h-px w-6 bg-neutral-200 dark:bg-neutral-800" />
+                            <RailButton label={aiOpen ? 'Close Project AI' : 'Open Project AI'} active={aiOpen} onClick={() => setAiOpen(!aiOpen)}><AIIcon className="h-5 w-5" /></RailButton>
                             {([
-                                { tab: '@ai', label: 'Project AI', icon: Sparkles },
                                 { tab: '@quiz', label: 'Sprint quiz', icon: Brain },
                                 { tab: '@mock', label: 'Sprint mock interview', icon: MonitorPlay },
                                 { tab: '@resources', label: 'Resources', icon: Book },
                                 { tab: '@errors', label: 'Errors', icon: AlertTriangle },
                                 { tab: '@standup', label: 'Daily standup', icon: Mic },
                             ] as const).map(({ tab, label, icon: Icon }) => (
-                                <RailButton key={tab} label={label} active={activeTab === tab} onClick={() => openTab(tab)}><Icon className="h-5 w-5" /></RailButton>
+                                <RailButton
+                                    key={tab}
+                                    label={label}
+                                    active={activeTab === tab}
+                                    onClick={() => (tab === '@quiz' || tab === '@mock' ? void openNextSprintPage(tab === '@quiz' ? 'quiz' : 'mock') : openTab(tab))}
+                                ><Icon className="h-5 w-5" /></RailButton>
                             ))}
                             <span className="flex-1" />
                             {/* The project's final gates, at the foot of the rail
@@ -568,9 +625,7 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
                                                 )}
                                             />
                                             <div className="min-h-0 flex-1">
-                                                {activeTab === AI_TAB ? (
-                                                    <AiAssistant projectId={project.id} sprints={sprints} currentTaskId={activeTaskId} onPlanChanged={setSprints} />
-                                                ) : activeTab === '@final-mock' ? (
+                                                {activeTab === '@final-mock' ? (
                                                     <FinalMockTab projectId={project.id} title={project.title} sprints={sprints} />
                                                 ) : activeTab === '@mock' ? (
                                                     pageSprint ? <SprintMockTab sprint={pageSprint} /> : <Empty title="No sprints yet" body="A mock interview belongs to a sprint." />
@@ -585,7 +640,7 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
                                                         onChange={edit}
                                                     />
                                                 ) : (
-                                                    <Empty title="Nothing open" body={editorOn ? 'Open a file from the explorer, or a task from the list.' : 'Open a task from the list, or a page from the rail.'} />
+                                                    <Empty title="Nothing open" body={editorOn ? 'Open a file from the explorer, or a task from the list.' : 'Pick a task from the list, or a page from the rail on the left.'} />
                                                 )}
                                             </div>
                                         </Panel>
@@ -695,6 +750,27 @@ export function WorkspaceClient({ project, sprints: initialSprints, initialFiles
                                 onHide={() => setExplorerOpen(false)}
                             />
                         </Panel>
+                        )}
+                        {aiOpen && aiSize !== null && (
+                            <>
+                                <Handle />
+                                <Panel
+                                    id="ai"
+                                    defaultSize={`${aiSize}%`}
+                                    minSize={`${AI_PANEL_MIN}%`}
+                                    maxSize={`${AI_PANEL_MAX}%`}
+                                    onResize={(size) => saveAiPanel({ size: size.asPercentage })}
+                                    className="flex min-w-0 flex-col border-l border-neutral-200 dark:border-neutral-800"
+                                >
+                                    <AiAssistant
+                                        projectId={project.id}
+                                        sprints={sprints}
+                                        currentTaskId={activeTaskId}
+                                        onPlanChanged={setSprints}
+                                        onClose={() => setAiOpen(false)}
+                                    />
+                                </Panel>
+                            </>
                         )}
                     </PanelGroup>
                 </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, ChevronRight, FlaskConical, Lightbulb, NotebookPen } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ChevronRight, FlaskConical, Lightbulb, NotebookPen } from 'lucide-react'
 import { Button } from '@repo/ui/components/ui/button'
 import { InlineLoader } from '@repo/ui/components/ui/inline-loader'
 import { cn } from '@repo/ui/lib/utils'
@@ -22,7 +22,13 @@ interface TaskBriefProps {
     /** Runs the task's tests (WS-5); absent when the project cannot run here. */
     onCheck?: () => void
     checking?: boolean
+    /** The tasks either side, across sprints (WS-21); null at either end. */
+    prev?: Neighbour | null
+    next?: Neighbour | null
+    onGo?: (taskId: string) => void
 }
+
+export interface Neighbour { id: string; title: string; where: string }
 
 const STATUSES: { value: TaskStatus; label: string }[] = [
     { value: 'TO_DO', label: 'To do' },
@@ -38,7 +44,7 @@ const STATUSES: { value: TaskStatus; label: string }[] = [
  * never drift from what the board shows. Hints are folded away: they are
  * nudges for when you are stuck, not part of the brief.
  */
-export function TaskBrief({ sprint, task, testPath, onOpenFile, onStatus, onSaveNote, onCheck, checking }: TaskBriefProps) {
+export function TaskBrief({ sprint, task, testPath, onOpenFile, onStatus, onSaveNote, onCheck, checking, prev, next, onGo }: TaskBriefProps) {
     const setup = isSetupSprint(sprint.number)
     // 'done': writing the note that marks it done; 'edit': changing a saved one.
     const [noteMode, setNoteMode] = useState<null | 'done' | 'edit'>(null)
@@ -167,6 +173,23 @@ export function TaskBrief({ sprint, task, testPath, onOpenFile, onStatus, onSave
                         {task.hints.map((h, i) => <li key={i} className="list-disc"><BriefText text={h} /></li>)}
                     </ul>
                 </details>
+            )}
+            {/* Back and Next through the whole plan, Setup included (Niraj, 2026-09-24). */}
+            {onGo && (prev || next) && (
+                <nav aria-label="Tasks" className="mt-10 grid grid-cols-2 gap-3 border-t border-neutral-200 pt-5 dark:border-neutral-800">
+                    {prev ? (
+                        <button type="button" onClick={() => onGo(prev.id)} title="Previous task (Alt+Left)" className="group flex min-w-0 cursor-pointer flex-col items-start rounded-xl border border-neutral-200 px-4 py-3 text-left transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600">
+                            <span className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400"><ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> Back · {prev.where}</span>
+                            <span className="mt-0.5 w-full truncate text-sm font-medium text-neutral-900 dark:text-white">{prev.title}</span>
+                        </button>
+                    ) : <span />}
+                    {next ? (
+                        <button type="button" onClick={() => onGo(next.id)} title="Next task (Alt+Right)" className="group flex min-w-0 cursor-pointer flex-col items-end rounded-xl border border-neutral-200 px-4 py-3 text-right transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600">
+                            <span className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">{next.where} · Next <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></span>
+                            <span className="mt-0.5 w-full truncate text-sm font-medium text-neutral-900 dark:text-white">{next.title}</span>
+                        </button>
+                    ) : <span />}
+                </nav>
             )}
         </article>
     )

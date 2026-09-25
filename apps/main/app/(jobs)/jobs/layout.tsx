@@ -3,7 +3,6 @@ import { getSession } from "@repo/auth"
 import { headers } from "next/headers"
 import { getJobsTabCounts } from "@/actions/jobs/tabs"
 import { JobsTabsWrapper } from "./components/jobs-tabs-wrapper"
-import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { JobsHeaderOffset } from "./components/header-offset"
 
 /**
@@ -44,12 +43,15 @@ export default async function JobsLayout({
                 so the browse page's control bar can pin beneath it without a
                 hand-written offset. See `header-offset.tsx`. */}
             <JobsHeaderOffset>
-                <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:p-6">
+                {/* The size of every other page header (plan/ui-pass UI-11): one 36px tab
+                    strip beside a PageHeader-sized title, not a 2xl title over 44px tabs.
+                    In the page frame (UI-10), so it lines up with the pages under it. */}
+                <div className="page-frame flex flex-col gap-3 px-page py-2.5 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
                     <div className="min-w-0 shrink-0">
-                        <h1 className="text-xl font-bold text-neutral-900 lg:text-2xl dark:text-white">
+                        <h1 className="text-lg leading-tight font-semibold tracking-tight text-neutral-900 dark:text-white">
                             Jobs
                         </h1>
-                        <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
                             Find your next opportunity
                         </p>
                     </div>
@@ -57,7 +59,7 @@ export default async function JobsLayout({
                     {/* Its own boundary. Without this the counts block the whole tree. */}
                     <Suspense
                         fallback={
-                            <div className="h-11 w-full animate-pulse rounded-2xl bg-neutral-100 lg:max-w-2xl dark:bg-neutral-900" />
+                            <div className="h-8 w-full animate-pulse rounded-xl bg-neutral-100 lg:w-[34rem] dark:bg-neutral-900" />
                         }
                     >
                         <JobsTabs isAuthenticated={isAuthenticated} />
@@ -65,11 +67,9 @@ export default async function JobsLayout({
                 </div>
             </JobsHeaderOffset>
 
-            <Suspense fallback={
-                <div className="flex items-center justify-center py-20">
-                    <InlineLoader size="lg" className="text-neutral-600 dark:text-neutral-400" />
-                </div>
-            }>
+            {/* No fallback of its own: every route below has a loading.tsx
+                skeleton, and a centred loader here flashed before it (UI-12). */}
+            <Suspense fallback={null}>
                 {children}
             </Suspense>
         </div>

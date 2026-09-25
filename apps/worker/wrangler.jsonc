@@ -39,9 +39,9 @@
 			{ "name": "PRACTICE_TESTS_GENERATE", "class_name": "PracticeTestsGenerate" },
 			{ "name": "PRACTICE_MEMORY_UPDATE", "class_name": "PracticeMemoryUpdate" },
 			{ "name": "PRACTICE_REFLECT", "class_name": "PracticeReflect" },
-			{ "name": "PROJECT_AI", "class_name": "ProjectAi" },
 			{ "name": "SPRINT_QUIZ", "class_name": "SprintQuiz" },
-			{ "name": "SPRINT_MOCK", "class_name": "SprintMock" }
+			{ "name": "SPRINT_MOCK", "class_name": "SprintMock" },
+			{ "name": "COMPANY_SCRAPE", "class_name": "CompanyScrape" }
 		]
 	},
 
@@ -109,6 +109,18 @@
 			// Sprint mock interviews (plan/project-workspace WS-13). A NEW tag.
 			"tag": "v11",
 			"new_sqlite_classes": ["SprintMock"]
+		},
+		{
+			// Project AI replies inline in the app since 2026-09-24
+			// (plan/project-workspace WS-22), so its class is deleted. v9 stays:
+			// tags are append-only, and a fresh deploy creates then deletes it.
+			"tag": "v12",
+			"deleted_classes": ["ProjectAi"]
+		},
+		{
+			// Company profile scraping (plan/hiring-rounds HR-5). A NEW tag.
+			"tag": "v13",
+			"new_sqlite_classes": ["CompanyScrape"]
 		}
 	],
 
@@ -126,8 +138,8 @@
 	],
 
 	// Non-secret vars only. Secrets (DATABASE_URL, OPENAI_API_KEY, WORKER_SECRET,
-	// ELEVENLABS_API_KEY, PATHFINDER_ASSISTANT_ID) are uploaded by `pnpm release`
-	// from .env.production.
+	// ELEVENLABS_API_KEY, PATHFINDER_ASSISTANT_ID, EXA_API_KEY,
+	// FIRECRAWL_API_KEY) are uploaded by `pnpm release` from .env.production.
 	"vars": {
 		"NODE_ENV": "production"
 	}

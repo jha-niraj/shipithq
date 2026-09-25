@@ -6,7 +6,7 @@ import {
 } from "@/actions/companies"
 import { getCompanyJobs } from "@/actions/jobs"
 import { CompanyDetailContent } from "./company-detail-content"
-import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import Loading from "./loading"
 
 interface CompanyDetailPageProps {
     params: Promise<{ slug: string }>
@@ -45,11 +45,7 @@ export default async function CompanyDetailPage({ params }: CompanyDetailPagePro
 
     return (
         <Suspense 
-            fallback={
-                <div className="min-h-full flex items-center justify-center">
-                    <InlineLoader size="lg" className="text-neutral-600 dark:text-neutral-400" />
-                </div>
-            }
+            fallback={<Loading />}
         >
             <CompanyDetailContent 
                 company={company}

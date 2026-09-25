@@ -1,6 +1,6 @@
 // Hand-matched to `workspace-client.tsx`. With the editor off (V1,
 // plan/project-repos RP-2): 44px title bar, 48px activity rail, tasks (16%),
-// then the tab row over a full-width page. With it on, also the preview (38%
+// the tab row over the page, and the Project AI panel (40%) on the right (WS-20). With it on, also the preview (38%
 // of the editor), tests below (26%), the explorer (16%) and a 24px status bar.
 // Change the two together.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
@@ -24,6 +24,15 @@ export default function Loading() {
                     {Array.from({ length: 7 }).map((_, i) => <Shimmer key={i} className="h-5 w-full" delay={i * 0.05} />)}
                 </div>
                 {WORKSPACE_EDITOR ? <EditorColumns /> : <PageColumn />}
+                {/* The Project AI panel, open by default on the right (WS-20). */}
+                <div className="flex w-[40%] shrink-0 flex-col border-l border-neutral-200 dark:border-neutral-800">
+                    <div className="flex h-9 items-center border-b border-neutral-200 px-3 dark:border-neutral-800"><Shimmer className="h-3 w-20" /></div>
+                    <div className="space-y-3 p-4">
+                        <Shimmer className="h-3 w-4/5" delay={0.05} />
+                        <Shimmer className="ml-auto h-8 w-3/5 rounded-2xl" delay={0.1} />
+                        <Shimmer className="h-12 w-4/5 rounded-2xl" delay={0.15} />
+                    </div>
+                </div>
             </div>
             {WORKSPACE_EDITOR && <div className="h-6 shrink-0 border-t border-neutral-200 dark:border-neutral-800" />}
         </div>

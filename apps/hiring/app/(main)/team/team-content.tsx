@@ -10,6 +10,7 @@ import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter,
     DialogHeader, DialogTitle, DialogTrigger
@@ -24,19 +25,25 @@ import {
 import { useSession } from "@repo/auth/client"
 import {
     inviteTeamMember, cancelInvitation, resendInvitation,
-    updateMemberRole, removeTeamMember
+    removeTeamMember
 } from "@/actions/team"
+import { assignMemberRole } from "@/actions/team/company-roles.action"
 import toast from "@repo/ui/components/ui/sonner"
 import Image from "next/image"
-import type { CompanyMemberRole, TeamMember, PendingInvite, TeamStats } from "@/types"
+import type { TeamMember, PendingInvite, TeamStats } from "@/types"
 
 interface TeamContentProps {
     initialMembers: TeamMember[]
     initialInvites: PendingInvite[]
     stats: TeamStats | null
+    /** The viewer's "manage team" permission (plan/hiring-app HA-6). */
+    canManageTeam: boolean
+    viewerIsOwner: boolean
+    /** The company's roles, for "Change role". */
+    roles: { id: string; name: string; isOwner: boolean }[]
 }
 
-export function TeamContent({ initialMembers, initialInvites, stats }: TeamContentProps) {
+export function TeamContent({ initialMembers, initialInvites, stats, canManageTeam, viewerIsOwner, roles }: TeamContentProps) {
     const { data: session } = useSession()
     const [members, setMembers] = useState(initialMembers)
     const [invites, setInvites] = useState(initialInvites)
@@ -44,10 +51,16 @@ export function TeamContent({ initialMembers, initialInvites, stats }: TeamConte
 
     const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
     const [inviteEmail, setInviteEmail] = useState("")
-    const [inviteRole, setInviteRole] = useState<CompanyMemberRole>("RECRUITER")
+    // Invites carry one of the company's roles (plan/hiring-app HA-8). Only an
+    // Owner may invite an Owner. Recruiter is the default when it exists.
+    const invitableRoles = roles.filter((role) => !role.isOwner || viewerIsOwner)
+    const [inviteRoleId, setInviteRoleId] = useState<string>(
+        invitableRoles.find((role) => role.name === "Recruiter")?.id ?? invitableRoles[0]?.id ?? "",
+    )
 
-    const currentUserMember = members.find(m => m.userId === session?.user?.id)
-    const isHead = currentUserMember?.role === "FOUNDER"
+    // Controls follow the viewer's company role, not the legacy FOUNDER enum;
+    // the server checks again on every action.
+    const isHead = canManageTeam
 
     const handleInvite = async () => {
         if (!inviteEmail.trim()) {
@@ -58,7 +71,7 @@ export function TeamContent({ initialMembers, initialInvites, stats }: TeamConte
         startTransition(async () => {
             const result = await inviteTeamMember({
                 email: inviteEmail,
-                role: inviteRole
+                roleId: inviteRoleId
             })
             if (result.success) {
                 toast.success("Invitation sent successfully")
@@ -93,11 +106,12 @@ export function TeamContent({ initialMembers, initialInvites, stats }: TeamConte
         })
     }
 
-    const handleUpdateRole = async (memberId: string, newRole: CompanyMemberRole) => {
+    const handleUpdateRole = async (memberId: string, roleId: string) => {
         startTransition(async () => {
-            const result = await updateMemberRole(memberId, newRole)
+            const result = await assignMemberRole(memberId, roleId)
             if (result.success) {
-                setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m))
+                const role = roles.find((r) => r.id === roleId)
+                setMembers(prev => prev.map(m => m.id === memberId ? { ...m, roleId, roleName: role?.name ?? m.roleName, isOwner: Boolean(role?.isOwner) } : m))
                 toast.success("Role updated successfully")
             } else {
                 toast.error(result.error || "Failed to update role")
@@ -119,40 +133,24 @@ export function TeamContent({ initialMembers, initialInvites, stats }: TeamConte
         })
     }
 
-    const getRoleBadge = (role: string) => {
-        if (role === "FOUNDER") {
-            return (
-                <Badge className="bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100 gap-1">
-                    <Crown className="w-3 h-3" />
-                    Founder
-                </Badge>
-            )
-        }
-        if (role === "ADMIN") {
-            return (
-                <Badge className="bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100">
-                    Admin
-                </Badge>
-            )
-        }
-        return (
-            <Badge variant="outline">{role}</Badge>
+    const getRoleBadge = (member: TeamMember) => (
+        member.isOwner ? (
+            <Badge className="gap-1 bg-neutral-100 text-neutral-800 dark:bg-neutral-800/30 dark:text-neutral-100">
+                <Crown className="h-3 w-3" />
+                {member.roleName}
+            </Badge>
+        ) : (
+            <Badge variant="outline">{member.roleName}</Badge>
         )
-    }
+    )
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                        Team Members
-                    </h1>
-                    <p className="text-neutral-500 mt-1">
-                        Manage your hiring team and permissions
-                    </p>
-                </div>
-                {
-                    isHead && (
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="Team Members"
+                subtitle="Manage your hiring team and permissions"
+                actions={
+                    isHead ? (
                         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
                             <DialogTrigger asChild>
                                 <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
@@ -180,31 +178,23 @@ export function TeamContent({ initialMembers, initialInvites, stats }: TeamConte
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">Role</label>
-                                        <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as CompanyMemberRole)}>
-                                            <SelectTrigger className="rounded-xl">
-                                                <SelectValue />
+                                        <Select value={inviteRoleId} onValueChange={setInviteRoleId}>
+                                            <SelectTrigger className="rounded-xl" aria-label="Role">
+                                                <SelectValue>{invitableRoles.find((role) => role.id === inviteRoleId)?.name ?? "Choose a role"}</SelectValue>
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="RECRUITER">
-                                                    <div className="flex items-center gap-2">
-                                                        <Users className="w-4 h-4" />
-                                                        <span>Recruiter</span>
-                                                    </div>
-                                                </SelectItem>
-                                                <SelectItem value="ADMIN">
-                                                    <div className="flex items-center gap-2">
-                                                        <Crown className="w-4 h-4" />
-                                                        <span>Admin</span>
-                                                    </div>
-                                                </SelectItem>
+                                                {invitableRoles.map((role) => (
+                                                    <SelectItem key={role.id} value={role.id}>
+                                                        <div className="flex items-center gap-2">
+                                                            {role.isOwner ? <Crown className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+                                                            <span>{role.name}</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                         <p className="text-xs text-neutral-500">
-                                            {
-                                                inviteRole === "ADMIN"
-                                                    ? "Admins can manage team, settings, and billing"
-                                                    : "Recruiters can post jobs and manage candidates"
-                                            }
+                                            What each role can do is set under Company, Roles.
                                         </p>
                                     </div>
                                 </div>
@@ -223,13 +213,13 @@ export function TeamContent({ initialMembers, initialInvites, stats }: TeamConte
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
-                    )
+                    ) : undefined
                 }
-            </div>
+            />
 
             {
                 stats && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <StatBand
                             cols={4}
                             items={[
@@ -244,9 +234,9 @@ export function TeamContent({ initialMembers, initialInvites, stats }: TeamConte
             }
             {
                 invites.length > 0 && (
-                    <div className="mb-8">
+                    <div>
                         <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
-                            <Clock className="w-5 h-5 text-neutral-900" />
+                            <Clock className="w-5 h-5 text-neutral-900 dark:text-white" />
                             Pending Invitations
                         </h2>
                         <div className="space-y-3">
@@ -279,7 +269,7 @@ export function TeamContent({ initialMembers, initialInvites, stats }: TeamConte
                                                         size="sm"
                                                         onClick={() => handleResendInvite(invite.id)}
                                                         disabled={isPending}
-                                                        className="text-neutral-800 hover:text-neutral-700"
+                                                        className="text-neutral-800 hover:text-neutral-700 dark:text-neutral-200 dark:hover:text-white"
                                                     >
                                                         <RefreshCw className="w-4 h-4 mr-1" />
                                                         Resend
@@ -359,7 +349,7 @@ export function TeamContent({ initialMembers, initialInvites, stats }: TeamConte
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                {getRoleBadge(member.role)}
+                                                {getRoleBadge(member)}
 
                                                 {
                                                     isHead && !isCurrentUser && (
@@ -371,20 +361,15 @@ export function TeamContent({ initialMembers, initialInvites, stats }: TeamConte
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end">
                                                                 {
-                                                                    member.role === "RECRUITER" && (
-                                                                        <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "ADMIN")}>
-                                                                            <Crown className="w-4 h-4 mr-2" />
-                                                                            Promote to Admin
-                                                                        </DropdownMenuItem>
-                                                                    )
-                                                                }
-                                                                {
-                                                                    member.role === "ADMIN" && (
-                                                                        <DropdownMenuItem onClick={() => handleUpdateRole(member.id, "RECRUITER")}>
-                                                                            <Users className="w-4 h-4 mr-2" />
-                                                                            Change to Recruiter
-                                                                        </DropdownMenuItem>
-                                                                    )
+                                                                    // Only an Owner may make or change an Owner.
+                                                                    roles
+                                                                        .filter((role) => role.id !== member.roleId && (viewerIsOwner || (!role.isOwner && !member.isOwner)))
+                                                                        .map((role) => (
+                                                                            <DropdownMenuItem key={role.id} onClick={() => handleUpdateRole(member.id, role.id)}>
+                                                                                {role.isOwner ? <Crown className="w-4 h-4 mr-2" /> : <Users className="w-4 h-4 mr-2" />}
+                                                                                Make {role.name}
+                                                                            </DropdownMenuItem>
+                                                                        ))
                                                                 }
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem

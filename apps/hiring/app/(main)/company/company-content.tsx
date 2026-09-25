@@ -12,6 +12,7 @@ import { Input } from "@repo/ui/components/ui/input"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@repo/ui/components/ui/select"
@@ -70,7 +71,8 @@ export function CompanyProfileContent({ profile, stats }: CompanyProfileContentP
 
     if (!profile) {
         return (
-            <div className="min-h-full p-6 lg:p-8">
+            <div className="page-frame space-y-5 px-page py-6">
+                <PageHeader title="Company Profile" subtitle="Manage your company's public profile and branding" />
                 <div className="text-center py-16 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl">
                     <div className="w-20 h-20 rounded-2xl bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mx-auto mb-6">
                         <Building2 className="w-10 h-10 text-neutral-400" />
@@ -127,17 +129,12 @@ export function CompanyProfileContent({ profile, stats }: CompanyProfileContentP
     }
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                        Company Profile
-                    </h1>
-                    <p className="text-neutral-500 mt-1">
-                        Manage your company&apos;s public profile and branding
-                    </p>
-                </div>
-                <div className="flex gap-3">
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="Company Profile"
+                subtitle="Manage your company's public profile and branding"
+                actions={
+                <>
                     {
                         isEditing ? (
                             <>
@@ -179,14 +176,15 @@ export function CompanyProfileContent({ profile, stats }: CompanyProfileContentP
                             </>
                         )
                     }
-                </div>
-            </div>
+                </>
+                }
+            />
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative mb-8"
+                className="relative"
             >
-                <div className="h-48 lg:h-64 rounded-2xl bg-gradient-to-r from-neutral-800 via-neutral-800 to-pink-600 overflow-hidden relative group">
+                <div className="h-48 lg:h-64 rounded-2xl bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-600 overflow-hidden relative group">
                     {
                         profile.coverImage && (
                             <Image
@@ -245,7 +243,9 @@ export function CompanyProfileContent({ profile, stats }: CompanyProfileContentP
                 }
             </motion.div>
             <StatBand
-                className="mt-16 mb-8"
+                // The logo overhangs the cover by 40px (-bottom-10), so the band
+                // clears it rather than taking the frame's 20px gap.
+                className="!mt-16"
                 cols={4}
                 items={[
                     { icon: Briefcase, label: "Active Jobs", value: stats?.activeJobs || 0 },

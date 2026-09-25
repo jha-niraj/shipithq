@@ -26,16 +26,12 @@ export function PathfinderVideosTab({ aiResources }: PathfinderVideosTabProps) {
 
     return (
         <Tabs defaultValue="videos" className="flex-1 flex flex-col h-full overflow-hidden">
-            <TabsList className="flex-shrink-0 mx-4 mt-4 w-fit">
-                <TabsTrigger value="videos" className="text-xs gap-1.5">
-                    <ListVideo className="w-3.5 h-3.5" />
-                    Videos ({videos.length})
-                </TabsTrigger>
-                <TabsTrigger value="documents" className="text-xs gap-1.5">
-                    <FileText className="w-3.5 h-3.5" />
-                    Documents ({docs.length})
-                </TabsTrigger>
-            </TabsList>
+            <div className="mx-4 mt-4 flex-shrink-0">
+                <TabsList size="sm" fit>
+                    <TabsTrigger value="videos" icon={<ListVideo />}>Videos ({videos.length})</TabsTrigger>
+                    <TabsTrigger value="documents" icon={<FileText />}>Documents ({docs.length})</TabsTrigger>
+                </TabsList>
+            </div>
             <TabsContent value="videos" className="flex-1 m-0 overflow-hidden">
                 <ScrollArea className="h-full">
                     <div className="p-4 space-y-4">

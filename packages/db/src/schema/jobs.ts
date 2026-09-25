@@ -13,6 +13,7 @@ import { relations } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { users } from "./schema";
 import { companies, companyMembers } from "./hiring";
+import { interviewProcesses } from "./jobmock";
 
 // ===========================
 // Enums
@@ -119,7 +120,8 @@ export const jobs = pgTable(
         viewsCount: integer("views_count").notNull().default(0),
         applicationsCount: integer("applications_count").notNull().default(0),
         matchingCriteria: jsonb("matching_criteria"),
-        interviewProcessId: text("interview_process_id"),
+        /** The job's pipeline (plan/hiring-rounds HR-1, HR-12). A real FK since HR-1. */
+        interviewProcessId: text("interview_process_id").references(() => interviewProcesses.id, { onDelete: "set null" }),
         expiresAt: timestamp("expires_at"),
         publishedAt: timestamp("published_at"),
         createdAt: timestamp("created_at").notNull().defaultNow(),

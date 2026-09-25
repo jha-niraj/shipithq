@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
     Building2, MapPin, Briefcase, ArrowRight, ArrowLeft, Check,
     Users, Code, Palette, LineChart, Megaphone, Cog, Globe,
-    Link2, CheckCircle2, XCircle, Loader2
+    Link2, CheckCircle2, XCircle
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
@@ -19,8 +19,12 @@ import {
 } from "@repo/ui/components/ui/select"
 import { cn } from "@repo/ui/lib/utils"
 import { 
-    completeOnboarding, checkSlugAvailability, getPendingCompanyInfo 
+    completeOnboarding, checkSlugAvailability, getPendingCompanyInfo, getOnboardingEligibility
 } from "@/actions/auth/onboarding.action"
+import { signOut } from "@repo/auth/client"
+import { acceptInvitation } from "@/actions/team/invite.action"
+import { ShipItHQLoader } from "@repo/ui/components/ui/shipithq-loader"
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import toast from "@repo/ui/components/ui/sonner"
 
 // Hiring Goal Options
@@ -63,11 +67,63 @@ const roleOptions = [
 
 // Loading fallback component
 function OnboardingLoading() {
+    return <ShipItHQLoader />
+}
+
+/* Shown instead of the form when an invitation is waiting for this email (HA-8). */
+function OnboardingInvited({ code, companyName, roleName }: { code: string; companyName: string; roleName: string }) {
+    const [pending, startTransition] = useTransition()
     return (
-        <div className="min-h-dvh flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 mx-auto w-full max-w-7xl">
-            <div className="flex flex-col items-center gap-4">
-                <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
-                <p className="text-neutral-500">Loading...</p>
+        <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-page dark:bg-neutral-950">
+            <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
+                    <Building2 className="h-5 w-5 text-neutral-700 dark:text-neutral-300" />
+                </div>
+                <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">You&apos;ve been invited to {companyName}</h1>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">Join as {roleName}. Your company&apos;s workspace is ready for you.</p>
+                <Button
+                    className="mt-6 w-full gap-1.5"
+                    disabled={pending}
+                    onClick={() => startTransition(async () => {
+                        const r = await acceptInvitation(code)
+                        if (!r.success) { toast.error(r.error); return }
+                        window.location.href = "/home"
+                    })}
+                >
+                    {pending && <InlineLoader size="sm" />} Accept and join
+                </Button>
+            </div>
+        </div>
+    )
+}
+
+/*
+ * Shown instead of the form when this person may not create a company
+ * (plan/hiring-app HA-4, HA-5): their email is not a work email, or their
+ * company is already on ShipItHQ and they need an invite from its admins.
+ */
+function OnboardingBlocked({ title, message }: { title: string; message: string }) {
+    const [signingOut, setSigningOut] = useState(false)
+    return (
+        <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-page dark:bg-neutral-950">
+            <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
+                    <Building2 className="h-5 w-5 text-neutral-700 dark:text-neutral-300" />
+                </div>
+                <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">{title}</h1>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">{message}</p>
+                <Button
+                    variant="outline"
+                    className="mt-6 w-full"
+                    disabled={signingOut}
+                    onClick={async () => {
+                        setSigningOut(true)
+                        await signOut().catch(() => {})
+                        window.location.href = "/signin"
+                    }}
+                >
+                    Sign out
+                </Button>
             </div>
         </div>
     )
@@ -89,6 +145,18 @@ function OnboardingContent() {
     const [currentStep, setCurrentStep] = useState(1)
      
     const [_isLoadingPendingInfo, setIsLoadingPendingInfo] = useState(true)
+    // May this person create a company? Asked before the form is shown.
+    const [eligibility, setEligibility] = useState<Awaited<ReturnType<typeof getOnboardingEligibility>> | null>(null)
+    useEffect(() => {
+        let live = true
+        void getOnboardingEligibility().then((e) => {
+            if (!live) return
+            if (e.status === "already_member") router.replace("/home")
+            else if (e.status === "unauthorized") router.replace("/signin")
+            else setEligibility(e)
+        })
+        return () => { live = false }
+    }, [router])
     
     // Get inviteBy from URL (university referral)
     const inviteBy = searchParams.get('inviteBy')
@@ -123,7 +191,7 @@ function OnboardingContent() {
                         setWebsite(result.data.suggestedWebsite);
                     }
                 }
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error("Failed to fetch pending company info:", error);
             } finally {
                 setIsLoadingPendingInfo(false);
@@ -214,10 +282,24 @@ function OnboardingContent() {
             if (result.success) {
                 toast.success("Workspace created successfully!")
                 router.push("/home")
+            } else if ("code" in result && result.code === "COMPANY_EXISTS") {
+                // Someone from the same domain created it a moment ago.
+                setEligibility({ status: "company_exists", companyName: "", message: result.error ?? "" })
             } else {
                 toast.error(result.error || "Failed to create workspace")
             }
         })
+    }
+
+    if (!eligibility) return <OnboardingLoading />
+    if (eligibility.status === "company_exists") {
+        return <OnboardingBlocked title="Your company is already here" message={eligibility.message} />
+    }
+    if (eligibility.status === "invited") {
+        return <OnboardingInvited code={eligibility.code} companyName={eligibility.companyName} roleName={eligibility.roleName} />
+    }
+    if (eligibility.status === "work_email_required") {
+        return <OnboardingBlocked title="A company email is needed" message={eligibility.message} />
     }
 
     return (
@@ -306,7 +388,7 @@ function OnboardingContent() {
                                                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                                                         {
                                                         slugStatus === "checking" && (
-                                                            <Loader2 className="w-4 h-4 text-neutral-400 animate-spin" />
+                                                            <InlineLoader size="sm" className="text-neutral-400" />
                                                         )
                                                         }
                                                         {
@@ -570,7 +652,7 @@ function OnboardingContent() {
                                             {
                                                 isPending ? (
                                                     <>
-                                                        <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                        <InlineLoader size="sm" className="mr-2" />
                                                         Creating...
                                                     </>
                                                 ) : (

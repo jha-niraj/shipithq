@@ -10,7 +10,7 @@ import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
-        <div className="w-full px-page py-6">
+        <div className="page-frame px-page py-6">
             <ShimmerStyles />
 
             {/* Header: title + subtitle on the left, two buttons on the right. */}

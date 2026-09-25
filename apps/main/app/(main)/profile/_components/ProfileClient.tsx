@@ -1,237 +1,109 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+/**
+ * `/profile` - where you maintain your profile (plan/profile PRF-11).
+ *
+ * Niraj's choice, 2026-09-25: a workspace-style editor, drawn in the language of
+ * `projects/[slug]/workspace`. An identity strip on top; a left list of sections
+ * with counts and completion ticks; the selected section's rows on the right, each
+ * editable and deletable where it is shown. What other people READ is the one-pager
+ * at `/profile/[username]` - this page is for changing it, and links there.
+ *
+ * Round one rendered the same `ProfileView` here and on the public route. That made
+ * the two identical, and it also meant rows could only ever be added: the edit and
+ * delete paths existed in every sheet and nothing opened them.
+ */
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { motion } from "framer-motion";
-import {
-    AlertCircle, RefreshCw, Pencil, Share2, Settings, Plus, MapPin, Building2,
-    Globe, GraduationCap, Briefcase, Sparkles, Zap, FolderKanban, Users,
-    ExternalLink, Calendar, FileText, ArrowRight,
-} from "lucide-react";
-import { Card, CardContent } from "@repo/ui/components/ui/card";
+import { usePathname, useSearchParams } from "next/navigation";
+import { AlertCircle, Camera, Check, Globe, Pencil, Send } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Button } from "@repo/ui/components/ui/button";
-import { Badge } from "@repo/ui/components/ui/badge";
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader";
+import { TabsNav } from "@repo/ui/components/ui/tabs";
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@repo/ui/components/ui/alert-dialog";
 import toast from "@repo/ui/components/ui/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import { useUserStore } from "@/app/store/useUserStore";
-import { ShareProfileModal, EditProfileModal } from "@/components/profile";
-import {
-    ProfileView, type ProfileViewData, type ProfileViewStats,
-} from "@/components/profile/profile-view";
-import { AddSkillsSheet } from "@/components/profile/sheets/add-skills-sheet";
-import { AddWorkExperienceSheet } from "@/components/profile/sheets/add-work-experience-sheet";
-import { AddEducationSheet } from "@/components/profile/sheets/add-education-sheet";
-import { AddProjectSheet } from "@/components/profile/sheets/add-project-sheet";
 import { getOwnProfile, getUserProfileStats } from "@/actions/(main)/user/profile.action";
 import { uploadResume, deleteResume, getResumeSignedUrl } from "@/actions/(main)/user/resume.action";
-import { ProfileSkeleton } from "@/components/profile/profile-view-skeleton";
 import { uploadProfileImage } from "@/actions/(common)/shared/upload.action";
 import { updateUserProfile } from "@/actions/(main)/user/user.action";
+import type { ProfileStats } from "@/lib/profile/read";
+import { ShareProfileModal } from "@/components/profile";
+import { SkillsSheet } from "@/components/profile/sheets/skills-sheet";
+import { ExperienceSheet } from "@/components/profile/sheets/experience-sheet";
+import { EducationSheet } from "@/components/profile/sheets/education-sheet";
+import { ProjectSheet } from "@/components/profile/sheets/project-sheet";
+import { EditProfileSheet, type EditProfileTab } from "@/components/profile/sheets/edit-profile-sheet";
+import {
+    CareerPane, EducationPane, ExperiencePane, IdentityPane, LinksPane, ProjectsPane, ResumePane, SkillsPane,
+    SECTIONS, sectionStatus, type OwnProfile, type SectionId,
+} from "./profile-editor/sections";
+import { ProfileEditorSkeleton } from "./profile-editor/skeleton";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+type Editing =
+    | { kind: "experience"; row: OwnProfile["experiences"][number] | null }
+    | { kind: "education"; row: OwnProfile["educations"][number] | null }
+    | { kind: "project"; row: OwnProfile["portfolioProjects"][number] | null }
+    | { kind: "skills" }
+    | { kind: "profile"; tab: EditProfileTab }
+    | null;
 
-interface ProfileStats {
-    projectsCount: number;
-    skillsCount: number;
-    followersCount: number;
-    followingCount: number;
-    xp: number;
-    level: number;
-    credits: number;
-}
+const isSection = (v: string | null): v is SectionId => SECTIONS.some((s) => s.id === v);
 
-interface Skill { id: string; name: string; level: string; category: string }
+export default function ProfileClient() {
+    const fetchUser = useUserStore((s) => s.fetchUser);
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
+    const param = searchParams.get("section");
+    // An unknown or missing `?section=` opens Identity.
+    const section: SectionId = isSection(param) ? param : "identity";
 
-interface ProfileData {
-    id: string;
-    name: string | null;
-    username: string | null;
-    email: string | null;
-    image: string | null;
-    bio: string | null;
-    totalXp: number;
-    currentXp: number;
-    currentLevel: number;
-    credits?: number;
-    location: string | null;
-    company: string | null;
-    occupation: string | null;
-    website: string | null;
-    university: string | null;
-    semester: string | null;
-    hasResume: boolean;
-    resume: string | null;
-    createdAt: Date;
-    skills: Skill[];
-    experiences: Array<{
-        id: string;
-        companyName: string;
-        roleTitle: string;
-        description: string | null;
-        startDate: Date;
-        endDate: Date | null;
-        isCurrentlyWorking: boolean;
-        companyWebsite: string | null;
-    }>;
-    educations?: Array<{
-        id: string;
-        institution: string;
-        degree: string | null;
-        startDate: Date | null;
-        endDate: Date | null;
-    }>;
-    portfolioProjects?: Array<{
-        id: string;
-        projectName: string;
-        projectType: string;
-        description: string | null;
-        status: string;
-        technologies: string[];
-        thumbnailUrl: string | null;
-    }>;
-    socialLinks?: Array<{ id: string; platform: string; url: string }>;
-    userProfile?: {
-        showEmail: boolean;
-        coverGradient: string | null;
-        tagline: string | null;
-        theme: string;
-        profileViews: number;
-        completionScore: number;
-    } | null;
-    _count?: { followers: number; following: number };
-}
-
-// ─── Small building blocks ────────────────────────────────────────────────────
-
-function Section({ title, icon: Icon, action, children }: {
-    title: string;
-    icon: React.ComponentType<{ className?: string }>;
-    action?: { label: string; onClick: () => void };
-    children: React.ReactNode;
-}) {
-    return (
-        <section className="rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900 sm:p-6">
-            <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4 text-neutral-900 dark:text-neutral-100" />
-                    <h2 className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-white">
-                        {title}
-                    </h2>
-                </div>
-                {action && (
-                    <button
-                        type="button"
-                        onClick={action.onClick}
-                        className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-neutral-600 dark:text-neutral-400 transition-colors hover:text-neutral-900"
-                    >
-                        <Plus className="h-3.5 w-3.5" /> {action.label}
-                    </button>
-                )}
-            </div>
-            {children}
-        </section>
-    );
-}
-
-function Empty({ text, action }: { text: string; action?: { label: string; onClick: () => void } }) {
-    return (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">{text}</p>
-            {action && (
-                <button
-                    type="button"
-                    onClick={action.onClick}
-                    className="cursor-pointer text-sm font-medium text-neutral-900 dark:text-neutral-100 hover:underline"
-                >
-                    {action.label}
-                </button>
-            )}
-        </div>
-    );
-}
-
-function dateRange(start: Date | string | null, end: Date | string | null, current?: boolean) {
-    const fmt = (d: Date | string) =>
-        new Date(d).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-    if (!start) return current ? "Present" : "";
-    return `${fmt(start)} - ${current ? "Present" : end ? fmt(end) : "Present"}`;
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-export default function ProfilePage() {
-    const { user: storeUser, isLoading: storeLoading, error: storeError, fetchUser } = useUserStore();
-    const [profileData, setProfileData] = useState<ProfileData | null>(null);
+    const [profile, setProfile] = useState<OwnProfile | null>(null);
     const [stats, setStats] = useState<ProfileStats | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
+    const [editing, setEditing] = useState<Editing>(null);
     const [shareOpen, setShareOpen] = useState(false);
-    const [editOpen, setEditOpen] = useState(false);
-    const [skillsOpen, setSkillsOpen] = useState(false);
-    const [experienceOpen, setExperienceOpen] = useState(false);
-    const [educationOpen, setEducationOpen] = useState(false);
-    const [projectOpen, setProjectOpen] = useState(false);
     const [resumeBusy, setResumeBusy] = useState(false);
     const [avatarBusy, setAvatarBusy] = useState(false);
+    const [confirmResumeDelete, setConfirmResumeDelete] = useState(false);
 
-    const loadProfile = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
+    const load = useCallback(async () => {
         try {
-            await fetchUser();
-            const profileResult = await getOwnProfile();
-            if (!profileResult.success) {
-                setError(profileResult.error || "Failed to load profile");
+            const [p, s] = await Promise.all([getOwnProfile(), getUserProfileStats()]);
+            if (!p.success || !p.user) {
+                setError(p.error || "Could not load your profile");
                 return;
             }
-            setProfileData((profileResult.user as ProfileData) || null);
-            if (profileResult.user?.id) {
-                const statsResult = await getUserProfileStats(profileResult.user.id);
-                if (statsResult.success && statsResult.stats) setStats(statsResult.stats);
-            }
-        } catch (err) {
-            console.error("Error loading profile:", err);
-            setError("Failed to load profile data");
-        } finally {
-            setIsLoading(false);
-        }
-    }, [fetchUser]);
-
-    // No spinner: used after an edit, where the page is already on screen and a
-    // flash back to the loading state would be worse than a beat of stale data.
-    const refreshProfileData = useCallback(async () => {
-        try {
-            const profileResult = await getOwnProfile();
-            if (profileResult.success && profileResult.user) {
-                setProfileData(profileResult.user as ProfileData);
-                const statsResult = await getUserProfileStats(profileResult.user.id);
-                if (statsResult.success && statsResult.stats) setStats(statsResult.stats);
-            }
-        } catch (err) {
-            console.error("Error refreshing profile:", err);
+            setProfile(p.user);
+            if (s.success) setStats(s.stats);
+            setError(null);
+        } catch (e: unknown) {
+            console.error("Loading profile failed:", e);
+            setError("Could not load your profile");
         }
     }, []);
 
-    useEffect(() => { loadProfile(); }, [loadProfile]);
+    useEffect(() => { void load(); }, [load]);
 
-    // ── Resume ────────────────────────────────────────────────────────────────
-    // The SAME pipeline onboarding uses: `uploadResume` stores the file on R2,
-    // extracts its text with unpdf (PDF) or mammoth (DOCX), and dispatches the
-    // `resume_structure` worker job that turns that text into a structured,
-    // editable draft - defaulted if the user has none yet.
-    //
-    // The third argument is what names that draft. Omitting it is not an error,
-    // it just produces "Imported resume" instead of something recognisable.
-    /**
-     * Replace the profile photo from the avatar itself.
-     *
-     * `refreshProfileData()` afterwards is what makes it appear immediately - the R2 key is
-     * new on every upload, so there is no browser cache to defeat and the refreshed row
-     * carries the new URL straight into the view.
-     */
-    const handleUploadAvatar = useCallback(async (file: File) => {
+    // The phone strip scrolls sideways; bring the open section into view, or a
+    // `?section=links` link opens with "Links" off the edge and nothing looks selected.
+    const stripRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        stripRef.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "center" });
+    }, [section, profile]);
+
+    /** After any save: the page's data, and the store behind the header and sidebar. */
+    const refresh = useCallback(async () => {
+        await Promise.all([load(), fetchUser?.()]);
+    }, [load, fetchUser]);
+
+    const onUploadAvatar = useCallback(async (file: File) => {
         setAvatarBusy(true);
         try {
             const form = new FormData();
@@ -241,227 +113,341 @@ export default function ProfilePage() {
                 toast.error(result.message || "Could not upload that image");
                 return;
             }
-
-            // PERSIST IT. `uploadProfileImage` is a pure uploader by design - it puts the
-            // bytes in R2 and hands back a URL, and every caller saves that URL itself
-            // (onboarding folds it into its own save). Without this line the object landed
-            // in the bucket, the action reported success, and the profile still showed the
-            // old avatar - which is exactly what it looked like from the outside: "it
-            // uploaded but it will not read back".
+            // `uploadProfileImage` only stores the bytes; saving the URL is ours.
             await updateUserProfile({ image: result.url });
-
-            await refreshProfileData();
+            await refresh();
             toast.success("Photo updated");
-        } catch {
+        } catch (e: unknown) {
+            console.error("Avatar upload failed:", e);
             toast.error("Could not upload that image");
         } finally {
             setAvatarBusy(false);
         }
-    }, [refreshProfileData]);
+    }, [refresh]);
 
-    const handleUploadResume = useCallback(async (file: File) => {
+    const onUploadResume = useCallback(async (file: File) => {
         setResumeBusy(true);
         try {
+            // Byte-identical to onboarding's call, so both use the one pipeline (PRF-6).
             const result = await uploadResume(file, undefined, { draftName: "My resume" });
             if (!result.success) {
                 toast.error(result.message ?? "Could not upload that file");
                 return;
             }
             if (result.structureJobId) {
-                // The parse runs off the request path and lands minutes later. Say
-                // so, or the structured draft appearing at /ai/resume looks like
-                // something the user did not ask for.
-                toast.success("Resume uploaded. We're reading it now - an editable version will appear in your Resume Builder shortly.");
+                toast.success("Resume uploaded. We are reading it now - an editable version will appear in your Resume Builder shortly.");
             } else {
-                // Stored and viewable, but no text came out of it - almost always a
-                // scanned or image-only PDF. Silently succeeding here is how a user
-                // ends up wondering why their AI resume never showed up.
                 toast.warning("Resume saved, but we could not read any text from it. If it is a scanned PDF, upload a text-based export to use the AI features.");
             }
-            await refreshProfileData();
-        } catch {
+            await refresh();
+        } catch (e: unknown) {
+            console.error("Resume upload failed:", e);
             toast.error("Failed to upload resume");
         } finally {
             setResumeBusy(false);
         }
-    }, [refreshProfileData]);
+    }, [refresh]);
 
-    // Fetched on click rather than held on the page: the URL is time-limited and
-    // would expire while an open tab sat idle.
-    const handleViewResume = useCallback(async () => {
+    // Fetched on click: the signed URL is time-limited.
+    const onViewResume = useCallback(async () => {
         const res = await getResumeSignedUrl();
-        if (res?.url) window.open(res.url, "_blank");
+        if (res?.url) window.open(res.url, "_blank", "noopener");
         else toast.error("Could not open your resume");
     }, []);
 
-    const handleDeleteResume = useCallback(async () => {
-        // Removes the stored file AND the extracted text, and is not undoable.
-        if (!window.confirm("Delete your resume? This removes the file and the text we extracted from it.")) return;
+    const onDeleteResume = useCallback(async () => {
         setResumeBusy(true);
         try {
             await deleteResume();
             toast.success("Resume deleted");
-            await refreshProfileData();
-        } catch {
+            await refresh();
+        } catch (e: unknown) {
+            console.error("Resume delete failed:", e);
             toast.error("Failed to delete resume");
         } finally {
             setResumeBusy(false);
         }
-    }, [refreshProfileData]);
+    }, [refresh]);
 
-    const onSheetSuccess = useCallback(() => {
-        void refreshProfileData();
-        toast.success("Profile updated");
-    }, [refreshProfileData]);
-
-    // Merge the store user over the fetched profile so an Edit Profile save shows
-    // instantly without waiting for the refetch to land.
-    const profile = useMemo(() => {
-        if (!profileData) return null;
-        if (!storeUser) return profileData;
-        return {
-            ...profileData,
-            name: storeUser.name ?? profileData.name,
-            bio: storeUser.bio ?? profileData.bio,
-            location: storeUser.location ?? profileData.location,
-            company: storeUser.company ?? profileData.company,
-            occupation: storeUser.occupation ?? profileData.occupation,
-            website: storeUser.website ?? profileData.website,
-        };
-    }, [profileData, storeUser]);
-
-    if ((isLoading || storeLoading) && !profileData) return <ProfileSkeleton />;
-
-    if (error || storeError) {
+    if (error && !profile) {
         return (
-            <div className="flex min-h-[70vh] items-center justify-center p-4">
-                <Card className="w-full max-w-md shadow-lg">
-                    <CardContent className="py-10 text-center">
-                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
-                            <AlertCircle className="h-7 w-7 text-destructive" />
-                        </div>
-                        <h2 className="mb-2 text-xl font-semibold">Something went wrong</h2>
-                        <p className="mb-6 text-muted-foreground">{error || storeError}</p>
-                        <Button onClick={() => void loadProfile()} className="gap-2">
-                            <RefreshCw className="h-4 w-4" /> Try again
-                        </Button>
-                    </CardContent>
-                </Card>
+            <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
+                <AlertCircle className="size-5 text-neutral-400" />
+                <p className="mt-3 text-sm font-medium text-neutral-900 dark:text-white">Your profile did not load</p>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{error}</p>
+                <Button size="sm" className="mt-4 cursor-pointer" onClick={() => void load()}>Try again</Button>
             </div>
         );
     }
+    if (!profile) return <ProfileEditorSkeleton />;
 
-    if (!profile) {
-        return (
-            <div className="flex min-h-[70vh] items-center justify-center p-4">
-                <Card className="w-full max-w-md shadow-lg">
-                    <CardContent className="py-10 text-center">
-                        <h2 className="mb-2 text-xl font-semibold">Sign in to view your profile</h2>
-                        <p className="mb-6 text-muted-foreground">
-                            Create an account or sign in to access your developer profile.
-                        </p>
-                        <div className="flex justify-center gap-3">
-                            <Button variant="outline" asChild><Link href="/register">Create account</Link></Button>
-                            <Button asChild><Link href="/signin">Sign in</Link></Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
-    // Normalised for the shared view. The two profile routes come from different
-    // sources with different shapes, so each one maps at its own boundary and the
-    // view gets one explicit interface.
-    const view: ProfileViewData = {
-        id: profile.id,
-        name: profile.name,
-        username: profile.username,
-        email: profile.email,
-        image: profile.image,
-        bio: profile.bio,
-        headline: profile.userProfile?.tagline || profile.occupation || null,
-        location: profile.location,
-        company: profile.company,
-        university: profile.university,
-        website: profile.website,
-        hasResume: profile.hasResume,
-        skills: profile.skills ?? [],
-        experiences: profile.experiences ?? [],
-        educations: profile.educations ?? [],
-        projects: (profile.portfolioProjects ?? []).map((p) => ({
-            id: p.id,
-            projectName: p.projectName,
-            description: p.description,
-            status: p.status,
-            technologies: p.technologies,
-        })),
-        socialLinks: profile.socialLinks ?? [],
-    };
-
-    const viewStats: ProfileViewStats = {
-        xp: stats?.xp ?? profile.totalXp ?? profile.currentXp ?? 0,
-        level: stats?.level ?? profile.currentLevel ?? 1,
-        projectsCount: stats?.projectsCount ?? profile.portfolioProjects?.length ?? 0,
-        skillsCount: stats?.skillsCount ?? profile.skills?.length ?? 0,
-        followersCount: stats?.followersCount ?? profile._count?.followers ?? 0,
-    };
+    const status = sectionStatus(profile);
+    const complete = SECTIONS.filter((s) => status[s.id].done).length;
+    const hrefFor = (id: SectionId) => (id === "identity" ? pathname : `${pathname}?section=${id}`);
+    const username = profile.username ?? "";
 
     return (
-        <>
-            <ProfileView
-                profile={view}
-                stats={viewStats}
-                isOwn
-                onEdit={() => setEditOpen(true)}
-                onShare={() => setShareOpen(true)}
-                onAddSkills={() => setSkillsOpen(true)}
-                onAddExperience={() => setExperienceOpen(true)}
-                onAddEducation={() => setEducationOpen(true)}
-                onAddProject={() => setProjectOpen(true)}
-                onUploadAvatar={handleUploadAvatar}
+        // A centred max-w-5xl frame, not edge to edge (Niraj, 2026-09-25): at full
+        // width the rows sat in a sea of black. Hairline sides so the frame reads as
+        // one surface; the pane fills it rather than centring a narrower column.
+        <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col border-neutral-200 bg-white text-neutral-900 lg:border-x dark:border-neutral-800 dark:bg-black dark:text-neutral-100">
+            <IdentityStrip
+                profile={profile}
+                stats={stats}
                 avatarBusy={avatarBusy}
-                onUploadResume={handleUploadResume}
-                onViewResume={handleViewResume}
-                onDeleteResume={handleDeleteResume}
-                resumeBusy={resumeBusy}
+                onUploadAvatar={onUploadAvatar}
+                onEdit={() => setEditing({ kind: "profile", tab: "basic" })}
+                onShare={() => setShareOpen(true)}
             />
 
-            {/* ── Modals & sheets ── */}
+            {/* Below lg, the section list is a scrolling strip of route tabs. */}
+            <div ref={stripRef} className="border-b border-neutral-200 px-4 py-2 lg:hidden dark:border-neutral-800">
+                <TabsNav
+                    aria-label="Profile sections"
+                    items={SECTIONS.map((s) => ({ href: hrefFor(s.id), label: s.label, active: s.id === section }))}
+                />
+            </div>
+
+            <div className="flex min-h-0 flex-1">
+                <nav aria-label="Profile sections" className="hidden w-56 shrink-0 border-r border-neutral-200 lg:block dark:border-neutral-800">
+                    <div className="sticky top-0">
+                        <div className="flex h-11 items-center justify-between border-b border-neutral-200 px-4 dark:border-neutral-800">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Profile</span>
+                            <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{complete} of {SECTIONS.length}</span>
+                        </div>
+                        <ul className="p-2">
+                            {SECTIONS.map((s) => {
+                                const active = s.id === section;
+                                const st = status[s.id];
+                                return (
+                                    <li key={s.id}>
+                                        <Link
+                                            href={hrefFor(s.id)}
+                                            scroll={false}
+                                            aria-current={active ? "page" : undefined}
+                                            className={cn(
+                                                "flex h-8 items-center gap-2 rounded-md px-2.5 text-[13px] transition-colors",
+                                                active
+                                                    ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+                                                    : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900",
+                                            )}
+                                        >
+                                            <span className="flex-1 truncate">{s.label}</span>
+                                            {st.count !== undefined && st.count > 0 ? (
+                                                <span className={cn("text-[11px] tabular-nums", active ? "opacity-70" : "text-neutral-500 dark:text-neutral-400")}>{st.count}</span>
+                                            ) : st.done ? (
+                                                <Check className={cn("size-3.5", active ? "opacity-80" : "text-neutral-500")} aria-label="Complete" />
+                                            ) : (
+                                                <span className={cn("size-1.5 rounded-full", active ? "bg-white/50 dark:bg-neutral-900/40" : "bg-neutral-300 dark:bg-neutral-700")} aria-label="Not filled in" />
+                                            )}
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                </nav>
+
+                <main className="min-w-0 flex-1">
+                    {section === "identity" && <IdentityPane p={profile} onEdit={() => setEditing({ kind: "profile", tab: "basic" })} />}
+                    {section === "experience" && (
+                        <ExperiencePane p={profile} onChanged={refresh}
+                            onAdd={() => setEditing({ kind: "experience", row: null })}
+                            onEdit={(row) => setEditing({ kind: "experience", row })} />
+                    )}
+                    {section === "education" && (
+                        <EducationPane p={profile} onChanged={refresh}
+                            onAdd={() => setEditing({ kind: "education", row: null })}
+                            onEdit={(row) => setEditing({ kind: "education", row })} />
+                    )}
+                    {section === "projects" && (
+                        <ProjectsPane p={profile} onChanged={refresh}
+                            onAdd={() => setEditing({ kind: "project", row: null })}
+                            onEdit={(row) => setEditing({ kind: "project", row })} />
+                    )}
+                    {section === "skills" && <SkillsPane p={profile} onManage={() => setEditing({ kind: "skills" })} />}
+                    {section === "links" && <LinksPane p={profile} onChanged={refresh} />}
+                    {section === "resume" && (
+                        <ResumePane p={profile} busy={resumeBusy} onUpload={onUploadResume} onView={onViewResume}
+                            onDelete={() => setConfirmResumeDelete(true)} />
+                    )}
+                    {section === "career" && <CareerPane p={profile} onEdit={() => setEditing({ kind: "profile", tab: "career" })} />}
+                </main>
+            </div>
+
+            {/* ── Sheets ── */}
+            <EditProfileSheet
+                open={editing?.kind === "profile"}
+                onOpenChange={(o) => !o && setEditing(null)}
+                initialTab={editing?.kind === "profile" ? editing.tab : "basic"}
+                details={{
+                    username: profile.username,
+                    image: profile.image,
+                    name: profile.name ?? "",
+                    headline: profile.userProfile?.tagline ?? "",
+                    bio: profile.bio ?? "",
+                    location: profile.location ?? "",
+                    website: profile.website ?? "",
+                    occupation: profile.occupation ?? "",
+                    company: profile.company ?? "",
+                    university: profile.university ?? "",
+                    openToWork: profile.openToWork,
+                    careerGoals: profile.careerGoals ?? [],
+                    targetCompanies: profile.targetCompanies ?? [],
+                    expectedSalary: profile.expectedSalary ?? "",
+                    noticePeriod: profile.noticePeriod ?? "",
+                    workExperience: profile.workExperience ?? "",
+                    visibility: profile.isPublicProfile === false ? "PRIVATE" : profile.userProfile?.visibility ?? "PUBLIC",
+                    showEmail: profile.userProfile?.showEmail ?? false,
+                    showResume: profile.userProfile?.showResume ?? true,
+                }}
+                onSaved={refresh}
+                onUploadAvatar={onUploadAvatar}
+                avatarBusy={avatarBusy}
+            />
+            <ExperienceSheet
+                open={editing?.kind === "experience"}
+                onOpenChange={(o) => !o && setEditing(null)}
+                experience={editing?.kind === "experience" ? editing.row : null}
+                onSaved={refresh}
+            />
+            <EducationSheet
+                open={editing?.kind === "education"}
+                onOpenChange={(o) => !o && setEditing(null)}
+                education={editing?.kind === "education" ? editing.row : null}
+                onSaved={refresh}
+            />
+            <ProjectSheet
+                open={editing?.kind === "project"}
+                onOpenChange={(o) => !o && setEditing(null)}
+                project={editing?.kind === "project" ? editing.row : null}
+                onSaved={refresh}
+            />
+            <SkillsSheet
+                open={editing?.kind === "skills"}
+                onOpenChange={(o) => !o && setEditing(null)}
+                skills={profile.skills}
+                onSaved={refresh}
+            />
             <ShareProfileModal
                 isOpen={shareOpen}
                 onClose={() => setShareOpen(false)}
-                username={profile.username || ""}
+                username={username}
                 name={profile.name}
                 image={profile.image}
+                visibility={profile.isPublicProfile === false ? "PRIVATE" : profile.userProfile?.visibility ?? "PUBLIC"}
             />
-            <EditProfileModal
-                isOpen={editOpen}
-                onClose={() => setEditOpen(false)}
-                user={profile}
-                onUpdate={refreshProfileData}
-            />
-            <AddSkillsSheet
-                open={skillsOpen}
-                onOpenChange={setSkillsOpen}
-                onSuccess={onSheetSuccess}
-                existingSkills={profile.skills ?? []}
-            />
-            <AddWorkExperienceSheet
-                open={experienceOpen}
-                onOpenChange={setExperienceOpen}
-                onSuccess={onSheetSuccess}
-            />
-            <AddEducationSheet
-                open={educationOpen}
-                onOpenChange={setEducationOpen}
-                onSuccess={onSheetSuccess}
-            />
-            <AddProjectSheet
-                open={projectOpen}
-                onOpenChange={setProjectOpen}
-                onSuccess={onSheetSuccess}
-            />
-        </>
+            <AlertDialog open={confirmResumeDelete} onOpenChange={setConfirmResumeDelete}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete your resume?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This removes the file and the text we read from it. Resumes already built in the Resume Builder stay.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="cursor-pointer">Keep it</AlertDialogCancel>
+                        <AlertDialogAction className="cursor-pointer" onClick={() => void onDeleteResume()}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
+    );
+}
+
+// ── Identity strip ──────────────────────────────────────────────────────────
+
+function IdentityStrip({ profile, stats, avatarBusy, onUploadAvatar, onEdit, onShare }: {
+    profile: OwnProfile;
+    stats: ProfileStats | null;
+    avatarBusy: boolean;
+    onUploadAvatar: (f: File) => void;
+    onEdit: () => void;
+    onShare: () => void;
+}) {
+    const fileRef = useRef<HTMLInputElement>(null);
+    const name = profile.name || profile.username || "You";
+    const initials = name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+    const headline = profile.userProfile?.tagline || [profile.occupation, profile.company].filter(Boolean).join(" at ");
+    const lp = stats?.levelProgress;
+
+    return (
+        <header className="border-b border-neutral-200 dark:border-neutral-800">
+            <div className="flex flex-col gap-4 px-4 py-5 sm:px-6 lg:flex-row lg:items-center">
+                <div className="flex min-w-0 flex-1 items-center gap-4">
+                    <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={avatarBusy}
+                        aria-label="Change profile photo"
+                        className="group relative shrink-0 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                    >
+                        <Avatar className="size-14 rounded-2xl">
+                            {profile.image && <AvatarImage src={profile.image} alt="" className="object-cover" />}
+                            <AvatarFallback className="rounded-2xl bg-neutral-100 text-base font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">{initials}</AvatarFallback>
+                        </Avatar>
+                        <span className={cn(
+                            "absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50 text-white transition-opacity",
+                            avatarBusy ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                        )}>
+                            {avatarBusy ? <InlineLoader size="sm" label="Uploading photo" /> : <Camera className="size-4" />}
+                        </span>
+                    </button>
+                    <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            e.target.value = "";
+                            if (f) onUploadAvatar(f);
+                        }}
+                    />
+                    <div className="min-w-0">
+                        <p className="font-mono text-xs text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
+                        <h1 className="mt-0.5 truncate text-xl font-semibold tracking-tight text-neutral-900 dark:text-white">{name}</h1>
+                        <p className={cn("mt-0.5 truncate text-[13px]", headline ? "text-neutral-600 dark:text-neutral-400" : "text-neutral-400 dark:text-neutral-500")}>
+                            {headline || "No headline yet"}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
+                    {stats && (
+                        <div className="w-full sm:w-44">
+                            <div className="flex items-baseline justify-between text-xs">
+                                <span className="font-medium text-neutral-900 dark:text-white">Level {stats.level}</span>
+                                <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                                    {lp?.isMax ? `${stats.xp} XP` : `${lp?.intoLevel ?? 0} / ${lp?.levelSpan ?? 0} XP`}
+                                </span>
+                            </div>
+                            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                                <div className="h-full rounded-full bg-neutral-900 dark:bg-white" style={{ width: `${lp?.percent ?? 0}%` }} />
+                            </div>
+                        </div>
+                    )}
+                    {/* Below sm the three share the row evenly; at 390px their full labels overflowed. */}
+                    <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
+                        {profile.username && (
+                            <Button asChild size="sm" variant="outline" className="min-w-0 cursor-pointer">
+                                {/* Relative on purpose: this navigates, it is not a link to share.
+                                    `publicProfileUrl()` is the absolute production URL, which in
+                                    development opens a different host. */}
+                                <Link href={`/profile/${encodeURIComponent(profile.username)}`} target="_blank">
+                                    <Globe className="mr-1.5 size-3.5 shrink-0" /><span className="truncate"><span className="sm:hidden">Public</span><span className="hidden sm:inline">View public page</span></span>
+                                </Link>
+                            </Button>
+                        )}
+                        <Button size="sm" variant="outline" className="min-w-0 cursor-pointer" onClick={onShare}>
+                            <Send className="mr-1.5 size-3.5 shrink-0" /> Share
+                        </Button>
+                        <Button size="sm" className="min-w-0 cursor-pointer" onClick={onEdit}>
+                            <Pencil className="mr-1.5 size-3.5 shrink-0" /><span className="truncate">Edit<span className="hidden sm:inline"> profile</span></span>
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </header>
     );
 }

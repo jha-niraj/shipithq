@@ -116,6 +116,11 @@ export const templateCategoryEnum = pgEnum("template_category", [
 // Tables
 // ===========================
 
+/** Where a company page came from (plan/hiring-rounds HR-1). */
+export const companyProfileSourceEnum = pgEnum("company_profile_source", ["SELF_SERVE", "SCRAPED"]);
+/** Whether a company has claimed its page (HR-1, HR-8). Self-serve companies are CLAIMED. */
+export const companyClaimStatusEnum = pgEnum("company_claim_status", ["UNCLAIMED", "CLAIM_PENDING", "CLAIMED"]);
+
 export const companies = pgTable(
     "company",
     {
@@ -126,6 +131,17 @@ export const companies = pgTable(
         slug: text("slug").notNull().unique(),
         logoUrl: text("logo_url"),
         website: text("website"),
+        /**
+         * The company's email domain ("acme.io"), unique (plan/hiring-app HA-5).
+         * A sign-up from this domain is told to ask for an invite instead of
+         * creating a second company. Set from the creator's work email; the
+         * backfill for older rows is `pnpm script company-domains`.
+         */
+        websiteDomain: text("website_domain").unique(),
+        /** SCRAPED: built by ShipItHQ from the company's site (HR-5, HR-6). */
+        profileSource: companyProfileSourceEnum("profile_source").notNull().default("SELF_SERVE"),
+        claimStatus: companyClaimStatusEnum("claim_status").notNull().default("CLAIMED"),
+        scrapedAt: timestamp("scraped_at"),
         description: text("description"),
         industry: text("industry"),
         companySize: text("company_size"),
@@ -189,6 +205,37 @@ export const companyFollowers = pgTable(
     ],
 );
 
+/**
+ * A company's own roles (plan/hiring-app HA-6). Every company has one fixed
+ * Owner role (`isOwner`, every permission, cannot be edited or removed) and
+ * three editable presets (Admin, Recruiter, Interviewer); the Owner can add more.
+ * `permissions` holds keys from `HIRING_PERMISSIONS` (src/hiring-permissions.ts).
+ */
+export const companyRoles = pgTable(
+    "company_role",
+    {
+        id: text("id")
+            .primaryKey()
+            .$defaultFn(() => createId()),
+        companyId: text("company_id")
+            .notNull()
+            .references(() => companies.id, { onDelete: "cascade" }),
+        name: text("name").notNull(),
+        permissions: text("permissions").array().notNull().default([]),
+        isOwner: boolean("is_owner").notNull().default(false),
+        /** OWNER / ADMIN / RECRUITER / INTERVIEWER for the four starting roles; null for custom ones. */
+        presetKey: text("preset_key"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at")
+            .notNull()
+            .$onUpdateFn(() => new Date()),
+    },
+    (table) => [
+        uniqueIndex("uq_company_role_company_id_name").on(table.companyId, table.name),
+        index("idx_company_role_company_id").on(table.companyId),
+    ],
+);
+
 export const companyMembers = pgTable(
     "company_member",
     {
@@ -201,7 +248,13 @@ export const companyMembers = pgTable(
         companyId: text("company_id")
             .notNull()
             .references(() => companies.id, { onDelete: "cascade" }),
+        /**
+         * LEGACY since plan/hiring-app HA-6: the fixed role before companies had their
+         * own. Kept so old reads do not break; `roleId` is what permissions come from.
+         */
         role: companyMemberRoleEnum("role").notNull().default("RECRUITER"),
+        /** The member's role in `company_role`. Set for every member by HA-6's backfill. */
+        roleId: text("role_id").references(() => companyRoles.id, { onDelete: "set null" }),
         jobTitle: companyMemberJobTitleEnum("job_title").notNull().default("OTHER"),
         jobTitleCustom: text("job_title_custom"),
         displayName: text("display_name"),
@@ -242,6 +295,8 @@ export const memberInvitations = pgTable(
         email: text("email").notNull(),
         name: text("name"),
         role: companyMemberRoleEnum("role").notNull().default("RECRUITER"),
+        /** The `company_role` the invitee joins with (plan/hiring-app HA-6, HA-8). */
+        roleId: text("role_id").references(() => companyRoles.id, { onDelete: "set null" }),
         jobTitle: companyMemberJobTitleEnum("job_title").notNull().default("RECRUITER"),
         inviteCode: text("invite_code").notNull().unique(),
         invitedById: text("invited_by_id")
@@ -484,7 +539,19 @@ export const companyFollowersRelations = relations(companyFollowers, ({ one }) =
     }),
 }));
 
+export const companyRolesRelations = relations(companyRoles, ({ one, many }) => ({
+    company: one(companies, {
+        fields: [companyRoles.companyId],
+        references: [companies.id],
+    }),
+    members: many(companyMembers),
+}));
+
 export const companyMembersRelations = relations(companyMembers, ({ one, many }) => ({
+    companyRole: one(companyRoles, {
+        fields: [companyMembers.roleId],
+        references: [companyRoles.id],
+    }),
     user: one(users, {
         fields: [companyMembers.userId],
         references: [users.id],

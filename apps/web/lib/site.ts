@@ -28,6 +28,23 @@ export const APP_LINKS = {
     dashboard: `${APP_URL}/home`,
 } as const;
 
+/**
+ * The hiring product (hire.shipithq.com) - apps/hiring, for companies. Like APP_URL, it is
+ * only ever linked to with a plain <a>: /hire is its marketing page on this site, and
+ * everything behind a login lives on that origin (plan/hiring-app HA-3).
+ */
+export const HIRING_URL = (
+    process.env.NEXT_PUBLIC_HIRING_URL ?? "http://localhost:6004"
+).replace(/\/$/, "");
+
+/** Canonical CTA destinations on the hiring app. */
+export const HIRING_LINKS = {
+    signup: `${HIRING_URL}/register`,
+    signin: `${HIRING_URL}/signin`,
+    help: `${HIRING_URL}/help`,
+    contact: `${HIRING_URL}/contactus`,
+} as const;
+
 /** Public brand identity reused by metadata, JSON-LD and the footer. */
 export const BRAND = {
     name: "ShipItHQ",

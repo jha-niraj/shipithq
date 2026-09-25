@@ -1,9 +1,8 @@
 "use server"
 
 import { db, companyMembers, companyPayments, companySubscriptions, companyInvoices } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, sum, count, desc } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import {
     HIRING_SUBSCRIPTION_PLANS, type HiringSubscriptionPlanType
 } from "@/lib/dodopayments"
@@ -15,18 +14,6 @@ export type { InvoiceLineItem, InvoiceDetails }
 // ============================================
 // HELPERS
 // ============================================
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) return null
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    return member
-}
 
 function generateInvoiceNumber(): string {
     const date = new Date()
@@ -49,10 +36,9 @@ export async function getInvoices(limit: number = 20): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, invoices: [], error: "Unauthorized" }
-        }
+        const auth = await requirePermission("billing")
+        if (!auth.ok) return { success: false, invoices: [], error: auth.error }
+        const member = auth.ctx.member
 
         const invoices = await db.query.companyInvoices.findMany({
             where: eq(companyInvoices.companyId, member.companyId),
@@ -106,10 +92,9 @@ export async function getInvoiceById(invoiceId: string): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, invoice: null, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("billing")
+        if (!auth.ok) return { success: false, invoice: null, error: auth.error }
+        const member = auth.ctx.member
 
         const invoice = await db.query.companyInvoices.findFirst({
             where: and(
@@ -169,9 +154,12 @@ export async function createInvoiceForPayment(paymentId: string): Promise<{
     error?: string
 }> {
     try {
-        // Get the payment with company info
+        const auth = await requirePermission("billing")
+        if (!auth.ok) return { success: false, error: auth.error }
+
+        // Get the payment with company info, only if it belongs to this company
         const payment = await db.query.companyPayments.findFirst({
-            where: eq(companyPayments.id, paymentId),
+            where: and(eq(companyPayments.id, paymentId), eq(companyPayments.companyId, auth.ctx.companyId)),
             with: { company: true }
         })
 
@@ -263,10 +251,9 @@ export async function markInvoicePaid(invoiceId: string): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("billing")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         await db.update(companyInvoices)
             .set({
@@ -300,10 +287,9 @@ export async function getBillingOverview(): Promise<{
     error?: string
 }> {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, data: null, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("billing")
+        if (!auth.ok) return { success: false, data: null, error: auth.error }
+        const member = auth.ctx.member
 
         // Get subscription for next billing date
         const subscription = await db.query.companySubscriptions.findFirst({

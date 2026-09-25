@@ -1,28 +1,13 @@
 "use server"
 
 import { db, companyMembers, jobs } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 
 // ============================================
 // HELPERS
 // ============================================
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) {
-        return null
-    }
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    return member
-}
 
 function generateSlug(title: string): string {
     return title
@@ -37,10 +22,9 @@ function generateSlug(title: string): string {
 
 export async function publishJob(jobId: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("manage_jobs")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         await db.update(jobs)
             .set({
@@ -59,10 +43,9 @@ export async function publishJob(jobId: string) {
 
 export async function pauseJob(jobId: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("manage_jobs")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         await db.update(jobs)
             .set({ status: "PAUSED" })
@@ -78,10 +61,9 @@ export async function pauseJob(jobId: string) {
 
 export async function closeJob(jobId: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("manage_jobs")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         await db.update(jobs)
             .set({ status: "CLOSED" })
@@ -97,10 +79,9 @@ export async function closeJob(jobId: string) {
 
 export async function duplicateJob(jobId: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("manage_jobs")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const originalJob = await db.query.jobs.findFirst({
             where: and(eq(jobs.id, jobId), eq(jobs.companyId, member.companyId))

@@ -2,10 +2,22 @@
 import Link from "next/link";
 import { useRouter } from 'next/navigation'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Button } from '@repo/ui/components/ui/button'
 import { Badge } from '@repo/ui/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
+import {
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@repo/ui/components/ui/dropdown-menu'
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@repo/ui/components/ui/alert-dialog'
+import { ORIGINS, ORIGIN_LABEL, originOf, type ImportSource, type Origin } from '@/lib/resume/origin'
+import type { ProfileLinks } from '@/lib/profile-links'
+import { ImportSheet } from './import-sheet'
+
+import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
 import {
     Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription
 } from '@repo/ui/components/ui/sheet'
@@ -13,9 +25,9 @@ import { Input } from '@repo/ui/components/ui/input'
 import { Label } from '@repo/ui/components/ui/label'
 import { Textarea } from '@repo/ui/components/ui/textarea'
 import {
-    Plus, FileText, Upload, Globe, Github, Linkedin,
-    Download, Copy, Trash2, Eye, ExternalLink, Sparkles,
-    LayoutTemplate, Clock, Lock, CheckCircle2, Settings, Star, FileUp, ArrowRight, Files,
+    Plus, FileText, Upload, Globe, Github, Linkedin, Twitter,
+    Download, Copy, Trash2, ExternalLink, Sparkles,
+    Lock, CheckCircle2, Star, FileUp, Files, MoreHorizontal, Pencil,
 } from 'lucide-react'
 import { DotmSquare11 } from '@repo/ui/components/ui/dotm-square-11'
 import toast from '@repo/ui/components/ui/sonner'
@@ -23,15 +35,13 @@ import {
     createDraftFromProfile, createResumeDraft, deleteResumeDraft, updateResumeDraft,
     duplicateResumeDraft, setDefaultResumeDraft
 } from '@/actions/(main)/ai/resume-draft.action'
-import { importAndCreateDraft } from '@/actions/(main)/ai/resume-import.action'
-import { awaitBackgroundJob } from '@/hooks/use-background-job'
 import { uploadResume } from '@/actions/(main)/user/resume.action'
 import { validateResumeFile } from '@/lib/resume-extractor.client'
 import { emptyResumeDraftContent } from '@/types/resume-draft'
 import { cn } from '@repo/ui/lib/utils'
 import { TemplatePreview, shapeForSlug } from '@/components/resume/template-preview'
 import { resumeShareUrl } from "@/lib/urls"
-import { creditErrorMessage, priceSuffix } from '@/lib/credits/notify'
+import { creditErrorMessage } from '@/lib/credits/notify'
 
 interface Draft {
     id: string
@@ -66,6 +76,12 @@ interface Template {
 interface Props {
     drafts: Draft[]
     templates: Template[]
+    /** The user's saved links, prefilling the import sheet on first paint. */
+    links: ProfileLinks
+    /** `?origin=` on arrival. */
+    initialOrigin?: Origin
+    /** `?import=1`: open the import sheet (what `/ai/resume/import` redirects to). */
+    openImport?: boolean
 }
 
 const TEMPLATE_COLORS: Record<string, string> = {
@@ -81,18 +97,18 @@ function formatDate(d: Date) {
 }
 
 // ─── New Resume Sheet ────────────────────────────────────────────────────────
-function NewResumeSheet({ templates, open, onClose }: {
+function NewResumeSheet({ templates, open, onClose, onOpenImport }: {
     templates: Template[]
     open: boolean
     onClose: () => void
+    /** "Import" is its own sheet now (RES-23): choosing it hands over to that sheet. */
+    onOpenImport: () => void
 }) {
     const router = useRouter()
-    const [source, setSource] = useState<'profile' | 'import' | 'upload' | 'blank'>('profile')
+    // 'import' is not a state here: its tile opens the import sheet (RES-23).
+    const [source, setSource] = useState<'profile' | 'upload' | 'blank'>('profile')
     const [name, setName] = useState('')
     const [selectedTemplate, setSelectedTemplate] = useState('clean-minimal')
-    const [linkedinUrl, setLinkedinUrl] = useState('')
-    const [githubUrl, setGithubUrl] = useState('')
-    const [pastedText, setPastedText] = useState('')
     const [uploadFile, setUploadFile] = useState<File | null>(null)
     const [loading, setLoading] = useState(false)
 
@@ -127,41 +143,6 @@ function NewResumeSheet({ templates, open, onClose }: {
                 toast.success('Resume uploaded. We are reading it now - it will appear here in a minute.')
                 onClose()
                 router.refresh()
-                return
-            }
-
-            if (source === 'import') {
-                if (!linkedinUrl && !githubUrl && !pastedText.trim()) {
-                    setLoading(false)
-                    return toast.error('Provide at least one import source')
-                }
-
-                // Importing runs on the worker (RES-9): up to four scrapes of
-                // somebody else's site, each with a 10-second livecrawl budget,
-                // then a gpt-4o pass. There is no draft to redirect to until the
-                // job lands, so this branch follows the job and returns rather
-                // than falling through to the shared success path below - which
-                // reads `result.draft.id` and would otherwise navigate to
-                // `/ai/resume/draft/undefined`.
-                const started = await importAndCreateDraft({
-                    name, templateSlug: selectedTemplate, linkedinUrl, githubUrl, pastedText,
-                })
-                if (!started.success || !started.jobId) {
-                    setLoading(false)
-                    return toast.error(creditErrorMessage(started, 'Failed to create resume'))
-                }
-
-                const outcome = await awaitBackgroundJob<{ draftId?: string }>(started.jobId)
-                setLoading(false)
-
-                if (!outcome.ok) return toast.error(outcome.error)
-                if (!outcome.result?.draftId) {
-                    return toast.error('The import finished but no resume was saved. Please try again.')
-                }
-
-                toast.success('Resume created from your imported data!')
-                onClose()
-                router.push(`/ai/resume/draft/${outcome.result.draftId}`)
                 return
             }
 
@@ -210,18 +191,22 @@ function NewResumeSheet({ templates, open, onClose }: {
     return (
         <Sheet open={open} onOpenChange={onClose}>
             <SheetContent scroll={false} side="right" className="w-full sm:max-w-lg flex flex-col p-0">
-                <SheetHeader className="p-6 pb-4 border-b border-neutral-100 dark:border-neutral-800">
+                {/* Header, scrolling body, pinned footer (plan/resume RES-20, UI-9). The body
+                    was `flex-1` with no `min-h-0` and no scroller, so with five templates
+                    it grew past the sheet, the sheet clipped it, and the Create button
+                    was pushed out of reach with nothing to scroll. */}
+                <SheetHeader className="shrink-0 p-6 pb-4 border-b border-neutral-100 dark:border-neutral-800">
                     <SheetTitle className="text-xl">Create New Resume</SheetTitle>
                     <SheetDescription>Name your resume and choose how to populate it.</SheetDescription>
                 </SheetHeader>
 
-                <div className="flex-1 p-6 space-y-6">
+                <ScrollArea className="min-h-0 flex-1" reflow>
+                <div className="p-6 space-y-6">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-20 gap-4">
                             <DotmSquare11 size={48} dotSize={6} speed={1.4} />
                             <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                {source === 'import' ? 'Scraping & extracting data…'
-                                    : source === 'upload' ? 'Uploading and reading your file…'
+                                {source === 'upload' ? 'Uploading and reading your file…'
                                     : 'Building your resume…'}
                             </p>
                             <p className="text-xs text-neutral-500 dark:text-neutral-400">This takes ~20 seconds</p>
@@ -250,7 +235,8 @@ function NewResumeSheet({ templates, open, onClose }: {
                                     ].map(s => (
                                         <button
                                             key={s.id}
-                                            onClick={() => setSource(s.id)}
+                                            type="button"
+                                            onClick={() => (s.id === 'import' ? onOpenImport() : setSource(s.id))}
                                             className={cn(
                                                 'flex flex-col items-center gap-1.5 p-3 rounded-xl border text-center transition-all',
                                                 source === s.id
@@ -308,31 +294,6 @@ function NewResumeSheet({ templates, open, onClose }: {
                                 </div>
                             )}
 
-                            {/* Import sources */}
-                            {/* Sends the user to the real import page instead of repeating its
-                                form. There were two copies of "paste LinkedIn + GitHub": this
-                                one, and /ai/resume/import - and only that one prefills from the
-                                profile, normalises the handles, saves the links back and explains
-                                what gets extracted. A second, worse copy of a form is a second
-                                thing to keep in step, and it was already out of step. */}
-                            {source === 'import' && (
-                                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-800/50">
-                                    <p className="text-sm font-semibold text-neutral-900 dark:text-white">
-                                        Import from LinkedIn and GitHub
-                                    </p>
-                                    <p className="mt-1 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-                                        The importer prefills anything already on your profile and shows exactly
-                                        what it extracts before it spends credits.
-                                    </p>
-                                    <Button asChild size="sm" className="mt-3 w-full cursor-pointer">
-                                        <Link href="/ai/resume/import">
-                                            Go to AI Import
-                                            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                                        </Link>
-                                    </Button>
-                                </div>
-                            )}
-
                             {/* Template selection. Hidden for uploads: the worker writes
                                 the draft itself and always starts it on clean-minimal,
                                 so offering a choice here would be a lie. */}
@@ -370,17 +331,20 @@ function NewResumeSheet({ templates, open, onClose }: {
                         </>
                     )}
                 </div>
+                </ScrollArea>
 
                 {!loading && (
-                    <div className="p-6 pt-0 border-t border-neutral-100 dark:border-neutral-800">
+                    <div className="flex shrink-0 items-center justify-end gap-2 border-t border-neutral-100 px-6 py-4 dark:border-neutral-800">
+                        <Button variant="ghost" onClick={onClose} className="cursor-pointer">
+                            Cancel
+                        </Button>
                         <Button
-                            className="w-full bg-neutral-900 text-white dark:bg-white dark:text-black hover:opacity-90 h-11"
+                            className="cursor-pointer"
                             onClick={handleCreate}
                             disabled={!name.trim() || (source === 'upload' && !uploadFile)}
                         >
                             <Sparkles className="w-4 h-4 mr-2" />
-                            {source === 'import' ? `Import & Create Resume${priceSuffix('resume_import')}`
-                                : source === 'upload' ? 'Upload & Read Resume'
+                            {source === 'upload' ? 'Upload & Read Resume'
                                 : 'Create Resume'}
                         </Button>
                     </div>
@@ -391,6 +355,14 @@ function NewResumeSheet({ templates, open, onClose }: {
 }
 
 // ─── Resume Card ─────────────────────────────────────────────────────────────
+/**
+ * One resume (plan/resume RES-21). Niraj, 2026-09-25: "put all the options on the
+ * top right button on dropdown ... and make this somewhat bigger".
+ *
+ * The whole card is the Edit link - editing is what a card is clicked for. Every
+ * other action is a LABELLED item in the `...` menu: the row of six unlabelled 28px
+ * icon buttons it replaces made you hover each one to learn what it did.
+ */
 function ResumeCard({ draft, onDelete, onTogglePublic, onDuplicate, onSetDefault }: {
     draft: Draft
     onDelete: (id: string) => void
@@ -398,163 +370,133 @@ function ResumeCard({ draft, onDelete, onTogglePublic, onDuplicate, onSetDefault
     onDuplicate: (id: string) => void
     onSetDefault: (id: string) => void
 }) {
-    const colorClass = TEMPLATE_COLORS[draft.templateSlug] ?? TEMPLATE_COLORS['clean-minimal']
+    const [confirmDelete, setConfirmDelete] = useState(false)
+    const { origin, sources } = originOf(draft)
+    const editHref = `/ai/resume/draft/${draft.id}`
+
+    const copyLink = async () => {
+        try {
+            await navigator.clipboard.writeText(resumeShareUrl(draft.shareSlug))
+            toast.success(draft.isPublic ? 'Share link copied' : 'Link copied. Make the resume public so it opens for others.')
+        } catch {
+            toast.error('Could not copy the link')
+        }
+    }
 
     return (
-        <div className={`group rounded-2xl border bg-gradient-to-br p-5 flex flex-col gap-3 hover:shadow-md transition-shadow ${colorClass}`}>
-            {/* Header */}
-            <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate text-neutral-900 dark:text-white">{draft.name}</p>
-                    {draft.tailoredFor && (
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">Tailored for: {draft.tailoredFor}</p>
+        <div className="group relative flex min-h-64 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:border-neutral-600">
+            {/* The card's link, laid over everything; the menu sits above it. */}
+            <Link href={editHref} aria-label={`Edit ${draft.name}`} className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40" />
+
+            <div className="flex h-32 items-center justify-center border-b border-neutral-200 bg-neutral-50 text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100">
+                <TemplatePreview shape={shapeForSlug(draft.templateSlug)} className="h-24 w-auto" />
+            </div>
+
+            <div className="absolute right-2 top-2 z-10">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="outline" aria-label={`Actions for ${draft.name}`}
+                            className="size-8 cursor-pointer bg-white/90 backdrop-blur dark:bg-neutral-950/90">
+                            <MoreHorizontal className="size-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuItem asChild className="cursor-pointer">
+                            <Link href={editHref}><Pencil className="mr-2 size-3.5" /> Edit</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer" onSelect={() => window.open(`/api/resume/pdf/${draft.id}`, '_blank')}>
+                            <Download className="mr-2 size-3.5" /> Download PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer" disabled={draft.isDefault} onSelect={() => onSetDefault(draft.id)}>
+                            <Star className="mr-2 size-3.5" /> {draft.isDefault ? 'Default resume' : 'Set as default'}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="cursor-pointer" onSelect={() => onTogglePublic(draft.id, !draft.isPublic)}>
+                            {draft.isPublic ? <><Lock className="mr-2 size-3.5" /> Make private</> : <><Globe className="mr-2 size-3.5" /> Make public</>}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="cursor-pointer" onSelect={copyLink}>
+                            <Copy className="mr-2 size-3.5" /> Copy share link
+                        </DropdownMenuItem>
+                        {draft.isPublic && (
+                            <DropdownMenuItem className="cursor-pointer" onSelect={() => window.open(`/r/${draft.shareSlug}`, '_blank')}>
+                                <ExternalLink className="mr-2 size-3.5" /> Open public page
+                            </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem className="cursor-pointer" onSelect={() => onDuplicate(draft.id)}>
+                            <Files className="mr-2 size-3.5" /> Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-700 dark:text-red-400" onSelect={() => setConfirmDelete(true)}>
+                            <Trash2 className="mr-2 size-3.5" /> Delete
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+
+            {/* pointer-events-none so clicks on the text reach the card link beneath. */}
+            <div className="pointer-events-none relative flex flex-1 flex-col p-4">
+                <p className="line-clamp-2 text-sm font-semibold text-neutral-900 dark:text-white">{draft.name}</p>
+                {draft.tailoredFor && (
+                    <p className="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">For {draft.tailoredFor}</p>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                    {draft.isDefault && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-neutral-900 px-1.5 py-0.5 text-[11px] font-medium text-white dark:bg-white dark:text-neutral-900">
+                            <Star className="size-2.5 fill-current" /> Default
+                        </span>
+                    )}
+                    <span className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
+                        {sources.map((src) => <SourceIcon key={src} source={src} />)}
+                        {ORIGIN_LABEL[origin]}
+                    </span>
+                    {draft.isPublic && (
+                        <span className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[11px] font-medium text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
+                            <Globe className="size-2.5" /> Public{draft.viewCount ? ` · ${draft.viewCount} views` : ''}
+                        </span>
+                    )}
+                    {draft.atsScore !== null && (
+                        <span className={cn(
+                            'rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+                            draft.atsScore >= 60 ? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200' : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400',
+                        )}>
+                            ATS {draft.atsScore}
+                        </span>
                     )}
                 </div>
-                {draft.atsScore !== null && (
-                    <div className={cn(
-                        'text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0',
-                        draft.atsScore >= 80 ? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100'
-                            : draft.atsScore >= 60 ? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100'
-                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                    )}>
-                        ATS {draft.atsScore}
-                    </div>
-                )}
+                <p className="mt-auto pt-4 text-xs text-neutral-500 dark:text-neutral-400">
+                    <span className="capitalize">{draft.templateSlug.replace(/-/g, ' ')}</span>
+                    <span className="mx-1.5 text-neutral-300 dark:text-neutral-700">·</span>
+                    <span className="tabular-nums">Edited {formatDate(draft.updatedAt)}</span>
+                </p>
             </div>
 
-            {/* Meta */}
-            <div className="flex items-center gap-2 flex-wrap">
-                {draft.isDefault && (
-                    <Badge className="text-xs gap-1 bg-neutral-900 text-white dark:bg-white dark:text-black">
-                        <Star className="w-2.5 h-2.5 fill-current" /> Default
-                    </Badge>
-                )}
-                <Badge variant="outline" className="text-xs capitalize">{draft.templateSlug.replace(/-/g, ' ')}</Badge>
-                {draft.importedFrom && (
-                    <Badge variant="outline" className="text-xs capitalize">{draft.importedFrom.split(',').join(' + ')}</Badge>
-                )}
-                <div className="ml-auto flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
-                    <Clock className="w-3 h-3" />
-                    {formatDate(draft.updatedAt)}
-                </div>
-            </div>
-
-            {/* Public indicator */}
-            {draft.isPublic && (
-                <div className="flex items-center gap-1.5 text-xs text-neutral-800 dark:text-neutral-100">
-                    <Globe className="w-3 h-3" />
-                    Public · {draft.viewCount} views
-                </div>
-            )}
-
-            {/* Actions
-                Two rows, not one. This was a single `flex` row holding a `flex-1`
-                Edit button, FIVE fixed 28px icon buttons, a text "Duplicate" and a
-                trash - about 250px of content that cannot shrink, inside a card
-                roughly 200px wide in the 3-up grid. So it overflowed the card:
-                "Duplicate" clipped mid-word and the trash icon rendered outside
-                the border.
-
-                docs/responsiveness.md section 4 is explicit that `flex-wrap` is a
-                deferral rather than a fix - it converts overflow into height - and
-                that the answer is to keep the primary action labelled and inline
-                while the secondaries collapse. Here the primary takes its own full
-                width row and every secondary becomes an equal icon button on a
-                wrapping row beneath it, which fits at any card width.
-
-                "Duplicate" lost its text for the same reason: it was the only
-                labelled secondary and the widest single item in the row. */}
-            <div className="flex flex-col gap-1.5 pt-1 border-t border-black/5 dark:border-white/5">
-                <Button size="sm" className="h-7 w-full min-w-0 text-xs bg-neutral-900 text-white dark:bg-white dark:text-black hover:opacity-90" asChild><Link href={`/ai/resume/draft/${draft.id}`}>
-                    <Settings className="w-3 h-3 mr-1 shrink-0" /> Edit
-                </Link></Button>
-                <div className="flex flex-wrap items-center gap-1.5">
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 w-7 p-0 shrink-0"
-                    aria-label="Download PDF"
-                    title="Download PDF"
-                    onClick={() => window.open(`/api/resume/pdf/${draft.id}`, '_blank')}
-                >
-                    <Download className="w-3 h-3" />
-                </Button>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 w-7 p-0 shrink-0"
-                    aria-label={draft.isDefault ? 'Already the default resume' : 'Use this resume for AI features'}
-                    title={draft.isDefault
-                        ? 'This is the resume ShipItHQ AI uses'
-                        : 'Use this resume for AI features'}
-                    disabled={draft.isDefault}
-                    onClick={() => onSetDefault(draft.id)}
-                >
-                    <Star className={cn('w-3 h-3', draft.isDefault && 'fill-current text-neutral-900 dark:text-white')} />
-                </Button>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 w-7 p-0 shrink-0"
-                    aria-label={draft.isPublic ? 'Make private' : 'Make public'}
-                    title={draft.isPublic ? 'Make private' : 'Make public'}
-                    onClick={() => onTogglePublic(draft.id, !draft.isPublic)}
-                >
-                    {draft.isPublic ? <Eye className="w-3 h-3 text-neutral-900 dark:text-neutral-100" /> : <Lock className="w-3 h-3" />}
-                </Button>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 w-7 p-0 shrink-0"
-                    aria-label="Copy share link"
-                    title="Copy share link"
-                    onClick={() => {
-                        const url = resumeShareUrl(draft.shareSlug)
-                        navigator.clipboard.writeText(url)
-                        toast.success('Share link copied!')
-                        if (!draft.isPublic) {
-                            toast.info('Make resume public so the link works')
-                        }
-                    }}
-                >
-                    <Copy className="w-3 h-3" />
-                </Button>
-                {draft.isPublic && (
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 w-7 p-0 shrink-0"
-                        aria-label="Open public link"
-                        title="Open public link"
-                        onClick={() => window.open(`/r/${draft.shareSlug}`, '_blank')}
-                    >
-                        <ExternalLink className="w-3 h-3" />
-                    </Button>
-                )}
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 w-7 p-0 shrink-0"
-                    aria-label="Duplicate resume"
-                    title="Duplicate resume"
-                    onClick={() => onDuplicate(draft.id)}
-                >
-                    <Files className="w-3 h-3" />
-                </Button>
-                <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 w-7 p-0 shrink-0 text-neutral-600 dark:text-neutral-400 hover:text-red-500"
-                    aria-label="Delete resume"
-                    title="Delete resume"
-                    onClick={() => onDelete(draft.id)}
-                >
-                    <Trash2 className="w-3 h-3" />
-                </Button>
-                </div>
-            </div>
+            <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete &ldquo;{draft.name}&rdquo;?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {draft.isDefault
+                                ? 'This is your default resume. Another one becomes the default. This cannot be undone.'
+                                : 'This cannot be undone.'}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="cursor-pointer">Keep it</AlertDialogCancel>
+                        <AlertDialogAction className="cursor-pointer" onClick={() => onDelete(draft.id)}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
+}
+
+function SourceIcon({ source }: { source: ImportSource }) {
+    const cls = 'size-2.5'
+    if (source === 'linkedin') return <Linkedin className={cls} aria-label="LinkedIn" />
+    if (source === 'github') return <Github className={cls} aria-label="GitHub" />
+    if (source === 'twitter') return <Twitter className={cls} aria-label="X" />
+    if (source === 'portfolio') return <Globe className={cls} aria-label="Portfolio" />
+    return <FileText className={cls} aria-label="Pasted text" />
 }
 
 // ─── Main Hub ────────────────────────────────────────────────────────────────
@@ -565,14 +507,48 @@ function listOf(items: string[]): string {
     return `${lower.slice(0, -1).join(', ')} and ${lower[lower.length - 1]}`
 }
 
-export function ResumeHub({ drafts: initialDrafts, templates }: Props) {
+type Filter = 'all' | Origin
+
+export function ResumeHub({ drafts: initialDrafts, templates, links, initialOrigin, openImport }: Props) {
     const [drafts, setDrafts] = useState<Draft[]>(initialDrafts)
     const [sheetOpen, setSheetOpen] = useState(false)
+    const [importOpen, setImportOpen] = useState(!!openImport)
+    const [filter, setFilter] = useState<Filter>(initialOrigin ?? 'all')
     const [, startTransition] = useTransition()
+
+    // `?import=1` opens the sheet once, then leaves the URL so a reload does not reopen it.
+    useEffect(() => {
+        if (!openImport) return
+        const url = new URL(window.location.href)
+        url.searchParams.delete('import')
+        window.history.replaceState(null, '', url)
+    }, [openImport])
+
+    const counts = useMemo(() => {
+        const c: Record<Filter, number> = { all: drafts.length, created: 0, profile: 0, upload: 0, imported: 0, tailored: 0 }
+        for (const d of drafts) c[originOf(d).origin]++
+        return c
+    }, [drafts])
+
+    // A filter emptied by a delete falls back to All rather than showing nothing.
+    const activeFilter: Filter = filter !== 'all' && counts[filter] === 0 ? 'all' : filter
+    const visible = activeFilter === 'all' ? drafts : drafts.filter(d => originOf(d).origin === activeFilter)
+
+    const chooseFilter = (f: Filter) => {
+        setFilter(f)
+        const url = new URL(window.location.href)
+        if (f === 'all') url.searchParams.delete('origin')
+        else url.searchParams.set('origin', f)
+        window.history.replaceState(null, '', url)
+    }
 
     const handleDelete = (id: string) => {
         startTransition(async () => {
-            await deleteResumeDraft(id)
+            const res = await deleteResumeDraft(id)
+            if (res && 'success' in res && res.success === false) {
+                toast.error('Could not delete the resume')
+                return
+            }
             setDrafts(d => d.filter(x => x.id !== id))
             toast.success('Resume deleted')
         })
@@ -593,8 +569,6 @@ export function ResumeHub({ drafts: initialDrafts, templates }: Props) {
                 toast.error(res.error ?? 'Could not set the default resume')
                 return
             }
-            // Exactly one default in the list, mirroring what the action just
-            // wrote, so the badge does not need a refetch to be right.
             setDrafts(d => d.map(x => ({ ...x, isDefault: x.id === id })))
             toast.success('ShipItHQ AI will use this resume from now on')
         })
@@ -606,179 +580,126 @@ export function ResumeHub({ drafts: initialDrafts, templates }: Props) {
             if (res.success && res.draft) {
                 setDrafts(d => [res.draft as Draft, ...d])
                 toast.success('Resume duplicated')
+            } else {
+                toast.error('Could not duplicate the resume')
             }
         })
     }
 
     const platformTemplates = templates.filter(t => t.isPlatform)
-    const communityTemplates = templates.filter(t => !t.isPlatform && t.isMarketplace)
+    const filters: Filter[] = ['all', ...ORIGINS.filter(o => counts[o] > 0)]
 
     return (
-        <div className="w-full">
-            {/* ── Header ──
-                No bar, no border, no surface of its own. This was a full-bleed
-                `bg-white dark:bg-neutral-950` strip with a `border-b`, which put a second,
-                squarer card inside the rounded page card the shell already draws, and its
-                bottom edge cut the page in half. Every other page under (main) lets its
-                title sit on the page surface; this one does now too. */}
-            <div className="px-page pt-8 pb-6">
-                <div className="max-w-5xl mx-auto">
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Resume Builder</h1>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                                Create, import, tailor - land the job you deserve.
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap justify-end">
-                            <Button variant="outline" size="sm" className="border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-900" asChild><Link href='/ai/resume/import'>
-                                <Linkedin className="w-3.5 h-3.5 mr-1" />
-                                <Github className="w-3.5 h-3.5 mr-1.5" />
-                                AI Import
-                            </Link></Button>
-                            <Button
-                                size="sm"
-                                className="bg-neutral-900 text-white dark:bg-white dark:text-black hover:opacity-90"
-                                onClick={() => setSheetOpen(true)}
-                            >
-                                <Plus className="w-3.5 h-3.5 mr-1.5" />
-                                New Resume
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Quick stats */}
-                    <div className="flex items-center gap-6 mt-5 text-sm">
-                        <div className="flex items-center gap-1.5">
-                            <FileText className="w-3.5 h-3.5 text-neutral-900 dark:text-neutral-100" />
-                            <span className="font-semibold">{drafts.length}</span>
-                            <span className="text-neutral-500 dark:text-neutral-400">resumes</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <Globe className="w-3.5 h-3.5 text-neutral-900 dark:text-neutral-100" />
-                            <span className="font-semibold">{drafts.filter(d => d.isPublic).length}</span>
-                            <span className="text-neutral-500 dark:text-neutral-400">public</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <LayoutTemplate className="w-3.5 h-3.5 text-neutral-900 dark:text-neutral-100" />
-                            <span className="font-semibold">{platformTemplates.length}</span>
-                            <span className="text-neutral-500 dark:text-neutral-400">templates</span>
-                        </div>
-                    </div>
+        <div className="mx-auto w-full max-w-6xl pb-16">
+            {/* ── Header ── */}
+            <div className="flex flex-col gap-4 pt-8 pb-6 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">Resume Builder</h1>
+                    <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                        Build, import and tailor resumes. The default one is what ShipItHQ AI reads.
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="cursor-pointer" onClick={() => setImportOpen(true)}>
+                        <Sparkles className="mr-1.5 size-3.5" /> Import with AI
+                    </Button>
+                    <Button size="sm" className="cursor-pointer" onClick={() => setSheetOpen(true)}>
+                        <Plus className="mr-1.5 size-3.5" /> New resume
+                    </Button>
                 </div>
             </div>
 
-            {/* ── Tabs ── */}
-            <div className="max-w-5xl mx-auto px-page py-6">
-                <Tabs defaultValue="resumes">
-                    <TabsList className="mb-6">
-                        <TabsTrigger value="resumes">My Resumes</TabsTrigger>
+            <Tabs defaultValue="resumes">
+                <div className="flex flex-col gap-3 border-b border-neutral-200 pb-3 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800">
+                    <TabsList variant="segmented" size="sm" fit>
+                        <TabsTrigger value="resumes">My resumes</TabsTrigger>
                         <TabsTrigger value="templates">Templates</TabsTrigger>
                     </TabsList>
+                    {drafts.length > 0 && (
+                        <Tabs value={activeFilter} onValueChange={(v) => chooseFilter(v as Filter)}>
+                            <div className="max-w-full overflow-x-auto [scrollbar-width:none]">
+                                <TabsList variant="segmented" size="sm" fit aria-label="Filter by origin">
+                                    {filters.map(f => (
+                                        <TabsTrigger key={f} value={f}>
+                                            {f === 'all' ? 'All' : ORIGIN_LABEL[f]}
+                                            <span className="ml-1.5 tabular-nums opacity-60">{counts[f]}</span>
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
+                            </div>
+                        </Tabs>
+                    )}
+                </div>
 
-                    {/* ── My Resumes ── */}
-                    <TabsContent value="resumes">
-                        {drafts.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-2xl border-2 border-dashed border-neutral-200 dark:border-neutral-800">
-                                <div className="w-14 h-14 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-                                    <FileText className="w-6 h-6 text-neutral-600 dark:text-neutral-400" />
-                                </div>
-                                <div className="text-center">
-                                    <p className="font-semibold text-neutral-700 dark:text-neutral-300">No resumes yet</p>
-                                    <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">Create your first resume in 60 seconds</p>
-                                </div>
-                                <Button onClick={() => setSheetOpen(true)}>
-                                    <Plus className="w-4 h-4 mr-2" /> Create Resume
+                {/* ── My resumes ── */}
+                <TabsContent value="resumes" className="mt-6">
+                    {drafts.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 px-6 py-20 text-center dark:border-neutral-700">
+                            <p className="text-sm font-medium text-neutral-900 dark:text-white">No resumes yet</p>
+                            <p className="mt-1 max-w-sm text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+                                Start from your profile, upload the one you have, or let AI build one from your LinkedIn and GitHub.
+                            </p>
+                            <div className="mt-4 flex gap-2">
+                                <Button size="sm" variant="outline" className="cursor-pointer" onClick={() => setImportOpen(true)}>
+                                    <Sparkles className="mr-1.5 size-3.5" /> Import with AI
+                                </Button>
+                                <Button size="sm" className="cursor-pointer" onClick={() => setSheetOpen(true)}>
+                                    <Plus className="mr-1.5 size-3.5" /> New resume
                                 </Button>
                             </div>
-                        ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {/* New resume tile */}
-                                <button
-                                    onClick={() => setSheetOpen(true)}
-                                    className="rounded-2xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 p-5 flex flex-col items-center justify-center gap-2 hover:border-neutral-400 dark:hover:border-neutral-600 transition-colors min-h-[180px] text-neutral-500 dark:text-neutral-400"
-                                >
-                                    <Plus className="w-6 h-6" />
-                                    <span className="text-sm font-medium">New Resume</span>
-                                </button>
-                                {/* Import from LinkedIn / GitHub tile */}
-                                <Link href='/ai/resume/import' className="rounded-2xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 p-5 flex flex-col items-center justify-center gap-2 hover:border-neutral-800 dark:hover:border-neutral-700 transition-colors min-h-[180px] text-neutral-900 dark:text-neutral-100">
-                                    <Globe className="w-6 h-6" />
-                                    <span className="text-sm font-medium">Import from LinkedIn &amp; GitHub</span>
-                                    <span className="text-xs text-neutral-500 dark:text-neutral-400">Scrape &amp; auto-fill your resume</span>
-                                </Link>
-                                {drafts.map(d => (
-                                    <ResumeCard
-                                        key={d.id}
-                                        draft={d}
-                                        onDelete={handleDelete}
-                                        onTogglePublic={handleTogglePublic}
-                                        onDuplicate={handleDuplicate}
-                                        onSetDefault={handleSetDefault}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </TabsContent>
-
-                    {/* ── Templates ── */}
-                    <TabsContent value="templates">
-                        <div className="space-y-8">
-                            {/* Platform templates */}
-                            <div>
-                                <div className="flex items-center gap-2 mb-4">
-                                    <h2 className="text-base font-semibold">ShipItHQ Templates</h2>
-                                    <Badge className="bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100 text-xs">Official</Badge>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {platformTemplates.map(t => {
-                                        return (
-                                            <div key={t.slug} className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 flex flex-col gap-3">
-                                                {/* A drawn preview of the layout, not a tinted box with the
-                                                    name ghosted in it. Layout is the only thing distinguishing
-                                                    these five, and the old panel showed none of it. */}
-                                                <div className="flex h-28 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-900 dark:border-neutral-800 dark:bg-neutral-800/50 dark:text-neutral-100">
-                                                    <TemplatePreview shape={shapeForSlug(t.slug)} className="h-24 w-auto" />
-                                                </div>
-                                                <div>
-                                                    <p className="font-semibold text-sm">{t.name}</p>
-                                                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">{t.description}</p>
-                                                </div>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {t.tags.slice(0, 3).map(tag => (
-                                                        <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-                                                    ))}
-                                                </div>
-                                                <div className="flex items-center justify-between pt-2 border-t border-neutral-100 dark:border-neutral-800">
-                                                    <span className="text-xs text-neutral-800 dark:text-neutral-200 font-medium">Free</span>
-                                                    <Button
-                                                        size="sm"
-                                                        className="h-7 text-xs"
-                                                        onClick={() => { setSheetOpen(true) }}
-                                                    >
-                                                        Use Template
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* A "Community Templates" grid sat here, and a
-                                "Create & Sell Your Template" panel below it. Every control in
-                                both linked to /blueprint/resume, which is not a route in this
-                                app, so neither section could be anything but a dead end.
-
-                                `communityTemplates` is still derived from the same data just
-                                above, so the marketplace can come back without re-deriving
-                                anything. What is gone is UI a user could not act on. */}
                         </div>
-                    </TabsContent>
-                </Tabs>
-            </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {visible.map(d => (
+                                <ResumeCard
+                                    key={d.id}
+                                    draft={d}
+                                    onDelete={handleDelete}
+                                    onTogglePublic={handleTogglePublic}
+                                    onDuplicate={handleDuplicate}
+                                    onSetDefault={handleSetDefault}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </TabsContent>
 
-            <NewResumeSheet templates={templates} open={sheetOpen} onClose={() => setSheetOpen(false)} />
+                {/* ── Templates ── */}
+                <TabsContent value="templates" className="mt-6">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {platformTemplates.map(t => (
+                            <div key={t.slug} className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+                                <div className="flex h-32 items-center justify-center border-b border-neutral-200 bg-neutral-50 text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100">
+                                    <TemplatePreview shape={shapeForSlug(t.slug)} className="h-24 w-auto" />
+                                </div>
+                                <div className="flex flex-1 flex-col p-4">
+                                    <p className="text-sm font-semibold text-neutral-900 dark:text-white">{t.name}</p>
+                                    <p className="mt-0.5 line-clamp-2 text-xs text-neutral-500 dark:text-neutral-400">{t.description}</p>
+                                    <div className="mt-3 flex flex-wrap gap-1">
+                                        {t.tags.slice(0, 3).map(tag => (
+                                            <span key={tag} className="rounded-md border border-neutral-200 px-1.5 py-0.5 text-[11px] text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">{tag}</span>
+                                        ))}
+                                    </div>
+                                    <div className="mt-auto pt-4">
+                                        <Button size="sm" variant="outline" className="w-full cursor-pointer" onClick={() => setSheetOpen(true)}>
+                                            Use template
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </TabsContent>
+            </Tabs>
+
+            <NewResumeSheet
+                templates={templates}
+                open={sheetOpen}
+                onClose={() => setSheetOpen(false)}
+                onOpenImport={() => { setSheetOpen(false); setImportOpen(true) }}
+            />
+            {/* Always mounted: the import's state lives in it, so closing the sheet mid-job keeps the job. */}
+            <ImportSheet open={importOpen} onOpenChange={setImportOpen} links={links} />
         </div>
     )
 }

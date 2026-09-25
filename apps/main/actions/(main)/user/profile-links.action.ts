@@ -4,6 +4,7 @@ import { db, users } from "@repo/db"
 import { eq } from "drizzle-orm"
 import { getSession } from "@repo/auth"
 import { headers } from "next/headers"
+import { revalidatePath } from "next/cache"
 import type { ProfileLinks } from "@/lib/profile-links"
 
 /**
@@ -124,5 +125,38 @@ export async function saveMyProfileLinks(input: {
         // draft the user actually asked for matters more.
         console.error("[profile-links] save failed:", error)
         return { success: false }
+    }
+}
+
+/**
+ * The profile editor's Links section (plan/profile PRF-11): the one place a link is
+ * deliberately CLEARED, which `saveMyProfileLinks` above refuses to do. An empty
+ * field here means "remove it". The website is edited in the Edit Profile sheet
+ * (`users.website`), so it is not part of this.
+ */
+export async function setMyProfileLinks(input: {
+    githubUrl: string
+    linkedinUrl: string
+    twitterUrl: string
+}): Promise<{ success: true; links: ProfileLinks } | { success: false; error: string }> {
+    try {
+        const session = await getSession(await headers())
+        if (!session?.user?.id) return { success: false, error: "Not authenticated" }
+
+        const linkedin = await normaliseUrl(input.linkedinUrl)
+        if (linkedin && !/^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i.test(linkedin)) {
+            return { success: false, error: "That is not a LinkedIn link" }
+        }
+        await db.update(users).set({
+            githubUrl: await normaliseGithub(input.githubUrl),
+            linkedinUrl: linkedin,
+            twitterUrl: await normaliseTwitter(input.twitterUrl),
+        }).where(eq(users.id, session.user.id))
+
+        revalidatePath("/profile")
+        return { success: true, links: await getMyProfileLinks() }
+    } catch (error: unknown) {
+        console.error("[profile-links] set failed:", error)
+        return { success: false, error: "Could not save your links" }
     }
 }

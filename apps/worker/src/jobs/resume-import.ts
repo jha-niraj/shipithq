@@ -31,34 +31,22 @@ const { resumeDraft } = schema
  */
 
 /**
- * Which of the two import screens dispatched this.
+ * One import path since 2026-09-25: the Import with AI sheet's (plan/resume RES-23).
  *
- * Not cosmetic. The two differ in how they read GitHub - the hub scrapes
- * `github.com/<user>` through Exa, the import page uses the GitHub REST API and
- * gets structured repo and language data - and in the `sourceHint` the prompt is
- * given. Collapsing them onto one path would have been a behaviour change
- * smuggled into a move.
+ * There used to be a second, "combined" variant for the old New Resume dialog - a
+ * GitHub URL scraped through Exa, and pasted resume text. Nothing dispatched it
+ * after that dialog's import branch was deleted (Niraj approved removing both,
+ * 2026-09-25). A job queued with the old fields before a deploy still runs: it
+ * reads LinkedIn, Twitter and the portfolio and ignores `githubUrl`/`pastedText`.
  */
-type ImportVariant = "combined" | "profile"
-
 interface ResumeImportInput {
-	variant: ImportVariant
 	name: string
 	templateSlug: string
 	linkedinUrl?: string
-	/** `combined` only - scraped through Exa, as the hub always did. */
-	githubUrl?: string
-	/** `profile` only - read through the GitHub REST API. */
+	/** Read through the GitHub REST API: repos, stars and languages. */
 	githubUsername?: string
 	twitterHandle?: string
 	portfolioUrl?: string
-	/**
-	 * Text the user pasted. The one payload in an otherwise pointer-shaped input,
-	 * and unavoidable: pasted text has no row to point at. Capped by the caller
-	 * before dispatch - a Durable Object storage value has a hard size limit, and
-	 * an oversized input would fail the put rather than the job.
-	 */
-	pastedText?: string
 }
 
 interface StructuredResume {
@@ -133,7 +121,7 @@ export class ResumeImport extends JobDurableObject<ResumeImportInput> {
 		// zero parts and reach the user as "make sure your profiles are public" -
 		// sending them to fix something that is not broken while the real problem
 		// is our configuration.
-		const needsExa = Boolean(input.linkedinUrl || input.githubUrl || input.twitterHandle || input.portfolioUrl)
+		const needsExa = Boolean(input.linkedinUrl || input.twitterHandle || input.portfolioUrl)
 		if (needsExa && !this.env.EXA_API_KEY) {
 			throw new Error("Profile importing is not configured on this environment")
 		}
@@ -144,25 +132,14 @@ export class ResumeImport extends JobDurableObject<ResumeImportInput> {
 		if (input.linkedinUrl) {
 			const raw = await this.exaText(input.linkedinUrl)
 			if (raw) {
-				parts.push(`=== LinkedIn Profile ===\n${input.variant === "profile" ? raw.slice(0, 5000) : raw}`)
+				parts.push(`=== LinkedIn Profile ===\n${raw.slice(0, 5000)}`)
 				usedSources.push("linkedin")
 			}
 		}
 
 		await progress(30, "Reading your code")
 
-		if (input.githubUrl) {
-			// The hub's path: a plain page scrape. Thinner than the REST API, and
-			// deliberately left as it was.
-			const username = input.githubUrl.replace(/https?:\/\/(www\.)?github\.com\/?/, "").split("/")[0]
-			if (username) {
-				const raw = await this.exaText(`https://github.com/${username}`)
-				if (raw) {
-					parts.push(`=== GitHub Profile ===\n${raw}`)
-					usedSources.push("github")
-				}
-			}
-		} else if (input.githubUsername) {
+		if (input.githubUsername) {
 			const githubText = await this.githubProfile(input.githubUsername.replace(/^@/, "").trim())
 			if (githubText) {
 				parts.push(githubText)
@@ -186,11 +163,6 @@ export class ResumeImport extends JobDurableObject<ResumeImportInput> {
 			}
 		}
 
-		if (input.pastedText?.trim()) {
-			parts.push(`=== Pasted Resume/Text ===\n${input.pastedText}`)
-			usedSources.push("text")
-		}
-
 		// Every source failing is a failed job, which is what refunds the hold.
 		// Some succeeding is a success even when the import is thinner than the
 		// user hoped - the model still ran, and CR-6 records that as the charge
@@ -202,10 +174,7 @@ export class ResumeImport extends JobDurableObject<ResumeImportInput> {
 
 		await progress(55, "Writing your resume")
 
-		const sourceHint =
-			input.variant === "profile"
-				? "LinkedIn profile, GitHub repositories, and additional sources"
-				: `${usedSources.join(" + ")} sources`
+		const sourceHint = "LinkedIn profile, GitHub repositories, and additional sources"
 
 		const structured = await this.structure(parts.join("\n\n").slice(0, MAX_PROMPT_CHARS), sourceHint)
 
@@ -234,7 +203,7 @@ export class ResumeImport extends JobDurableObject<ResumeImportInput> {
 				templateSlug: input.templateSlug || "clean-minimal",
 				content: structured as unknown as Record<string, unknown>,
 				importedFrom: usedSources.join(","),
-				importedUrl: input.linkedinUrl ?? input.githubUrl,
+				importedUrl: input.linkedinUrl ?? (input.githubUsername ? `https://github.com/${input.githubUsername.replace(/^@/, "").trim()}` : null),
 				isDefault: !existingDefault,
 			})
 			.returning({ id: resumeDraft.id, name: resumeDraft.name, shareSlug: resumeDraft.shareSlug })

@@ -9,6 +9,7 @@ import {
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@repo/ui/components/ui/select"
@@ -72,19 +73,14 @@ export default function UniversityPartnersPage() {
     const totalPlacements = mockUniversities.reduce((sum, u) => sum + u.placedStudents, 0)
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                    University Partners
-                </h1>
-                <p className="text-neutral-500 mt-1">
-                    Access verified talent pools from top universities
-                </p>
-            </div>
+        <div className="page-frame space-y-5 px-page py-6">
+            <PageHeader
+                title="University Partners"
+                subtitle="Access verified talent pools from top universities"
+            />
 
             {/* Stats Cards */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                 <StatBand
                     cols={3}
                     items={[
@@ -100,14 +96,14 @@ export default function UniversityPartnersPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="bg-neutral-50 dark:bg-neutral-900/30 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 mb-8"
+                className="bg-neutral-50 dark:bg-neutral-900/30 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
             >
                 <div className="flex items-start gap-4">
                     <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/50">
                         <GraduationCap className="w-6 h-6 text-neutral-800 dark:text-neutral-100" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-neutral-900 dark:text-neutral-700 mb-1">
+                        <h3 className="font-bold text-neutral-900 dark:text-white mb-1">
                             University Verified Candidates
                         </h3>
                         <p className="text-neutral-800 dark:text-neutral-100 text-sm">
@@ -129,7 +125,7 @@ export default function UniversityPartnersPage() {
             </motion.div>
 
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
                     <div className="relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
@@ -229,7 +225,7 @@ export default function UniversityPartnersPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="mt-8 bg-neutral-900 dark:bg-neutral-800 rounded-2xl p-6 text-center"
+                className="bg-neutral-900 dark:bg-neutral-800 rounded-2xl p-6 text-center"
             >
                 <h3 className="text-lg font-bold text-white mb-2">
                     Want to partner with your university?

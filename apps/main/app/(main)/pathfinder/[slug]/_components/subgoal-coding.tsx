@@ -371,17 +371,15 @@ export function SubGoalCoding({ subGoal, onComplete }: SubGoalCodingProps) {
         return (
             <div className="h-full flex flex-col">
                 <Tabs value={String(currentProblemIndex)} onValueChange={(v) => setCurrentProblemIndex(Number(v))}>
-                    <TabsList className="flex-shrink-0 w-full justify-start rounded-none border-b border-neutral-200 dark:border-neutral-800 bg-transparent px-4 gap-1">
-                        {problems.map((p, i) => (
-                            <TabsTrigger
-                                key={p.id ?? i}
-                                value={String(i)}
-                                className="text-xs data-[state=active]:border-b-2 data-[state=active]:border-neutral-900 dark:data-[state=active]:border-white rounded-none"
-                            >
-                                {p.title.length > 25 ? `${p.title.slice(0, 25)}...` : p.title}
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
+                    <div className="flex-shrink-0 px-4 pt-2">
+                        <TabsList variant="segmented" size="sm" fit>
+                            {problems.map((p, i) => (
+                                <TabsTrigger key={p.id ?? i} value={String(i)}>
+                                    {p.title.length > 25 ? `${p.title.slice(0, 25)}...` : p.title}
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
+                    </div>
                     {problems.map((p, i) => (
                         <TabsContent key={p.id ?? i} value={String(i)} className="flex-1 m-0 flex flex-col overflow-hidden">
                             {renderProblemContent(p)}

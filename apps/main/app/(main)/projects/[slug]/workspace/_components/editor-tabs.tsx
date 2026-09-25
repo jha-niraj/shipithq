@@ -1,14 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Book, BookOpen, Brain, GraduationCap, Lock, Mic, MonitorPlay, Presentation, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, Book, BookOpen, Brain, GraduationCap, Lock, Mic, MonitorPlay, Presentation, X } from 'lucide-react'
+import { AIIcon } from '@repo/ui/components/ui/ai-mark'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@repo/ui/lib/utils'
 import { FileIcon } from './file-icon'
 import { isPinned, isVirtual, tabLabel, type VirtualTab } from './workspace-model'
 
-const VIRTUAL_ICONS: Record<VirtualTab, LucideIcon> = {
-    '@ai': Sparkles, '@task': BookOpen, '@quiz': Brain, '@mock': MonitorPlay, '@resources': Book, '@errors': AlertTriangle, '@standup': Mic,
+const VIRTUAL_ICONS: Record<VirtualTab, LucideIcon | typeof AIIcon> = {
+    '@ai': AIIcon, '@task': BookOpen, '@quiz': Brain, '@mock': MonitorPlay, '@resources': Book, '@errors': AlertTriangle, '@standup': Mic,
     '@final-quiz': GraduationCap, '@final-mock': Presentation,
 }
 

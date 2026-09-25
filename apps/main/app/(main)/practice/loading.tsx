@@ -4,7 +4,7 @@ import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
 
 export default function Loading() {
     return (
-        <div className="w-full mx-auto px-page py-6">
+        <div className="page-frame px-page py-6">
             <ShimmerStyles />
 
             {/* Full width, like the hub itself: the skeleton used to be capped at

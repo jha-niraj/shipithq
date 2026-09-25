@@ -22,6 +22,8 @@ const ROUTES: Record<string, [number, MetadataRoute.Sitemap[number]['changeFrequ
     'pricing': [0.9, 'monthly'],
     'blogs': [0.8, 'weekly'],
     'compare': [0.7, 'monthly'],
+    // ShipItHQ for companies, moved from apps/hiring (plan/hiring-app HA-3).
+    'hire': [0.7, 'monthly'],
     'aboutus': [0.6, 'monthly'],
     'termsofservice': [0.3, 'yearly'],
     'privacypolicy': [0.3, 'yearly'],

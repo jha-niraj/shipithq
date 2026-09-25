@@ -1,9 +1,9 @@
 "use server"
 
-import { db, companyMembers, memberInvitations } from "@repo/db"
-import { eq, and, desc } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
+import { db, companyMembers, companyRoles, memberInvitations, users } from "@repo/db"
+import { checkWorkEmail } from "@repo/auth/work-email"
+import { requirePermission } from "@/lib/permissions"
+import { eq, and, desc, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { randomBytes } from "crypto"
 import { sendHiringEmail } from "@/lib/emails/hiringemail"
@@ -16,17 +16,6 @@ import type {
 // HELPER FUNCTIONS
 // ============================================
 
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) return null
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-    return member
-}
-
 function generateInviteCode(): string {
     return randomBytes(16).toString("hex")
 }
@@ -38,89 +27,92 @@ function generateInviteCode(): string {
 /**
  * Invite a team member to the company
  */
-export async function inviteTeamMember(payload: InviteTeamMemberPayload) {
-    const session = await getSession(headers())
+/** The legacy enum kept on the row, from the role's preset (custom roles read as RECRUITER). */
+const LEGACY_FROM_PRESET: Record<string, CompanyMemberRole> = {
+    OWNER: "FOUNDER", ADMIN: "ADMIN", RECRUITER: "RECRUITER", INTERVIEWER: "INTERVIEWER",
+}
 
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+/**
+ * Invites someone to the company with one of its roles (plan/hiring-app HA-8).
+ *
+ * - The email must be a work email (HA-4), and is stored lower-cased.
+ * - The role must be this company's; only an Owner can invite an Owner.
+ * - Someone already in this company, or in ANOTHER company (one company per
+ *   person), cannot be invited; neither can an email with a pending invite.
+ * - The code works once and expires after 7 days (acceptance: invite.action.ts).
+ */
+export async function inviteTeamMember(payload: InviteTeamMemberPayload) {
+    const auth = await requirePermission("manage_team")
+    if (!auth.ok) return { success: false, error: auth.error }
+    const { ctx } = auth
+
+    const email = payload.email.trim().toLowerCase()
+    const workEmail = checkWorkEmail(email)
+    if (!workEmail.ok) return { success: false, error: workEmail.message }
 
     try {
-        const currentMember = await db.query.companyMembers.findFirst({
-            where: eq(companyMembers.userId, session.user.id),
-            columns: { id: true, companyId: true, role: true }
+        const role = await db.query.companyRoles.findFirst({
+            where: and(eq(companyRoles.id, payload.roleId), eq(companyRoles.companyId, ctx.companyId)),
         })
+        if (!role) return { success: false, error: "Choose a role for the invitation." }
+        if (role.isOwner && !ctx.isOwner) return { success: false, error: "Only an Owner can invite an Owner." }
 
-        if (!currentMember) {
-            return { success: false, error: "Not a member of any company" }
+        const existingUser = await db.query.users.findFirst({
+            where: sql`lower(${users.email}) = ${email}`,
+            columns: { id: true },
+        })
+        if (existingUser) {
+            const membership = await db.query.companyMembers.findFirst({
+                where: eq(companyMembers.userId, existingUser.id),
+                columns: { companyId: true },
+            })
+            if (membership?.companyId === ctx.companyId) return { success: false, error: "That person is already in your company." }
+            if (membership) return { success: false, error: "That person already belongs to another company on ShipItHQ." }
         }
 
-        if (currentMember.role !== "FOUNDER") {
-            return { success: false, error: "Only HEAD can invite team members" }
-        }
-
-        // Check if user with this email already exists in the company
-        const existingMember = await db.query.companyMembers.findFirst({
+        const pending = await db.query.memberInvitations.findFirst({
             where: and(
-                eq(companyMembers.companyId, currentMember.companyId),
-                eq(companyMembers.email, payload.email)
-            )
+                eq(memberInvitations.companyId, ctx.companyId),
+                sql`lower(${memberInvitations.email}) = ${email}`,
+                eq(memberInvitations.status, "PENDING"),
+            ),
+            columns: { id: true },
         })
-
-        if (existingMember) {
-            return { success: false, error: "User is already a member of your company" }
-        }
-
-        // Check for existing pending invitation
-        const existingInvitation = await db.query.memberInvitations.findFirst({
-            where: and(
-                eq(memberInvitations.companyId, currentMember.companyId),
-                eq(memberInvitations.email, payload.email),
-                eq(memberInvitations.status, "PENDING")
-            )
-        })
-
-        if (existingInvitation) {
-            return { success: false, error: "An invitation is already pending for this email" }
-        }
+        if (pending) return { success: false, error: "An invitation is already pending for this email. Resend it instead." }
 
         const inviteCode = generateInviteCode()
-        const company = await db.query.companyMembers.findFirst({
-            where: eq(companyMembers.id, currentMember.id),
-            with: { company: true },
-        })
-
-        // Create invitation
         await db.insert(memberInvitations).values({
-            companyId: currentMember.companyId,
-            email: payload.email,
-            role: payload.role || "RECRUITER",
+            companyId: ctx.companyId,
+            email,
+            name: payload.name ?? null,
+            role: payload.role ?? LEGACY_FROM_PRESET[role.presetKey ?? ""] ?? "RECRUITER",
+            roleId: role.id,
             jobTitle: payload.jobTitle || "RECRUITER",
             inviteCode,
-            invitedById: currentMember.id,
+            invitedById: ctx.memberId,
             message: payload.message,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         })
 
         const inviteUrl = `${process.env.NEXT_PUBLIC_HIRING_URL || "http://localhost:6004"}/invite?code=${inviteCode}`
         try {
             await sendHiringEmail({
-                email: payload.email,
+                email,
                 emailType: "MEMBER_INVITATION",
-                inviterName: session.user.name || session.user.email || "A team member",
-                companyName: company?.company?.name || "the company",
-                name: payload.role || "Recruiter",
+                inviterName: ctx.member.displayName || ctx.member.email || "A team member",
+                companyName: ctx.member.company?.name || "the company",
+                name: role.name,
                 inviteUrl,
                 message: payload.message ?? undefined,
             })
-        } catch (emailError) {
-            console.error("Failed to send invitation email:", emailError)
+        } catch (emailError: unknown) {
+            console.error("Failed to send invitation email:", emailError instanceof Error ? emailError.message : emailError)
         }
 
         revalidatePath("/team")
         return { success: true, message: "Invitation sent successfully" }
-    } catch (error) {
-        console.error("Invite team member error:", error)
+    } catch (error: unknown) {
+        console.error("Invite team member error:", error instanceof Error ? error.message : error)
         return { success: false, error: "Failed to send invitation" }
     }
 }
@@ -128,8 +120,10 @@ export async function inviteTeamMember(payload: InviteTeamMemberPayload) {
 /**
  * Invite team member (simplified: email and role only)
  */
-export async function inviteTeamMemberSimple(email: string, role: CompanyMemberRole) {
-    return inviteTeamMember({ email, role })
+export async function inviteTeamMemberSimple(email: string, roleId: string) {
+    const auth = await requirePermission("manage_team")
+    if (!auth.ok) return { success: false, error: auth.error }
+    return inviteTeamMember({ email, roleId })
 }
 
 /**
@@ -137,8 +131,9 @@ export async function inviteTeamMemberSimple(email: string, role: CompanyMemberR
  */
 export async function getPendingInvites(): Promise<{ success: boolean; data?: PendingInvite[]; error?: string }> {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission()
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const invites = await db.query.memberInvitations.findMany({
             where: and(
@@ -196,21 +191,12 @@ export async function getPendingInvites(): Promise<{ success: boolean; data?: Pe
  * Get pending invitations with extended info
  */
 export async function getPendingInvitations() {
-    const session = await getSession(headers())
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" }
-    }
+    const auth = await requirePermission()
+    if (!auth.ok) return { success: false, error: auth.error }
+    const { ctx } = auth
 
     try {
-        const currentMember = await db.query.companyMembers.findFirst({
-            where: eq(companyMembers.userId, session.user.id),
-            columns: { companyId: true, role: true }
-        })
-
-        if (!currentMember) {
-            return { success: false, error: "Not a member of any company" }
-        }
+        const currentMember = ctx.member
 
         const invitations = await db.query.memberInvitations.findMany({
             where: and(
@@ -258,7 +244,7 @@ export async function getPendingInvitations() {
                 expiresAt: inv.expiresAt,
                 invitedBy: invitedByMap2.get(inv.invitedById) ?? { id: inv.invitedById, displayName: null, user: { name: null, email: "" } }
             })),
-            isHead: currentMember.role === "FOUNDER"
+            isHead: ctx.can("manage_team")
         }
     } catch (error) {
         console.error("Get pending invitations error:", error)
@@ -271,12 +257,9 @@ export async function getPendingInvitations() {
  */
 export async function cancelInvitation(invitationId: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
-
-        if (member.role !== "FOUNDER") {
-            return { success: false, error: "Only team heads can cancel invitations" }
-        }
+        const auth = await requirePermission("manage_team")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const invitation = await db.query.memberInvitations.findFirst({
             where: and(
@@ -305,6 +288,8 @@ export async function cancelInvitation(invitationId: string) {
  * Revoke invitation (alias for cancelInvitation)
  */
 export async function revokeInvitation(invitationId: string) {
+    const auth = await requirePermission("manage_team")
+    if (!auth.ok) return { success: false, error: auth.error }
     return cancelInvitation(invitationId)
 }
 
@@ -313,12 +298,9 @@ export async function revokeInvitation(invitationId: string) {
  */
 export async function resendInvitation(invitationId: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
-
-        if (member.role !== "FOUNDER") {
-            return { success: false, error: "Only team heads can resend invitations" }
-        }
+        const auth = await requirePermission("manage_team")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const invitation = await db.query.memberInvitations.findFirst({
             where: and(
@@ -336,13 +318,17 @@ export async function resendInvitation(invitationId: string) {
             .set({ expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) })
             .where(eq(memberInvitations.id, invitationId))
 
+        // The company role's name for the email; the legacy enum only for old invites.
+        const roleRow = invitation.roleId
+            ? await db.query.companyRoles.findFirst({ where: eq(companyRoles.id, invitation.roleId), columns: { name: true } })
+            : null
         const inviteUrl = `${process.env.NEXT_PUBLIC_HIRING_URL || "http://localhost:6004"}/invite?code=${invitation.inviteCode}`
         try {
             await sendHiringEmail({
                 email: invitation.email,
                 emailType: "MEMBER_INVITATION",
                 companyName: member.company?.name || "the company",
-                name: invitation.role,
+                name: roleRow?.name ?? invitation.role,
                 inviteUrl,
                 message: invitation.message ?? undefined,
             })

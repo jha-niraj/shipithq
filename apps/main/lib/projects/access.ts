@@ -82,3 +82,52 @@ export async function requireTaskAccess(taskId: string): Promise<AccessResult> {
     if (!row) return { ok: false, error: DENIED }
     return requireProjectAccess(row.projectId)
 }
+
+export type ReadAccessResult =
+    | { ok: true; userId: string; isCreator: boolean; onProject: boolean; projectIds: string[] }
+    | { ok: false; error: string }
+
+/**
+ * Who may READ a project's shared material - its resources and its errors
+ * (plan/projects PJ-21, Niraj 2026-09-24: "Public projects share them").
+ *
+ * - its creator, or someone enrolled in it, as for everything else;
+ * - anyone signed in, when the project is PUBLIC;
+ * - and a copy reads its original's material too, while the original is public,
+ *   so a learner's copy is not an empty library.
+ *
+ * `projectIds` is what to read from: the project, then its original if any.
+ * Writing (adding, voting, deleting) still goes through `requireProjectAccess`.
+ */
+export async function requireProjectReadAccess(projectId: string): Promise<ReadAccessResult> {
+    const session = await getSession(await headers())
+    const userId = session?.user?.id
+    if (!userId) return { ok: false, error: "Not signed in." }
+
+    const [project] = await db
+        .select({ id: projectsV2.id, createdBy: projectsV2.createdBy, visibility: projectsV2.visibility, forkedFromId: projectsV2.forkedFromId })
+        .from(projectsV2)
+        .where(eq(projectsV2.id, projectId))
+        .limit(1)
+    if (!project) return { ok: false, error: DENIED }
+
+    const isCreator = project.createdBy === userId
+    const [enrolled] = isCreator ? [] : await db
+        .select({ id: userProjectV2Progress.id })
+        .from(userProjectV2Progress)
+        .where(and(eq(userProjectV2Progress.projectId, project.id), eq(userProjectV2Progress.userId, userId)))
+        .limit(1)
+    const onProject = isCreator || !!enrolled
+    if (!onProject && project.visibility !== "PUBLIC") return { ok: false, error: DENIED }
+
+    const projectIds = [project.id]
+    if (project.forkedFromId) {
+        const [original] = await db
+            .select({ id: projectsV2.id, visibility: projectsV2.visibility })
+            .from(projectsV2)
+            .where(eq(projectsV2.id, project.forkedFromId))
+            .limit(1)
+        if (original?.visibility === "PUBLIC") projectIds.push(original.id)
+    }
+    return { ok: true, userId, isCreator, onProject, projectIds }
+}

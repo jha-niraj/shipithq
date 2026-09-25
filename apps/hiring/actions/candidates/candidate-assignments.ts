@@ -1,29 +1,10 @@
 "use server"
 
 import { db, companyMembers, jobs, jobApplications, applicationActivities, interviewPrepProgress } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, inArray } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import type { BestScores, RecommendedResource } from "@/types"
-
-// ============================================
-// HELPERS
-// ============================================
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) {
-        return null
-    }
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-
-    return member
-}
 
 // ============================================
 // ASSIGNMENT MANAGEMENT
@@ -38,10 +19,9 @@ export async function submitAssignment(applicationId: string, submission: {
     feedback?: string
 }) {
     try {
-        const member = await getUserCompany()
-        if (!member) {
-            return { success: false, error: "Unauthorized" }
-        }
+        const auth = await requirePermission("invite_decline")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobIds = await db
             .select({ id: jobs.id })
@@ -101,8 +81,9 @@ export async function updateAssignmentProgress(applicationId: string, progress: 
     submissionUrl?: string
 }) {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("invite_decline")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobIds = await db
             .select({ id: jobs.id })
@@ -146,8 +127,24 @@ export async function updateAssignmentProgress(applicationId: string, progress: 
 // Get interview preparation progress for an application
 export async function getPrepProgress(applicationId: string) {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("view_candidates")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
+
+        // Only an application to one of this company's jobs.
+        const companyJobIds = await db
+            .select({ id: jobs.id })
+            .from(jobs)
+            .where(eq(jobs.companyId, member.companyId))
+        const jobIds = companyJobIds.map(j => j.id)
+        const application = await db.query.jobApplications.findFirst({
+            where: and(
+                eq(jobApplications.id, applicationId),
+                inArray(jobApplications.jobId, jobIds.length > 0 ? jobIds : ["__none__"])
+            ),
+            columns: { id: true }
+        })
+        if (!application) return { success: false, error: "Application not found" }
 
         const progress = await db.query.interviewPrepProgress.findFirst({
             where: eq(interviewPrepProgress.applicationId, applicationId)
@@ -174,8 +171,9 @@ export async function upsertPrepProgress(applicationId: string, data: Partial<{
     recommendedResources: RecommendedResource[]
 }>) {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("invite_decline")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const companyJobIds = await db
             .select({ id: jobs.id })

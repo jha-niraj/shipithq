@@ -5,6 +5,7 @@
 | US-1 | Adapt `sounds.tsx` to our stack and install the package | **done 2026-09-24** |
 | US-2 | Mount in all five apps, with the toggle in the sidebar footer | **done 2026-09-24** |
 | US-3 | Toast chimes on success and error | **done 2026-09-24** |
+| US-4 | Occasional sounds only: no clicks, toggles or menus | **done 2026-09-24** |
 
 ## US-1 Adapt `sounds.tsx`
 - [x] Done 2026-09-24: `@web-kits/audio@0.2.0` installed in packages/ui; relative `cn`; `shipithq-sound-*` keys with guarded storage; neutral toggle colours; the speaker's slash/waves animated in globals.css (reduced motion honoured). `tsc` clean in packages/ui and all five apps.
@@ -38,3 +39,9 @@ the choice.
 `error` for those states only, respecting mute.
 **Done when.** A success toast and an error toast each schedule their sound;
 info and a loading toast schedule none; muted, none.
+
+## US-4 Occasional sounds only
+- [x] Done 2026-09-24: the listener only handles toasts, the unmute swoosh and explicit `data-sound`. Verified by counting oscillators: a button click 0, a success toast 2.
+Niraj, 2026-09-24: clicks happen too often for a sound; keep sound for occasional moments like toasts.
+**Steps.** The listener no longer reacts to pointer, keyboard, slider or input events. It plays: toast success and error, the unmute swoosh, and any element that asks for one explicitly with `data-sound="<name>"` (none yet).
+**Done when.** Counting oscillators in a real page: a button click and a link click start none; a success toast still chimes; `tsc` clean.

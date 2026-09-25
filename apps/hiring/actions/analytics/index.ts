@@ -2,26 +2,15 @@
 "use server"
 
 import { db, companyMembers, jobs, jobApplications } from "@repo/db"
+import { requirePermission } from "@/lib/permissions"
 import { eq, and, count, sum, gte, lt, inArray, desc, isNotNull } from "drizzle-orm"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
-
-async function getUserCompany() {
-    const session = await getSession(headers())
-    if (!session?.user?.id) return null
-
-    const member = await db.query.companyMembers.findFirst({
-        where: eq(companyMembers.userId, session.user.id),
-        with: { company: true }
-    })
-    return member
-}
 
 // Get comprehensive analytics data
 export async function getAnalyticsOverview() {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("view_analytics")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const now = new Date()
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
@@ -205,8 +194,9 @@ export async function getAnalyticsOverview() {
 // Get recruiter performance
 export async function getRecruiterPerformance() {
     try {
-        const member = await getUserCompany()
-        if (!member) return { success: false, error: "Unauthorized" }
+        const auth = await requirePermission("view_analytics")
+        if (!auth.ok) return { success: false, error: auth.error }
+        const member = auth.ctx.member
 
         const memberList = await db.query.companyMembers.findMany({
             where: eq(companyMembers.companyId, member.companyId)

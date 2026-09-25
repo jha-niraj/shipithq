@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader";
+import { ShipItHQLoader } from "@repo/ui/components/ui/shipithq-loader";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn, signUp } from '@repo/auth/client';
+import { signUp } from '@repo/auth/client';
+import { checkWorkEmail } from "@repo/auth/work-email";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    Eye, EyeOff, Check, X, Building2, ArrowRight, Loader2, ShieldCheck,
+    Eye, EyeOff, Check, X, Building2, ArrowRight, ShieldCheck,
     Users, Info
 } from "lucide-react";
 import { Input } from "@repo/ui/components/ui/input";
@@ -40,7 +43,6 @@ function SignUpForm() {
     const [founderRole, setFounderRole] = useState<FounderRole>("FOUNDER");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [error, setError] = useState("");
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const router = useRouter();
@@ -97,6 +99,13 @@ function SignUpForm() {
             // password), which is why they are not passed here either - onboarding
             // is where those are actually collected and persisted.
             const normalisedEmail = email.trim().toLowerCase();
+            // Early feedback only: the hiring auth route enforces the same rule on
+            // the server (plan/hiring-app HA-4).
+            const workEmail = checkWorkEmail(normalisedEmail);
+            if (!workEmail.ok) {
+                setError(workEmail.message);
+                return;
+            }
             const { error } = await signUp.email({
                 name,
                 email: normalisedEmail,
@@ -123,21 +132,10 @@ function SignUpForm() {
         }
     };
 
-    const handleGoogleSignUp = async () => {
-        try {
-            setIsGoogleLoading(true);
-            await signIn.social({
-                provider: "google",
-                callbackURL: "/onboarding",
-            });
-        } catch {
-            setError("Google sign-up failed. Please try again.");
-            setIsGoogleLoading(false);
-        }
-    };
-
     return (
-        <div className="min-h-dvh flex bg-white dark:bg-neutral-950 mx-auto w-full max-w-7xl">
+        // Full-bleed split (HA-9): both halves reach the viewport edges. A max-w-7xl
+        // here left a white gutter beside the dark panel on wide screens in light mode.
+        <div className="min-h-dvh flex w-full bg-white dark:bg-neutral-950">
             <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-center items-center bg-neutral-950 overflow-hidden">
                 <div className="relative z-10 px-12 max-w-lg">
                     <motion.div
@@ -149,7 +147,7 @@ function SignUpForm() {
                             <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center">
                                 <Building2 className="h-6 w-6 text-black" />
                             </div>
-                            <span className="text-2xl font-bold text-white">Coder&apos;z Hiring</span>
+                            <span className="text-2xl font-bold text-white">ShipItHQ Hiring</span>
                         </div>
                         <h1 className="text-4xl font-bold text-white tracking-tight mb-4">
                             Deploy Your Hiring <br />
@@ -158,45 +156,37 @@ function SignUpForm() {
                         <p className="text-neutral-400 text-lg mb-8">
                             Initialize your workspace and gain access to pre-vetted engineering resources.
                         </p>
-                        <div className="p-4 rounded-2xl border border-neutral-900/30 bg-neutral-900/10 mb-6">
+                        {/* The panel is dark in both themes, so its ink is constant too. */}
+                        <div className="p-4 rounded-2xl border border-neutral-800 bg-neutral-900 mb-6">
                             <div className="flex items-start gap-3">
-                                <ShieldCheck className="h-5 w-5 text-neutral-800 mt-0.5 shrink-0" />
+                                <ShieldCheck className="h-5 w-5 text-neutral-300 mt-0.5 shrink-0" />
                                 <div>
-                                    <p className="text-neutral-200 font-medium text-sm">Founder Registration Only</p>
-                                    <p className="text-neutral-200/70 text-xs mt-1">
-                                        This registration is exclusively for company founders, CEOs, and executives who are setting up their organization&apos;s hiring workspace.
+                                    <p className="text-neutral-100 font-medium text-sm">You&apos;ll be its Owner</p>
+                                    <p className="text-neutral-400 text-xs mt-1">
+                                        Whoever creates a company&apos;s workspace becomes its Owner, and can invite the rest of the team and decide what each role can do.
                                     </p>
                                 </div>
                             </div>
                         </div>
-                        <div className="mt-6 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
+                        <div className="mt-6 p-4 rounded-xl border border-neutral-800 bg-neutral-900">
                             <div className="flex items-start gap-3">
-                                <Users className="h-5 w-5 text-neutral-500 mt-0.5 shrink-0" />
+                                <Users className="h-5 w-5 text-neutral-400 mt-0.5 shrink-0" />
                                 <div>
-                                    <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                        Not a founder or executive?
+                                    <p className="text-sm font-medium text-neutral-100">
+                                        Not a founder?
                                     </p>
-                                    <p className="text-xs text-neutral-500 mt-1">
-                                        Team members should sign in using credentials provided by their company admin.
-                                        Ask your manager or HR for your login details.
+                                    <p className="text-xs text-neutral-400 mt-1">
+                                        If your company is already on ShipItHQ, ask your admin for an invite. It arrives by email and signs you straight in to your team.
                                     </p>
                                     <Link
                                         href="/signin"
-                                        className="inline-flex items-center gap-1 text-xs text-neutral-900 dark:text-white font-semibold hover:underline mt-2"
+                                        className="inline-flex items-center gap-1 text-xs text-white font-semibold hover:underline mt-2"
                                     >
                                         Go to Sign In
                                         <ArrowRight className="h-3 w-3" />
                                     </Link>
                                 </div>
                             </div>
-                        </div>
-                        <div className="mt-6 p-6 rounded-2xl border border-neutral-800 bg-neutral-900/50">
-                            <p className="text-neutral-300 italic">
-                                &quot;Reduced our hiring cycle from 6 weeks to 2 weeks. The candidate vetting is exceptional.&quot;
-                            </p>
-                            <p className="text-neutral-500 mt-3 text-sm font-mono">
-                                - Engineering Lead, Series B Startup
-                            </p>
                         </div>
                     </motion.div>
                 </div>
@@ -213,14 +203,14 @@ function SignUpForm() {
                             <Building2 className="h-5 w-5 text-white dark:text-black" />
                         </div>
                         <span className="text-lg font-bold text-neutral-900 dark:text-white">
-                            CODER&apos;Z <span className="text-neutral-500 font-mono font-normal">HIRING</span>
+                            ShipItHQ <span className="text-neutral-500 font-mono font-normal">HIRING</span>
                         </span>
                     </div>
                     <div className="lg:hidden p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/20 mb-6">
                         <div className="flex items-start gap-2">
                             <Info className="h-4 w-4 text-neutral-800 dark:text-neutral-100 mt-0.5 shrink-0" />
-                            <p className="text-neutral-800 dark:text-neutral-700 text-xs">
-                                <strong>Founders & Executives Only.</strong> Team members should sign in with credentials provided by their company admin.
+                            <p className="text-neutral-800 dark:text-neutral-200 text-xs">
+                                <strong>You&apos;ll be the Owner.</strong> Joining a company that is already here? Ask your admin for an invite instead.
                             </p>
                         </div>
                     </div>
@@ -229,10 +219,10 @@ function SignUpForm() {
                             Company Registration
                         </span>
                         <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
-                            Initialize Company Workspace
+                            Create your company&apos;s workspace
                         </h2>
                         <p className="text-sm text-neutral-500 mt-2">
-                            For founders, CEOs, and executives only
+                            You&apos;ll be its Owner and can invite your team
                         </p>
                     </div>
                     <AnimatePresence>
@@ -249,39 +239,6 @@ function SignUpForm() {
                             )
                         }
                     </AnimatePresence>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full h-12 mb-6 rounded-xl border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900"
-                        onClick={handleGoogleSignUp}
-                        disabled={isGoogleLoading}
-                    >
-                        {
-                            isGoogleLoading ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                            ) : (
-                                <>
-                                    <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66 2.84-.81-.62z" fill="#FBBC05"/>
-                                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                                    </svg>
-                                    Continue with Google
-                                </>
-                            )
-                        }
-                    </Button>
-                    <div className="relative mb-6">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-neutral-200 dark:border-neutral-800" />
-                        </div>
-                        <div className="relative flex justify-center">
-                            <span className="px-4 bg-white dark:bg-neutral-950 text-[10px]  tracking-widest text-neutral-500">
-                                Or continue with email
-                            </span>
-                        </div>
-                    </div>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
@@ -439,7 +396,7 @@ function SignUpForm() {
                             {
                                 isLoading ? (
                                     <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        <InlineLoader size="sm" className="mr-2" />
                                         Initializing...
                                     </>
                                 ) : (
@@ -470,9 +427,7 @@ export default function RegisterPage() {
     return (
         <Suspense
             fallback={
-                <div className="min-h-dvh flex items-center justify-center bg-white dark:bg-neutral-950">
-                    <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
-                </div>
+                <ShipItHQLoader />
             }
         >
             <SignUpForm />

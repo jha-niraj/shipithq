@@ -7,6 +7,7 @@ import {
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import Link from "next/link"
 
 interface CandidateStats {
@@ -106,42 +107,36 @@ export default function HomeContent({ userName, candidateStats, interviewProcess
     const totalInPipeline = pipelineStats.reduce((acc, curr) => acc + curr.value, 0)
 
     return (
-        <div className="min-h-full p-6 lg:p-8">
-            <div className="mb-8">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
-                >
-                    <div>
-                        <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 dark:text-white">
-                            Welcome back, {userName}! 👋
-                        </h1>
-                        <p className="text-neutral-500 mt-1">
-                            Here&apos;s what&apos;s happening with your hiring pipeline today.
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Link href="/interview-config/new">
-                            <Button variant="outline" className="rounded-xl">
-                                <GitBranch className="w-4 h-4 mr-2" />
-                                Create Process
-                            </Button>
-                        </Link>
-                        <Link href="/jobs/new">
-                            <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
-                                <Plus className="w-4 h-4 mr-2" />
-                                Post New Job
-                            </Button>
-                        </Link>
-                    </div>
-                </motion.div>
-            </div>
+        <div className="page-frame space-y-5 px-page py-6">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+            >
+                <PageHeader
+                    title={<>Welcome back, {userName}! 👋</>}
+                    subtitle="Here's what's happening with your hiring pipeline today."
+                    actions={
+                        <>
+                            <Link href="/interview-config/new">
+                                <Button variant="outline" className="rounded-xl">
+                                    <GitBranch className="w-4 h-4 mr-2" />
+                                    Create Process
+                                </Button>
+                            </Link>
+                            <Link href="/jobs/new">
+                                <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Post New Job
+                                </Button>
+                            </Link>
+                        </>
+                    }
+                />
+            </motion.div>
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="mb-8"
             >
                 <StatBand cols={4} items={stats} />
             </motion.div>
