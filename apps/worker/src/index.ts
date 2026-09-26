@@ -1,3 +1,5 @@
+import { purgeExpiredSends } from "@repo/db/hiring-purge"
+import { createDb } from "./db"
 import { isRunnableJobType, type Env, type RunnableJobType } from "./env"
 import { verifyWorkerToken } from "./token"
 import { jobStub } from "./jobs"
@@ -22,8 +24,6 @@ export {
 	SprintGeneration,
 	ProjectQuiz,
 	StandupVoice,
-	MockConversation,
-	MockFeedback,
 	ResumeStructure,
 	ResumeTailor,
 	CoverLetter,
@@ -37,8 +37,9 @@ export {
 	PracticeMemoryUpdate,
 	PracticeReflect,
 	SprintQuiz,
-	SprintMock,
 	CompanyScrape,
+	AptitudeGenerate,
+	VoiceInterviewScore,
 } from "./jobs"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,6 +98,17 @@ async function dispatch(
 }
 
 export default {
+	/**
+	 * The daily cron (wrangler.jsonc "triggers"): remove withdrawn and declined
+	 * send data past its purge date (plan/hiring-rounds HR-21).
+	 */
+	async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+		ctx.waitUntil((async () => {
+			const purged = await purgeExpiredSends(createDb(env.DATABASE_URL))
+			console.log(`[cron] hiring send purge: ${purged} removed`)
+		})())
+	},
+
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url)
 

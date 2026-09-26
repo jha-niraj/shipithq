@@ -2,7 +2,6 @@ DATABASE_URL=
 OPENAI_API_KEY=
 WORKER_SECRET=
 PATHFINDER_ASSISTANT_ID=
-ELEVENLABS_API_KEY=
 
 # Firecrawl: reads a company's own site for its profile (plan/hiring-rounds HR-5).
 FIRECRAWL_API_KEY=

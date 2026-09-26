@@ -18,8 +18,6 @@ export const JOB_BINDINGS = {
 	sprint_generation: "SPRINT_GENERATION",
 	project_quiz: "PROJECT_QUIZ",
 	standup_voice: "STANDUP_VOICE",
-	mock_conversation: "MOCK_CONVERSATION",
-	mock_feedback: "MOCK_FEEDBACK",
 	resume_structure: "RESUME_STRUCTURE",
 	resume_tailor: "RESUME_TAILOR",
 	cover_letter: "COVER_LETTER",
@@ -33,8 +31,9 @@ export const JOB_BINDINGS = {
 	practice_memory_update: "PRACTICE_MEMORY_UPDATE",
 	practice_reflect: "PRACTICE_REFLECT",
 	sprint_quiz: "SPRINT_QUIZ",
-	sprint_mock: "SPRINT_MOCK",
 	company_scrape: "COMPANY_SCRAPE",
+	aptitude_generate: "APTITUDE_GENERATE",
+	voice_interview_score: "VOICE_INTERVIEW_SCORE",
 } as const satisfies Partial<Record<JobType, string>>
 
 export type RunnableJobType = keyof typeof JOB_BINDINGS
@@ -51,8 +50,6 @@ export type Env = {
 	OPENAI_API_KEY: string
 	/** OpenAI Assistant used for Pathfinder verification generation. */
 	PATHFINDER_ASSISTANT_ID?: string
-	/** ElevenLabs, for the voice jobs (mock interview + standup transcripts). */
-	ELEVENLABS_API_KEY?: string
 	/**
 	 * Exa, for the resume import job's LinkedIn / Twitter / portfolio scrapes.
 	 *
@@ -68,6 +65,15 @@ export type Env = {
 	 * same reason as Exa: that job fails on its first line without it.
 	 */
 	FIRECRAWL_API_KEY?: string
+	/**
+	 * Sarvam Voice Agents, for `voice_interview_score` (plan/voice VO-9): reading
+	 * a call's transcript. That job fails a voice interview (and the app refunds
+	 * it) without them; typed interviews don't need them.
+	 */
+	SARVAM_AGENTS_API_KEY?: string
+	SARVAM_AGENTS_ORG_ID?: string
+	SARVAM_AGENTS_WORKSPACE_ID?: string
+	SARVAM_AGENTS_APP_ID?: string
 	/**
 	 * GitHub token for the import job's REST calls. Genuinely optional - the
 	 * GitHub API serves unauthenticated requests at 60/hour, which is enough for

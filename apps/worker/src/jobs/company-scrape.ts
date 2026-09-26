@@ -1,14 +1,13 @@
-import { eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { modelFor } from "@repo/ai"
 import { scrapeSite, isFirecrawlError, type ScrapeResult } from "@repo/firecrawl"
-import type { CompanyDraftFields } from "@repo/db/schema"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
 import { chatJSON } from "../openai"
-import { cleanFields, isRefusedDomain, normalise, onDomain, pageUrl, readRobots } from "./company-scrape-core"
+import { cleanFields, isRefusedDomain, isRelevantPage, normalise, onDomain, pageUrl, probeWellKnown, readRobots } from "./company-scrape-core"
 import { JobDurableObject, RetryableError, type ProgressFn, type StoredJob } from "./base"
 
-const { companyProfileDrafts } = schema
+const { companyProfileDrafts, companyRequests } = schema
 
 /**
  * Read a company's own site into a draft profile (plan/hiring-rounds HR-5).
@@ -39,16 +38,18 @@ const SYSTEM = `You draft a company's profile for a hiring platform from pages o
 
 Rules:
 - Use ONLY facts stated on the pages given. Never guess an industry, size, location or technology the pages do not state. A field the pages say nothing about is left out entirely.
-- Every field you include cites the ONE page it came from, as "sourceUrl", copied exactly from the "URL:" line of that page.
+- Every field you include cites the page it came from, as "sourceUrl": ONE URL string, copied exactly from the "URL:" line of that page. For description and culture, cite the page that supports most of it.
 - Never include a person's name, email address or phone number in any field. Describe the team, not individuals.
 - "description": 2-4 plain sentences on what the company does and for whom. No marketing superlatives.
-- "industry": a short label ("Fintech", "Developer tools").
-- "size": only if a page states a headcount or range ("51-200 employees", "over 1,000 people").
-- "locations": offices or where the team works ("Bengaluru", "Remote (India)").
-- "techStack": languages, frameworks and tools the pages say the company uses, e.g. on an engineering blog or a job post.
+- "industry": a short label for the company's market.
+- "size": only if a page states a headcount or a range, in the page's own words.
+- "locations": cities or countries where the company has offices or hires, as the pages name them.
+- "techStack": languages, frameworks and tools the pages say the company's engineers use.
 - "culture": 2-3 sentences on how the team works, in the company's terms.
-- "benefits": short items ("Health insurance for family", "Learning budget").
-- "careersUrl": the page listing open roles, if one was read.
+- "benefits": what EMPLOYEES get (leave, insurance, equity, learning, hybrid work), each one a benefit a page actually lists, in the page's own words. Never what the product offers its customers (support, onboarding, API access, pricing). No employee benefits on the pages: leave the key out.
+- "culture" is about the people who work there, never about the product or its customers.
+- "careersUrl": the URL of the page listing open roles, only if it is one of the pages given.
+- Copy short facts (size, locations, techStack, benefits) in the page's own words. They are checked against the cited page, and anything not found there is thrown away.
 
 Reply with one JSON object and nothing else:
 { "name": {"value": string, "sourceUrl": string}, "description": {...}, "industry": {...}, "size": {...}, "locations": {"value": string[], "sourceUrl": string}, "techStack": {"value": string[], "sourceUrl": string}, "culture": {...}, "benefits": {"value": string[], "sourceUrl": string}, "careersUrl": {"value": string, "sourceUrl": string} }
@@ -72,7 +73,14 @@ export class CompanyScrape extends JobDurableObject<CompanyScrapeInput> {
 		}
 
 		try {
-			return await this.scrapeInto(draft.id, draft.domain, progress)
+			const result = await this.scrapeInto(draft.id, draft.domain, progress)
+			// A student's request now has a draft waiting for review (HR-7).
+			if (draft.requestId) {
+				await db.update(companyRequests)
+					.set({ status: "DRAFTED" })
+					.where(and(eq(companyRequests.id, draft.requestId), inArray(companyRequests.status, ["PENDING", "SCRAPING"])))
+			}
+			return result
 		} catch (error: unknown) {
 			// A retry keeps the draft in SCRAPING; any other failure is final and the
 			// draft says why, so a reviewer never sees an empty "ready" draft.
@@ -105,6 +113,9 @@ export class CompanyScrape extends JobDurableObject<CompanyScrapeInput> {
 
 		await progress(15, "Finding the about, careers and team pages")
 
+		// Free requests first: the about and careers pages map's fuzzy search can miss.
+		const seeds = (await probeWellKnown(domain)).filter((u) => isRelevantPage(u, domain))
+
 		const robotsSkipped: string[] = []
 		let site
 		try {
@@ -113,8 +124,9 @@ export class CompanyScrape extends JobDurableObject<CompanyScrapeInput> {
 				prefer: PREFER,
 				// A PDF is billed per page of the PDF; a brochure is not worth 40 credits.
 				pdfMaxPages: 3,
+				seeds,
 				filter: (url) => {
-					if (!onDomain(url, domain)) return false
+					if (!isRelevantPage(url, domain)) return false
 					let path = "/"
 					try { path = new URL(url).pathname || "/" } catch { return false }
 					if (!robots.allows(path)) { robotsSkipped.push(url); return false }
@@ -133,7 +145,7 @@ export class CompanyScrape extends JobDurableObject<CompanyScrapeInput> {
 
 		await progress(60, "Drafting the profile")
 
-		const fields = await this.draft(domain, pages)
+		const { fields, dropped } = await this.draft(domain, pages)
 
 		await db.update(companyProfileDrafts)
 			.set({
@@ -151,12 +163,14 @@ export class CompanyScrape extends JobDurableObject<CompanyScrapeInput> {
 			draftId,
 			pages: pages.length,
 			fields: Object.keys(fields),
+			// What the checks threw away, and why: a reviewer's first question about a thin draft.
+			dropped,
 			degraded: site.degraded,
 			robotsSkipped: robotsSkipped.length,
 		}
 	}
 
-	private async draft(domain: string, pages: ScrapeResult[]): Promise<CompanyDraftFields> {
+	private async draft(domain: string, pages: ScrapeResult[]): Promise<ReturnType<typeof cleanFields>> {
 		let budget = MAX_TOTAL_CHARS
 		const blocks: string[] = []
 		for (const p of pages) {
@@ -187,7 +201,7 @@ export class CompanyScrape extends JobDurableObject<CompanyScrapeInput> {
 		} catch {
 			throw new Error("The profile draft came back in a form we could not read")
 		}
-		const read = new Set(pages.map((p) => normalise(pageUrl(p)!)))
+		const read = new Map(pages.map((p) => [normalise(pageUrl(p)!), p.markdown ?? ""] as const))
 		return cleanFields(parsed, domain, read)
 	}
 }

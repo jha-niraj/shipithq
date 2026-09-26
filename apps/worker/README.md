@@ -36,9 +36,8 @@ there is one place in the product where a charge or a refund can happen.
 | `verification_generation` | `VerificationGeneration` | OpenAI Assistants run, polled up to 90s |
 | `sprint_generation` | `SprintGeneration` | one multi-thousand-token completion |
 | `project_quiz` | `ProjectQuiz` | 20 questions on `gpt-4-turbo-preview` |
-| `standup_voice` | `StandupVoice` | ElevenLabs transcript, then an extraction completion |
-| `mock_conversation` | `MockConversation` | ElevenLabs transcript |
-| `mock_feedback` | `MockFeedback` | a scored report over the whole transcript |
+| `standup_voice` | `StandupVoice` | Sarvam transcript (or typed turns), then an extraction completion |
+| `voice_interview_score` | `VoiceInterviewScore` | Sarvam transcript (or typed turns), scored against a rubric |
 | `resume_structure` | `ResumeStructure` | one gpt-4o pass turning an uploaded resume's extracted text into a structured draft |
 | `resume_tailor` | `ResumeTailor` | a gpt-4o rewrite of a whole resume against a whole job description; writes a copy, never the source |
 | `cover_letter` | `CoverLetter` | writes the letter from the resolved resume |
@@ -48,6 +47,7 @@ there is one place in the product where a charge or a refund can happen.
 | `practice_tests_generate` | `PracticeTestsGenerate` | one gpt-4o pass writing a C++ harness, reference solution and tests for a DSA problem, then the reference solution run against every test in the code executor. Marks the problem `ready` only if it passes; one repair attempt with the failing cases |
 | `practice_memory_update` | `PracticeMemoryUpdate` | one gpt-4o-mini extraction over the new part of a guided DSA conversation, merged into the session's mentor state and the user's learner profile; applied at most once per window (watermark-guarded transaction) |
 | `practice_reflect` | `PracticeReflect` | one gpt-4o pass writing the closing feedback for a finished guided DSA session; the score comes from recorded facts (100 optimal, 70 brute force), and the app applies completion and XP from the stored result |
+| `company_scrape` | `CompanyScrape` | Firecrawl: up to 7 map searches and 12 page scrapes of a company's own site, then one gpt-4o-mini pass drafting its profile into `company_profile_draft`. Every field must cite a page it came from, and short facts must appear on that page |
 
 ## Adding a job type
 

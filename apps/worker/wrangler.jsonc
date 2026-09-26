@@ -25,8 +25,6 @@
 			{ "name": "SPRINT_GENERATION", "class_name": "SprintGeneration" },
 			{ "name": "PROJECT_QUIZ", "class_name": "ProjectQuiz" },
 			{ "name": "STANDUP_VOICE", "class_name": "StandupVoice" },
-			{ "name": "MOCK_CONVERSATION", "class_name": "MockConversation" },
-			{ "name": "MOCK_FEEDBACK", "class_name": "MockFeedback" },
 			{ "name": "RESUME_STRUCTURE", "class_name": "ResumeStructure" },
 			{ "name": "RESUME_TAILOR", "class_name": "ResumeTailor" },
 			{ "name": "COVER_LETTER", "class_name": "CoverLetter" },
@@ -40,8 +38,9 @@
 			{ "name": "PRACTICE_MEMORY_UPDATE", "class_name": "PracticeMemoryUpdate" },
 			{ "name": "PRACTICE_REFLECT", "class_name": "PracticeReflect" },
 			{ "name": "SPRINT_QUIZ", "class_name": "SprintQuiz" },
-			{ "name": "SPRINT_MOCK", "class_name": "SprintMock" },
-			{ "name": "COMPANY_SCRAPE", "class_name": "CompanyScrape" }
+			{ "name": "COMPANY_SCRAPE", "class_name": "CompanyScrape" },
+			{ "name": "APTITUDE_GENERATE", "class_name": "AptitudeGenerate" },
+			{ "name": "VOICE_INTERVIEW_SCORE", "class_name": "VoiceInterviewScore" }
 		]
 	},
 
@@ -121,6 +120,28 @@
 			// Company profile scraping (plan/hiring-rounds HR-5). A NEW tag.
 			"tag": "v13",
 			"new_sqlite_classes": ["CompanyScrape"]
+		},
+		{
+			// Company aptitude question generation (plan/hiring-rounds HR-11). A NEW tag.
+			"tag": "v14",
+			"new_sqlite_classes": ["AptitudeGenerate"]
+		},
+		{
+			// Voice and typed interview scoring (plan/voice VO-9). A NEW tag.
+			"tag": "v15",
+			"new_sqlite_classes": ["VoiceInterviewScore"]
+		},
+		{
+			// ElevenLabs removed (plan/voice VO-14): the mock transcript and feedback
+			// jobs are replaced by voice_interview_score. A NEW tag.
+			"tag": "v16",
+			"deleted_classes": ["MockConversation", "MockFeedback"]
+		},
+		{
+			// The sprint mock interview runs inline in the app since 2026-09-26
+			// (plan/project-workspace WS-24), so its class is deleted. A NEW tag.
+			"tag": "v17",
+			"deleted_classes": ["SprintMock"]
 		}
 	],
 
@@ -137,8 +158,11 @@
 		}
 	],
 
+	// The daily cron: purge expired send data (plan/hiring-rounds HR-21), 03:00 UTC.
+	"triggers": { "crons": ["0 3 * * *"] },
+
 	// Non-secret vars only. Secrets (DATABASE_URL, OPENAI_API_KEY, WORKER_SECRET,
-	// ELEVENLABS_API_KEY, PATHFINDER_ASSISTANT_ID, EXA_API_KEY,
+	// SARVAM_API_KEY, SARVAM_AGENTS_*, PATHFINDER_ASSISTANT_ID, EXA_API_KEY,
 	// FIRECRAWL_API_KEY) are uploaded by `pnpm release` from .env.production.
 	"vars": {
 		"NODE_ENV": "production"
