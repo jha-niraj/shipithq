@@ -172,6 +172,11 @@ export const companies = pgTable(
             onDelete: "set null",
         }),
         hasInterviewProcess: boolean("has_interview_process").notNull().default(false),
+        /** Company credits (plan/hiring-app HA-20): pay for AI work past the free daily allowances. Every change has a `company_credit_transaction` row. */
+        credits: integer("credits").notNull().default(0),
+        /** Suspended by an admin (plan/hiring-rounds HR-24): frozen everywhere until lifted. */
+        suspendedAt: timestamp("suspended_at"),
+        suspendedReason: text("suspended_reason"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at")
             .notNull()

@@ -124,6 +124,9 @@ export const jobs = pgTable(
         interviewProcessId: text("interview_process_id").references(() => interviewProcesses.id, { onDelete: "set null" }),
         expiresAt: timestamp("expires_at"),
         publishedAt: timestamp("published_at"),
+        /** Hidden by an admin after a report (HR-24): out of every list; the company can't republish it. */
+        adminHiddenAt: timestamp("admin_hidden_at"),
+        adminHiddenReason: text("admin_hidden_reason"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at")
             .notNull()
@@ -272,6 +275,31 @@ export const savedJobs = pgTable(
     ],
 );
 
+/**
+ * "Not for me" in Spark (plan/jobs JB-19): the job stays out of the user's Spark
+ * for 30 days from `skippedAt`, then may come back. One row per (user, job); a
+ * re-skip moves the date. Browse is not affected.
+ */
+export const jobSkips = pgTable(
+    "job_skip",
+    {
+        id: text("id")
+            .primaryKey()
+            .$defaultFn(() => createId()),
+        userId: text("user_id")
+            .notNull()
+            .references(() => users.id, { onDelete: "cascade" }),
+        jobId: text("job_id")
+            .notNull()
+            .references(() => jobs.id, { onDelete: "cascade" }),
+        skippedAt: timestamp("skipped_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("uq_job_skip_user_id_job_id").on(table.userId, table.jobId),
+        index("idx_job_skip_user_skipped_at").on(table.userId, table.skippedAt),
+    ],
+);
+
 // ===========================
 // Relations
 // ===========================
@@ -289,6 +317,11 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
     applications: many(jobApplications),
     recommendations: many(jobRecommendations),
     savedBy: many(savedJobs),
+    /** The pipeline the job uses (Spark's Process section, plan/jobs JB-18). */
+    interviewProcess: one(interviewProcesses, {
+        fields: [jobs.interviewProcessId],
+        references: [interviewProcesses.id],
+    }),
 }));
 
 export const jobApplicationsRelations = relations(jobApplications, ({ one, many }) => ({

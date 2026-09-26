@@ -2,6 +2,7 @@ import { pgTable, text, varchar, jsonb, smallint, timestamp, index } from "drizz
 import { relations } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { users } from "./schema"
+import { companies } from "./hiring"
 import type { AssistantChatMessageMeta } from "../assistant-types"
 
 // ShipItHQ AI conversations (plan/ai-chat, AC-2). The server owns the history:
@@ -14,6 +15,8 @@ export const assistantChatSession = pgTable(
     {
         id: text("id").primaryKey().$defaultFn(() => createId()),
         userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        /** Set for a company member's chat in the hiring app (plan/hiring-app HA-11); null for the student app. */
+        companyId: text("company_id").references(() => companies.id, { onDelete: "cascade" }),
         // Null until the first exchange has been titled.
         title: varchar("title", { length: 120 }),
         createdAt: timestamp("created_at").notNull().defaultNow(),

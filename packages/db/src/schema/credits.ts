@@ -69,8 +69,8 @@ export const referrals = pgTable(
     "referral",
     {
         id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-        referrerId: text("referrer_id").notNull().references(() => users.id),
-        referredUserId: text("referred_user_id").notNull().unique().references(() => users.id),
+        referrerId: text("referrer_id").references(() => users.id, { onDelete: "set null" }),
+        referredUserId: text("referred_user_id").unique().references(() => users.id, { onDelete: "set null" }),
         referralCode: text("referral_code").notNull(),
         pointsAwarded: boolean("points_awarded").notNull().default(false),
         createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -85,8 +85,8 @@ export const creditTransfers = pgTable(
     "credit_transfer",
     {
         id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-        senderId: text("sender_id").notNull().references(() => users.id),
-        receiverId: text("receiver_id").notNull().references(() => users.id),
+        senderId: text("sender_id").references(() => users.id, { onDelete: "set null" }),
+        receiverId: text("receiver_id").references(() => users.id, { onDelete: "set null" }),
         amount: integer("amount").notNull(),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         transferReference: text("transfer_reference").notNull().unique().$defaultFn(() => createId()),
@@ -101,7 +101,7 @@ export const creditTransactions = pgTable(
     "credit_transaction",
     {
         id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-        userId: text("user_id").notNull().references(() => users.id),
+        userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
         currency: currencyEnum("currency").notNull(),
         amount: integer("amount").notNull(),
         type: creditTypeEnum("type").notNull(),
@@ -161,7 +161,7 @@ export const creditRequests = pgTable(
     "credit_request",
     {
         id: text("id").primaryKey().$defaultFn(() => createId()),
-        userId: text("user_id").notNull().references(() => users.id),
+        userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
         requestedCredits: integer("requested_credits").notNull(),
         linkedinPostUrl: text("linkedin_post_url").notNull(),
         twitterPostUrl: text("twitter_post_url"),
@@ -189,7 +189,7 @@ export const payments = pgTable(
     "payment",
     {
         id: text("id").primaryKey().$defaultFn(() => createId()),
-        userId: text("user_id").notNull().references(() => users.id),
+        userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
         credits: integer("credits").notNull(),
         amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
         currency: currencyEnum("currency").notNull().default("INR"),

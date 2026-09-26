@@ -29,7 +29,22 @@ export interface AssistantChatStep {
     summary?: string
 }
 
+/**
+ * Something the assistant proposes to DO, shown as a card with a confirm and a
+ * cancel (plan/hiring-app HA-12). Nothing happens until the person confirms;
+ * the server then acts on this stored copy, never on anything the client sends.
+ * `data` is the app's own shape for its `kind` ("message", "pipeline").
+ */
+export interface AssistantChatProposal {
+    kind: string
+    status: "pending" | "done" | "cancelled"
+    data: Record<string, unknown>
+    /** What happened on confirm, for the card ("Sent to 3", a link). */
+    result?: { summary: string; href?: string }
+}
+
 export interface AssistantChatMessageMeta {
+    proposal?: AssistantChatProposal
     actions?: AssistantChatAction[]
     attachments?: AssistantChatAttachment[]
     steps?: AssistantChatStep[]

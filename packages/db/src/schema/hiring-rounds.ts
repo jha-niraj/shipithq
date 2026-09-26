@@ -40,7 +40,10 @@ export const hiringRuns = pgTable(
     {
         id: text("id").primaryKey().$defaultFn(() => createId()),
         userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-        jobId: text("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+        /** Null for practice from a company page on one of ShipItHQ's pipelines (HR-13). */
+        jobId: text("job_id").references(() => jobs.id, { onDelete: "cascade" }),
+        /** The company whose page or job the run is for. */
+        companyId: text("company_id").references(() => companies.id, { onDelete: "cascade" }),
         /** The pipeline as it was when the run started; rounds are read through it. */
         processId: text("process_id").references(() => interviewProcesses.id, { onDelete: "set null" }),
         status: hiringRunStatusEnum("status").notNull().default("IN_PROGRESS"),
@@ -51,7 +54,9 @@ export const hiringRuns = pgTable(
         index("idx_hiring_run_user_id").on(table.userId),
         index("idx_hiring_run_job_id").on(table.jobId),
         // One run in progress per (student, job); a finished or sent run can be followed by a new one.
-        uniqueIndex("uq_hiring_run_active").on(table.userId, table.jobId).where(sql`status = 'IN_PROGRESS'`),
+        uniqueIndex("uq_hiring_run_active").on(table.userId, table.jobId).where(sql`status = 'IN_PROGRESS' and job_id is not null`),
+        // Practice without a job: one live run per (student, pipeline).
+        uniqueIndex("uq_hiring_run_practice_active").on(table.userId, table.processId).where(sql`status = 'IN_PROGRESS' and job_id is null`),
     ],
 );
 
@@ -65,6 +70,8 @@ export interface HiringAttemptIntegrity {
     longSilences?: number
     /** ShipItHQ AI requests refused while the attempt was live (DoD 27). */
     aiBlocked?: number
+    /** DSA rounds: sample-test runs used, against the per-attempt cap. */
+    judgeRuns?: number
 }
 
 /** One scored try at one round. */
@@ -83,6 +90,14 @@ export const hiringAttempts = pgTable(
         /** The server's deadline; answers saved after it are not scored. */
         endsAt: timestamp("ends_at"),
         submittedAt: timestamp("submitted_at"),
+        /**
+         * What the student has answered so far, saved as they go (HR-13): an
+         * aptitude choice per question, code per problem, a design answer.
+         * Scoring reads only what was saved before `endsAt`.
+         */
+        responses: jsonb("responses").$type<Record<string, unknown>>().notNull().default({}),
+        /** When `responses` was last saved; the server's clock. */
+        respondedAt: timestamp("responded_at"),
         /** 0-100. */
         score: integer("score"),
         /** Per question or per criterion. */
@@ -123,6 +138,10 @@ export const hiringSends = pgTable(
         companyMessage: text("company_message"),
         /** The decision's feedback, as the team sent it (DoD 28). */
         feedback: text("feedback"),
+        /** The team's own note on why, never shown to the student (HR-19). */
+        decisionNote: text("decision_note"),
+        /** Who invited or declined: an invite reveals this member's name and email to the student. */
+        decidedByUserId: text("decided_by_user_id").references(() => users.id, { onDelete: "set null" }),
         decidedAt: timestamp("decided_at"),
         /** The student's email is shown to the company only from this moment (an invite). */
         emailRevealedAt: timestamp("email_revealed_at"),
@@ -180,6 +199,184 @@ export const aptitudeQuestions = pgTable(
     ],
 );
 
+// ── Design prompts (HR-4) ────────────────────────────────────────────────────
+
+/** One criterion a system design answer is scored against. Weights of a rubric sum to 100. */
+export interface DesignRubricCriterion {
+    criterion: string
+    weight: number
+    /** What a strong answer shows, for the scorer and for the student's feedback. */
+    lookFor: string
+}
+
+/**
+ * A system design prompt a round draws from (plan/hiring-rounds HR-4, HR-11).
+ * `companyId` null: ShipItHQ's reviewed prompts. Set: a company's own, private
+ * to it. Like aptitude questions, a wrong prompt goes back to DRAFT and is never
+ * deleted, because past attempts reference it.
+ */
+export const designPrompts = pgTable(
+    "design_prompt",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        /** Stable seed key ("design-url-shortener"), so re-seeding upserts. */
+        key: text("key").unique(),
+        companyId: text("company_id").references(() => companies.id, { onDelete: "cascade" }),
+        title: text("title").notNull(),
+        /** The brief the student sees: the problem, its scale and its constraints. */
+        prompt: text("prompt").notNull(),
+        rubric: jsonb("rubric").$type<DesignRubricCriterion[]>().notNull(),
+        difficulty: aptitudeDifficultyEnum("difficulty").notNull(),
+        status: aptitudeQuestionStatusEnum("status").notNull().default("DRAFT"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow().$onUpdateFn(() => new Date()),
+    },
+    (table) => [
+        index("idx_design_prompt_company_status").on(table.companyId, table.status),
+    ],
+);
+
+export const designPromptsRelations = relations(designPrompts, ({ one }) => ({
+    company: one(companies, { fields: [designPrompts.companyId], references: [companies.id] }),
+}));
+
+// ── Student company requests (HR-7) ──────────────────────────────────────────
+
+export const companyRequestStatusEnum = pgEnum("company_request_status", [
+    "PENDING",
+    /** Its site is being read. */
+    "SCRAPING",
+    /** A draft is waiting for admin review. */
+    "DRAFTED",
+    "PUBLISHED",
+    /** Not added; `rejectReason` says why. The domain can be asked for again after 30 days. */
+    "REJECTED",
+]);
+
+/**
+ * A company students asked ShipItHQ to add, one per domain. A second student
+ * asking for the same domain adds a vote rather than a request, so the vote
+ * count is the demand signal the admin queue sorts by.
+ */
+export const companyRequests = pgTable(
+    "company_request",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        /** The confirmed, bare domain, after following redirects ("acme.io"). */
+        domain: text("domain").notNull().unique(),
+        /** The name the student gave or confirmed. */
+        name: text("name").notNull(),
+        status: companyRequestStatusEnum("status").notNull().default("PENDING"),
+        companyId: text("company_id").references(() => companies.id, { onDelete: "set null" }),
+        rejectReason: text("reject_reason"),
+        rejectedAt: timestamp("rejected_at"),
+        createdByUserId: text("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow().$onUpdateFn(() => new Date()),
+    },
+    (table) => [
+        index("idx_company_request_status").on(table.status),
+        // The 3-new-requests-a-day cap counts these.
+        index("idx_company_request_created_by_created_at").on(table.createdByUserId, table.createdAt),
+    ],
+);
+
+/** One student's interest in a request. The requester has a vote too, so votes = people asking. */
+export const companyRequestVotes = pgTable(
+    "company_request_vote",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        requestId: text("request_id").notNull().references(() => companyRequests.id, { onDelete: "cascade" }),
+        userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        uniqueIndex("uq_company_request_vote_request_user").on(table.requestId, table.userId),
+        index("idx_company_request_vote_user_id").on(table.userId),
+    ],
+);
+
+/** A student's name lookup (an Exa search at ShipItHQ's cost), counted for the 10-a-day cap. */
+export const companyLookups = pgTable(
+    "company_lookup",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        query: text("query").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [index("idx_company_lookup_user_created_at").on(table.userId, table.createdAt)],
+);
+
+export const companyRequestsRelations = relations(companyRequests, ({ one, many }) => ({
+    company: one(companies, { fields: [companyRequests.companyId], references: [companies.id] }),
+    votes: many(companyRequestVotes),
+}));
+
+export const companyRequestVotesRelations = relations(companyRequestVotes, ({ one }) => ({
+    request: one(companyRequests, { fields: [companyRequestVotes.requestId], references: [companyRequests.id] }),
+    user: one(users, { fields: [companyRequestVotes.userId], references: [users.id] }),
+}));
+
+// ── Company AI usage (HR-10, HA-11) ───────────────────────────────────────────
+
+/**
+ * One AI action a company member ran, counted against the limits in
+ * `@repo/pricing` (HIRING_AI_LIMITS). `kind` names the action ("pipeline_draft").
+ */
+export const companyAiUsage = pgTable(
+    "company_ai_usage",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        companyId: text("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+        userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+        kind: text("kind").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [index("idx_company_ai_usage_company_kind_created").on(table.companyId, table.kind, table.createdAt)],
+);
+
+// ── Company claims (HR-8) ─────────────────────────────────────────────────────
+
+export const companyClaimStatusValues = ["PENDING", "APPROVED", "REJECTED"] as const
+export const companyClaimRequestStatusEnum = pgEnum("company_claim_request_status", companyClaimStatusValues);
+
+/**
+ * Someone from a company asking to take over its unclaimed page (HR-8). The
+ * email's domain must match the page's; an admin approves, which makes the
+ * claimant the page's Owner and the company VERIFIED. While PENDING the company
+ * is CLAIM_PENDING and the claimant waits: no workspace yet (Niraj, 2026-09-25).
+ */
+export const companyClaims = pgTable(
+    "company_claim",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        companyId: text("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+        userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        /** The email the claim was made from, as it was then. */
+        email: text("email").notNull(),
+        jobTitle: text("job_title").notNull(),
+        linkedinUrl: text("linkedin_url"),
+        note: text("note"),
+        status: companyClaimRequestStatusEnum("status").notNull().default("PENDING"),
+        rejectReason: text("reject_reason"),
+        decidedAt: timestamp("decided_at"),
+        decidedByUserId: text("decided_by_user_id").references(() => users.id, { onDelete: "set null" }),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        index("idx_company_claim_company_id").on(table.companyId),
+        index("idx_company_claim_user_id").on(table.userId),
+        // One claim under review per company: a second is refused.
+        uniqueIndex("uq_company_claim_pending").on(table.companyId).where(sql`status = 'PENDING'`),
+    ],
+);
+
+export const companyClaimsRelations = relations(companyClaims, ({ one }) => ({
+    company: one(companies, { fields: [companyClaims.companyId], references: [companies.id] }),
+    user: one(users, { fields: [companyClaims.userId], references: [users.id] }),
+}));
+
 // ── Company profile drafts (HR-5) ────────────────────────────────────────────
 
 export const companyProfileDraftStatusEnum = pgEnum("company_profile_draft_status", [
@@ -234,8 +431,8 @@ export const companyProfileDrafts = pgTable(
         /** Pages robots.txt told us not to read; never fetched. */
         robotsSkipped: jsonb("robots_skipped").$type<string[]>().notNull().default([]),
         error: text("error"),
-        /** The student's request that asked for it (HR-7); the foreign key arrives with that table. */
-        requestId: text("request_id"),
+        /** The student's request that asked for it (HR-7). */
+        requestId: text("request_id").references(() => companyRequests.id, { onDelete: "set null" }),
         /** Who dispatched it: an admin (HR-6) or the student behind the request. */
         createdByUserId: text("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
         /** Set when published. */
@@ -255,6 +452,7 @@ export const companyProfileDrafts = pgTable(
 export const hiringRunsRelations = relations(hiringRuns, ({ one, many }) => ({
     user: one(users, { fields: [hiringRuns.userId], references: [users.id] }),
     job: one(jobs, { fields: [hiringRuns.jobId], references: [jobs.id] }),
+    company: one(companies, { fields: [hiringRuns.companyId], references: [companies.id] }),
     process: one(interviewProcesses, { fields: [hiringRuns.processId], references: [interviewProcesses.id] }),
     attempts: many(hiringAttempts),
     sends: many(hiringSends),

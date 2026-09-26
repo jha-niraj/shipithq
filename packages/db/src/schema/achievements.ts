@@ -89,7 +89,7 @@ export const xpTransactions = pgTable(
             .$defaultFn(() => createId()),
         userId: text("user_id")
             .notNull()
-            .references(() => users.id),
+            .references(() => users.id, { onDelete: "cascade" }),
         amount: integer("amount").notNull(),
         description: text("description").notNull(),
         type: xpTransactionPropsEnum("type").notNull().default("REWARD"),

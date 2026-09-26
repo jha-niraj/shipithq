@@ -334,3 +334,26 @@ export const profileViewsRelations = relations(profileViews, ({ one }) => ({
 export const userDSATrackingEntriesRelations = relations(userDSATrackingEntries, ({ one }) => ({
     user: one(users, { fields: [userDSATrackingEntries.userId], references: [users.id] }),
 }));
+
+// ─── Uploaded resume files (plan/profile PRF-17) ─────────────────────────────
+//
+// A user may keep several uploaded resumes. Exactly one is PRIMARY, and
+// `users.resume` / `users.resume_text` / `users.has_resume` always mirror it, so
+// every reader that predates this table (the assistant's get_my_resume, cover
+// letters, mock interviews, the resume_structure job) keeps working unchanged.
+// The newest upload becomes primary; the user can switch.
+export const resumeFiles = pgTable("resume_file", {
+    id: text("id").primaryKey().$defaultFn(() => createId()),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Null when the file could not be stored (storage off or upload failed) but its text was kept. */
+    r2Key: text("r2_key"),
+    mimeType: text("mime_type"),
+    sizeBytes: integer("size_bytes"),
+    /** Extracted text; empty for a scanned PDF with no text layer. */
+    text: text("text"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+    index("idx_resume_file_user_id").on(t.userId),
+]);

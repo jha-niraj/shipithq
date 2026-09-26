@@ -85,6 +85,8 @@ export const interviewProcesses = pgTable(
         companyId: text("company_id")
             .references(() => companies.id, { onDelete: "cascade" }),
         ownerKind: pipelineOwnerKindEnum("owner_kind").notNull().default("COMPANY"),
+        /** Seed key of a PLATFORM pipeline ("platform-backend-sde-1"), so re-seeding upserts (HR-4). */
+        templateKey: text("template_key").unique(),
         /** A template jobs pick from; false for a job's own edited copy (HR-12). */
         isTemplate: boolean("is_template").notNull().default(true),
         /** The template a job's copy was made from. */

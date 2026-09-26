@@ -20,6 +20,7 @@
  */
 import { and, eq, isNotNull, isNull } from "drizzle-orm"
 import { db } from "../client"
+import { requireMigrationsApplied } from "./_migrations-check"
 import { aptitudeQuestions } from "../index"
 import { APTITUDE_BANK, bankStats, validateBank, type AptitudeSeed, type AptitudeSection } from "../seed/aptitude"
 
@@ -123,6 +124,7 @@ const row = (q: AptitudeSeed) => ({
 
 async function main() {
     console.log(`Database: ${host()}\nMode:     ${apply ? "APPLY" : "preview (add --apply to write)"}\n`)
+    await requireMigrationsApplied()
 
     const stats = bankStats(APTITUDE_BANK)
     console.log(`Bank: ${APTITUDE_BANK.length} questions (${SECTIONS.map((s) => `${s} ${stats.perSection[s]}`).join(", ")})`)

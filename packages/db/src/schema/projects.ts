@@ -16,6 +16,7 @@ import { relations, sql } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { users, resourceTypeEnum } from "./schema";
 import type { RecommendedIdea } from "../practice-types";
+import type { VoiceMode, VoiceProvider, VoiceTurn } from "./mock";
 
 // ===========================
 // Enums
@@ -270,7 +271,7 @@ export const projectV2Sprints = pgTable(
         goal: text("goal").notNull(),
         duration: text("duration").notNull(),
         orderIndex: integer("order_index").notNull().default(0),
-        createdBy: text("created_by").references(() => users.id),
+        createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
         isApproved: boolean("is_approved").notNull().default(true),
         isPersonal: boolean("is_personal").notNull().default(false),
         createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -571,8 +572,8 @@ export const projectV2QuizAnswers = pgTable(
  * See `mock_voice_session` in ./mock.ts - there are TWO mock-session tables on
  * purpose, and plan/mock-consolidation/overview.md argues why.
  *
- * Short version: the ElevenLabs session lifecycle is shared between them (via
- * utils/elevenlabs/conversations.ts), but this table is about the user's OWN
+ * Short version: the shape of a voice session is shared between them, but
+ * this table is about the user's OWN
  * project - projectId, sprintId, and scores for work they actually did - while
  * `mock_voice_session` is about a priced, publicly listed, rated scenario.
  * Merging them leaves half the columns null for half the rows.
@@ -751,6 +752,16 @@ export const projectV2StandupEntries = pgTable(
         status: text("status").notNull().default("SCHEDULED"),
         aiSummary: text("ai_summary"),
         aiSuggestions: text("ai_suggestions").array().notNull().default([]),
+        // ── Sarvam (plan/voice VO-12), the same fields as mock_voice_session ──
+        provider: text("provider").$type<VoiceProvider>().notNull().default("SARVAM"),
+        mode: text("mode").$type<VoiceMode>(),
+        interactionId: text("interaction_id"),
+        consentText: text("consent_text"),
+        consentedAt: timestamp("consented_at"),
+        /** The live transcript for display; the job writes Sarvam's copy over it. */
+        turns: jsonb("turns").$type<VoiceTurn[]>().notNull().default([]),
+        signedUrlCount: integer("signed_url_count").notNull().default(0),
+        endsAt: timestamp("ends_at"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().$onUpdateFn(() => new Date()),
     },
@@ -790,7 +801,7 @@ export const projectIdeas = pgTable(
         hasBlueprintGenerated: boolean("has_blueprint_generated").notNull().default(false),
         blueprintGeneratedAt: timestamp("blueprint_generated_at"),
         status: projectIdeaStatusEnum("status").notNull().default("PENDING"),
-        submittedById: text("submitted_by_id").references(() => users.id),
+        submittedById: text("submitted_by_id").references(() => users.id, { onDelete: "set null" }),
         isUserSubmitted: boolean("is_user_submitted").notNull().default(false),
         // Denormalised for the same reason `upvotes` is: the ideas grid renders a
         // count on every card and must not pay for a join per card. Kept in step

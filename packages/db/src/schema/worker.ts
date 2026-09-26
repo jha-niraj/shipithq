@@ -39,12 +39,6 @@ export const JOB_TYPES = [
     "verification_generation",
     "subgoal_generation",
     "goal_creation",
-    // The two halves of a mock interview: waiting for ElevenLabs to produce the
-    // transcript, then scoring it. Separate job types because they are separate
-    // waits with separate failure modes - a transcript can arrive and the
-    // scoring still fail, and the user should be told which.
-    "mock_conversation",
-    "mock_feedback",
     // Turning an uploaded resume's raw extracted text into structured content.
     // A job rather than an inline call because it runs behind an upload the user
     // is not watching - at onboarding they have already moved on by the time it
@@ -84,6 +78,10 @@ export const JOB_TYPES = [
     // Reading a company's own site into a draft profile (plan/hiring-rounds
     // HR-5): a Firecrawl map and up to 12 page scrapes, then one model pass.
     "company_scrape",
+    // A company's own aptitude questions, written by AI on its topics
+    // (plan/hiring-rounds HR-11): a batch of up to 30 can outlast 30 seconds.
+    "aptitude_generate",
+    "voice_interview_score",
 ] as const;
 
 export type JobType = (typeof JOB_TYPES)[number];
@@ -131,7 +129,7 @@ export const backgroundJobs = pgTable(
         input: jsonb("input").notNull(),
         result: jsonb("result"),
         error: text("error"),
-        userId: text("user_id").references(() => users.id),
+        userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at")
             .notNull()

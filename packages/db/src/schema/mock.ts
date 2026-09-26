@@ -74,10 +74,9 @@ export const mockInterviewVoice = pgTable(
  * This one and `project_v2_mock_session` in ./projects.ts are deliberately
  * separate. Before merging them, read plan/mock-consolidation/overview.md.
  *
- * What they SHARE is the ElevenLabs session lifecycle - userId, agentId,
- * conversationId, duration, transcript, status, startedAt, completedAt - and
- * that half IS shared, through utils/elevenlabs/conversations.ts. One transport,
- * one place.
+ * What they share is the shape of a voice session - userId, duration,
+ * transcript, status, startedAt, completedAt. The voice transport itself is
+ * shared across every interview through apps/main/lib/voice (plan/voice).
  *
  * What they do NOT share is what the interview is ABOUT.
  *   this table          : mockId, variables, creditsUsed, userRating, hasIssues
@@ -91,6 +90,19 @@ export const mockInterviewVoice = pgTable(
  * Merging them makes half the columns null for half the rows: one table, two
  * entities. Share the transport, not the interpretation.
  */
+/** One turn of a voice or typed interview (plan/voice VO-5), shared by mocks and hiring voice rounds. */
+export interface VoiceTurn {
+    role: "interviewer" | "candidate"
+    text: string
+    /** ISO time the turn was recorded. */
+    at?: string
+    /** The interviewer's closing turn. */
+    done?: boolean
+}
+
+export type VoiceProvider = "ELEVENLABS" | "SARVAM"
+export type VoiceMode = "VOICE" | "TYPED"
+
 export const mockVoiceSession = pgTable(
     "mock_voice_session",
     {
@@ -118,6 +130,17 @@ export const mockVoiceSession = pgTable(
         issueReportedAt: timestamp("issue_reported_at"),
         creditsUsed: integer("credits_used").notNull(),
         metadata: jsonb("metadata"),
+        // ── Sarvam (plan/voice VO-5) ────────────────────────────────────────
+        // Existing rows are ElevenLabs sessions and keep their text transcript.
+        provider: text("provider").$type<VoiceProvider>().notNull().default("SARVAM"),
+        mode: text("mode").$type<VoiceMode>(),
+        interactionId: text("interaction_id"),
+        consentText: text("consent_text"),
+        consentedAt: timestamp("consented_at"),
+        /** As the browser reported them: display only. Scoring reads Sarvam's copy. */
+        turns: jsonb("turns").$type<VoiceTurn[]>().notNull().default([]),
+        signedUrlCount: integer("signed_url_count").notNull().default(0),
+        endsAt: timestamp("ends_at"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().$onUpdateFn(() => new Date()),
     },

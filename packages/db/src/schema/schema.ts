@@ -1,5 +1,6 @@
 import {
     pgTable,
+    primaryKey,
     pgEnum,
     text,
     integer,
@@ -105,12 +106,18 @@ export const feedbackCategoryEnum = pgEnum("feedback_category", [
     "FEATURE",
     "UI",
     "OTHER",
+    // The public Ideas board (plan/web/revamp REV-40): requests for content, and
+    // improvements to something that exists.
+    "CONTENT",
+    "IMPROVEMENT",
 ]);
 
 export const feedbackStatusEnum = pgEnum("feedback_status", [
     "UNDER_REVIEW",
     "PLANNED",
     "COMPLETED",
+    // "Building" on the Ideas boards (plan/ideas IDEA-2): planned and being worked on.
+    "IN_PROGRESS",
 ]);
 
 export const creditTypeEnum = pgEnum("credit_type", [
@@ -453,8 +460,21 @@ export const feedbacks = pgTable(
         description: text("description").notNull(),
         status: feedbackStatusEnum("status").notNull().default("UNDER_REVIEW"),
         isAnonymous: boolean("is_anonymous").notNull().default(false),
+        // Kept in step with `idea_vote` rows (one per user), so boards can sort on it
+        // without counting. Never incremented on its own (plan/web/revamp REV-41).
         upvotes: integer("upvotes").notNull().default(0),
+        // Shown on the public Ideas boards (web and app). BUG reports are never public.
+        isPublic: boolean("is_public").notNull().default(true),
         adminNotes: text("admin_notes"),
+        // Public note from the team, shown on the idea's page (plan/ideas IDEA-2).
+        // adminNotes stays private.
+        teamUpdate: text("team_update"),
+        // Where the shipped work is described, usually a /changelog anchor.
+        shippedHref: text("shipped_href"),
+        // When the idea first reached each stage; set once, by admin, for the timeline.
+        plannedAt: timestamp("planned_at"),
+        startedAt: timestamp("started_at"),
+        shippedAt: timestamp("shipped_at"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at")
             .notNull()
@@ -464,6 +484,28 @@ export const feedbacks = pgTable(
         index("idx_feedback_user_id").on(table.userId),
         index("idx_feedback_category").on(table.category),
         index("idx_feedback_status").on(table.status),
+    ],
+);
+
+/**
+ * One vote per user per idea (plan/web/revamp REV-40). The composite primary key is
+ * what makes a second vote impossible - the old counter-only upvote let one user vote
+ * any number of times.
+ */
+export const ideaVotes = pgTable(
+    "idea_vote",
+    {
+        userId: text("user_id")
+            .notNull()
+            .references(() => users.id, { onDelete: "cascade" }),
+        feedbackId: text("feedback_id")
+            .notNull()
+            .references(() => feedbacks.id, { onDelete: "cascade" }),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => [
+        primaryKey({ columns: [table.userId, table.feedbackId] }),
+        index("idx_idea_vote_feedback_id").on(table.feedbackId),
     ],
 );
 
@@ -478,13 +520,27 @@ export const notifications = pgTable(
         platform: platformEnum("platform").notNull().default("MAIN"),
         read: boolean("read").notNull().default(false),
         actionUrl: text("action_url"),
+        // ── The Inbox (plan/inbox IN-1) ─────────────────────────────────────
+        // What happened, for the Inbox's tabs (packages/db/src/inbox-kinds.ts).
+        kind: text("kind").notNull().default("GENERAL"),
+        /** Who did it: { name, initials }. */
+        actor: jsonb("actor").$type<{ name: string; initials: string } | null>(),
+        /** What it's about: { label, href? }, e.g. a role or a project. */
+        context: jsonb("context").$type<{ label: string; href?: string } | null>(),
+        /** A message thread this is about (message_thread.id). */
+        threadId: text("thread_id"),
+        /** Set on a company fan-out row: one row per member (not a FK: schema.ts can't import hiring.ts). */
+        companyId: text("company_id"),
+        readAt: timestamp("read_at"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
-        updatedAt: timestamp("updated_at").notNull().$onUpdateFn(() => new Date()),
+        updatedAt: timestamp("updated_at").notNull().defaultNow().$onUpdateFn(() => new Date()),
     },
     (table) => [
         index("idx_notification_user_id").on(table.userId),
         index("idx_notification_read").on(table.read),
         index("idx_notification_platform").on(table.platform),
+        index("idx_notification_user_platform_created").on(table.userId, table.platform, table.createdAt),
+        index("idx_notification_thread_id").on(table.threadId),
     ],
 );
 

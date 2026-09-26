@@ -1,8 +1,10 @@
 /**
  * Database migrations, preview first (Niraj, 2026-09-24).
  *
- *   pnpm db:migrations            list the migrations not yet applied, with their SQL
- *   pnpm db:migrations --apply    apply them (drizzle-kit migrate), then check again
+ *   pnpm script migrations            list the migrations not yet applied, with their SQL
+ *   pnpm script migrations --apply    apply them (drizzle-kit migrate), then check again
+ *
+ * (`pnpm db:migrations [--apply]` is the same script.)
  *
  * Generating a migration is unchanged: `pnpm db:generate --name <name>`. This
  * replaces running `pnpm db:migrate` blind: read the SQL, then apply.

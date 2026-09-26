@@ -267,6 +267,153 @@
       "when": 1790329146341,
       "tag": "0037_company_profile_draft",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790332841849,
+      "tag": "0038_resume_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790338465063,
+      "tag": "0039_design_prompts_template_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790339883022,
+      "tag": "0040_job_skip",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790341730466,
+      "tag": "0041_company_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1790342679083,
+      "tag": "0042_company_claims",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1790344138394,
+      "tag": "0043_idea_votes",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1790344257281,
+      "tag": "0044_company_ai_usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1790346808805,
+      "tag": "0045_hiring_run_practice",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1790346892594,
+      "tag": "0046_hiring_attempt_responses",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1790359492038,
+      "tag": "0047_voice_sarvam",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1790361626427,
+      "tag": "0048_standup_sarvam",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1790366106188,
+      "tag": "0049_inbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1790366496813,
+      "tag": "0050_idea_timeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1790367301911,
+      "tag": "0051_send_decision",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1790395930280,
+      "tag": "0052_thread_student_deleted",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1790396402294,
+      "tag": "0053_user_delete_fks",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1790396901913,
+      "tag": "0054_incidents",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1790399019504,
+      "tag": "0055_moderation",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1790400128044,
+      "tag": "0056_chat_company_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1790404033012,
+      "tag": "0057_company_docs",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1790405554328,
+      "tag": "0058_company_credits",
+      "breakpoints": true
     }
   ]
 }

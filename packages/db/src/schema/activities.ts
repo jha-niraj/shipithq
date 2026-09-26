@@ -25,7 +25,7 @@ export const dailyActivities = pgTable(
             .$defaultFn(() => createId()),
         userId: text("user_id")
             .notNull()
-            .references(() => users.id),
+            .references(() => users.id, { onDelete: "cascade" }),
         date: date("date").unique().notNull(),
         hasActivity: boolean("has_activity").notNull().default(false),
         totalXpEarned: integer("total_xp_earned").notNull().default(0),
@@ -85,7 +85,7 @@ export const userStats = pgTable(
         userId: text("user_id")
             .unique()
             .notNull()
-            .references(() => users.id),
+            .references(() => users.id, { onDelete: "cascade" }),
         currentStreak: integer("current_streak").notNull().default(0),
         longestStreak: integer("longest_streak").notNull().default(0),
         totalSpeakingTime: integer("total_speaking_time").notNull().default(0),
@@ -112,7 +112,7 @@ export const streakRewards = pgTable(
             .$defaultFn(() => createId()),
         userId: text("user_id")
             .notNull()
-            .references(() => users.id),
+            .references(() => users.id, { onDelete: "cascade" }),
         streakDays: integer("streak_days").notNull(),
         creditsAwarded: integer("credits_awarded").notNull(),
         awardedAt: timestamp("awarded_at").notNull().defaultNow(),
@@ -132,7 +132,7 @@ export const userAchievements = pgTable(
             .$defaultFn(() => createId()),
         userId: text("user_id")
             .notNull()
-            .references(() => users.id),
+            .references(() => users.id, { onDelete: "cascade" }),
         achievementType: text("achievement_type").notNull(),
         title: text("title").notNull(),
         description: text("description").notNull(),

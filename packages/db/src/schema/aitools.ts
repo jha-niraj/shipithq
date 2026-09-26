@@ -217,7 +217,7 @@ export const templatePurchase = pgTable(
     "template_purchase",
     {
         id: text("id").primaryKey().$defaultFn(() => createId()),
-        buyerId: text("buyer_id").notNull().references(() => users.id),
+        buyerId: text("buyer_id").references(() => users.id, { onDelete: "set null" }),
         templateId: text("template_id").notNull().references(() => resumeTemplate.id),
         pricePaid: integer("price_paid").notNull(),
         creatorEarning: integer("creator_earning").notNull(),

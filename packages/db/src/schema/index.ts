@@ -24,3 +24,8 @@ export * from "./pathfinder";
 export * from "./studio";
 export * from "./university";
 export * from "./assistant";
+export * from "./messages";
+export * from "./incidents";
+export * from "./moderation";
+export * from "./company-docs";
+export * from "./company-credits";

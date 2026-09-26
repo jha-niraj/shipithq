@@ -160,8 +160,7 @@ export const openSourceProjects = pgTable(
         isFeatured: boolean("is_featured").notNull().default(false),
         maintainerId: text("maintainer_id").references(() => users.id, { onDelete: "set null" }),
         createdById: text("created_by_id")
-            .notNull()
-            .references(() => users.id, { onDelete: "restrict" }),
+            .references(() => users.id, { onDelete: "set null" }),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at")
             .notNull()
