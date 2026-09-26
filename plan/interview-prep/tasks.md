@@ -17,6 +17,7 @@ because nothing is deleted until its replacement is proven.
 | IP-9 | Prove it end to end in a browser | 9 | done (2026-08-28) |
 | IP-10 | Same session race in `goal-creation.ts` | - | done (2026-08-28) |
 | IP-11 | Coding questions not grounded in the posting | 1 | done (2026-08-28) |
+| IP-12 | A question never stops "Generating..." | - | code done 2026-09-26; browser check is Niraj's |
 
 ---
 
@@ -547,3 +548,27 @@ back grounded and neither matched the stock-exercise pattern:
 Compare with the before-picture still sitting on
 `interview-prep-senior-backend-engineer`: "Implement a function to determine the
 nth Fibonacci number using recursion", for a Kafka and Postgres role.
+
+## IP-12 - A question never stops "Generating..."
+**Why** Found 2026-09-26 (plan/competition/skillmeet CMP-2e). The goal page treats a
+sub-goal with no studio as content still being made: it shows "Generating..." and polls
+`getSubGoalWithContent` every 3 seconds while it's selected. An interview question
+(`kind` TECHNICAL, BEHAVIORAL or CODING, and reported questions, source
+`interview_report`) is complete on arrival and gets a studio only if the student opens
+notes, so every question showed the badge forever and a selected one polled forever.
+**Files** `apps/main/app/(main)/pathfinder/[slug]/_components/daily-practice-view.tsx`.
+**Steps** A sub-goal is "a question" when its kind isn't TOPIC. For a question: no
+"Generating..." badge, and no polling. Study sub-goals (TOPIC) keep both.
+**Edge cases** a coding question (has coding, already counted as content); a TOPIC
+sub-goal whose content really is being generated (unchanged).
+**Done when** a prep goal's questions show their kind (and "AI" or "Reported by
+students") without "Generating...", selecting one makes no repeated requests, and a
+TOPIC sub-goal without a studio still shows it and polls.
+
+**Code done 2026-09-26.** `isQuestion(subGoal)` (kind not TOPIC, or source
+`interview_report`) counts as content: no "Generating..." badge, and the 3-second
+content poll is never set for a selected question. TOPIC sub-goals are unchanged.
+**Browser check (Niraj):** open a prep goal: its questions show Technical / Behavioral /
+Coding with "AI" or "Reported by students" and no "Generating..."; select one and the
+Network tab shows no repeated requests; a study goal's new topic still shows it until its
+content arrives.

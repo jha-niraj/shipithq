@@ -37,6 +37,9 @@ AI scoring) runs in `apps/worker`.
 2. An admin can create an unclaimed company from its website URL. Firecrawl
    crawls the site into a draft profile, which the admin reviews and publishes.
    Nothing scraped is published without review. Nothing is scraped from LinkedIn.
+   (Amended 2026-09-26, plan/job-import: a student's pasted **job post** may be
+   fetched from any link, LinkedIn included; company profiles still come only from
+   the company's official site.)
 3. A signed-in student can request a company that isn't listed, by name or
    website. With only a name, Exa finds the official domain and the student
    confirms it's the right company.
