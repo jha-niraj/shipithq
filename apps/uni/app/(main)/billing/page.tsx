@@ -5,57 +5,26 @@ import { CreditCard, Check, ArrowRight, Coins, Users, BookOpen, Zap } from "luci
 import { Button } from "@repo/ui/components/ui/button"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
 import Link from "next/link"
+import { UNI_PLANS, UNI_PLAN_ORDER } from "@repo/pricing"
 
-const plans = [
-    {
-        name: "Starter",
-        price: "₹49",
-        suffix: "/student/sem",
-        description: "Perfect for small colleges getting started",
-        features: [
-            "Up to 500 students",
-            "5 faculty accounts",
-            "Basic assignments (Quiz, Coding)",
-            "Student verification",
-            "Email support",
-            "Basic analytics",
-        ],
-        current: true,
-    },
-    {
-        name: "Professional",
-        price: "₹39",
-        suffix: "/student/sem",
-        description: "For growing institutions with more needs",
-        features: [
-            "Up to 5,000 students",
-            "Unlimited faculty accounts",
-            "All assignment types",
-            "Mock interviews included",
-            "Placement module",
-            "Priority support",
-            "Advanced analytics",
-            "API access",
-        ],
-        popular: true,
-    },
-    {
-        name: "Enterprise",
-        price: "Custom",
-        suffix: "",
-        description: "For large universities with complex needs",
-        features: [
-            "Unlimited students",
-            "Multi-campus support",
-            "Custom integrations",
-            "Dedicated account manager",
-            "SLA guarantee",
-            "Custom branding",
-            "On-premise option",
-            "24/7 phone support",
-        ],
-    },
-]
+/**
+ * The plans shown here are UNI_PLANS from @repo/pricing, the same object the checkout
+ * (lib/dodopayments.ts) and shipithq.com/uni/pricing read (plan/web/revamp REV-30).
+ * The per-student prices this page used to hardcode are retired. The buttons are not
+ * wired to checkout yet: that is part of the uni core work (REV-33).
+ */
+const plans = UNI_PLAN_ORDER.map((key) => {
+    const p = UNI_PLANS[key]
+    return {
+        name: p.name,
+        price: key === "ENTERPRISE" ? "Custom" : p.priceINR === 0 ? "Free" : `₹${p.priceINR.toLocaleString("en-IN")}`,
+        suffix: key === "ENTERPRISE" || p.priceINR === 0 ? "" : "/month",
+        description: p.description,
+        features: [...p.features],
+        popular: "isPopular" in p && p.isPopular === true,
+        current: false,
+    }
+})
 
 export default function BillingPage() {
     return (
@@ -140,7 +109,7 @@ export default function BillingPage() {
             {/* Plans Grid */}
             <div id="plans" className="scroll-mt-8">
                 <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-6">Available Plans</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="grid grid-cols-1 gap-6 mb-8 md:grid-cols-2 xl:grid-cols-4">
                     {plans.map((plan, i) => (
                         <motion.div
                             key={i}

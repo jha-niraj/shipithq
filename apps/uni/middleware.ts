@@ -55,7 +55,6 @@ const apiRoutes = [
     '/api/auth',
     '/api/health',
     '/api/webhooks',
-    '/api/user/verify-status',
 ]
 
 export default async function middleware(req: NextRequest) {

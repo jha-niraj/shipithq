@@ -1,181 +1,27 @@
+import { UNI_PLANS } from "@repo/pricing";
 // Keep dodoClient as null for backward compat check in checkout.action.ts
 export const dodoClient = process.env.DODO_PAYMENTS_API_KEY ? true : null;
 
 // Subscription plan configurations for University Platform
 // Field names match Prisma schema: UniversitySubscription model
+/**
+ * The plans themselves live in @repo/pricing (`UNI_PLANS`, plan/web/revamp REV-30), so
+ * the website's /uni/pricing and this checkout can never disagree. This file only adds
+ * the payment product ids, which come from the environment.
+ */
 export const UNIVERSITY_SUBSCRIPTION_PLANS = {
-    FREE: {
-        name: 'Free',
-        description: 'Get started with basic features',
-        priceINR: 0,
-        priceUSD: 0,
-        yearlyPriceINR: 0,
-        yearlyPriceUSD: 0,
-        billingCycle: 'free',
-        
-        // Limits (match Prisma schema fields)
-        maxStudents: 50,
-        maxFaculty: 5,
-        maxDepartments: 2,
-        maxClassesPerFaculty: 3,
-        maxCreditsPerMonth: 5000,
-        
-        // Features (match Prisma schema fields)
-        hasAnalytics: false,
-        hasAdvancedReports: false,
-        hasPlacementModule: false,
-        hasCompanyPortal: false,
-        hasAPIAccess: false,
-        hasPrioritySupport: false,
-        hasWhiteLabel: false,
-        hasCustomBranding: false,
-        
-        // Dodo product IDs
-        dodoProductIdMonthly: null,
-        dodoProductIdYearly: null,
-        
-        features: [
-            'Up to 50 students',
-            'Up to 5 faculty members',
-            '2 departments',
-            '3 classes per faculty',
-            '5,000 credits/month',
-            'Basic features',
-            'Community support',
-        ],
-    },
+    FREE: { ...UNI_PLANS.FREE, dodoProductIdMonthly: null, dodoProductIdYearly: null },
     STARTER: {
-        name: 'Starter',
-        description: 'Perfect for small institutions getting started',
-        priceINR: 4999,
-        priceUSD: 59,
-        yearlyPriceINR: 49990, // ~2 months free
-        yearlyPriceUSD: 590,
-        billingCycle: 'monthly',
-        
-        // Limits (match Prisma schema fields)
-        maxStudents: 500,
-        maxFaculty: 20,
-        maxDepartments: 5,
-        maxClassesPerFaculty: 10,
-        maxCreditsPerMonth: 50000,
-        
-        // Features (match Prisma schema fields)
-        hasAnalytics: true,
-        hasAdvancedReports: false,
-        hasPlacementModule: false,
-        hasCompanyPortal: false,
-        hasAPIAccess: false,
-        hasPrioritySupport: false,
-        hasWhiteLabel: false,
-        hasCustomBranding: false,
-        
-        // Dodo product IDs
+        ...UNI_PLANS.STARTER,
         dodoProductIdMonthly: process.env.DODO_UNI_STARTER_MONTHLY_ID || null,
         dodoProductIdYearly: process.env.DODO_UNI_STARTER_YEARLY_ID || null,
-        
-        features: [
-            'Up to 500 students',
-            'Up to 20 faculty members',
-            '5 departments',
-            '10 classes per faculty',
-            '50,000 credits/month',
-            'Basic analytics',
-            'Email support',
-            'Student verification',
-            'Assignment management',
-        ],
     },
     GROWTH: {
-        name: 'Growth',
-        description: 'Ideal for growing institutions',
-        priceINR: 14999,
-        priceUSD: 179,
-        yearlyPriceINR: 149990,
-        yearlyPriceUSD: 1790,
-        billingCycle: 'monthly',
-        
-        // Limits (match Prisma schema fields)
-        maxStudents: 5000,
-        maxFaculty: 100,
-        maxDepartments: 20,
-        maxClassesPerFaculty: 50,
-        maxCreditsPerMonth: 500000,
-        
-        // Features (match Prisma schema fields)
-        hasAnalytics: true,
-        hasAdvancedReports: true,
-        hasPlacementModule: true,
-        hasCompanyPortal: true,
-        hasAPIAccess: false,
-        hasPrioritySupport: true,
-        hasWhiteLabel: false,
-        hasCustomBranding: true,
-        
-        // Dodo product IDs
+        ...UNI_PLANS.GROWTH,
         dodoProductIdMonthly: process.env.DODO_UNI_GROWTH_MONTHLY_ID || null,
         dodoProductIdYearly: process.env.DODO_UNI_GROWTH_YEARLY_ID || null,
-        
-        features: [
-            'Up to 5,000 students',
-            'Up to 100 faculty members',
-            '20 departments',
-            '50 classes per faculty',
-            '500,000 credits/month',
-            'Advanced analytics & reports',
-            'Placement module',
-            'Company portal access',
-            'Custom branding',
-            'Priority email support',
-        ],
-        isPopular: true,
     },
-    ENTERPRISE: {
-        name: 'Enterprise',
-        description: 'For large universities with advanced needs',
-        priceINR: 0, // Custom pricing
-        priceUSD: 0, // Custom pricing
-        yearlyPriceINR: 0,
-        yearlyPriceUSD: 0,
-        billingCycle: 'custom',
-        
-        // Limits (match Prisma schema fields)
-        maxStudents: 999999,
-        maxFaculty: 999999,
-        maxDepartments: 999999,
-        maxClassesPerFaculty: 999999,
-        maxCreditsPerMonth: 999999999,
-        
-        // Features (match Prisma schema fields)
-        hasAnalytics: true,
-        hasAdvancedReports: true,
-        hasPlacementModule: true,
-        hasCompanyPortal: true,
-        hasAPIAccess: true,
-        hasPrioritySupport: true,
-        hasWhiteLabel: true,
-        hasCustomBranding: true,
-        
-        // Dodo product IDs
-        dodoProductIdMonthly: null, // Contact sales
-        dodoProductIdYearly: null,
-        
-        features: [
-            'Unlimited students',
-            'Unlimited faculty members',
-            'Unlimited departments',
-            'Unlimited classes',
-            'Unlimited credits',
-            'Full analytics suite',
-            'All modules included',
-            'API access',
-            'White-label options',
-            'Dedicated account manager',
-            'Custom integrations',
-            'SLA guarantee',
-            '24/7 priority support',
-        ],
-    },
+    ENTERPRISE: { ...UNI_PLANS.ENTERPRISE, dodoProductIdMonthly: null, dodoProductIdYearly: null },
 } as const;
 
 export type UniversitySubscriptionPlanType = keyof typeof UNIVERSITY_SUBSCRIPTION_PLANS;

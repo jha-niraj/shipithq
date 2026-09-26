@@ -1,5 +1,4 @@
-import Footer from "@/components/landingpage/footer";
-import Navbar from "@/components/landingpage/navbar";
+import { PublicHeader } from "@/components/public-header";
 
 export default function LegalLayout({
     children,
@@ -8,9 +7,8 @@ export default function LegalLayout({
 }>) {
     return (
         <>
-            <Navbar />
+            <PublicHeader />
             {children}
-            <Footer />
         </>
     );
 }
