@@ -699,7 +699,20 @@ the redirects are gone with no 404s in the logs.
 
 
 ## WS-24 The sprint mock interview talks inline, not through the worker
-- [ ] Status: not started. Niraj, 2026-09-25.
+- [x] Status: done 2026-09-26, verified server side with no worker involved
+  (7/7 against the real model: 30 credits held at open, the first question in
+  1.4 s using the learner's task note, five answered turns at most 1.4 s each,
+  feedback in 2.8 s, the hold settled exactly once, a failed opening refunded).
+  Feedback measured well under 30 s, so it runs inline too. The browser pass is
+  Niraj's.
+  - Prompts and checks moved to `@repo/ai/sprint-mock`; the interviewer and
+    context are in `apps/main/lib/projects/sprint-mock.ts` (25 s timeout).
+  - The actions answer inline; an answer the interviewer can't take is removed
+    again and returned with `ANSWER_BACK`, and the page puts it back in the box.
+    Writes are guarded on the transcript's last line, so only one turn is in
+    flight per session.
+  - The `SprintMock` class is removed (wrangler tag `v17`,
+    `deleted_classes`); `sprint_mock` stays in the job-type enum for old rows.
 
 **Why.** Every question and answer in a sprint mock is a chat turn, and each
 one is dispatched as a `sprint_mock` worker job (`step: 'turn'`). The new rule

@@ -538,7 +538,28 @@ invited role, and reusing the code fails.
     roles. It changed member2 to Campus recruiter, and that survived a reload.
 
 ## HA-9 UI rules sweep (existing pages)
-- [ ] Status: not started.
+- [ ] Status: code done 2026-09-25; the browser half of "Done when" is Niraj's.
+  - Greps: 0 `Loader2`, 0 `animate-spin`, 0 `pink-` in apps/hiring. `tsc` is
+    clean.
+  - What the sweep changed:
+    - every page now has the `page-frame` root and a `PageHeader`
+    - every `loading.tsx` under `(main)` was rewritten to match its page
+    - the auth pages load with `ShipItHQLoader`, and `invite/loading.tsx` is new
+    - block spinners became skeletons
+    - pink and blue/purple are gone
+    - dark-mode ink is fixed
+    - register runs edge to edge, with Owner copy
+  - A build error that took down every hiring page was found and fixed
+    2026-09-25. Seven `"use server"` action files re-exported types as
+    `export type { ... }`, and Turbopack registered those names as server
+    actions ("Export AssignmentDetails doesn't exist in target module"). The
+    re-exports are gone; the three billing pages import the types from
+    `@/types`.
+  - **For Niraj to check:** go from the sidebar to each page, and the skeleton
+    should hold the same header, StatBand and blocks as the page that replaces
+    it, with no jump. The pages: home, jobs, jobs/new, applications,
+    candidates, universities, interview-config, assignments, analytics, team,
+    team/roles, company, profile, settings, billing, transactions, invoices.
 
 **DoD** 9.
 **Files.** Every page under `apps/hiring/app/(main)` and `(auth)`.
@@ -558,7 +579,9 @@ invited role, and reusing the code fails.
 `apps/hiring`, and every page's first paint matches its skeleton.
 
 ## HA-10 Messages: company to student
-- [ ] Status: not started.
+- [ ] Status: built as plan/inbox (IN-1, IN-5 to IN-7) on 2026-09-26: threads,
+  replies, per-member read and batched email, in a shared Inbox on both sides.
+  Server side is verified; the browser pass is Niraj's.
 
 **DoD** 11.
 **Files.**
@@ -586,7 +609,36 @@ invited role, and reusing the code fails.
 reply appears on the company side, and unread counts update on both.
 
 ## HA-11 Company AI panel: answers
-- [ ] Status: not started.
+- [x] Status: done 2026-09-26, verified server side (11/11: the right candidate
+  for "highest DSA on Backend" from tools and from a real model turn, a second
+  company's candidates never reached, undecided filtering, reading doesn't mark
+  a result viewed, question 300 allowed and 301 refused, a failed answer's
+  question given back). The browser pass is Niraj's.
+  - **Migration `0056_chat_company_scope`:** `assistant_chat_session.company_id`.
+    `@repo/db/assistant-store` holds the chat store for both apps, scoped by
+    user and company (null in the student app), so a person's student and
+    company chats never mix.
+  - Route `apps/hiring/app/api/ai/chat` (inline, streamed, 25s per call, the
+    same NDJSON frames), tools in `lib/hiring-ai/tools.ts` (roles, candidates,
+    one candidate, anonymous round numbers, threads; company from the session,
+    never the model), the cap in `lib/hiring-ai/usage.ts`
+    (`HIRING_AI_LIMITS.panelMessagesPerMonth`, counted and taken in one SQL
+    statement), `modelFor("hiringAi")`.
+  - The chat UI moved to `@repo/ui/components/ai-chat/*` (`AIChatPanel`,
+    `createAIPanelStore`); main uses it unchanged, hiring mounts it as the
+    docked rail for members with "use AI".
+
+**Decisions (Niraj, 2026-09-26).**
+- **One chat UI:** the student app's chat pieces (message, markdown,
+  composer, tool steps, the stream parser, the docked rail) move into
+  `@repo/ui` and both apps use them; main keeps its student-only parts
+  (context tags, dictation) as props.
+- **History:** saved, private to each member, with a history dropdown.
+- **What it reads, only ever this company's:** roles and pipelines, results
+  sent to the company (scores, rubric summaries, integrity flags, decisions,
+  outcomes), message threads, and the anonymous practice numbers.
+- **The cap:** 300 a month per company, and each question a member asks is
+  one, however many tool steps the answer takes.
 
 **DoD** 12.
 **Files.**
@@ -618,7 +670,18 @@ reply appears on the company side, and unread counts update on both.
 - Message 301 is refused.
 
 ## HA-12 AI actions: messages and pipelines
-- [ ] Status: not started.
+- [x] Status: done 2026-09-26, verified server side (11/11: a DSA > 80 filter
+  resolved to 3 students with a blocked one left out, Send landing in 3
+  separate threads with the exact text, a second Send and a late Send doing
+  nothing, Cancel sending nothing, another member unable to reach the card, a
+  real pipeline draft with checked rounds, Add saving exactly those rounds).
+  - `propose_message` / `propose_pipeline` tools only propose; the proposal is
+    saved on the assistant message (`AssistantChatProposal`) and drawn as a
+    card through the shared panel's `renderProposal`.
+  - `lib/hiring-ai/proposals.ts` acts on the stored copy, claimed once with a
+    conditional update (`settleProposal`); one thread per student.
+  - The draft checks moved to `lib/pipeline-draft.ts`, shared with the
+    builder's "Draft with AI".
 
 **DoD** 12.
 **Steps.** Proposal cards, the same pattern as the Project AI:
@@ -640,7 +703,29 @@ reply appears on the company side, and unread counts update on both.
 - A pipeline card's Add creates an editable template.
 
 ## HA-13 AI attachments
-- [ ] Status: not started.
+- [ ] Status: code done 2026-09-26, verified server side (12/12: text read,
+  wrong type, empty and over-10 MB files refused with the reason, another
+  company can't link, delete or read a document, folders move and keep files,
+  and a real model turn listed and read an uploaded JD, then proposed senior
+  rounds from it). **Waiting on Niraj:** the R2 keys in `apps/hiring/.env` and
+  `.env.production` (same as the student app's) for the upload and the
+  signed-link check ("can't be fetched without a signed URL").
+  - **Migration `0057_company_docs`:** `company_doc_folder`, `company_document`.
+  - `lib/documents.ts`, `lib/r2.ts`, upload route `app/api/ai/documents`
+    (also the panel's attach button; the chat route trusts only the id and
+    reads the text from the library), actions `actions/documents`, tools
+    `list_documents` / `read_document`, the page `/documents` (nav: Documents,
+    needs "use AI").
+
+**Decisions (Niraj, 2026-09-26).**
+- **A company document library**, with folders: the Documents page is
+  gurukulhq's docs explorer (`apps/main/components/docs/docs-explorer.tsx`
+  there) moulded to this app (monochrome, InlineLoader, Shimmer). The AI reads
+  the library through tools in any chat, and the panel can attach a file to a
+  question, which also files it in the library.
+- **Text is read inline on upload** (25 s), as the student app does; no worker.
+- Files live privately in R2 under `company-docs/<companyId>/`, served only by
+  short signed URLs; never through a public route.
 
 **DoD** 12.
 **Steps.**
@@ -659,7 +744,33 @@ produces rounds that reflect it, and the file can't be fetched without a
 signed URL.
 
 ## HA-14 Final audit
-- [ ] Status: not started.
+- [ ] Status: part 1 (the code scan) done 2026-09-26; part 2, the Chrome pass, waits on Niraj.
+  **Part 1 found and fixed:**
+  - Every hiring route has a `loading.tsx`; no spinners, off-palette colours,
+    dashes or untyped catches in apps/hiring.
+  - Dead links: "View details" on a job and "View public page" on the company
+    profile pointed at hiring routes that don't exist; they now open the
+    student app's pages (`lib/urls.ts`). Analytics' role links go to the
+    job's edit page.
+  - `checkSlugAvailability` answered anyone; it now needs a session.
+  - Every action that takes an id checks the company first (heuristic scan
+    plus spot reads; no gaps found).
+  - Old apply flow: Analytics rebuilt (HA-21), Assignments removed (HA-22),
+    old counters switched (HA-23).
+  - Student side in scope: unused `Loader2` imports removed from 6 files;
+    pink swapped for neutral in 4 spots; the job page's per-round "Practice"
+    buttons and "Prepare with AI Mock Interviews" card linked to the removed
+    `/mock/job/...` pages, and now point at the job's rounds.
+  - Outside the scope, noted only: `app/(main)/knowme/settings` links to
+    `/docs/knowme-api` and `/login`, which don't exist in apps/main.
+
+**Decisions (Niraj, 2026-09-26).** Two parts. **1. A code scan now, no
+browser**, of apps/hiring in full plus what the hiring work touched elsewhere
+(apps/main: rounds, send, My rounds, the company page, Inbox; apps/admin:
+Hiring > Reports): dead links, missing or mismatched `loading.tsx`, spinners,
+off-palette colours, dashes, catch typing, permission gaps, unscoped queries,
+leftover old-flow code. Everything found is fixed and listed here. **2. The
+Chrome pass** at 390, 768 and 1440 in light and dark, after Niraj says go.
 
 **DoD** 9.
 **Steps.**
@@ -671,7 +782,14 @@ signed URL.
 record lists them.
 
 ## HA-15 Home
-- [ ] Status: not started.
+- [x] Status: done 2026-09-26, verified server side (5/5: each round's funnel
+  matches a direct SQL count, results waiting, and every needs-attention kind
+  links to where it's resolved; a member without the permissions sees none of
+  those items). The browser pass is Niraj's.
+  - `lib/home.ts` (`loadHome`), `app/(main)/home/*` rebuilt. The funnel uses
+    `roundFunnels` (counts only). Needs attention: not verified, results
+    waiting (flagged after 3 days), candidates waiting for a reply, drafts,
+    live roles with no rounds or an unready pipeline, a role ShipItHQ hid.
 
 **DoD** 10.
 **Files.**
@@ -695,7 +813,21 @@ round, and each needs-attention item links to where it is resolved.
 
 
 ## HA-16 Remove the Mock page; keep the rest
-- [ ] Status: Mock removed 2026-09-25 (verified: `app/(main)/mock` and `actions/mock` deleted, the sidebar entry gone, `/mock` returns 404, `scripts/check-nav.mjs` clean, tsc clean). The Candidates change waits on hiring-rounds sends (HR-2, HR-17): until sends exist, Candidates keeps listing applicants.
+- [x] Status: done 2026-09-26.
+  - Mock was removed on 2026-09-25 (verified: `app/(main)/mock` and
+    `actions/mock` deleted, the sidebar entry gone, `/mock` returns 404,
+    `scripts/check-nav.mjs` clean, tsc clean).
+  - Candidates is now everyone who sent results, across roles:
+    - `candidates-list.tsx`, from `lib/sends.ts` `candidatesFor`
+    - one row per person, searchable
+    - each role chip opens `/applications/<job>?send=<id>`
+    - verified 5/5 with a fixture (plan/hiring-rounds HR-18)
+  - Deleted with Niraj's approval (2026-09-26): the old candidates content and
+    detail sheet, `candidate-status.ts`, and `getCandidates`,
+    `getCandidateDetails` and `getCompanyJobsForFilter`. `getCandidateStats`
+    stays for Home until HA-15.
+  - `actions/candidates/candidate-assignments.ts` is used by nothing; its
+    deletion is proposed and waits for Niraj.
 
 **Why.** Voice rounds (hiring-rounds HR-16) replace the company Mock page.
 Assignments, Candidates, Universities and Analytics stay, and HA-9 applies the
@@ -737,7 +869,18 @@ another user's details.
 
 
 ## HA-18 Security fixes found in the HA-6 sweep
-- [ ] Status: not started. Found 2026-09-25.
+- [x] Status: done 2026-09-26.
+  - **Dodo webhook:** verified with the Standard Webhooks scheme
+    (`lib/webhook-signature.ts`: HMAC-SHA256 of id.timestamp.body, 5-minute
+    window, constant-time compare) before anything is read; 6/6 checks
+    (valid, unsigned, changed body, wrong secret, old, several signatures).
+    Needs `DODO_PAYMENTS_WEBHOOK_KEY` in `.env.production` (added to both
+    examples); without it every event is refused with 503.
+  - **AI templates:** `templates.action.ts` was unused since HR-10, so it is
+    deleted with its exports (Niraj, 2026-09-26). The pipeline builder's own
+    "Draft with AI" is the replacement.
+  - **Jobs:** done by HR-12. **Mock sessions:** gone with HA-16.
+  - **Error typing:** 79 catches across apps/hiring now `catch (error: unknown)`.
 
 **Why.** The permission sweep found holes beyond its own scope.
 
@@ -751,7 +894,9 @@ another user's details.
   - `getInterviewTemplate` and `incrementTemplateUsage` must filter to
     public or own templates
 - **Jobs:** `createJob` and `updateJob` must check that the
-  `interviewProcessId` belongs to the company.
+  `interviewProcessId` belongs to the company. Done by HR-12 (2026-09-25):
+  `createJob` accepts only the company's or ShipItHQ's template and copies it;
+  `updateJob` ignores the id; pipelines change through `assignJobPipeline`.
 - **Mock sessions:**
   - `createMockSession` must check that the job and user relate to the
     company
@@ -764,3 +909,121 @@ another user's details.
 **Done when.** A forged webhook POST without a valid signature is refused, a
 template made by company A can't be read by company B, and a job can't
 reference another company's process.
+
+## HA-19 Register's "Your Role" select
+- [x] Status: done 2026-09-25 (Niraj approved the removal).
+  - The field, its state and the unused Select import are gone. Nothing read
+    it, and `tsc` is clean.
+  - Signing up still goes to onboarding; the submit logic is untouched.
+  - The browser check is Niraj's.
+  - Also approved and done: the same public `api/user/verify-status` route was
+    deleted from apps/uni, along with its middleware allowlist entry. Nothing
+    called it, and uni's `tsc` is clean.
+  - Register's "Company Name" was never sent either, and onboarding asked for
+    it again. Removed on Niraj's call (2026-09-25): register is now name,
+    email and password, and onboarding names the company.
+
+**Why.** Register still asks for "Your Role" (Founder/CEO/CTO/COO/Other
+Executive), but the value is never sent anywhere. It also contradicts the page's
+own copy since HA-9: whoever creates the workspace becomes its Owner, whatever
+their title.
+
+**Files.** `apps/hiring/app/(auth)/register/page.tsx`.
+
+**Steps.**
+- Remove the select and its state. A title belongs on the member's profile,
+  not on sign-up.
+
+**Edge cases.**
+- Check that nothing reads the field (onboarding, `completeOnboarding`)
+  before removing it.
+
+**Done when.** Register shows no role field, a new sign-up still lands on
+onboarding, and `tsc` is clean.
+
+
+
+## HA-20 Enforce plan limits and the company credit allowance (added 2026-09-26)
+- [x] Status: done 2026-09-26, verified server side (22/22 on a fixture
+  company: Free's 100 credits once; one live job, one pipeline, one custom
+  role, two members with a pending invite counted; results 51 and 52 of the
+  month locked, masked in the list, refused to open (not marked viewed) and to
+  decide; Pro unlocking them and granting 1,000 once for the month; an extra
+  draft spending 10 and a failed one refunded once; a short balance refused;
+  after Pro lapsed the two newest live jobs paused, nothing deleted). Decisions
+  in overview.md, "Plan limits and company credits".
+  - **Migration `0058_company_credits`:** `company.credits`,
+    `company_credit_transaction` (unique per company and key, so a grant or a
+    refund happens once).
+  - `lib/plan.ts`: the plan in force, `ensureGrants` (signup, and each calendar
+    month of Pro, so renewals need no hook), spend and refund, the limit checks,
+    `lockedSendIds`, `enforcePlan` (run from the layout).
+  - Enforced in `publishJob`, `createPipeline`, `inviteTeamMember`,
+    `createCompanyRole`; locked results in the list, the detail, decide,
+    feedback drafts, messaging and the AI tools; extra pipeline drafts (builder
+    and AI panel) and aptitude generations charge credits. Billing shows the
+    real usage and the credit balance.
+
+**Why** shipithq.com/hire/pricing now states per-plan limits (plan/web/revamp overview,
+"Hiring plans"): active jobs, pipelines, applicants a month, team members, custom roles,
+and a credit allowance (100 once on Free, 1,000 a month on Pro). The app stores the
+limits on the subscription row but never checks them (`checkSubscriptionLimit` in
+`actions/billing/subscription.action.ts` is not called).
+**Files** `actions/jobs/job-crud.ts`, `job-status.ts`, `actions/interview-config/pipeline-builder.action.ts`,
+`actions/team/*`, `actions/billing/subscription.action.ts`, a company credit ledger.
+**Steps** read limits from `HIRING_PLANS` (@repo/pricing); check on publish, pipeline
+create, invite and custom-role create; grant the monthly allowance; spend credits on AI
+drafts and aptitude generations beyond `HIRING_AI_LIMITS`.
+**Edge cases** downgrade with more live jobs than the new limit (pause the newest, never
+delete); pending invites count toward members.
+**Done when** each limit refuses the action past its number with a clear message, and a
+Pro company's balance rises by 1,000 on each renewal.
+
+## HA-21 Analytics rebuilt on results, with charts (added 2026-09-26, found in the HA-14 scan)
+- [x] Status: done 2026-09-26, verified server side (9/9: an empty company gets zero weeks; on six seeded results over three weeks every total, each weekly point, the median days to decide, the funnel, teammates' decisions and outcomes match direct SQL counts). The browser pass is Niraj's.
+  - `lib/analytics.ts`, `actions/analytics/index.ts` (`getAnalytics`), the page rebuilt with two recharts line charts (theme-aware greys), `recharts` added to apps/hiring at the shared ^3.6.0.
+
+**Why.** `/analytics` counted `job_application` rows, which nothing writes since
+the apply flow went (HR-20), so every number read zero. Niraj (2026-09-26):
+rebuild it on the company's real data, in detail, with line charts.
+**Files.** `lib/analytics.ts` (new), `actions/analytics/index.ts` (rewritten),
+`app/(main)/analytics/*` (rewritten), `actions/jobs/job-analytics.ts` (its
+job_application counts replaced).
+**Steps.**
+- A range picker: 4, 12 or 26 weeks.
+- A StatBand: results received, invited, declined, median days to decide,
+  hired.
+- Line chart: results received per week, with invites and declines per week.
+- Line chart: students practising the company's rounds per week (anonymous).
+- Per role: results, invite rate, and the funnel per round (practising, scored,
+  passed against its own pass mark).
+- Outcomes after an invite (interviewing, offer, hired, not selected), the
+  company's and the candidates' own.
+- Per member: decisions made (the old "recruiter performance").
+**Edge cases.** No results yet: the charts show empty weeks with a line saying
+so, never a broken chart. Every count comes from SQL; no student id reaches the
+page. Locked results (HA-20) count as received but are never named.
+**Done when.** On seeded sends and attempts, each number and each weekly point
+matches a direct SQL count, and a company with nothing shows the empty state.
+
+## HA-22 Remove Assignments (added 2026-09-26, approved by Niraj)
+- [x] Status: done 2026-09-26. Removed `app/(main)/assignments`, the redirect-only `app/(main)/assessments`, `actions/assignments`, the nav entry and the take-home section of the job form; `tsc` clean. The job table's assignment columns stay (no data change).
+
+**Why.** Take-home assignments were sent to old job applications; with rounds
+nothing reaches them. Niraj approved deleting them (2026-09-26); take-homes can
+return later as a round type.
+**Files.** `app/(main)/assignments/*`, `actions/assignments/*`, the nav entry
+in `lib/navigation.ts`, and anything that links there.
+**Done when.** No route, action, nav entry or link to assignments remains, and
+`tsc` is clean.
+
+## HA-23 Old counters switched to results (added 2026-09-26)
+- [x] Status: done 2026-09-26. Jobs list: results received per job and in the Jobs StatBand; company profile: candidates marked Hired; team: results decided. The unused `getJobStats` / `getJobsOverview` and `types/assignment.ts` are deleted (approved), and the job form's Custom Questions section (never asked since the apply form went) is removed (approved); its column stays. Nothing in apps/hiring reads `job_application`.
+
+**Why.** Three numbers still read `job_application`: "N applicants" per job in
+the Jobs list, "hired" on the company profile, "reviewed" per team member.
+**Steps.** Jobs list: results received (withdrawn and purged left out).
+Company profile: candidates the company marked Hired. Team: decisions made by
+that member (`hiring_send.decided_by_user_id`).
+**Done when.** Each matches a SQL count on seeded sends, and nothing in
+apps/hiring reads `job_application`.

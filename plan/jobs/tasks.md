@@ -19,6 +19,8 @@
 | JB-15 | Swipe card: taller, more information, slower throw | - | done (2026-08-29) |
 | JB-16 | Deck: centred, fanned, and slower again | - | done (2026-08-29) |
 | JB-17 | Pin the browse toolbar properly, and lift the deck | 3 | done (2026-08-29) |
+| JB-18 | Spark becomes a stepped job panel, not a swipe deck | 3 | code done (2026-09-25); browser pass is Niraj's |
+| JB-19 | Spark remembers skips for 30 days | 3 | code done (2026-09-25); waiting on migration 0040 |
 
 ---
 
@@ -538,3 +540,151 @@ as stacked.
 a header above it and only a thin "N jobs remaining" line below, so the true
 centre of the remaining box is not the optical one. `pb-16` weights the box and
 lifts the deck.
+
+---
+
+## JB-18 - Spark becomes a stepped job panel, not a swipe deck
+
+**Status:** code done 2026-09-25, and `tsc` passes; the browser pass is Niraj's.
+- `spark-panel.tsx` is new, and `spark-content.tsx` is now the stepper.
+- `spark-skeleton.tsx` matches the panel block for block.
+- The match uses StatBand's emerald (`emerald-700` / `emerald-400`), because
+  `emerald-600` on white is under 4.5:1.
+- Undoing a Save also removes the save if Spark made it; a job saved before
+  stays saved.
+- Found while building: a left swipe (now "Not for me") has never been stored
+  (`recordSwipeAction` writes nothing for "left"). A skipped job therefore
+  comes back on the next visit. That is a follow-up for Niraj to decide, not
+  part of this task.
+
+**Asked:** Asked by Niraj 2026-09-25, with a screenshot of
+Firecrawl's "Request Details" panel as the reference.
+
+**Why.** The swipe deck shows a card, which hides most of the job, and a
+throw is the only way to move on. Niraj wants one job at a time as a plain
+panel on the page: sections of labelled, banded rows, and a footer that says
+"4 / 20" with up and down arrows. No dialog, and no Tinder mechanics.
+
+**Decisions (Niraj, 2026-09-25):**
+- Spark stays as the one-job-at-a-time view. HR-20 now removes the swipe deck,
+  not Spark.
+- Each step shows the full job in banded rows:
+  - **header:** logo, title, company and industry, then Save and Open
+  - **stat strip:** match, salary and posted date
+  - **Role:** type, work mode, location, experience
+  - **Skills:** the ones you have, and the ones missing
+  - **Process:** round count, length, and the rounds themselves
+  - **About the role:** the description, clamped
+- Up and down (or J and K) move between jobs and record nothing.
+  - **Save** (S, or the right arrow key) records interest, as a right swipe
+    did, then moves on.
+  - **Not for me** (X, or the left arrow key) records a skip, as a left swipe
+    did, then moves on.
+  - Undo (U) brings the last decided job back.
+
+**Files.**
+- `app/(jobs)/jobs/spark/spark-content.tsx`: the stepper, its state and keys.
+- `app/(jobs)/jobs/components/spark-panel.tsx`: new, the panel for one job.
+- `app/(jobs)/jobs/components/spark-skeleton.tsx`: rewritten to match the
+  panel.
+- The swipe deck files are proposed for deletion below, not assumed.
+
+**Steps.**
+1. Build the panel as one bordered surface with square inner bands, in the
+   reference's structure:
+   - a header row
+   - a 3-cell stat strip divided by vertical rules
+   - for each section, an uppercase label row with an icon, then a banded
+     value row
+   - a footer with the counter and the arrow buttons
+   Everything stays in the neutral palette. The match uses the StatBand tones:
+   emerald at 70 and above, neutral otherwise.
+2. The stepper holds an index into the loaded jobs.
+   - Browsing moves the index.
+   - Deciding records the action (`recordSwipeAction`) and removes the job
+     from the list; the index stays, so the next job slides in.
+   - Near the end, the next page loads (`getSparkJobs`), as today.
+3. Keys work only when focus is not in a field, and never with a modifier
+   held, so Cmd+Left still works.
+4. A small hint under the footer lists the keys, on lg+ only.
+5. A short motion when the step changes (opacity and 8px), and none under
+   `prefers-reduced-motion`.
+6. The empty state and the "loading more" skeleton keep today's behaviour.
+
+**Edge cases.**
+- **Signed out:** browsing works. Save and Not for me show the existing
+  "Sign in" toast and record nothing.
+- **Salary not disclosed:** the salary cell shows '-', not "0".
+- **No interview process:** the Process section is left out rather than shown
+  empty.
+- **No missing skills:** the Missing row is left out.
+- **The last job decided:** the index clamps to the new last item. With none
+  left, the empty state shows.
+- **Phones (390px):** the stat strip stacks into rows, the footer keeps its
+  counter and arrows on one line, and there is no sideways scroll.
+- **A very long URL, title or skill list** wraps or truncates inside its band
+  and never widens the panel (the reference's URL row overflows; ours must
+  not).
+
+**Deletion (approved by Niraj 2026-09-25, done):** `components/swipe-card.tsx`
+(`SwipeStack`, `SwipeCard`) was deleted after checking that nothing imported
+it.
+
+**Done when.**
+- `/jobs/spark` shows one job as the panel, with no dialog and no deck.
+- Up and down (and J and K) step with "n / total" updating.
+- Save and Not for me record, and the job leaves the list.
+- Undo brings it back.
+- The skeleton matches the panel.
+- `tsc` is clean.
+- The browser pass is Niraj's.
+
+---
+
+## JB-19 - Spark remembers skips for 30 days
+
+**Status:** code done 2026-09-25, and `tsc` passes. Waiting on migration 0040
+(`job_skip`), which Niraj applies. The reload checks in "Done when" are his.
+- The Spark tab's count also subtracts recent skips.
+- Spark now loads each job's real interview process: `interviewProcess` was
+  hard-coded to `null`, so the panel's Process section could never show.
+
+**Decision (Niraj, 2026-09-25):** "Not for me" hides a job from Spark for 30
+days. After that it can come back. Browse and search still list it. The 30 is
+this decision; the constant in `actions/jobs/tabs.ts` names this task.
+
+**Why.** A left swipe never wrote anything (`recordSwipeAction` stored only
+"right"), so every skipped job came back on the next visit, and "Not for me"
+meant "not right now".
+
+**Files.**
+- `packages/db/src/schema/jobs.ts`: `job_skip` (`userId`, `jobId`,
+  `skippedAt`), unique per (user, job) so a re-skip moves the date. Also a
+  `jobs.interviewProcess` relation, so Spark can load a job's rounds.
+- One migration (0040), previewed first.
+- `apps/main/actions/jobs/tabs.ts`:
+  - "left" upserts a skip
+  - `undoSkip(jobId)` deletes it
+  - `getSparkJobs` leaves out jobs skipped in the last 30 days, loads the real
+    interview process, and takes an explicit `offset`
+- `app/(jobs)/jobs/spark/spark-content.tsx`: Undo of a skip calls `undoSkip`,
+  and "load more" passes offset = jobs fetched minus jobs skipped.
+
+**Why the offset.** Once skips are stored, each one removes a row from the
+server's list. A fixed `page * limit` offset would then jump over as many
+unseen jobs as were skipped.
+
+**Edge cases.**
+- Saving a job that has an old skip clears the skip.
+- Signed out: nothing is stored (the "Sign in" toast, as today).
+- A job skipped 31 days ago is back in Spark.
+- A failed write shows the error toast; the job stays out of the list for this
+  visit.
+
+**Done when.**
+- A skipped job does not come back after a reload.
+- Undo brings it back, and it survives a reload.
+- A skip older than 30 days (set by hand in the dev DB) returns.
+- Loading more after 5 skips shows no gap: no unseen job is jumped over.
+- `tsc` is clean.
+

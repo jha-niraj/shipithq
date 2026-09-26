@@ -19,6 +19,8 @@ Derived from `overview.md`.
 | PRF-13 | Share dialog: base tabs, real QR, dead buttons gone | 9 | done (2026-09-25) |
 | PRF-14 | Skeletons for both routes | 6, 7 | done (2026-09-25) |
 | PRF-15 | Propose deleting the dead profile files | - | done (2026-09-25) |
+| PRF-16 | Sheets lose their section labels ("ROLE", "DATES", ...) | 9 | done (2026-09-25) |
+| PRF-17 | Several uploaded resumes, a primary, and a Resume pane with tabs | 6 | built (2026-09-25), awaiting Niraj's browser check |
 
 ---
 
@@ -763,3 +765,79 @@ and `app/(public)/profile/[username]/_components/public-profile-client.tsx`. Lis
 
 **Done when** the list is in `candidates.md` with a grep showing zero importers
 for each file.
+
+
+## PRF-16 - Sheets lose their section labels
+
+**Status:** done (2026-09-25)
+
+**Why.** Niraj, 2026-09-25, pointing at "ROLE" under "Add a role": "we don't really
+need these", and check the other sheets. The small uppercase `FieldGroup` titles
+repeat what the field labels already say.
+
+**Files** `components/profile/sheets/profile-sheet.tsx` (`FieldGroup`), and every
+sheet using it (project, experience, education, skills, edit-profile, and the resume
+import sheet). **Steps** `FieldGroup` keeps the spacing and drops the title row;
+where a group's header held an action (project Links / Media "Add"), that action
+moves to the field's own label row (`Field aside`).
+
+**Done when** no sheet shows an uppercase section label, and Add link / Add media
+still work.
+
+**Outcome.** `FieldGroup` has no title row; groups that need a name pass `label`
+(sentence case, like a field label): Links, Media, Your skills, the two Privacy
+groups, What it builds. All other section titles removed across the project,
+experience, education, skills, edit-profile and import sheets. Typechecked; not
+opened in a browser after the change.
+
+## PRF-17 - Several uploaded resumes, a primary, and a Resume pane with tabs
+
+**Status:** built (2026-09-25), awaiting Niraj's browser check
+
+**Why.** Niraj, 2026-09-25: upload as many resumes as wanted; show the uploaded
+ones and the ones built on the platform in tabs; cards with a small SVG animation
+instead of the two long border lines; Upload opens a dialog with an optional name;
+no Replace. Decisions: one PRIMARY file chosen by the user, the newest upload
+becoming primary by default; the dialog has "Also make an editable copy in the
+Resume Builder", ticked.
+
+**Model.** New table `resume_file` (id, user_id, name, r2_key, mime_type, size,
+text, is_primary, created_at). `users.resume` / `users.resume_text` / `has_resume`
+stay and always mirror the primary file, so every AI reader keeps working unchanged.
+Migration via `pnpm db:generate`; the existing single file moves in as primary with
+`pnpm script resume-files` (preview first).
+
+**Files** `packages/db/src/schema/` (table), migration, `src/scripts/resume-files.ts`,
+`actions/(main)/user/resume.action.ts` (upload adds a row; list; make primary;
+delete, promoting the newest remaining; signed URL per file),
+`profile-editor/sections.tsx` (ResumePane), a new upload dialog.
+
+**Edge cases** deleting the primary promotes the newest other file, or clears the
+mirror when none is left; a scanned PDF (no text) can be stored but, if made
+primary, AI sees no text: say so on its card; a file row whose R2 object is gone
+shows "File missing" instead of a broken View; the 5MB / pdf-doc-docx check stays.
+
+**Done when** two uploads show as two cards with the newest primary; Make primary
+switches `users.resume_text`; deleting the primary promotes the other; the Created
+on platform tab lists the builder drafts with open links; the script moves the
+existing file in and re-checks clean.
+
+**Outcome.**
+- `resume_file` table (migration `0038_resume_files`, additive, applied on dev;
+  production is Niraj's `pnpm db:migrations --apply`). Backfill
+  `pnpm script resume-files [--apply]`: on dev it moved 2 users' single resume in as
+  primary (both "text only": R2 is not configured locally), re-check clean.
+- Actions in `resume.action.ts`: `uploadResume` now adds a row that becomes
+  primary (optional `name`, `buildDraft` default true) and returns `hasText`;
+  `listResumeFiles`, `setPrimaryResumeFile`, `deleteResumeFile` (promotes the newest
+  remaining), `getResumeFileUrl`; `deleteResume` deletes the primary through the new
+  path. `syncPrimaryMirror` keeps `users.resume/resume_text/has_resume` equal to the
+  primary, so AI readers are unchanged.
+- `profile-editor/resume-pane.tsx`: tabs Uploaded / Created on ShipItHQ; cards with
+  an animated page (`sh-art-draw` lines, a rising upload arrow or a twinkle) and
+  details below; Primary / Text only / No text found tags; menu with View, Make
+  primary, Delete (confirmed); upload dialog with drop zone, optional name and
+  "Also make an editable copy" (ticked). No Replace.
+- Seen rendering in the browser (the migrated file as Primary + Text only). **Not
+  browser-verified** (Niraj asked to test himself): upload through the dialog,
+  Make primary, Delete, the Created on ShipItHQ tab.

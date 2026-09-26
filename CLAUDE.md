@@ -210,6 +210,10 @@ secret and only needs a redeploy.
 - Shareable URLs come from `apps/main/lib/urls.ts`, never from
   `window.location.origin` - that is the author's host, not the recipient's.
 - Palette is monochrome black/neutral. No orange, yellow, blue, indigo or purple.
+  **Exception, apps/web only** (Niraj, 2026-09-25, plan/web/revamp REV-71): six soft
+  pastels (blush, sage, sand, coral, mint, butter) as card and tile tones, defined once
+  as `TONE` in `apps/web/components/marketing/primitives.tsx`, always with dark ink.
+  Never blue, purple or brown, and never in apps/main, hiring, uni or admin.
 - **Text must be legible on the surface it actually lands on.** Check the
   rendered contrast, not the class name. The trap is type over a
   theme-independent surface - a photo, a gradient, a video: `text-white` on the

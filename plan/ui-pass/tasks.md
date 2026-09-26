@@ -460,3 +460,22 @@ the page's scroller), and no button, tab or header text is clipped.
 - UI-15: the filter strip is the shared `TabsList variant="segmented" fit` (it was the bordered card variant overridden down); strip 294x36, view toggle 70x36, labels "All 8", "Active 5", "Offers 1", "Closed 2"; skeleton widths set to the same 294 and 70px; checked light and dark.
 - UI-16 /projects: the e2e user completed the real onboarding in the browser (9 questions, inline model, no worker); the overview renders in the frame. /knowme: setup reaches its last step and fails with "Failed to generate embeddings" because local `next dev` has no Vectorize binding and `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` are not in apps/main/.env (the REST fallback). Environment, not code; production has the binding. The e2e user's KnowMe profile is left in SETUP.
 - UI-17: at 390x844 and 768x1024, /home, /ai, /mock, /practice, /projects, /jobs, /jobs/browse, /jobs/applications and /jobs/saved have no horizontal scroll on the page scroller. Two fixes: JobCard's title wrapper lacked `min-w-0`, so long titles ran past the card at 390px (it now stacks the match badge under a two-line title on phones, 44px logo); the Spark deck's fanned cards scrolled the page sideways by 44px (390) and 28px (768), now `max-lg:overflow-x-clip` on the page (not on lg+, where it would cut a swiped card at the frame's edge). The horizontally scrolling StatBand strips at 390 are by design.
+
+
+## UI-18 Buttons are rounded-md, app-wide
+- [x] Status: done (2026-09-25). `button.tsx` base is `rounded-md` (8px; `rounded-lg`
+  is 10px, which barely read as a change from 14px). 88 `rounded-full/2xl/xl`
+  overrides removed from `<Button>`s in `apps/main` (48 single-line, 40 multi-line);
+  8 deliberate circles (equal w/h + rounded-full) kept. Seen on Home; other pages
+  typechecked only.
+
+**Why.** Niraj, 2026-09-25: "make the button less rounded", app-wide. The shared
+`Button` (`packages/ui/src/components/ui/button.tsx`) is `rounded-xl`, and some
+sizes or call sites use `rounded-full`.
+
+**Steps.** Base and size radii to `rounded-lg`; remove `rounded-full` overrides on
+`<Button>` in `apps/main` (pills that are not Buttons - badges, chips - stay).
+
+**Done when** `button.tsx` has no `rounded-xl`/`rounded-full`, a grep for
+`<Button[^>]*rounded-full` in `apps/main` is empty, and Home, profile and the resume
+hub look right in the browser.

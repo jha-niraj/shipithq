@@ -142,3 +142,23 @@ All by Niraj, 2026-09-25.
   app's `/api/ai/chat`, with a 25-second timeout. Chat is never a worker job;
   see CLAUDE.md "Long-running work". Only attachment text extraction (HA-13)
   and pipeline or question generation that can run long go to the worker.
+
+### Plan limits and company credits (Niraj, 2026-09-26, HA-20)
+
+The numbers are in `packages/pricing/src/hiring-plans.ts` (`HIRING_PLANS`), the
+table in `plan/web/revamp/overview.md` "Hiring plans".
+
+- **Applicants a month** counts results sent to the company in the calendar
+  month. Students can always send; a result past the month's limit reaches the
+  company **locked** ("upgrade to open"). It opens on an upgrade, or when the
+  month turns. Students are never turned away because of a company's plan.
+- **Company credits** pay only for AI work past the free daily allowances:
+  **10 credits** per extra pipeline draft (past `pipelineDraftsPerDay`),
+  **20 credits** per extra aptitude generation (past
+  `aptitudeGenerationsPerDay`). Feedback drafts and the AI panel stay free
+  within their caps and stop at the cap. Free gets 100 credits once; Pro gets
+  1,000 each billing period.
+- **Over a limit** (after a downgrade, or with pending invites): live jobs
+  over the limit are paused newest first, never deleted; existing members,
+  pipelines and roles stay, but nothing new can be added until under the
+  limit. Pending invites count as members.

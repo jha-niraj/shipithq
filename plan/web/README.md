@@ -22,6 +22,10 @@ plan/web/
 │   ├── 05-blog-images.md      1.7MB of raster art the blog does not need
 │   └── 06-performance.md      the budget everything above has to fit inside
 │
+├── revamp/                the 2026-09-25 rebuild on the fanout.sh reference:
+│   ├── overview.md            decisions and definition of done (/, /hire, /uni, /ideas)
+│   └── tasks.md               REV-1 to REV-61
+│
 └── seo/                   discoverability
     ├── overview.md            what "done" means for discoverability
     ├── tasks.md               the master numbered list with status

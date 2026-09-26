@@ -103,7 +103,8 @@ AI scoring) runs in `apps/worker`.
     consent record (what was shared, when, to whom). Voice rounds ask for
     recording consent before the first question. Data kept for a withdrawn or
     declined send follows the retention rule in Decisions.
-15. The Spark swipe deck is gone. `/jobs` opens on Browse, and taking a role's
+15. The Spark swipe deck is gone (Spark itself stays, as a stepped job panel:
+   plan/jobs JB-18). `/jobs` opens on Browse, and taking a role's
     rounds and sending the result replaces the old apply flow. Existing
     applications keep their history.
 16. **My rounds.** The student's Applied tab becomes "My rounds", listing:
@@ -245,6 +246,47 @@ All by Niraj, 2026-09-25, unless noted.
   - A human (the company) decides every invite. AI scores inform the decision
     and never decide it alone.
 
+### ShipItHQ's platform pipelines (Niraj, 2026-09-25, HR-4)
+
+- **Pass mark 60** on every round, labelled as ShipItHQ's choice.
+- **Gates:** aptitude and DSA are HARD, because code scores them. System
+  design and voice are ADVISORY: they are AI-assessed, so they are scored and
+  shown but never lock the next round.
+- **Round sizes:**
+  - aptitude: 20 questions in 25 minutes
+  - DSA: 1 problem in 45 minutes. "2 DSA" means two rounds, easy then medium.
+  - system design: 1 prompt in 45 minutes
+  - voice: 20 minutes
+- **Pools:** each pool holds at least 4x its draw, so a retake draws fresh
+  questions.
+  - Aptitude draws from the whole LIVE bank; the intern pipeline uses its
+    EASY and MEDIUM questions only.
+  - DSA draws from judge-ready problems of the round's difficulty.
+  - Voice rounds have no pool: they carry a rubric and interviewer knowledge.
+- **Design prompts** live in their own `design_prompt` table: a brief, a
+  rubric and a difficulty. `companyId` null means ShipItHQ's own prompts
+  (about 12, reviewed); set means a company's (HR-11).
+
+### Student company requests, details (Niraj, 2026-09-25, HR-7)
+
+- **Notifications:** when a request goes live or is rejected, everyone who
+  asked or voted gets it in-app and by one short email. They auto-follow a
+  company that goes live.
+- **Lookups:** Exa turns a name into a website; Firecrawl only reads the site
+  afterwards (HR-5). Each student gets 10 name lookups a day; pasting a website
+  runs no search and is not counted. New requests stay capped at 3 a day.
+  Admins have no cap.
+
+### Public company stats (Niraj, 2026-09-25, HR-23)
+
+- A company page shows its "practising" count only from 10 students, and its
+  "sends" count only from 5. Below that, it shows '-' with "Too few to show",
+  so a small number never points to a person.
+- "Answers in" (the median time from a send to the company's decision) shows
+  only from 5 decided sends. A round's pass rate is per role, against that
+  round's own pass mark, and shows only from 10 students with a scored attempt
+  on it (Niraj, 2026-09-26, HR-23).
+
 ### Prices, limits and content (Niraj, 2026-09-25)
 
 - **Credits per attempt:** aptitude 5, DSA 5, system design 15, a voice round
@@ -262,3 +304,17 @@ All by Niraj, 2026-09-25, unless noted.
 - **Aptitude content:** a ShipItHQ-written bank of about 300 questions
   (quant, logical, verbal), drafted with AI. Each is checked by hand for
   exactly one right answer before it is seeded.
+
+### Integrity flag (2026-09-26, HR-18)
+
+- A candidate gets a flag in the results list when any one round has **3 or
+  more pastes** or **5 or more tab leaves**. The detail always shows the exact
+  counts; the flag only draws the eye. The constants are `FLAG_PASTES` and
+  `FLAG_TAB_LEAVES` in `apps/hiring/lib/sends.ts`.
+
+### Feedback drafts (Niraj, 2026-09-26, HR-19)
+
+- A company may draft **100** AI feedback notes per rolling day (one
+  gpt-4o-mini call per candidate, free). The constant is
+  `HIRING_AI_LIMITS.feedbackDraftsPerDay` in `packages/pricing/src/hiring.ts`.
+
