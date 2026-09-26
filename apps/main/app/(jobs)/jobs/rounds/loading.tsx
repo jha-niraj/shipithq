@@ -1,4 +1,4 @@
-// Hand-matched to _components/my-rounds.tsx: the page header, then two stacked
+// Hand-matched to _components/my-rounds.tsx: the page header and its button, then two stacked
 // sections of rows - title and company, the step line, a pill, and a button on
 // the right (below it on phones).
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
@@ -7,9 +7,13 @@ export default function Loading() {
     return (
         <div className="page-frame space-y-8 px-page py-6">
             <ShimmerStyles />
-            <div className="space-y-1.5">
-                <Shimmer className="h-6 w-32" />
-                <Shimmer className="h-4 w-80 max-w-full" delay={0.04} />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-1.5">
+                    <Shimmer className="h-6 w-32" />
+                    <Shimmer className="h-4 w-80 max-w-full" delay={0.04} />
+                </div>
+                {/* "Report a real interview" (CMP-1). */}
+                <Shimmer className="h-8 w-48 rounded-md" delay={0.06} />
             </div>
             {[3, 2].map((rows, s) => (
                 <div key={s} className="space-y-3">

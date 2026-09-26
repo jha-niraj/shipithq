@@ -4,7 +4,7 @@ import crypto from "crypto"
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import {
-    db, backgroundJobs, companies, companyFollowers, companyProfileDrafts, companyRequests, companyRequestVotes,
+    db, withTransaction, backgroundJobs, companies, companyFollowers, companyProfileDrafts, importedJobs, interviewProcesses, interviewReports, companyRequests, companyRequestVotes,
     users, isTerminalJobStatus, notifyUsers, notificationRows,
     type CompanyDraftFields,
 } from "@repo/db"
@@ -366,37 +366,52 @@ export async function publishCompanyDraft(id: string, input: PublishInput): Prom
 
         const careersUrl = clean(input.careersUrl, 300)
         const locations = cleanList(input.locations, 10)
-        const [company] = await db.insert(companies).values({
-            name,
-            slug,
-            website: `https://${draft.domain}`,
-            websiteDomain: draft.domain,
-            profileSource: "SCRAPED",
-            claimStatus: "UNCLAIMED",
-            scrapedAt: draft.updatedAt,
-            description,
-            industry: clean(input.industry, 80) || null,
-            companySize: clean(input.size, 80) || null,
-            headquarters: locations[0] ?? null,
-            culture: (input.culture ?? "").trim().slice(0, 1200) || null,
-            techStack: cleanList(input.techStack, 30),
-            benefits: cleanList(input.benefits, 30),
-            socialLinks: careersUrl ? { careers: careersUrl } : null,
-            logoUrl: null,
-            updatedAt: new Date(),
-        }).onConflictDoNothing().returning({ id: companies.id, slug: companies.slug })
-        if (!company) return { success: false, error: `${draft.domain} or the slug "${slug}" was just taken. Try again.` }
+        // The company, the draft and everything that moves onto it, in one transaction: a failure
+        // part way would leave a PUBLISHED draft that can't be published again (a review finding).
+        const company = await withTransaction(async (tx) => {
+            const [created] = await tx.insert(companies).values({
+                name,
+                slug,
+                website: `https://${draft.domain}`,
+                websiteDomain: draft.domain,
+                profileSource: "SCRAPED",
+                claimStatus: "UNCLAIMED",
+                scrapedAt: draft.updatedAt,
+                description,
+                industry: clean(input.industry, 80) || null,
+                companySize: clean(input.size, 80) || null,
+                headquarters: locations[0] ?? null,
+                culture: (input.culture ?? "").trim().slice(0, 1200) || null,
+                techStack: cleanList(input.techStack, 30),
+                benefits: cleanList(input.benefits, 30),
+                socialLinks: careersUrl ? { careers: careersUrl } : null,
+                logoUrl: null,
+                updatedAt: new Date(),
+            }).onConflictDoNothing().returning({ id: companies.id, slug: companies.slug })
+            if (!created) return null
 
-        // The draft keeps each field's source; publishing does not touch `fields`.
-        await db.update(companyProfileDrafts)
-            .set({ status: "PUBLISHED", companyId: company.id })
-            .where(eq(companyProfileDrafts.id, id))
+            // The draft keeps each field's source; publishing does not touch `fields`.
+            await tx.update(companyProfileDrafts)
+                .set({ status: "PUBLISHED", companyId: created.id })
+                .where(eq(companyProfileDrafts.id, id))
+
+            if (draft.requestId) {
+                await tx.update(companyRequests).set({ status: "PUBLISHED", companyId: created.id }).where(eq(companyRequests.id, draft.requestId))
+                // Jobs students imported while it was pending move to the company (plan/job-import JI-4), with their pipelines.
+                await tx.update(interviewProcesses).set({ companyId: created.id, updatedAt: new Date() })
+                    .where(inArray(interviewProcesses.importedJobId, tx.select({ id: importedJobs.id }).from(importedJobs).where(eq(importedJobs.companyRequestId, draft.requestId))))
+                await tx.update(importedJobs).set({ companyId: created.id, updatedAt: new Date() }).where(eq(importedJobs.companyRequestId, draft.requestId))
+                // Interview reports filed while it was under review (plan/competition/skillmeet CMP-1).
+                await tx.update(interviewReports).set({ companyId: created.id, companyRequestId: null, updatedAt: new Date() }).where(eq(interviewReports.companyRequestId, draft.requestId))
+            }
+            return created
+        })
+        if (!company) return { success: false, error: `${draft.domain} or the slug "${slug}" was just taken. Try again.` }
 
         // Students asked for it (HR-7): it's theirs now. Each follows it and is told.
         let told = 0
         if (draft.requestId) {
             const people = await voters(draft.requestId)
-            await db.update(companyRequests).set({ status: "PUBLISHED", companyId: company.id }).where(eq(companyRequests.id, draft.requestId))
             if (people.length) {
                 const url = `${MAIN_URL}/companies/${company.slug}`
                 await db.batch([

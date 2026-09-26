@@ -41,6 +41,8 @@ export type InboxKind =
     | "CLAIM_APPROVED"
     // Either
     | "REPORT_REVIEWED"
+    /** An interview report was approved or rejected (plan/competition/skillmeet CMP-1). */
+    | "INTERVIEW_REPORT_REVIEWED"
     | "COMPANY_SUSPENDED"
     | "GENERAL"
 
@@ -55,6 +57,7 @@ export const STUDENT_KIND_TAB: Partial<Record<InboxKind, Exclude<StudentTab, "al
     COMPANY_REQUEST_REJECTED: "updates",
     PRACTICE_REMINDER: "updates",
     REPORT_REVIEWED: "updates",
+    INTERVIEW_REPORT_REVIEWED: "updates",
     GENERAL: "updates",
 }
 

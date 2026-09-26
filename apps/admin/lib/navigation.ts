@@ -2,7 +2,7 @@ import {
     FileSearch,
     LayoutDashboard, Users, CreditCard, MessageCircle, BarChart3, Settings,
     Shield, FileText, type LucideIcon, Coins, Receipt, UserCheck, Activity,
-    Lock, Building2, GraduationCap, Briefcase, School, Mail, Flag,
+    Lock, Building2, GraduationCap, Briefcase, School, Mail, Flag, ClipboardList,
 } from "lucide-react"
 import { isSuperAdminRole } from "./role-labels"
 
@@ -127,6 +127,8 @@ export const hiringModuleNav: NavigationItem[] = [
     { name: "Verification", path: "hiring/companies/verification", icon: Shield },
     // Reports on companies, jobs, messages and students (plan/hiring-rounds HR-24).
     { name: "Reports", path: "hiring/reports", icon: Flag },
+    // Students' reports of real interviews (plan/competition/skillmeet CMP-1).
+    { name: "Interview reports", path: "hiring/interview-reports", icon: ClipboardList },
 ]
 
 export const universityModuleNav: NavigationItem[] = [

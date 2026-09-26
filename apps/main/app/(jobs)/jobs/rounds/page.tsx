@@ -2,6 +2,7 @@ import Link from "next/link"
 import { headers } from "next/headers"
 import { getSession } from "@repo/auth"
 import { Button } from "@repo/ui/components/ui/button"
+import { getMyReports } from "@/actions/(main)/companies/reports.action"
 import { loadMyRounds } from "@/lib/hiring/my-rounds"
 import { MyRoundsView } from "./_components/my-rounds"
 
@@ -21,5 +22,6 @@ export default async function MyRoundsPage() {
             </div>
         )
     }
-    return <MyRoundsView data={await loadMyRounds(uid)} />
+    const [data, reports] = await Promise.all([loadMyRounds(uid), getMyReports()])
+    return <MyRoundsView data={data} reports={reports.success ? reports.data : []} />
 }

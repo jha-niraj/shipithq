@@ -1,7 +1,8 @@
 import "server-only"
-import { and, asc, count, countDistinct, desc, eq, inArray, sql } from "drizzle-orm"
-import { db, companies, companyFollowers, companyProfileDrafts, hiringRuns, hiringSends, interviewProcesses, interviewRounds, jobs, type CompanyDraftFields, jobListed } from "@repo/db"
+import { and, asc, count, countDistinct, desc, eq, inArray, or, sql } from "drizzle-orm"
+import { db, companies, companyFollowers, companyProfileDrafts, hiringRuns, hiringSends, importedJobs, interviewProcesses, interviewReports, interviewRounds, jobs, type CompanyDraftFields, jobListed } from "@repo/db"
 import { roundFunnels } from "@repo/db/hiring-stats"
+import { companyLoops, roleGroupOf, type LoopGroup } from "@repo/db/company-loop"
 import { isBlocked } from "@repo/db/moderation"
 import { companyTrust, type CompanyTrust } from "@/lib/company-trust"
 
@@ -54,6 +55,18 @@ export interface PracticePipeline {
     minutes: number
 }
 
+/** A job a student imported for this company (plan/job-import), practisable on its own page. */
+export interface ImportedPageJob {
+    id: string
+    title: string
+    level: string | null
+    location: string | null
+    rounds: number
+    minutes: number
+    /** The viewer's own private import. */
+    private: boolean
+}
+
 export interface CompanyPage {
     company: {
         id: string
@@ -78,6 +91,15 @@ export interface CompanyPage {
     roles: PageRole[]
     /** ShipItHQ's generic pipelines, when the company has none of its own. */
     practice: PracticePipeline[]
+    /** Jobs students imported for this company: public ones, and the viewer's private ones. */
+    imported: ImportedPageJob[]
+    /** Approved interview reports students filed for it (CMP-1); only the total is public. */
+    reportCount: number
+    /** What students report (CMP-2): loops for groups with enough reports, and those still gathering. */
+    loops: {
+        ready: (LoopGroup & { practiseHref: string | null })[]
+        gathering: { roleFamily: string; level: string; recent: number }[]
+    }
     stats: { practising: Gated<number>; sends: Gated<number>; answersInDays: Gated<number> }
     following: boolean
     signedIn: boolean
@@ -165,6 +187,48 @@ export async function loadCompanyPage(slug: string, userId: string | null): Prom
         })
     }
 
+    // Jobs students imported (plan/job-import): public, or the viewer's own private one.
+    let imported: ImportedPageJob[] = []
+    if (!c.suspendedAt) {
+        const rows = await db.select({ id: importedJobs.id, extracted: importedJobs.extracted, visibility: importedJobs.visibility, processId: sql<string | null>`coalesce(${importedJobs.companyProcessId}, ${importedJobs.processId})` })
+            .from(importedJobs)
+            .where(and(eq(importedJobs.companyId, c.id), eq(importedJobs.status, "READY"),
+                userId ? or(eq(importedJobs.visibility, "PUBLIC"), eq(importedJobs.ownerId, userId)) : eq(importedJobs.visibility, "PUBLIC")))
+            .orderBy(desc(importedJobs.createdAt)).limit(30)
+        const pids = rows.map((r) => r.processId).filter((x): x is string => Boolean(x))
+        const rs = pids.length ? await db.select({ processId: interviewRounds.processId, timeLimitMinutes: interviewRounds.timeLimitMinutes, durationMinutes: interviewRounds.durationMinutes }).from(interviewRounds).where(inArray(interviewRounds.processId, pids)) : []
+        imported = rows.map((r) => {
+            const mine = rs.filter((x) => x.processId === r.processId)
+            return {
+                id: r.id,
+                title: r.extracted?.title ?? "Imported job",
+                level: r.extracted?.level ?? null,
+                location: r.extracted?.location ?? null,
+                rounds: mine.length,
+                minutes: mine.reduce((t, x) => t + minutesOf(x), 0),
+                private: r.visibility === "PRIVATE",
+            }
+        })
+    }
+
+    const [{ reports } = { reports: 0 }] = await db.select({ reports: count() }).from(interviewReports)
+        .where(and(eq(interviewReports.companyId, c.id), eq(interviewReports.status, "APPROVED")))
+    const rawLoops = Number(reports) > 0 && !c.suspendedAt ? await companyLoops(db, c.id) : { ready: [], gathering: [] }
+    // A public import of this company at the group's level is the way to practise that loop.
+    const levelOf = (l: string | null | undefined) => (l === "LEAD" ? "SENIOR" : l)
+    const publicImports = rawLoops.ready.length
+        ? await db.select({ id: importedJobs.id, extracted: importedJobs.extracted }).from(importedJobs)
+            .where(and(eq(importedJobs.companyId, c.id), eq(importedJobs.status, "READY"), eq(importedJobs.visibility, "PUBLIC"))).orderBy(desc(importedJobs.createdAt)).limit(30)
+        : []
+    const loops: CompanyPage["loops"] = {
+        ready: rawLoops.ready.map((g) => {
+            // The same kind of role at the same level: a design import never stands in for a backend loop.
+            const match = publicImports.find((j) => levelOf(j.extracted?.level) === g.level && roleGroupOf(j.extracted?.title ?? "").roleFamily === g.roleFamily)
+            return { ...g, practiseHref: match ? `/jobs/import/${match.id}` : null }
+        }),
+        gathering: rawLoops.gathering,
+    }
+
     // Stats, each behind its minimum.
     const [[practising], [sends], [answers]] = await Promise.all([
         db.select({ n: countDistinct(hiringRuns.userId) }).from(hiringRuns).where(eq(hiringRuns.companyId, c.id)),
@@ -207,6 +271,9 @@ export async function loadCompanyPage(slug: string, userId: string | null): Prom
         sources,
         roles,
         practice,
+        imported,
+        reportCount: Number(reports),
+        loops,
         stats,
         following: Boolean(following),
         signedIn: Boolean(userId),

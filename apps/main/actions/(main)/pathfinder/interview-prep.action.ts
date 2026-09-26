@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache"
 import { startBackgroundJob } from "@/actions/(main)/workers/jobs.action"
 import { scrapeJobDescription } from "@/utils/jobs/extract-job-description"
 import { generateAndCheckSlug } from "./goals.action"
+import { matchReportedLoop } from "@/lib/interview-reports/match"
 
 /**
  * Create a Pathfinder goal from a job description.
@@ -132,9 +133,14 @@ export async function createInterviewPrepGoal(input: CreateInterviewPrepInput) {
         // 1 credit per 2 questions, the rate the Job Interview Assistant charged.
         // Recorded as a decision in plan/interview-prep/overview.md, including the
         // fact that Pathfinder's other generation jobs are currently free.
+        // Reported questions first when the company and role have a loop (CMP-2e).
+        const reported = await matchReportedLoop({ position, companyUrl: input.companyUrl, scrapedTitle }).catch((e: unknown) => {
+            console.error("matchReportedLoop:", e instanceof Error ? e.message : e)
+            return null
+        })
         const started = await startBackgroundJob(
             "interview_prep_generation",
-            { goalId: goal.id, counts },
+            { goalId: goal.id, counts, ...(reported ? { reported } : {}) },
             { cost: Math.ceil(total / 2), reason: `Interview prep: ${position}` },
         )
 

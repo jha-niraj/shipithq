@@ -30,3 +30,4 @@ export * from "./moderation";
 export * from "./company-docs";
 export * from "./company-credits";
 export * from "./job-import";
+export * from "./interview-reports";

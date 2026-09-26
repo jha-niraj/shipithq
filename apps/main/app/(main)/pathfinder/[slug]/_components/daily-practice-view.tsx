@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { PractisePrepJob } from '@/components/job-import/practise-prep-job'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@repo/ui/components/ui/button'
 import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
@@ -147,6 +148,7 @@ function PracticeHeader({ goal, onOpenEarnings, onOpenNotes }: { goal: Goal; onO
                 </div>
                 <div className="flex items-center gap-2">
                     <PathfinderUsageWidget goalId={goal.id} />
+                    {goal.category === "INTERVIEW_PREP" && <PractisePrepJob goalId={goal.id} />}
                     {
                         onOpenNotes && (
                             <Button
@@ -185,6 +187,9 @@ function PracticeHeader({ goal, onOpenEarnings, onOpenNotes }: { goal: Goal; onO
     )
 }
 
+/** An interview-prep question (plan/interview-prep): complete on arrival, unlike a study topic. */
+const isQuestion = (subGoal: Pick<SubGoal, 'kind' | 'source'>) => (subGoal.kind != null && subGoal.kind !== 'TOPIC') || subGoal.source === 'interview_report'
+
 function SubGoalItem({
     subGoal,
     isSelected,
@@ -202,7 +207,8 @@ function SubGoalItem({
 }) {
     const [isDeleting, setIsDeleting] = useState(false)
     const [isGenerating, setIsGenerating] = useState(false)
-    const hasContent = (subGoal as { studioId?: string | null }).studioId != null || subGoal.hasCoding
+    // An interview question is its own content: nothing is ever generated for it (IP-12).
+    const hasContent = (subGoal as { studioId?: string | null }).studioId != null || subGoal.hasCoding || isQuestion(subGoal)
     const needsContentGeneration = subGoal.isAIGenerated && !subGoal.isContentLoaded && !hasContent
 
     const handleToggle = (e: React.MouseEvent) => {
@@ -290,7 +296,7 @@ function SubGoalItem({
                         )
                     }
                     {
-                        !subGoal.isAIGenerated && !hasContent && (
+                        !subGoal.isAIGenerated && !hasContent && subGoal.source !== 'interview_report' && (
                             <Badge variant="secondary" className="text-xs h-4 px-1">
                                 <InlineLoader size="sm" className="mr-1" />
                                 Generating...
@@ -322,6 +328,14 @@ function SubGoalItem({
                         subGoal.isAIGenerated && (
                             <Badge variant="secondary" className="text-xs h-4 px-1 bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
                                 AI
+                            </Badge>
+                        )
+                    }
+                    {
+                        // Asked in real interviews at this company (plan/competition/skillmeet CMP-2).
+                        subGoal.source === 'interview_report' && (
+                            <Badge variant="secondary" className="text-xs h-4 px-1 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+                                Reported by students
                             </Badge>
                         )
                     }
@@ -389,6 +403,8 @@ export function DailyPracticeView({ goal, initialSession, allSessions: initialAl
         const checkForContent = async () => {
             if (!selectedSubGoal) return
             if ((selectedSubGoal as { studioId?: string | null }).studioId != null) return
+            // A question never gets content generated, so there is nothing to wait for (IP-12).
+            if (isQuestion(selectedSubGoal)) return
 
             setIsRefreshing(true)
             const result = await getSubGoalWithContent(selectedSubGoal.id)
@@ -407,6 +423,7 @@ export function DailyPracticeView({ goal, initialSession, allSessions: initialAl
             setIsRefreshing(false)
         }
 
+        if (selectedSubGoal && isQuestion(selectedSubGoal)) return
         const interval = setInterval(checkForContent, 3000)
         return () => clearInterval(interval)
     }, [selectedSubGoal, session])

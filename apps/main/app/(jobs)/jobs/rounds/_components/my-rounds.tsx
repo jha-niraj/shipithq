@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, Check, Clock, Eye, MessageSquare, Play, Send } from "lucide-react"
+import { ArrowRight, Check, CircleAlert, Clock, Eye, MessageSquare, Play, Send } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { PageHeader } from "@repo/ui/components/ui/page-header"
 import { cn } from "@repo/ui/lib/utils"
 import { OUTCOMES, OutcomeSelect, WithdrawButton } from "@/components/hiring/send-controls"
 import type { MyRounds, MyRun, MySend, NextStep } from "@/lib/hiring/my-rounds"
+import type { MyReport } from "@/actions/(main)/companies/reports.action"
+import { ReportInterviewButton } from "@/components/interview-reports/report-sheet"
+import { REPORT_OUTCOME_LABEL, type ReportOutcome } from "@/lib/interview-reports/types"
 
 /*
  * My rounds (plan/hiring-rounds HR-22): stacked sections, an empty one hidden.
@@ -35,12 +38,16 @@ function useMinuteClock() {
     return now
 }
 
-export function MyRoundsView({ data }: { data: MyRounds }) {
+export function MyRoundsView({ data, reports }: { data: MyRounds; reports: MyReport[] }) {
     const now = useMinuteClock()
     const total = data.inProgress.length + data.sent.length + data.invited.length + data.closed.length + data.practice.length
     return (
         <div className="page-frame space-y-8 px-page py-6">
-            <PageHeader title="My rounds" subtitle="Rounds you're taking, results you've sent, and what companies said." />
+            <PageHeader
+                title="My rounds"
+                subtitle="Rounds you're taking, results you've sent, and what companies said."
+                actions={<ReportInterviewButton label="Report a real interview" />}
+            />
 
             {total === 0 && (
                 <div className="rounded-2xl border border-dashed border-neutral-300 p-8 text-center dark:border-neutral-700">
@@ -54,7 +61,8 @@ export function MyRoundsView({ data }: { data: MyRounds }) {
             <Section title="Sent" items={data.sent} render={(s) => <SentRow key={s.sendId} send={s} />} />
             <Section title="Invited" items={data.invited} render={(s) => <InvitedRow key={s.sendId} send={s} />} />
             <Section title="Declined and withdrawn" items={data.closed} render={(s) => <ClosedRow key={s.sendId} send={s} />} />
-            <Section title="Practice" note="ShipItHQ's rounds from company pages. Practice results stay with you." items={data.practice} render={(r) => <RunRow key={r.runId} run={r} now={now} />} />
+            <Section title="Practice" note="ShipItHQ's rounds from company pages and jobs you imported. Practice results stay with you." items={data.practice} render={(r) => <RunRow key={r.runId} run={r} now={now} />} />
+            <Section title="Your interview reports" note="Only totals from reports are ever shown to others, never your report." items={reports} render={(r) => <ReportRow key={r.id} report={r} />} />
         </div>
     )
 }
@@ -182,5 +190,20 @@ function ClosedRow({ send }: { send: MySend }) {
         >
             <Button asChild size="sm" variant="ghost" className="gap-1.5"><Link href={`/jobs/${send.jobSlug}/rounds`}>{declined ? "Retake to send again" : "Open the rounds"} <ArrowRight className="h-4 w-4" /></Link></Button>
         </Row>
+    )
+}
+
+const REPORT_STATUS: Record<MyReport["status"], string> = { PENDING: "In review", APPROVED: "Approved", REJECTED: "Not published" }
+const monthLabel = (ym: string) => new Date(`${ym}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "short", year: "numeric", timeZone: "UTC" })
+
+/** One of the student's own interview reports (CMP-1) and where it stands. */
+function ReportRow({ report: r }: { report: MyReport }) {
+    return (
+        <Row
+            title={<>{r.role} <span className="font-normal text-neutral-500 dark:text-neutral-400">· {r.companyName}</span></>}
+            sub={`${monthLabel(r.month)} · ${r.rounds} ${r.rounds === 1 ? "round" : "rounds"} · ${REPORT_OUTCOME_LABEL[r.outcome as ReportOutcome] ?? r.outcome}`}
+            pill={<Pill strong={r.status === "APPROVED"}>{REPORT_STATUS[r.status]}{r.status === "APPROVED" && r.creditsRewarded > 0 ? ` · +${r.creditsRewarded} credits` : ""}</Pill>}
+            footer={r.status === "REJECTED" && r.rejectReason ? <p className="mt-3 flex items-start gap-1.5 rounded-xl bg-neutral-50 p-3 text-sm text-neutral-800 dark:bg-neutral-950 dark:text-neutral-200"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {r.rejectReason}</p> : undefined}
+        />
     )
 }

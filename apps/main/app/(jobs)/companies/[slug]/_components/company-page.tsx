@@ -1,12 +1,14 @@
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, ArrowRight, Building2, Check, Clock, ExternalLink, Globe, MapPin, Send, Timer, Users } from "lucide-react"
+import { ArrowLeft, ArrowRight, Building2, Check, ClipboardPaste, Clock, ExternalLink, FileText, Globe, Lock, MapPin, Send, Timer, Users } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { cn } from "@repo/ui/lib/utils"
 import { CompanyTrustBadge } from "@/components/companies/trust-badge"
 import { ROUND_TYPE_LABEL } from "@/lib/hiring/round-types"
 import type { CompanyPage, Gated, PageRole } from "@/lib/companies/public-page"
+import { ReportInterviewButton } from "@/components/interview-reports/report-sheet"
+import { REPORT_LEVEL_LABEL, REPORT_ROLE_FAMILY_LABEL, REPORT_ROUND_LABEL, type ReportLevel, type ReportRoleFamily, type ReportRoundType } from "@/lib/interview-reports/types"
 import { CompanyActions } from "./company-actions"
 import { FollowButton } from "./follow-button"
 
@@ -19,6 +21,7 @@ import { FollowButton } from "./follow-button"
 const LOCATION: Record<string, string> = { REMOTE: "Remote", HYBRID: "Hybrid", ONSITE: "On-site" }
 const EMPLOYMENT: Record<string, string> = { FULL_TIME: "Full-time", PART_TIME: "Part-time", CONTRACT: "Contract", INTERNSHIP: "Internship", FREELANCE: "Freelance" }
 
+const LEVEL: Record<string, string> = { INTERN: "Intern", ENTRY: "Entry level", MID: "Mid level", SENIOR: "Senior", LEAD: "Lead" }
 const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}` : `${m}m`)
 const gated = <T,>(g: Gated<T>, fmt: (v: T) => string) => (g ? fmt(g.value) : "-")
 const days = (d: number) => (d < 1 ? "Under a day" : `${Math.round(d)} day${Math.round(d) === 1 ? "" : "s"}`)
@@ -40,6 +43,7 @@ export function CompanyPageView({ data }: { data: CompanyPage }) {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">{c.name}</h1>
                         <div className="flex flex-wrap items-center gap-1">
+                            {data.signedIn && !data.suspended && <ReportInterviewButton prefill={{ company: { companyId: c.id, companyRequestId: null, name: c.name } }} variant="ghost" />}
                             {data.signedIn && <CompanyActions companyId={c.id} companyName={c.name} blocked={data.blocked} />}
                             <FollowButton companyId={c.id} companySlug={c.slug} initial={data.following} signedIn={data.signedIn} />
                         </div>
@@ -96,6 +100,77 @@ export function CompanyPageView({ data }: { data: CompanyPage }) {
                         </section>
                     )}
 
+                    {!data.suspended && (
+                        <section className="space-y-3" aria-label="Jobs students imported">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                                <div>
+                                    <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Jobs students imported {data.imported.length > 0 && <span className="font-normal text-neutral-500 dark:text-neutral-400">({data.imported.length})</span>}</h2>
+                                    <p className="text-sm text-neutral-600 dark:text-neutral-400">Pasted from {c.name}&apos;s postings; ShipItHQ designed the rounds from each one. Practice only.</p>
+                                </div>
+                                <Button asChild size="sm" variant="outline" className="shrink-0 gap-1.5"><Link href={`/jobs/import?company=${encodeURIComponent(c.name)}`}><ClipboardPaste className="h-4 w-4" /> Paste a {c.name} job</Link></Button>
+                            </div>
+                            {data.imported.length > 0 && (
+                                <ul className="space-y-2.5">
+                                    {data.imported.map((j) => (
+                                        <li key={j.id} className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900">
+                                            <div className="min-w-0">
+                                                <p className="flex items-center gap-1.5 font-medium text-neutral-900 dark:text-white">{j.title}{j.private && <Lock className="h-3.5 w-3.5 text-neutral-400" aria-label="Private: only you see it" />}</p>
+                                                <p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">{[j.level ? LEVEL[j.level] : null, j.location, `${j.rounds} rounds`, j.minutes ? `about ${duration(j.minutes)}` : null].filter(Boolean).join(" · ")}</p>
+                                            </div>
+                                            <Button asChild size="sm" variant="outline" className="shrink-0"><Link href={`/jobs/import/${j.id}`}>Practise</Link></Button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </section>
+                    )}
+
+                    {(data.loops.ready.length > 0 || data.loops.gathering.length > 0) && (
+                        <section className="space-y-3" aria-label="What students report">
+                            <div>
+                                <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">What students report</h2>
+                                <p className="text-sm text-neutral-600 dark:text-neutral-400">From interviews students reported at {c.name}, reviewed by ShipItHQ. Shown once a role has 3 reports from the last year; no single report is ever shown.</p>
+                            </div>
+                            {data.loops.ready.map((g) => (
+                                <div key={`${g.roleFamily}-${g.level}`} className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                        <div>
+                                            <p className="font-medium text-neutral-900 dark:text-white">{REPORT_ROLE_FAMILY_LABEL[g.roleFamily as ReportRoleFamily] ?? g.roleFamily} · {REPORT_LEVEL_LABEL[g.level as ReportLevel] ?? g.level}</p>
+                                            <p className="text-sm text-neutral-500 dark:text-neutral-400">{g.recent} {g.recent === 1 ? "report" : "reports"} in the last year{g.total > g.recent ? `, ${g.total} in all` : ""}</p>
+                                        </div>
+                                        {g.practiseHref && <Button asChild size="sm" variant="outline" className="shrink-0"><Link href={g.practiseHref}>Practise a job like this</Link></Button>}
+                                    </div>
+                                    {g.order.rounds.length > 0 && (
+                                        <p className="text-sm text-neutral-700 dark:text-neutral-300">
+                                            {g.order.rounds.map((r) => REPORT_ROUND_LABEL[r as ReportRoundType] ?? r).join(" > ")}
+                                            <span className="text-neutral-500 dark:text-neutral-400"> · in {g.order.count} of {g.order.of} reports</span>
+                                        </p>
+                                    )}
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        {g.rounds.filter((r) => r.questions.length > 0).map((r) => (
+                                            <div key={r.type} className="rounded-lg bg-neutral-50 p-3 dark:bg-neutral-950">
+                                                <p className="text-xs font-medium tracking-wide text-neutral-500 uppercase dark:text-neutral-400">{REPORT_ROUND_LABEL[r.type as ReportRoundType] ?? r.type}</p>
+                                                <ul className="mt-1.5 space-y-1">
+                                                    {r.questions.map((q) => (
+                                                        <li key={q.text} className="flex items-start justify-between gap-3 text-sm text-neutral-800 dark:text-neutral-200">
+                                                            <span>{q.text}</span>
+                                                            <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">reported {q.reported} {q.reported === 1 ? "time" : "times"}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                            {data.loops.gathering.length > 0 && (
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                                    Still gathering: {data.loops.gathering.map((g) => `${REPORT_ROLE_FAMILY_LABEL[g.roleFamily as ReportRoleFamily] ?? g.roleFamily}, ${REPORT_LEVEL_LABEL[g.level as ReportLevel] ?? g.level} (${g.recent} of 3)`).join("; ")}. Not enough reports yet to show a loop.
+                                </p>
+                            )}
+                        </section>
+                    )}
+
                     {c.description && <Block title="About" source={sources.description}><p className="whitespace-pre-line">{c.description}</p></Block>}
                     {c.techStack.length > 0 && (
                         <Block title="Stack" source={sources.techStack}>
@@ -120,6 +195,7 @@ export function CompanyPageView({ data }: { data: CompanyPage }) {
                                 { icon: Users, label: "Practising", value: gated(stats.practising, (v) => v.toLocaleString("en-IN")), hint: stats.practising ? "students" : "Too few to show" },
                                 { icon: Send, label: "Results received", value: gated(stats.sends, (v) => v.toLocaleString("en-IN")), hint: stats.sends ? undefined : "Too few to show" },
                                 { icon: Timer, label: "Answers in", value: gated(stats.answersInDays, days), hint: stats.answersInDays ? "median, send to decision" : "Too few to show" },
+                                { icon: FileText, label: "Interview reports", value: data.reportCount.toLocaleString("en-IN"), hint: "from students who interviewed here" },
                             ]}
                         />
                         <p className="text-xs text-neutral-500 dark:text-neutral-400">Numbers show only past a minimum, so a small count never points to a person.</p>

@@ -1,6 +1,6 @@
 // Hand-matched to _components/company-page.tsx: the back link, the header (logo
-// tile, name and Follow, the label, the meta line), then open roles and the
-// profile in the main column, stats and quick facts in the rail.
+// tile, name and Follow, the label, the meta line), then open roles, the jobs
+// students imported and the profile in the main column, stats and quick facts in the rail.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
 import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
@@ -40,6 +40,11 @@ export default function Loading() {
                             </div>
                         ))}
                     </div>
+                    {/* Jobs students imported: its heading and the paste button. */}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div className="space-y-1.5"><Shimmer className="h-4 w-44" /><Shimmer className="h-4 w-80 max-w-full" delay={0.04} /></div>
+                        <Shimmer className="h-8 w-40 rounded-lg" delay={0.06} />
+                    </div>
                     <div className="space-y-2">
                         <Shimmer className="h-4 w-16" />
                         <Shimmer className="h-4 w-full" delay={0.04} />
@@ -50,7 +55,7 @@ export default function Loading() {
                 <div className="space-y-6">
                     <div className="space-y-2">
                         <Shimmer className="h-4 w-12" />
-                        <StatBandSkeleton count={3} cols={1} size="sm" />
+                        <StatBandSkeleton count={4} cols={1} size="sm" />
                     </div>
                     <div className="space-y-2">
                         <Shimmer className="h-4 w-24" />

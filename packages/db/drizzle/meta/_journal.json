@@ -435,6 +435,20 @@
       "when": 1790434235602,
       "tag": "0062_imported_job_company_process",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1790435384466,
+      "tag": "0063_interview_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1790436772235,
+      "tag": "0064_interview_report_groups",
+      "breakpoints": true
     }
   ]
 }
