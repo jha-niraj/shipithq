@@ -13,7 +13,7 @@ export async function loadIncidentProgress(userId: string, slug: string): Promis
         .from(incidentProgress)
         .where(and(eq(incidentProgress.userId, userId), eq(incidentProgress.caseSlug, slug)))
 
-    const p: Progress = { fork: null, modelSeen: false, simulatorPlayed: false, predictions: {}, treeLeaf: null, checklist: [], round: {} }
+    const p: Progress = { fork: null, modelSeen: false, simulatorPlayed: false, predictions: {}, treeLeaf: null, checklist: [], round: {}, checks: {}, stepsDone: [] }
     for (const r of rows) {
         if (r.kind === "fork") p.fork = r.value
         else if (r.kind === "model") p.modelSeen = true
@@ -22,6 +22,10 @@ export async function loadIncidentProgress(userId: string, slug: string): Promis
         else if (r.kind === "round" && r.value) p.round[r.itemId] = r.value
         else if (r.kind === "tree") p.treeLeaf = r.value
         else if (r.kind === "checklist") p.checklist.push(r.itemId)
+        else if (r.kind === "step") p.stepsDone.push(r.itemId)
+        else if (r.kind === "check" && r.value) {
+            try { p.checks[r.itemId] = JSON.parse(r.value) } catch { /* a malformed row is skipped */ }
+        }
     }
     return p
 }

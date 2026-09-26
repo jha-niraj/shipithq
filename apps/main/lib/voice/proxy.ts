@@ -15,7 +15,7 @@ const err = (status: number, error: string): ProxyReply => ({ status, body: JSON
 
 /** "mock:<id>" or "round:<id>", as the client sends it in X-Voice-Session. */
 export function parseVoiceRef(header: string | null): VoiceRef | null {
-    const m = /^(mock|round|standup):([a-z0-9-]{10,40})$/.exec((header ?? "").trim())
+    const m = /^(mock|round|standup|incident):([a-z0-9-]{10,40})$/.exec((header ?? "").trim())
     return m ? { kind: m[1] as VoiceRef["kind"], id: m[2]! } : null
 }
 

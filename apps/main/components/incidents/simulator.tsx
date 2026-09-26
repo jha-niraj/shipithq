@@ -122,7 +122,7 @@ const SEG: Record<LaneState, string> = {
     run: "inc-running bg-white text-neutral-950",
     idle: "border border-dashed border-white/20 text-neutral-400",
     background: "bg-white/10 text-neutral-300",
-    done: "bg-emerald-400/20 text-emerald-300",
+    done: "bg-white/25 text-white",
     dead: "bg-rose-500/20 text-rose-300",
     never: "border border-dashed border-rose-400/50 text-rose-300",
 }
@@ -249,7 +249,7 @@ function Meter({ run, t }: { run: SimRun; t: number }) {
 // ── The verdict ────────────────────────────────────────────────────────────
 
 const VERDICT = {
-    completes: { icon: CheckCircle2, tone: "text-emerald-300", ring: "ring-emerald-400/30 bg-emerald-400/[0.06]" },
+    completes: { icon: CheckCircle2, tone: "text-white", ring: "ring-white/25 bg-white/[0.06]" },
     killed: { icon: XCircle, tone: "text-rose-300", ring: "ring-rose-400/30 bg-rose-500/[0.06]" },
     evicted: { icon: XCircle, tone: "text-rose-300", ring: "ring-rose-400/30 bg-rose-500/[0.06]" },
     "never-runs": { icon: Ban, tone: "text-rose-300", ring: "ring-rose-400/30 bg-rose-500/[0.06]" },

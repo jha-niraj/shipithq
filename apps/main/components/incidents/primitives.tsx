@@ -119,22 +119,6 @@ export function Sources({ refs, dark = false, className }: { refs: SourceRef[]; 
     )
 }
 
-/** A numbered section of the case, anchored for the progress rail and sign-in returns. */
-export function Section({ id, n, eyebrow, title, intro, children }: { id: string; n: number; eyebrow: string; title: string; intro?: string; children: ReactNode }) {
-    return (
-        <section id={id} data-part={id} className="scroll-mt-16 border-t border-neutral-200 pb-20 pt-14 first:border-t-0 first:pt-0 dark:border-neutral-800">
-            <Reveal className="max-w-[44rem]">
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
-                    {String(n).padStart(2, "0")} · {eyebrow}
-                </p>
-                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900 sm:text-[2rem] dark:text-white">{title}</h2>
-                {intro && <p className="mt-3 text-[16px] leading-7 text-neutral-600 dark:text-neutral-400"><Inline text={intro} /></p>}
-            </Reveal>
-            <div className="mt-10">{children}</div>
-        </section>
-    )
-}
-
 // ── XP ──────────────────────────────────────────────────────────────────────
 
 /** "+10 XP" that rises and fades from where it was earned. */
@@ -150,7 +134,7 @@ export function XpPop({ amount, show }: { amount: number; show: boolean }) {
                     animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.4, ease: EASE }}
-                    className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 font-mono text-[11px] font-medium text-white"
+                    className="inline-flex items-center rounded-full bg-neutral-900 dark:bg-white px-2 py-0.5 font-mono text-[11px] font-medium text-white"
                 >
                     +{amount} XP
                 </motion.span>

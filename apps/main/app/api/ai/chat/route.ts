@@ -6,6 +6,7 @@ import { db, users } from "@repo/db";
 import type { AssistantChatAction, AssistantChatAttachment, AssistantChatStep } from "@repo/db/assistant";
 import { eq } from "drizzle-orm";
 import { openai } from "@/lib/openai-client";
+import { incidentBrief } from "@/lib/incidents/brief";
 import { TOOL_SPECS, WRITE_TOOLS, runTool } from "@/lib/ai/tools";
 import { encodeFrame, type ChatFrame } from "@/lib/ai/protocol";
 import {
@@ -190,6 +191,14 @@ function systemPrompt(ctx: {
             "The user has attached these to the conversation - treat them as what the question is about, and use your tools to look them up:",
             ...ctx.tags.map((t) => `- ${t.kind}: "${t.title}"`),
         );
+    }
+    // An Incidents case is public teaching material, not user data, and there is no
+    // tool for it, so its brief goes in directly (plan/incidents INC-18): the reader can
+    // ask about what they are reading and get an answer grounded in the case.
+    const incident = ctx.tags?.find((t) => t.kind === "incident")
+    if (incident) {
+        const brief = incidentBrief(incident.id.split("#")[0] ?? "")
+        if (brief) lines.push("", brief)
     }
     return lines.join("\n");
 }

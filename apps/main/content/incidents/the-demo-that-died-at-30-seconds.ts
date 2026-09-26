@@ -1,5 +1,6 @@
 import type { IncidentCase, SimLane, SimRun, SimValues, SourceRef } from "./types"
 import { getIncidentMeta } from "./index"
+import { DEMO_CHAPTERS, DEMO_GLOSSARY } from "./the-demo-chapters"
 
 /**
  * Case one (plan/incidents/overview.md, "The first case").
@@ -581,6 +582,21 @@ export const demoThatDiedAt30Seconds: IncidentCase = {
             ] },
         ],
         sources: [SW("What survives what"), SW("Environment variables do not reach a background job"), SW("What bites after the fix ships"), WFP("The distinction everything turns on"), SW("How to prove a fix worked")],
+    },
+
+    chapters: DEMO_CHAPTERS,
+    glossary: DEMO_GLOSSARY,
+
+    mock: {
+        role: "the incident lead running this case's postmortem",
+        opening: "We lost the demo in front of the client. Walk me through what happened, in your own words.",
+        probe: [
+            "which of the three 30-second limits it actually was, if any, and how you would tell them apart",
+            "why nothing was written to the database when the work stopped",
+            "what you would change, and what that change does not fix",
+            "how you would prove the fix works before the next demo",
+        ],
+        minutes: 8,
     },
 
     checklist: [

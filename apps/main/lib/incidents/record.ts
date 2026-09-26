@@ -5,6 +5,8 @@ import { INCIDENT_BADGES } from "@/content/incidents/badges"
 import { factsFrom, progressRows } from "./stats"
 import { getIncidentCase } from "@/content/incidents/cases"
 import { INCIDENT_XP } from "@/content/incidents"
+import { stepsFor } from "@/content/incidents/steps"
+import { grade, isAnswered, type QuizResponse } from "@repo/ui/lib/quiz"
 import { addXpToUser } from "@/actions/(main)/user/level.action"
 
 /**
@@ -23,6 +25,10 @@ export type ProgressInput =
     | { slug: string; kind: "tree"; value: string }
     | { slug: string; kind: "checklist"; itemId: string; checked: boolean }
     | { slug: string; kind: "model" | "simulator" }
+    /** One question of a chapter's check (INC-19): graded here with the shared quiz rules. */
+    | { slug: string; kind: "check"; chapter: string; questionId: string; response: QuizResponse }
+    /** "Got it, continue" on a step (INC-20). */
+    | { slug: string; kind: "step"; stepKey: string }
 
 export type ProgressResult =
     | { success: true; xpEarned: number; levelUps: { level: number; title: string }[]; badges: { key: string; title: string }[] }
@@ -81,6 +87,17 @@ export async function recordProgressFor(userId: string, input: ProgressInput): P
             case "simulator":
                 row = { kind: input.kind, itemId: input.kind }
                 break
+            case "check": {
+                const q = c.chapters?.find((ch) => ch.id === input.chapter)?.check?.find((x) => x.id === input.questionId)
+                if (!q || !isAnswered(q, input.response)) return { success: false, error: "Unknown answer." }
+                row = { kind: "check", itemId: `${input.chapter}:${q.id}`, value: JSON.stringify(input.response).slice(0, 4000), correct: grade(q, input.response) }
+                break
+            }
+            case "step": {
+                if (!stepsFor(c).some((s) => s.key === input.stepKey)) return { success: false, error: "Unknown step." }
+                row = { kind: "step", itemId: input.stepKey }
+                break
+            }
         }
 
         const inserted = await insertOnce(userId, c.slug, row)
@@ -95,6 +112,10 @@ export async function recordProgressFor(userId: string, input: ProgressInput): P
             await db.update(incidentProgress).set({ xpAwarded: amount }).where(eq(incidentProgress.id, id))
             xpEarned += amount
             if ("levelUps" in r && r.levelUps) levelUps.push(...r.levelUps.map((l) => ({ level: l.level, title: l.title })))
+        }
+
+        if (inserted && row.kind === "check" && row.correct) {
+            await award(inserted, INCIDENT_XP.prediction, `${c.title}, a first-try check`)
         }
 
         if (inserted && row.kind === "prediction" && row.correct) {

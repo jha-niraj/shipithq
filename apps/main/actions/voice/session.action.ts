@@ -22,7 +22,7 @@ export interface LiveVoiceConfig {
 }
 
 function validRef(ref: VoiceRef): ref is VoiceRef {
-    return Boolean(ref) && (ref.kind === "mock" || ref.kind === "round" || ref.kind === "standup") && typeof ref.id === "string" && /^[a-z0-9-]{10,40}$/.test(ref.id)
+    return Boolean(ref) && (ref.kind === "mock" || ref.kind === "round" || ref.kind === "standup" || ref.kind === "incident") && typeof ref.id === "string" && /^[a-z0-9-]{10,40}$/.test(ref.id)
 }
 
 async function owned(ref: VoiceRef) {

@@ -96,7 +96,7 @@ export function Round() {
             <div className="mt-6 flex gap-1.5" aria-hidden>
                 {c.round.map((r, i) => {
                     const a = progress.round[r.id]
-                    return <span key={r.id} className={cn("h-1.5 flex-1 rounded-full transition-colors duration-300", a === undefined ? (i === index ? "bg-neutral-400 dark:bg-neutral-600" : "bg-neutral-200 dark:bg-neutral-800") : a === r.answer ? "bg-emerald-500" : "bg-rose-400")} />
+                    return <span key={r.id} className={cn("h-1.5 flex-1 rounded-full transition-colors duration-300", a === undefined ? (i === index ? "bg-neutral-400 dark:bg-neutral-600" : "bg-neutral-200 dark:bg-neutral-800") : a === r.answer ? "bg-neutral-900 dark:bg-white" : "bg-rose-400")} />
                 })}
             </div>
 
@@ -127,7 +127,7 @@ export function Round() {
                                             className={cn(
                                                 "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-[14.5px] leading-6 transition-[background-color,border-color,opacity] duration-200",
                                                 picked === undefined && "border-white/15 hover:border-white/50",
-                                                isAnswer && "border-emerald-400/60 bg-emerald-400/10 text-emerald-200",
+                                                isAnswer && "border-white/60 bg-white/10 text-white",
                                                 isPick && !isAnswer && "border-rose-400/60 bg-rose-500/10 text-rose-200",
                                                 picked !== undefined && !isAnswer && !isPick && "border-white/10 opacity-40",
                                             )}
@@ -166,7 +166,7 @@ export function Round() {
                         >
                             <div className="flex items-center justify-between gap-3">
                                 <p className="flex items-center gap-2 text-xl font-semibold tracking-tight text-neutral-900 dark:text-white">
-                                    <Trophy className={cn("size-5", perfect ? "text-emerald-600" : "text-neutral-400")} aria-hidden />
+                                    <Trophy className={cn("size-5", perfect ? "text-neutral-900 dark:text-white" : "text-neutral-400")} aria-hidden />
                                     {derived.roundRight} of {c.round.length}{perfect ? ": a perfect round" : ""}
                                 </p>
                                 <XpPop amount={INCIDENT_XP.perfectRound} show={earned} />
@@ -176,7 +176,7 @@ export function Round() {
                                     const ok = progress.round[r.id] === r.answer
                                     return (
                                         <li key={r.id} className="flex items-start gap-3 text-[14px] leading-6">
-                                            <span className={cn("mt-1 flex size-4 shrink-0 items-center justify-center rounded-full text-white", ok ? "bg-emerald-500" : "bg-rose-400")}>
+                                            <span className={cn("mt-1 flex size-4 shrink-0 items-center justify-center rounded-full text-white", ok ? "bg-neutral-900 dark:bg-white" : "bg-rose-400")}>
                                                 {ok ? <Check className="size-2.5" aria-hidden /> : <X className="size-2.5" aria-hidden />}
                                             </span>
                                             <span className="text-neutral-700 dark:text-neutral-300"><Inline text={r.symptom} /></span>
@@ -209,7 +209,7 @@ export function Closing() {
             </div>
             <Reveal delay={400} className="mt-12 flex flex-wrap items-center gap-3">
                 {derived.complete && (
-                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-neutral-900 dark:bg-white px-3 py-1.5 text-sm font-medium text-white">
                         <Check className="size-4" aria-hidden /> Case complete · +{INCIDENT_XP.completion} XP
                     </span>
                 )}

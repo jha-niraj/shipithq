@@ -5,6 +5,7 @@ import toast from "@repo/ui/components/ui/sonner"
 import { recordIncidentProgress } from "@/actions/(main)/incidents/incidents.action"
 import type { ProgressInput } from "@/lib/incidents/record"
 import type { IncidentCase } from "@/content/incidents/types"
+import type { QuizResponse } from "@repo/ui/lib/quiz"
 
 /**
  * A reader's progress through one case (plan/incidents INC-3, INC-4). The page loads
@@ -25,6 +26,10 @@ export type Progress = {
     treeLeaf: string | null
     checklist: string[]
     round: Record<string, string>
+    /** A chapter check's answers, by "chapter:question" (INC-19). */
+    checks: Record<string, QuizResponse>
+    /** Steps the reader marked done with "Got it, continue" (INC-20). */
+    stepsDone: string[]
 }
 
 type Action =
@@ -36,9 +41,11 @@ type Action =
     | { type: "check"; item: string }
     | { type: "round"; item: string; option: string }
     | { type: "roundReset" }
+    | { type: "quiz"; chapter: string; questionId: string; response: QuizResponse }
+    | { type: "stepDone"; stepKey: string }
 
 export const EMPTY_PROGRESS: Progress = {
-    fork: null, modelSeen: false, simulatorPlayed: false, predictions: {}, treeLeaf: null, checklist: [], round: {},
+    fork: null, modelSeen: false, simulatorPlayed: false, predictions: {}, treeLeaf: null, checklist: [], round: {}, checks: {}, stepsDone: [],
 }
 
 function reduce(s: Progress, a: Action): Progress {
@@ -54,6 +61,11 @@ function reduce(s: Progress, a: Action): Progress {
         }
         case "round": return a.item in s.round ? s : { ...s, round: { ...s.round, [a.item]: a.option } }
         case "roundReset": return { ...s, round: {} }
+        case "quiz": {
+            const k = `${a.chapter}:${a.questionId}`
+            return k in s.checks ? s : { ...s, checks: { ...s.checks, [k]: a.response } }
+        }
+        case "stepDone": return s.stepsDone.includes(a.stepKey) ? s : { ...s, stepsDone: [...s.stepsDone, a.stepKey] }
     }
 }
 
@@ -100,6 +112,8 @@ function toInput(slug: string, s: Progress, a: Action): ProgressInput | null {
         case "treeLeaf": return a.leaf && a.leaf !== s.treeLeaf ? { slug, kind: "tree", value: a.leaf } : null
         case "check": return { slug, kind: "checklist", itemId: a.item, checked: !s.checklist.includes(a.item) }
         case "roundReset": return null
+        case "quiz": return `${a.chapter}:${a.questionId}` in s.checks ? null : { slug, kind: "check", chapter: a.chapter, questionId: a.questionId, response: a.response }
+        case "stepDone": return s.stepsDone.includes(a.stepKey) ? null : { slug, kind: "step", stepKey: a.stepKey }
     }
 }
 

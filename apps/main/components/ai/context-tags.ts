@@ -24,7 +24,7 @@ import { useEffect, useSyncExternalStore } from "react"
 // subscription and nothing in between.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ContextTagKind = "project" | "goal" | "resume" | "problem" | "mock"
+export type ContextTagKind = "project" | "goal" | "resume" | "problem" | "mock" | "incident"
 
 export interface ContextTag {
     id: string

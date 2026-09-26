@@ -1,7 +1,7 @@
 import "server-only"
 import { and, eq, sql } from "drizzle-orm"
 import {
-    db, companies, hiringAttempts, hiringRuns, interviewRounds, jobs, mockInterviewVoice, mockVoiceSession, users,
+    db, companies, hiringAttempts, hiringRuns, interviewRounds, jobs, mockInterviewVoice, mockVoiceSession, users, incidentMockSessions,
     projectsV2, projectV2StandupConfigs, projectV2StandupEntries,
     type VoiceMode, type VoiceTurn,
 } from "@repo/db"
@@ -10,11 +10,12 @@ import {
  * A voice interview, whichever product it belongs to (plan/voice VO-5): a mock
  * session (`mock_voice_session`), a hiring voice round attempt
  * (`hiring_attempt`, its fields kept in `responses`), or a project's daily
- * standup (`project_v2_standup_entry`, VO-12). Server-only: these take
+ * standup (`project_v2_standup_entry`, VO-12), or an Incidents talk-it-through
+ * (`incident_mock_session`, plan/incidents INC-15). Server-only: these take
  * ids the caller has not yet checked, and check ownership themselves.
  */
 
-export type VoiceRef = { kind: "mock" | "round" | "standup"; id: string }
+export type VoiceRef = { kind: "mock" | "round" | "standup" | "incident"; id: string }
 
 /** Signed session URLs one interview may use: each is single-use, and a dropped call needs a new one. */
 export const SIGNED_URLS_PER_SESSION = 3
@@ -68,6 +69,17 @@ export async function loadVoiceSession(userId: string, ref: VoiceRef): Promise<V
             allows: { voice: true, typed: true },
         }
     }
+    if (ref.kind === "incident") {
+        const s = await db.query.incidentMockSessions.findFirst({ where: and(eq(incidentMockSessions.id, ref.id), eq(incidentMockSessions.userId, userId)) })
+        if (!s) return null
+        return {
+            ref, userId,
+            live: ["SCHEDULED", "IN_PROGRESS"].includes(s.status) && (!s.endsAt || s.endsAt.getTime() > now),
+            endsAt: s.endsAt, mode: s.mode, interactionId: s.interactionId, consentedAt: s.consentedAt,
+            turns: s.turns, signedUrlCount: s.signedUrlCount,
+            allows: { voice: true, typed: true },
+        }
+    }
     if (ref.kind === "standup") {
         const [row] = await db.select({ e: projectV2StandupEntries }).from(projectV2StandupEntries)
             .innerJoin(projectV2StandupConfigs, eq(projectV2StandupConfigs.id, projectV2StandupEntries.configId))
@@ -106,6 +118,11 @@ export async function recordConsent(s: VoiceSession, input: { text: string; mode
             .where(eq(mockVoiceSession.id, s.ref.id))
         return true
     }
+    if (s.ref.kind === "incident") {
+        await db.update(incidentMockSessions).set({ consentText: input.text, consentedAt: at, mode: input.mode, status: "IN_PROGRESS", startedAt: sql`coalesce(${incidentMockSessions.startedAt}, now())` })
+            .where(eq(incidentMockSessions.id, s.ref.id))
+        return true
+    }
     if (s.ref.kind === "standup") {
         // The standup's clock starts here: its configured length, plus two minutes to connect.
         const [cfg] = await db.select({ minutes: projectV2StandupConfigs.durationMinutes }).from(projectV2StandupEntries)
@@ -131,6 +148,12 @@ export async function takeSignedUrl(s: VoiceSession): Promise<boolean> {
             .returning({ id: mockVoiceSession.id })
         return Boolean(ok)
     }
+    if (s.ref.kind === "incident") {
+        const [ok] = await db.update(incidentMockSessions).set({ signedUrlCount: sql`${incidentMockSessions.signedUrlCount} + 1` })
+            .where(and(eq(incidentMockSessions.id, s.ref.id), sql`${incidentMockSessions.signedUrlCount} < ${SIGNED_URLS_PER_SESSION}`))
+            .returning({ id: incidentMockSessions.id })
+        return Boolean(ok)
+    }
     if (s.ref.kind === "standup") {
         const [ok] = await db.update(projectV2StandupEntries).set({ signedUrlCount: sql`${projectV2StandupEntries.signedUrlCount} + 1` })
             .where(and(eq(projectV2StandupEntries.id, s.ref.id), sql`${projectV2StandupEntries.signedUrlCount} < ${SIGNED_URLS_PER_SESSION}`))
@@ -153,6 +176,10 @@ export async function setInteraction(s: VoiceSession, interactionId: string): Pr
     const id = interactionId.slice(0, 200)
     if (s.ref.kind === "mock") {
         await db.update(mockVoiceSession).set({ interactionId: id }).where(eq(mockVoiceSession.id, s.ref.id))
+        return
+    }
+    if (s.ref.kind === "incident") {
+        await db.update(incidentMockSessions).set({ interactionId: id }).where(eq(incidentMockSessions.id, s.ref.id))
         return
     }
     if (s.ref.kind === "standup") {
@@ -183,6 +210,10 @@ export async function saveTurns(s: VoiceSession, turns: VoiceTurn[]): Promise<vo
         await db.update(mockVoiceSession).set({ turns: clean }).where(eq(mockVoiceSession.id, s.ref.id))
         return
     }
+    if (s.ref.kind === "incident") {
+        await db.update(incidentMockSessions).set({ turns: clean }).where(eq(incidentMockSessions.id, s.ref.id))
+        return
+    }
     if (s.ref.kind === "standup") {
         await db.update(projectV2StandupEntries).set({ turns: clean }).where(eq(projectV2StandupEntries.id, s.ref.id))
         return
@@ -195,6 +226,8 @@ export interface InterviewBrief {
     /** Sent to the agent as its input variables (VO-6). */
     variables: { interview_brief: string; role: string; candidate_name: string; question_count: string; duration_minutes: string }
     title: string
+    /** "incident": an Incidents talk-it-through, where the other side is a colleague, not an interviewer (plan/incidents INC-15). */
+    persona?: "interviewer" | "incident"
 }
 
 /** What the interviewer is told, built on the server so the browser can't choose it. */
@@ -216,6 +249,23 @@ export async function interviewBrief(s: VoiceSession): Promise<InterviewBrief | 
                 candidate_name: candidate,
                 question_count: String(row.count),
                 duration_minutes: String(row.duration),
+            },
+        }
+    }
+    if (s.ref.kind === "incident") {
+        // Built when the session was opened (actions/(main)/incidents/mock.action.ts).
+        const row = await db.query.incidentMockSessions.findFirst({ where: eq(incidentMockSessions.id, s.ref.id), columns: { variables: true } })
+        const v = row?.variables ?? {}
+        if (!v.interview_brief) return null
+        return {
+            persona: "incident",
+            title: v.title ?? "Talk it through",
+            variables: {
+                interview_brief: v.interview_brief.slice(0, 8000),
+                role: v.role ?? "Engineer",
+                candidate_name: candidate,
+                question_count: v.question_count ?? "4",
+                duration_minutes: v.duration_minutes ?? "8",
             },
         }
     }
