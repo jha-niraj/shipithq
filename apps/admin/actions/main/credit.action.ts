@@ -27,7 +27,7 @@ type PublicUserBasic = { id: string; name: string | null; email: string }
 
 // Get all credit transactions
 export async function getAllTransactions(filters?: TransactionFilters, pagination?: PaginationParams): Promise<AdminResponse<{
-    transactions: Array<typeof creditTransactions.$inferSelect & { user: PublicUser | undefined }>
+    transactions: Array<typeof creditTransactions.$inferSelect & { user: PublicUser | null | undefined }>
     total: number
     pages: number
 }>> {
@@ -90,7 +90,7 @@ export async function getAllTransactions(filters?: TransactionFilters, paginatio
 
 // Get credit requests
 export async function getCreditRequests(status?: string, pagination?: PaginationParams, search?: string): Promise<AdminResponse<{
-    requests: Array<typeof creditRequests.$inferSelect & { user: PublicUser | undefined }>
+    requests: Array<typeof creditRequests.$inferSelect & { user: PublicUser | null | undefined }>
     total: number
     pages: number
 }>> {
@@ -167,6 +167,10 @@ export async function approveCreditRequest(requestId: string, amount: number): P
         if (!request) {
             return { success: false, error: "Request not found" }
         }
+        // The account was deleted since the request was made (its user id is set null).
+        if (!request.userId) {
+            return { success: false, error: "This user deleted their account." }
+        }
 
         // Update user credits
         await db.update(users)
@@ -241,7 +245,7 @@ export async function rejectCreditRequest(requestId: string, reason: string): Pr
 
 // Get payments
 export async function getPayments(filters?: PaymentFilters, pagination?: PaginationParams): Promise<AdminResponse<{
-    payments: Array<typeof payments.$inferSelect & { user: PublicUserBasic | undefined }>
+    payments: Array<typeof payments.$inferSelect & { user: PublicUserBasic | null | undefined }>
     total: number
     pages: number
 }>> {

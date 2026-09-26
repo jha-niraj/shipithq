@@ -11,7 +11,7 @@ import { CreditRequestStatus } from "@repo/db"
 
 export interface CreditRequests {
     id: string
-    userId: string
+    userId: string | null
     requestedCredits: number
     status: CreditRequestStatus
     createdAt: Date
@@ -23,7 +23,7 @@ export interface CreditRequests {
         name: string | null
         email: string
         image?: string | null
-    } | undefined
+    } | null | undefined
 }
 
 export function RequestsClient({

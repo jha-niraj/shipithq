@@ -17,7 +17,7 @@ import type { CreditType, Currency } from "@repo/db"
 
 export interface Transaction {
     id: string
-    userId: string
+    userId: string | null
     amount: number
     type: CreditType
     description: string
@@ -28,12 +28,12 @@ export interface Transaction {
         name: string | null
         email: string
         image: string | null
-    } | undefined
+    } | null | undefined
 }
 
 export interface CreditRequest {
     id: string
-    userId: string
+    userId: string | null
     requestedCredits: number
     linkedinPostUrl: string
     status: "PENDING" | "APPROVED" | "REJECTED"
@@ -43,7 +43,7 @@ export interface CreditRequest {
         name: string | null
         email: string
         image: string | null
-    } | undefined
+    } | null | undefined
 }
 
 interface Stats {

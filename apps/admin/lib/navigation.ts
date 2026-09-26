@@ -1,7 +1,8 @@
 import {
+    FileSearch,
     LayoutDashboard, Users, CreditCard, MessageCircle, BarChart3, Settings,
     Shield, FileText, type LucideIcon, Coins, Receipt, UserCheck, Activity,
-    Lock, Building2, GraduationCap, Briefcase, School, Mail,
+    Lock, Building2, GraduationCap, Briefcase, School, Mail, Flag,
 } from "lucide-react"
 import { isSuperAdminRole } from "./role-labels"
 
@@ -121,7 +122,11 @@ export const adminNavigation: NavigationConfig = {
 export const hiringModuleNav: NavigationItem[] = [
     { name: "Overview", path: "hiring", icon: Briefcase },
     { name: "Companies", path: "hiring/companies", icon: Building2 },
+    // Unclaimed pages read from a company's own site (plan/hiring-rounds HR-6).
+    { name: "Company drafts", path: "hiring/companies/drafts", icon: FileSearch },
     { name: "Verification", path: "hiring/companies/verification", icon: Shield },
+    // Reports on companies, jobs, messages and students (plan/hiring-rounds HR-24).
+    { name: "Reports", path: "hiring/reports", icon: Flag },
 ]
 
 export const universityModuleNav: NavigationItem[] = [

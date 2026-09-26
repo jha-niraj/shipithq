@@ -12,7 +12,7 @@ import { CreditType } from "@repo/db"
 
 export interface Transactions {
     id: string
-    userId: string
+    userId: string | null
     amount: number
     createdAt: Date
     description: string
@@ -22,7 +22,7 @@ export interface Transactions {
         name: string | null
         email: string
         image?: string | null
-    } | undefined
+    } | null | undefined
 }
 
 function getTypeBadge(type: string) {

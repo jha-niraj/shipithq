@@ -16,6 +16,8 @@ import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { verifyCompany, rejectCompanyVerification } from "@/actions/hiring/hiring.action"
 import { useSession } from "@repo/auth/client"
+import type { ClaimRow } from "@/actions/hiring/claims.action"
+import { ClaimsSection } from "./claims-section"
 
 export interface Company {
     id: string
@@ -218,10 +220,13 @@ function CompanyCard({ company, onApprove, onReject, isLoading }: CompanyCardPro
 export function VerificationClient({
     initialCompanies,
     initialStats,
+    initialClaims,
 }: {
     initialCompanies: Company[]
     initialStats: Stats
+    initialClaims: ClaimRow[]
 }) {
+    const [claims, setClaims] = useState<ClaimRow[]>(initialClaims)
     const { data: session } = useSession()
     const [companies, setCompanies] = useState<Company[]>(initialCompanies)
     const [stats, setStats] = useState<Stats>(initialStats)
@@ -234,7 +239,7 @@ export function VerificationClient({
         }
         setActionLoading(id)
         try {
-            const result = await verifyCompany(id, session.user.id)
+            const result = await verifyCompany(id)
             if (result.success) {
                 setCompanies((prev) => prev.filter((c) => c.id !== id))
                 setStats((prev) => ({ ...prev, pending: prev.pending - 1, verified: prev.verified + 1 }))
@@ -258,7 +263,7 @@ export function VerificationClient({
         setActionLoading(id)
         try {
             // `reason` used to be dropped here - the function only took (id, adminId).
-            const result = await rejectCompanyVerification(id, session.user.id, reason)
+            const result = await rejectCompanyVerification(id, reason)
             if (result.success) {
                 setCompanies((prev) => prev.filter((c) => c.id !== id))
                 setStats((prev) => ({ ...prev, pending: prev.pending - 1, rejected: prev.rejected + 1 }))
@@ -285,19 +290,31 @@ export function VerificationClient({
                     <div className="w-3 h-8 rounded-full bg-neutral-900" />
                     <div>
                         <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">Company Verification</h1>
-                        <p className="text-neutral-500 dark:text-neutral-400">Review and verify pending company registrations</p>
+                        <p className="text-neutral-500 dark:text-neutral-400">Claims on unclaimed company pages, and new company sign-ups waiting for verification</p>
                     </div>
                 </div>
             </div>
             <StatBand
                 className="mb-8"
-                cols={3}
+                cols={4}
                 items={[
-                    { icon: Clock, label: "Pending Review", value: stats.pending },
+                    { icon: Users, label: "Claims waiting", value: claims.length },
+                    { icon: Clock, label: "Sign-ups waiting", value: stats.pending },
                     { icon: CheckCircle, label: "Approved", value: stats.verified },
                     { icon: XCircle, label: "Rejected", value: stats.rejected, tone: "rose" },
                 ]}
             />
+            <ClaimsSection
+                claims={claims}
+                onDecided={(id, kind) => {
+                    setClaims((prev) => prev.filter((c) => c.id !== id))
+                    if (kind === "approved") setStats((prev) => ({ ...prev, verified: prev.verified + 1 }))
+                }}
+            />
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">New company sign-ups</h2>
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">{companies.length} waiting</span>
+            </div>
             {companies.length > 0 ? (
                 <div className="space-y-4">
                     {companies.map((company) => (

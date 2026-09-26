@@ -9,8 +9,8 @@ import { logAdminAudit } from "@/lib/audit-log"
 
 interface FeedbackFilters {
     search?: string
-    category?: "all" | "BUG" | "FEATURE" | "UI" | "OTHER"
-    status?: "all" | "UNDER_REVIEW" | "PLANNED" | "COMPLETED"
+    category?: "all" | "BUG" | "FEATURE" | "UI" | "OTHER" | "CONTENT" | "IMPROVEMENT"
+    status?: "all" | "UNDER_REVIEW" | "PLANNED" | "IN_PROGRESS" | "COMPLETED"
 }
 
 interface PaginationParams {
@@ -99,10 +99,83 @@ export async function getAllFeedback(
     }
 }
 
+/**
+ * Show or hide an idea on the public boards, shipithq.com/ideas and the app's /ideas
+ * (plan/web/revamp REV-43). Hiding keeps the row and its votes; bug reports are
+ * created hidden and should stay so.
+ */
+export async function setFeedbackVisibility(
+    feedbackId: string,
+    isPublic: boolean,
+): Promise<AdminResponse<null>> {
+    try {
+        const accessCheck = await checkModuleAccess("feedback", "write")
+        if (!accessCheck.authorized) return { success: false, error: accessCheck.error }
+
+        await db.update(feedbacks).set({ isPublic }).where(eq(feedbacks.id, feedbackId))
+
+        await logAdminAudit({
+            adminId: accessCheck.adminAccess.id,
+            action: "UPDATE",
+            module: "feedback",
+            resourceType: "Feedback",
+            resourceId: feedbackId,
+            description: `${isPublic ? "Showed" : "Hid"} feedback on the public Ideas board`,
+        })
+
+        revalidatePath("/feedback")
+        return { success: true, data: null }
+    } catch (error: unknown) {
+        console.error("Set feedback visibility error:", error)
+        return { success: false, error: "Failed to change visibility" }
+    }
+}
+
+/**
+ * The public side of an idea (plan/ideas IDEA-4): a Team update shown on its page on
+ * the web and in the app, and where the shipped work is described (usually a
+ * /changelog anchor). Empty strings clear them.
+ */
+export async function setIdeaPublicInfo(
+    feedbackId: string,
+    input: { teamUpdate: string; shippedHref: string },
+): Promise<AdminResponse<null>> {
+    try {
+        const accessCheck = await checkModuleAccess("feedback", "write")
+        if (!accessCheck.authorized) return { success: false, error: accessCheck.error }
+
+        const teamUpdate = input.teamUpdate.trim()
+        const shippedHref = input.shippedHref.trim()
+        if (teamUpdate.length > 1500) return { success: false, error: "Keep the update under 1,500 characters" }
+        if (shippedHref && !/^(\/[^/\\]|https:\/\/)/.test(shippedHref)) {
+            return { success: false, error: "Use a site path like /changelog#2026-09 or an https link" }
+        }
+
+        await db.update(feedbacks)
+            .set({ teamUpdate: teamUpdate || null, shippedHref: shippedHref || null })
+            .where(eq(feedbacks.id, feedbackId))
+
+        await logAdminAudit({
+            adminId: accessCheck.adminAccess.id,
+            action: "UPDATE",
+            module: "feedback",
+            resourceType: "Feedback",
+            resourceId: feedbackId,
+            description: "Updated the idea's public team update / shipped link",
+        })
+
+        revalidatePath("/feedback")
+        return { success: true, data: null }
+    } catch (error: unknown) {
+        console.error("Set idea public info error:", error)
+        return { success: false, error: "Failed to save" }
+    }
+}
+
 // Update feedback status
 export async function updateFeedbackStatus(
     feedbackId: string,
-    status: "UNDER_REVIEW" | "PLANNED" | "COMPLETED"
+    status: "UNDER_REVIEW" | "PLANNED" | "IN_PROGRESS" | "COMPLETED"
 ): Promise<AdminResponse<typeof feedbacks.$inferSelect | undefined>> {
     try {
         const accessCheck = await checkModuleAccess("feedback", "write")
@@ -110,8 +183,15 @@ export async function updateFeedbackStatus(
 
         const adminRecord = accessCheck.adminAccess
 
+        // Each stage's timestamp is set the first time the idea reaches it, and never
+        // moved after, so the public timeline keeps its history (plan/ideas IDEA-4).
         const [feedback] = await db.update(feedbacks)
-            .set({ status })
+            .set({
+                status,
+                ...(status === "PLANNED" && { plannedAt: sql`coalesce(${feedbacks.plannedAt}, now())` }),
+                ...(status === "IN_PROGRESS" && { startedAt: sql`coalesce(${feedbacks.startedAt}, now())` }),
+                ...(status === "COMPLETED" && { shippedAt: sql`coalesce(${feedbacks.shippedAt}, now())` }),
+            })
             .where(eq(feedbacks.id, feedbackId))
             .returning()
 

@@ -1,7 +1,7 @@
 "use server"
 
 import { db, companies, companyMembers, memberInvitations, jobs, jobApplications } from "@repo/db"
-import { eq, count } from "drizzle-orm"
+import { and, eq, count } from "drizzle-orm"
 import { logAdminAudit } from "@/lib/audit-log"
 import { checkModuleAccess } from "@/lib/module-access"
 import type { PermissionLevel } from "@/lib/navigation"
@@ -56,7 +56,8 @@ export async function getHiringDashboardStats(): Promise<{
         ] = await Promise.all([
             db.select({ totalCompanies: count() }).from(companies),
             db.select({ verifiedCompanies: count() }).from(companies).where(eq(companies.verificationStatus, "VERIFIED")),
-            db.select({ pendingVerifications: count() }).from(companies).where(eq(companies.verificationStatus, "PENDING")),
+            // Only claimed companies wait on verification; unclaimed pages and claims are counted apart (HR-6, HR-8).
+            db.select({ pendingVerifications: count() }).from(companies).where(and(eq(companies.verificationStatus, "PENDING"), eq(companies.claimStatus, "CLAIMED"))),
             db.select({ rejectedVerifications: count() }).from(companies).where(eq(companies.verificationStatus, "REJECTED")),
             db.select({ totalMembers: count() }).from(companyMembers),
             db.select({ totalJobs: count() }).from(jobs),
@@ -145,7 +146,10 @@ export async function getPendingCompanyVerifications() {
         const accessCheck = await checkHiringAccess("read")
         if (!accessCheck.authorized) return { success: false, error: accessCheck.error }
         const pendingCompanies = await db.query.companies.findMany({
-            where: eq(companies.verificationStatus, "PENDING"),
+            // Self-serve sign-ups only. An unclaimed page (HR-6) is unverified by
+            // nature, and a page with a claim (HR-8) is decided in the Claims
+            // section, where approving also makes the claimant its Owner.
+            where: and(eq(companies.verificationStatus, "PENDING"), eq(companies.claimStatus, "CLAIMED")),
             orderBy: (t, { asc }) => [asc(t.createdAt)],
             with: {
                 members: true,
@@ -162,18 +166,23 @@ export async function getPendingCompanyVerifications() {
 /**
  * Verify a company
  */
-export async function verifyCompany(companyId: string, adminUserId: string) {
+// `verifiedBy` comes from the session, not from the caller: the argument this
+// used to take let any admin with hiring write access put another admin's id
+// on a verification (found in plan/hiring-rounds HR-6).
+export async function verifyCompany(companyId: string) {
     try {
         const accessCheck = await checkHiringAccess("write")
         if (!accessCheck.authorized) return { success: false, error: accessCheck.error }
+        // A page nobody owns is never verified here: that goes through a claim (HR-8).
         const [company] = await db.update(companies)
             .set({
                 verificationStatus: "VERIFIED",
                 verifiedAt: new Date(),
-                verifiedBy: adminUserId,
+                verifiedBy: accessCheck.adminAccess.userId,
             })
-            .where(eq(companies.id, companyId))
+            .where(and(eq(companies.id, companyId), eq(companies.claimStatus, "CLAIMED")))
             .returning()
+        if (!company) return { success: false, error: "That company has no owner yet. Approve its claim instead." }
 
         const adminAccessId = accessCheck.adminAccess.id
         if (company) {
@@ -202,14 +211,14 @@ export async function verifyCompany(companyId: string, adminUserId: string) {
 // audit log instead, which needs no schema change and is the only place it was
 // going before this fix: the reject dialog collected a reason and this function
 // silently discarded it, called with only (companyId, adminUserId).
-export async function rejectCompanyVerification(companyId: string, adminUserId: string, reason?: string) {
+export async function rejectCompanyVerification(companyId: string, reason?: string) {
     try {
         const accessCheck = await checkHiringAccess("write")
         if (!accessCheck.authorized) return { success: false, error: accessCheck.error }
         const [company] = await db.update(companies)
             .set({
                 verificationStatus: "REJECTED",
-                verifiedBy: adminUserId,
+                verifiedBy: accessCheck.adminAccess.userId,
             })
             .where(eq(companies.id, companyId))
             .returning()

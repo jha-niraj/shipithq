@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback } from "react"
 import {
     MessageCircle, Search, ChevronLeft, ChevronRight, Award, Trash2,
-    CheckCircle, Clock, AlertCircle
+    CheckCircle, Clock, AlertCircle, Eye, EyeOff
 } from "lucide-react"
 import { motion } from "framer-motion"
 import { cn } from "@repo/ui/lib/utils"
 import {
-    getAllFeedback, updateFeedbackStatus, assignReward, deleteFeedback
+    getAllFeedback, updateFeedbackStatus, assignReward, deleteFeedback, setFeedbackVisibility, setIdeaPublicInfo
 } from "@/actions/main/feedback.action"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select"
@@ -28,6 +28,11 @@ export interface Feedback {
     category: string
     status: string
     upvotes: number
+    /** Shown on the public Ideas boards (plan/web/revamp REV-43). */
+    isPublic: boolean
+    /** Public note and shipped link on the idea's page (plan/ideas IDEA-4). */
+    teamUpdate?: string | null
+    shippedHref?: string | null
     createdAt: Date | string
     user: {
         id: string
@@ -63,11 +68,15 @@ export function FeedbackClient({
     const [isLoading, setIsLoading] = useState(false)
 
     const [searchQuery, setSearchQuery] = useState("")
-    const [categoryFilter, setCategoryFilter] = useState<"all" | "BUG" | "FEATURE" | "UI" | "OTHER">("all")
-    const [statusFilter, setStatusFilter] = useState<"all" | "UNDER_REVIEW" | "PLANNED" | "COMPLETED">("all")
+    const [categoryFilter, setCategoryFilter] = useState<"all" | "BUG" | "FEATURE" | "UI" | "OTHER" | "CONTENT" | "IMPROVEMENT">("all")
+    const [statusFilter, setStatusFilter] = useState<"all" | "UNDER_REVIEW" | "PLANNED" | "IN_PROGRESS" | "COMPLETED">("all")
     const [currentPage, setCurrentPage] = useState(1)
     const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null)
     const [showRewardDialog, setShowRewardDialog] = useState(false)
+    const [updateFor, setUpdateFor] = useState<Feedback | null>(null)
+    const [updateText, setUpdateText] = useState("")
+    const [updateHref, setUpdateHref] = useState("")
+    const [savingUpdate, setSavingUpdate] = useState(false)
     const [firstLoad, setFirstLoad] = useState(true)
 
     useEffect(() => {
@@ -130,7 +139,37 @@ export function FeedbackClient({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categoryFilter, statusFilter])
 
-    const handleStatusChange = useCallback(async (feedbackId: string, newStatus: "UNDER_REVIEW" | "PLANNED" | "COMPLETED") => {
+    const openUpdate = useCallback((item: Feedback) => {
+        setUpdateFor(item)
+        setUpdateText(item.teamUpdate ?? "")
+        setUpdateHref(item.shippedHref ?? "")
+    }, [])
+
+    const saveUpdate = useCallback(async () => {
+        if (!updateFor) return
+        setSavingUpdate(true)
+        const result = await setIdeaPublicInfo(updateFor.id, { teamUpdate: updateText, shippedHref: updateHref })
+        setSavingUpdate(false)
+        if (!result.success) {
+            toast.error(result.error || "Failed to save")
+            return
+        }
+        toast.success("Saved. It shows on the idea's page within a few minutes.")
+        setUpdateFor(null)
+        fetchFeedback()
+    }, [updateFor, updateText, updateHref, fetchFeedback])
+
+    const handleVisibility = useCallback(async (feedbackId: string, isPublic: boolean) => {
+        const result = await setFeedbackVisibility(feedbackId, isPublic)
+        if (!result.success) {
+            toast.error(result.error || "Failed to change visibility")
+            return
+        }
+        toast.success(isPublic ? "Shown on the Ideas boards" : "Hidden from the Ideas boards")
+        fetchFeedback()
+    }, [fetchFeedback])
+
+    const handleStatusChange = useCallback(async (feedbackId: string, newStatus: "UNDER_REVIEW" | "PLANNED" | "IN_PROGRESS" | "COMPLETED") => {
         try {
             const result = await updateFeedbackStatus(feedbackId, newStatus)
             if (result.success) {
@@ -223,7 +262,7 @@ export function FeedbackClient({
                     </div>
                     <Select
                         value={categoryFilter}
-                        onValueChange={(value) => setCategoryFilter(value as "all" | "BUG" | "FEATURE" | "UI" | "OTHER")}
+                        onValueChange={(value) => setCategoryFilter(value as "all" | "BUG" | "FEATURE" | "UI" | "OTHER" | "CONTENT" | "IMPROVEMENT")}
                     >
                         <SelectTrigger>
                             <SelectValue />
@@ -233,21 +272,24 @@ export function FeedbackClient({
                             <SelectItem value="BUG">Bug</SelectItem>
                             <SelectItem value="FEATURE">Feature</SelectItem>
                             <SelectItem value="UI">UI/UX</SelectItem>
+                            <SelectItem value="CONTENT">Content</SelectItem>
+                            <SelectItem value="IMPROVEMENT">Improvement</SelectItem>
                             <SelectItem value="OTHER">Other</SelectItem>
                         </SelectContent>
                     </Select>
                     <Select
                         value={statusFilter}
-                        onValueChange={(value) => setStatusFilter(value as "all" | "UNDER_REVIEW" | "PLANNED" | "COMPLETED")}
+                        onValueChange={(value) => setStatusFilter(value as "all" | "UNDER_REVIEW" | "PLANNED" | "IN_PROGRESS" | "COMPLETED")}
                     >
                         <SelectTrigger>
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Status</SelectItem>
-                            <SelectItem value="UNDER_REVIEW">Under Review</SelectItem>
+                            <SelectItem value="UNDER_REVIEW">Open (under review)</SelectItem>
                             <SelectItem value="PLANNED">Planned</SelectItem>
-                            <SelectItem value="COMPLETED">Completed</SelectItem>
+                                                    <SelectItem value="IN_PROGRESS">Building</SelectItem>
+                            <SelectItem value="COMPLETED">Shipped</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -333,18 +375,35 @@ export function FeedbackClient({
                                         <div className="flex items-center gap-2">
                                             <Select
                                                 value={item.status}
-                                                onValueChange={(value) => handleStatusChange(item.id, value as "UNDER_REVIEW" | "PLANNED" | "COMPLETED")}
+                                                onValueChange={(value) => handleStatusChange(item.id, value as "UNDER_REVIEW" | "PLANNED" | "IN_PROGRESS" | "COMPLETED")}
                                             >
                                                 <SelectTrigger className="w-auto">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="UNDER_REVIEW">Under Review</SelectItem>
+                                                    <SelectItem value="UNDER_REVIEW">Open (under review)</SelectItem>
                                                     <SelectItem value="PLANNED">Planned</SelectItem>
-                                                    <SelectItem value="COMPLETED">Completed</SelectItem>
+                                                    <SelectItem value="IN_PROGRESS">Building</SelectItem>
+                                                    <SelectItem value="COMPLETED">Shipped</SelectItem>
                                                 </SelectContent>
                                             </Select>
 
+                                            <button
+                                                onClick={() => openUpdate(item)}
+                                                title="The public team update and shipped link on this idea's page"
+                                                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                                            >
+                                                <MessageCircle className="h-4 w-4" />
+                                                {item.teamUpdate ? "Edit update" : "Team update"}
+                                            </button>
+                                            <button
+                                                onClick={() => void handleVisibility(item.id, !item.isPublic)}
+                                                title={item.isPublic ? "Shown on the public Ideas boards. Click to hide." : "Hidden from the public Ideas boards. Click to show."}
+                                                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                                            >
+                                                {item.isPublic ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                                                {item.isPublic ? "Public" : "Hidden"}
+                                            </button>
                                             {
                                                 item.rewards.length === 0 && (
                                                     <button
@@ -471,6 +530,41 @@ export function FeedbackClient({
                             </form>
                         )
                     }
+                </SheetContent>
+            </Sheet>
+            {/* Team update: the public note and shipped link on the idea's page (plan/ideas IDEA-4). */}
+            <Sheet open={!!updateFor} onOpenChange={(o) => { if (!o) setUpdateFor(null) }}>
+                <SheetContent side="right" className="sm:max-w-md">
+                    <SheetHeader>
+                        <SheetTitle>Team update</SheetTitle>
+                        <SheetDescription>{updateFor?.title}</SheetDescription>
+                    </SheetHeader>
+                    <div className="space-y-5 px-4 pb-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="team-update">Public update</Label>
+                            <textarea
+                                id="team-update"
+                                rows={6}
+                                maxLength={1500}
+                                value={updateText}
+                                onChange={(e) => setUpdateText(e.target.value)}
+                                placeholder="What we are doing about this, in a sentence or two."
+                                className="w-full resize-none rounded-lg border border-neutral-200 bg-white p-3 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-950"
+                            />
+                            <p className="text-xs text-neutral-500">Shown on the idea&apos;s page on the website and in the app. Leave empty to remove.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="shipped-href">Shipped link</Label>
+                            <Input id="shipped-href" value={updateHref} onChange={(e) => setUpdateHref(e.target.value)} placeholder="/changelog#2026-09" />
+                            <p className="text-xs text-neutral-500">Where the shipped work is described. A site path or an https link.</p>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setUpdateFor(null)}>Cancel</Button>
+                            <Button onClick={() => void saveUpdate()} disabled={savingUpdate}>
+                                {savingUpdate && <InlineLoader size="sm" />} Save
+                            </Button>
+                        </div>
+                    </div>
                 </SheetContent>
             </Sheet>
         </div>

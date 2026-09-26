@@ -1,9 +1,10 @@
-// Hand-matched to the company verification queue: a "Back to Hiring
-// Platform" link, header with no action button, a 3-cell StatBand
-// (Pending Review/Approved/Rejected), and cards (icon+name+industry+pending badge,
-// a 2x2 detail grid, a footer row with date + Details/Reject/Approve) - the
-// previous skeleton's header button and 2-button card footer both drifted
-// (ADM-22).
+// Hand-matched to the verification page: a "Back to Hiring Platform" link, the
+// header, a 4-cell StatBand (Claims waiting / Sign-ups waiting / Approved /
+// Rejected), the "Claims on company pages" section (HR-8: details on the left,
+// Approve/Reject on the right), then "New company sign-ups" as ONE column of
+// cards (icon+name+industry+badge, a 2x2 detail grid, a footer with date +
+// Details/Reject/Approve). The cards were drawn two-up before, while the page
+// has always stacked them.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
 import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
@@ -18,10 +19,27 @@ export default function Loading() {
                     <Shimmer className="h-4 w-72" delay={0.06} />
                 </div>
 
-                <StatBandSkeleton count={3} cols={3} className="mb-8" />
+                <StatBandSkeleton count={4} cols={4} className="mb-8" />
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {Array.from({ length: 4 }).map((_, i) => (
+                <div className="mb-10">
+                    <div className="mb-3 flex justify-between"><Shimmer className="h-6 w-56" /><Shimmer className="h-4 w-20" /></div>
+                    <div className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-5 lg:flex-row lg:justify-between dark:border-neutral-800 dark:bg-neutral-900">
+                        <div className="flex-1 space-y-3">
+                            <Shimmer className="h-5 w-56" />
+                            {Array.from({ length: 4 }).map((_, j) => (
+                                <div key={j} className="flex gap-8"><Shimmer className="h-4 w-24" delay={j * 0.03} /><Shimmer className="h-4 w-56" delay={j * 0.03} /></div>
+                            ))}
+                        </div>
+                        <div className="flex flex-col gap-2 lg:w-72">
+                            <Shimmer className="h-9 w-full rounded-md" delay={0.1} />
+                            <Shimmer className="h-9 w-full rounded-md" delay={0.12} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mb-3 flex justify-between"><Shimmer className="h-6 w-48" /><Shimmer className="h-4 w-20" /></div>
+                <div className="space-y-4">
+                    {Array.from({ length: 3 }).map((_, i) => (
                         <div key={i} className="rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900 p-5">
                             <div className="mb-4 flex items-start justify-between">
                                 <div className="flex items-center gap-3">

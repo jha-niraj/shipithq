@@ -27,6 +27,16 @@
 		"NEXT_INC_CACHE_R2_PREFIX": "shipithq-admin-cache"
 	},
 
+	// The background job worker (apps/worker), for the company scrape an admin
+	// starts from Hiring > Companies > Drafts (plan/hiring-rounds HR-6). Same
+	// binding name main uses; `lib/workers.ts` falls back to WORKER_URL locally.
+	"services": [
+		{
+			"binding": "WORKER",
+			"service": "shipithq-worker"
+		}
+	],
+
 	"observability": {
 		"enabled": true,
 		"head_sampling_rate": 1,

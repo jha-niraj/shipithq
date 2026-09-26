@@ -106,6 +106,12 @@ export function CompaniesClient({
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        <Link href="/hiring/companies/drafts">
+                            <Button size="sm">
+                                <Globe className="w-4 h-4 mr-2" />
+                                Add from website
+                            </Button>
+                        </Link>
                         <Link href="/hiring/companies/verification">
                             <Button variant="outline" size="sm">
                                 <Clock className="w-4 h-4 mr-2" />

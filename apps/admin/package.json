@@ -22,6 +22,7 @@
 		"@repo/auth": "workspace:*",
 		"@repo/db": "workspace:*",
 		"@repo/email": "workspace:*",
+		"@repo/exa": "workspace:*",
 		"@repo/ui": "workspace:*",
 		"bcryptjs": "^3.0.3",
 		"better-auth": "^1.2.7",

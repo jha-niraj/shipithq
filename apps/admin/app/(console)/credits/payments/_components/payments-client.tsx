@@ -24,7 +24,7 @@ export interface Payments {
         id: string
         name: string | null
         email: string
-    } | undefined
+    } | null | undefined
 }
 
 function getStatusBadge(status: string) {
