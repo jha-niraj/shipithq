@@ -1,3 +1,4 @@
+import { PageHeroSkeleton } from "@/components/page-hero";
 /**
  * Skeleton for /features.
  *
@@ -9,27 +10,7 @@ export default function Loading() {
     return (
         <div className="animate-pulse">
             {/* Hero band - matches PageHero's py-20 sm:py-24 lg:py-28 on the light surface. */}
-            <div className="bg-neutral-100 dark:bg-neutral-900">
-                <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24 lg:py-28">
-                    <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
-                        <div>
-                            <div className="h-3 w-20 rounded bg-neutral-300 dark:bg-neutral-800" />
-                            <div className="mt-4 h-12 w-full max-w-lg rounded bg-neutral-300 dark:bg-neutral-800" />
-                            <div className="mt-3 h-12 w-3/4 rounded bg-neutral-300 dark:bg-neutral-800" />
-                            <div className="mt-6 h-4 w-full max-w-md rounded bg-neutral-200 dark:bg-neutral-800" />
-                            <div className="mt-8 flex gap-3">
-                                <div className="h-11 w-32 rounded-full bg-neutral-300 dark:bg-neutral-800" />
-                                <div className="h-11 w-32 rounded-full bg-neutral-200 dark:bg-neutral-800" />
-                            </div>
-                        </div>
-                        <div className="space-y-px overflow-hidden rounded-2xl">
-                            {Array.from({ length: 6 }).map((_, i) => (
-                                <div key={i} className="h-12 bg-neutral-200 dark:bg-neutral-800" />
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <PageHeroSkeleton />
 
             <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-24">
                 <div className="grid gap-12 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-16">

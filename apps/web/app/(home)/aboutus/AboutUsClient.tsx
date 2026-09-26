@@ -53,6 +53,8 @@ export default function AboutUs() {
                 surface is fixed and only the composition varies. */}
             <PageHero
                 variant="statement"
+                tone="blush"
+                art="about"
                 eyebrow="Since 2024"
                 title={<>Nobody gets hired for<br className="hidden sm:block" /> finishing a tutorial.</>}
                 sub="ShipItHQ exists for the gap between passing a course and passing an interview - the part where you have to build something real, explain it out loud, and prove you can do it again."

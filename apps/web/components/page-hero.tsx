@@ -1,63 +1,31 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { cn } from "@repo/ui/lib/utils"
+import { Eyebrow, GhostCta, MONO, PrimaryCta, TONE, isDark, type Tone } from "@/components/marketing/primitives"
+import { CardArt, CardArtStyles, type ArtKind } from "@/components/marketing/card-art"
 
 /**
- * The header every public page uses, except the landing page and the blog.
+ * The one hero on every public page (plan/web/revamp REV-80). Niraj, 2026-09-25:
+ * "the hero section of this feature should be the hero section of all the things".
  *
- * ── The one decision this file exists to make ──
+ * A rounded panel in one of the site's tones: breadcrumb, eyebrow, title, one
+ * paragraph, a primary action beside an underlined second one, and optional facts on
+ * the left; an animated scene (or any `aside`) on the right. It replaces the photo
+ * hero and its four variants, so every page opens the same way and only the tone,
+ * the words and the art change.
  *
- * Two things could be shared here and they pull in opposite directions:
- *
- *   the SURFACE       colour, texture, type scale, spacing rhythm
- *   the COMPOSITION   what is in the header and how it is arranged
- *
- * Sharing both is what most design systems do, and it is why most marketing sites
- * feel like one template with the words swapped. Sharing neither is how you end up
- * with fourteen pages that each look like a different product.
- *
- * So: the surface is FIXED and the composition is a VARIANT. Every page is
- * recognisably the same site the moment it paints, and no two consecutive pages
- * are laid out the same way.
- *
- * There is deliberately no `background`, `palette` or `className` escape hatch on
- * the surface. A page that wants a different header colour is a page that has
- * stopped matching the brand, and the fix is to change it here for all of them.
- * What a page CAN choose is `variant`, and adding a new one is a change to this
- * file - which is the point, because it means somebody looked at the other four
- * first.
- *
- * ── Why this surface ──
- *
- * The ridge photograph is the same one behind the auth screens and the signed-in
- * app shell. That is the argument for it: a visitor moves marketing -> sign-in ->
- * product and the ground under them never changes, so the three read as one thing
- * rather than three teams. It is monochrome, which is the palette rule, and it is
- * already paid for - 4KB, blurred, and on the CDN.
- *
- * It is NOT the reference site's approach and should not become it. That one uses a
- * warm pearl ground behind a mosaic of photographic tiles, which is right for a site
- * with fourteen pages selling one thing to one buyer. This site has a handful of
- * high-intent pages selling to people who will read two of them, and continuity with
- * the product is worth more here than a bespoke mosaic.
- *
- * ── Light in both themes, on purpose ──
- *
- * The surface does not pair `dark:`. It is a photograph, so it reads light whatever
- * the theme is, and ink over it must be constant too. Pairing `dark:` on type that
- * sits over a theme-independent surface is exactly how the auth panel ended up at
- * 1.1:1 - white text on a picture that was never dark. Measured here at 14.5:1.
+ * `variant` is still accepted so existing callers compile, and is ignored: there is
+ * one layout now.
  */
 
 export interface PageHeroCta {
     text: string
     href: string
-    /** Renders a plain anchor rather than a Next link. */
+    /** Renders a plain anchor rather than a Next link (app links). */
     external?: boolean
 }
 
-/** One hard fact in the `ledger` variant. Keep the value short - it is set large. */
 export interface PageHeroFact {
     value: string
     label: string
@@ -66,200 +34,110 @@ export interface PageHeroFact {
 export type PageHeroVariant = "statement" | "ledger" | "split" | "versus"
 
 export interface PageHeroProps {
-    /** Small line above the title. Sets context in three or four words. */
     eyebrow?: string
     title: ReactNode
-    sub?: string
+    sub?: ReactNode
     ctas?: PageHeroCta[]
+    /** Accepted for old callers; ignored. */
     variant?: PageHeroVariant
-    /** `ledger` only. Three or four facts; more than four stops being scannable. */
+    /** Hard facts under the copy, set in mono. Three or four. */
     facts?: PageHeroFact[]
-    /** `split` and `versus` only. The right-hand column. */
+    /** Anything for the right column. Wins over `art`. */
     aside?: ReactNode
+    /** The animated scene on the right. */
+    art?: ArtKind
+    tone?: Tone
+    /** Crumbs above the eyebrow, the last one is the current page. */
+    crumbs?: { name: string; href?: string }[]
 }
 
-function Cta({ cta, primary }: { cta: PageHeroCta; primary: boolean }) {
-    const className = cn(
-        // min-h-11 is the 44px tap floor. A hero CTA is the most important target
-        // on the page and must not be the one that misses it.
-        "inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold transition-colors",
-        primary
-            ? "bg-neutral-900 text-white hover:bg-neutral-800"
-            // The border is the ONLY thing marking this as a button, so it owes WCAG 1.4.11's
-            // 3:1 rather than being exempt as decoration. Measured against the darkest pixel of
-            // the photograph it can sit on: /20 was 1.45:1, /40 is 2.20:1, /55 is where it
-            // crosses, /60 is 3.50:1. Solved against the composited pixel, not eyeballed.
-            : "border border-neutral-900/60 text-neutral-800 hover:border-neutral-900/80 hover:bg-neutral-900/5",
-    )
-    const inner = (
-        <>
-            {cta.text}
-            {primary && <ArrowRight className="h-4 w-4" aria-hidden />}
-        </>
-    )
-    return cta.external ? (
-        <a href={cta.href} className={className}>{inner}</a>
-    ) : (
-        <Link href={cta.href} className={className}>{inner}</Link>
-    )
-}
+export function PageHero({ eyebrow, title, sub, ctas = [], facts = [], aside, art, tone = "stone", crumbs }: PageHeroProps) {
+    const t = TONE[tone]
+    const dark = isDark(tone)
+    const right = aside ?? (art ? <CardArt kind={art} dark={dark} className="mx-auto max-w-md" /> : null)
 
-/** The fixed surface. Every variant renders inside this and none of them may change it. */
-function Surface({ children }: { children: ReactNode }) {
     return (
-        <header className="relative isolate overflow-hidden bg-neutral-100">
-            {/* The ridge, blurred. Same photograph as the auth screens and the app
-                shell - see the note at the top of this file. */}
+        <section className="px-4 pt-6 sm:px-6">
+            <CardArtStyles />
             <div
-                aria-hidden
-                className="absolute inset-0 bg-cover bg-center opacity-70"
-                style={{ backgroundImage: "url(/brand/ridge-blur.webp)" }}
-            />
-            {/* Wash toward white so type sits on a light, even ground rather than on
-                whichever part of the photograph happens to be behind it. */}
-            <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-white/60 via-white/45 to-white/75" />
-            {/* The grid that used to sit here is GONE, removed after a manual pass.
-                It was inherited from the old hand-rolled About header and read as
-                drafting paper on a flat surface. On top of a photograph it read as
-                noise - two textures competing, and the ridge already gives the surface
-                everything it needs. A pattern that fights the thing underneath it is
-                not texture, it is interference. Do not add it back.
-
-                pt-32 below, not py-20: the navbar floats over this header rather than
-                pushing it down, so at the old padding the eyebrow sat underneath the
-                pill. The extra top padding is the navbar's height plus its offset. */}
-            {/* px-4 below sm: at 360px, 48px of horizontal padding is 13% of the screen. */}
-            <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-32 sm:px-6 sm:pb-24 sm:pt-36 lg:pb-28 lg:pt-40">
-                {children}
-            </div>
-        </header>
-    )
-}
-
-/** Shared type scale. Fixed across variants - this is half of what makes them one site. */
-// neutral-700, not neutral-600. Measured against the DARKEST pixel anywhere in the ridge
-// photograph (bg-cover means any part of it can end up behind any part of the type, so the
-// honest worst case is the whole image, not one breakpoint's crop): neutral-600 lands at
-// 3.64:1, under the 4.5:1 floor for text this small. neutral-700 is 4.84:1.
-//
-// Fixing it in the wash instead was tried and rejected - lightening the gradient enough to
-// carry neutral-600 takes it to 4.48:1 at best and washes the ridge out to nearly nothing,
-// which spends the whole point of the surface to save one shade of grey. Uppercase at
-// text-xs with 0.18em tracking is the hardest thing on the hero to read; it should not also
-// be the faintest.
-const EYEBROW = "text-xs font-semibold uppercase tracking-[0.18em] text-neutral-700"
-// Steps down hard on mobile: a 7xl title on a 360px line wins a fight with the page
-// it is introducing and should not.
-const TITLE = "text-4xl font-bold leading-[1.05] tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl"
-const SUB = "text-base leading-relaxed text-neutral-700 sm:text-lg"
-
-export function PageHero({
-    eyebrow, title, sub, ctas = [], variant = "statement", facts = [], aside,
-}: PageHeroProps) {
-    const ctaRow = ctas.length > 0 && (
-        // flex-wrap here is fine and is not the deferral the responsiveness rules warn
-        // about: two CTAs wrapping to two rows is the intended mobile layout, not an
-        // overflow being converted into height.
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-            {ctas.map((c, i) => <Cta key={c.href} cta={c} primary={i === 0} />)}
-        </div>
-    )
-
-    // ── statement ──────────────────────────────────────────────────────────────
-    // One claim, centred, nothing else. For a page that IS an argument rather than
-    // a list - About, a manifesto, a single-idea page.
-    if (variant === "statement") {
-        return (
-            <Surface>
-                <div className="mx-auto max-w-3xl text-center">
-                    {eyebrow && <p className={cn(EYEBROW, "mb-4")}>{eyebrow}</p>}
-                    <h1 className={TITLE}>{title}</h1>
-                    {sub && <p className={cn(SUB, "mx-auto mt-6 max-w-2xl")}>{sub}</p>}
-                    {ctaRow && <div className="flex justify-center">{ctaRow}</div>}
-                </div>
-            </Surface>
-        )
-    }
-
-    // ── ledger ─────────────────────────────────────────────────────────────────
-    // Copy, then a rule, then hard facts. For a page whose job is specifics -
-    // pricing, plans, anything where the reader arrived wanting a number.
-    if (variant === "ledger") {
-        return (
-            <Surface>
-                <div className="max-w-2xl">
-                    {eyebrow && <p className={cn(EYEBROW, "mb-4")}>{eyebrow}</p>}
-                    <h1 className={TITLE}>{title}</h1>
-                    {sub && <p className={cn(SUB, "mt-6")}>{sub}</p>}
-                    {ctaRow}
-                </div>
-                {/* The rule above the facts is genuinely decorative - the list structure and
-                    the spacing already separate them from the copy - so 1.4.11's 3:1 does not
-                    apply. It went /10 -> /25 only because /10 was invisible on the photograph. */}
-                {facts.length > 0 && (
-                    <dl className="mt-12 grid grid-cols-2 gap-x-6 gap-y-8 border-t border-neutral-900/25 pt-8 sm:grid-cols-4">
-                        {facts.map((f) => (
-                            <div key={f.label}>
-                                {/* Numbers step type down rather than truncating. A
-                                    truncated figure reads as a different, smaller value
-                                    and nothing on screen says it was cut. */}
-                                <dt className="text-2xl font-bold tabular-nums text-neutral-900 sm:text-3xl">
-                                    {f.value}
-                                </dt>
-                                <dd className="mt-1 text-xs font-medium uppercase tracking-wide text-neutral-700">
-                                    {f.label}
-                                </dd>
-                            </div>
-                        ))}
-                    </dl>
+                className={cn(
+                    "mx-auto max-w-7xl overflow-hidden rounded-3xl",
+                    t.surface, t.ink,
+                    tone === "white" && "border border-neutral-200",
                 )}
-            </Surface>
-        )
-    }
-
-    // ── versus ─────────────────────────────────────────────────────────────────
-    // Deliberately asymmetric - the title takes seven columns and the aside five,
-    // so the two sides are visibly unequal. For a page built on a contrast, where a
-    // balanced 50/50 would imply the two options are equivalent.
-    if (variant === "versus") {
-        return (
-            <Surface>
-                <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-end lg:gap-12">
-                    <div className="min-w-0 lg:col-span-7">
-                        {eyebrow && <p className={cn(EYEBROW, "mb-4")}>{eyebrow}</p>}
-                        <h1 className={TITLE}>{title}</h1>
-                        {ctaRow}
+            >
+                <div className={cn("grid items-center gap-10 p-8 md:p-12 lg:p-16", right && "lg:grid-cols-[1.1fr_0.9fr]")}>
+                    <div className="sh-reveal min-w-0">
+                        {crumbs && crumbs.length > 0 && (
+                            <nav aria-label="Breadcrumb" className={cn("mb-8 flex flex-wrap items-center gap-1.5 text-[13px]", t.muted)}>
+                                {crumbs.map((c, i) => (
+                                    <span key={c.name} className="flex items-center gap-1.5">
+                                        {i > 0 && <ChevronRight className="size-3.5" aria-hidden />}
+                                        {c.href ? <Link href={c.href} className="hover:underline">{c.name}</Link> : <span aria-current="page">{c.name}</span>}
+                                    </span>
+                                ))}
+                            </nav>
+                        )}
+                        {eyebrow && <Eyebrow className={t.muted}>{eyebrow}</Eyebrow>}
+                        <h1 className="mt-3 font-display text-4xl font-semibold leading-[1.05] tracking-tight md:text-5xl">{title}</h1>
+                        {sub && <p className={cn("mt-5 max-w-xl text-lg leading-8", dark ? "text-neutral-300" : "text-neutral-800")}>{sub}</p>}
+                        {ctas.length > 0 && (
+                            <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
+                                {ctas.map((c, i) =>
+                                    i === 0
+                                        ? <PrimaryCta key={c.href} href={c.href} onInk={dark}>{c.text}</PrimaryCta>
+                                        : <GhostCta key={c.href} href={c.href} onInk={dark}>{c.text}</GhostCta>,
+                                )}
+                            </div>
+                        )}
+                        {facts.length > 0 && (
+                            <dl className={cn("mt-10 grid grid-cols-2 gap-x-6 gap-y-5 border-t pt-6 sm:grid-cols-4", t.rule)}>
+                                {facts.map((f) => (
+                                    <div key={f.label}>
+                                        <dt className="text-2xl font-semibold tabular-nums tracking-tight">{f.value}</dt>
+                                        <dd className={cn(MONO, "mt-1 text-[10px] uppercase tracking-[0.14em]", t.muted)}>{f.label}</dd>
+                                    </div>
+                                ))}
+                            </dl>
+                        )}
                     </div>
-                    <div className="min-w-0 lg:col-span-5">
-                        {/* /50 not /15: this rule is the only separation between the aside and the
-                            title, so it carries meaning and owes 3:1. /15 was 1.31:1, /50 is 2.76:1,
-                            /60 is 3.50:1. */}
-                        {sub && <p className={cn(SUB, "border-l-2 border-neutral-900/60 pl-5")}>{sub}</p>}
-                        {aside && <div className="mt-6">{aside}</div>}
-                    </div>
+                    {right && <div className="sh-reveal min-w-0" style={{ ["--sh-reveal-delay" as string]: "0.1s" }}>{right}</div>}
                 </div>
-            </Surface>
-        )
-    }
-
-    // ── split ──────────────────────────────────────────────────────────────────
-    // Copy left, something to look at right. For a page that has to SHOW rather
-    // than tell - features, a demo, anything with a screenshot or a live element.
-    return (
-        <Surface>
-            <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:items-center lg:gap-14">
-                <div className="min-w-0">
-                    {eyebrow && <p className={cn(EYEBROW, "mb-4")}>{eyebrow}</p>}
-                    <h1 className={TITLE}>{title}</h1>
-                    {sub && <p className={cn(SUB, "mt-6")}>{sub}</p>}
-                    {ctaRow}
-                </div>
-                {/* min-w-0 so a wide child (a code block, a table) shrinks with the
-                    column instead of pushing the grid past the viewport. */}
-                {aside && <div className="min-w-0">{aside}</div>}
             </div>
-        </Surface>
+        </section>
     )
 }
 
 export default PageHero
+
+/** The loading shape of PageHero: the same panel, padding and two columns. */
+export function PageHeroSkeleton({ facts = 0 }: { facts?: number } = {}) {
+    return (
+        <section className="px-4 pt-6 sm:px-6" aria-hidden>
+            <div className="mx-auto grid max-w-7xl items-center gap-10 rounded-3xl bg-neutral-100 p-8 md:p-12 lg:grid-cols-[1.1fr_0.9fr] lg:p-16">
+                <div className="space-y-4">
+                    <div className="h-3 w-24 animate-pulse rounded bg-neutral-200" />
+                    <div className="h-12 w-4/5 animate-pulse rounded-lg bg-neutral-200" />
+                    <div className="h-5 w-full animate-pulse rounded bg-neutral-200" />
+                    <div className="h-5 w-2/3 animate-pulse rounded bg-neutral-200" />
+                    {facts > 0 ? (
+                        <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-neutral-200 pt-6 sm:grid-cols-4">
+                            {Array.from({ length: facts }, (_, i) => (
+                                <div key={i} className="space-y-2">
+                                    <div className="h-7 w-12 animate-pulse rounded bg-neutral-200" />
+                                    <div className="h-2.5 w-16 animate-pulse rounded bg-neutral-200" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex gap-4 pt-4">
+                            <div className="h-12 w-36 animate-pulse rounded-lg bg-neutral-200" />
+                            <div className="h-12 w-28 animate-pulse rounded-lg bg-neutral-200" />
+                        </div>
+                    )}
+                </div>
+                <div className="mx-auto hidden aspect-[7/5] w-full max-w-md animate-pulse rounded-2xl bg-neutral-200 lg:block" />
+            </div>
+        </section>
+    )
+}

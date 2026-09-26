@@ -1,170 +1,158 @@
 "use client"
 
 import { useState } from "react"
-import { HIRING_LINKS } from "@/lib/site"
-import { motion } from "framer-motion"
-import {
-    Check, Briefcase, Users, FileText, Sparkles, Shield, Zap, Building2
-} from "lucide-react"
-import { Button } from "@repo/ui/components/ui/button"
-import { Switch } from "@repo/ui/components/ui/switch"
+import Link from "next/link"
+import { ArrowRight, Check } from "lucide-react"
+import { HIRING_PLANS, type HiringPlanKey } from "@repo/pricing"
 import { cn } from "@repo/ui/lib/utils"
+import { BRAND, HIRING_LINKS } from "@/lib/site"
+import { Eyebrow, MONO, Section } from "@/components/marketing/primitives"
 
-const plans = [
-    {
-        id: "FREE",
-        name: "Free",
-        price: { INR: "₹0", USD: "$0" },
-        desc: "Perfect for small teams just getting started with hiring",
-        features: [
-            { text: "3 active job posts", icon: Briefcase },
-            { text: "Up to 50 applications/month", icon: Users },
-            { text: "1 interview process template", icon: FileText },
-            { text: "Basic candidate management", icon: Users },
-            { text: "Email support", icon: Building2 },
-        ],
-        cta: "Get Started",
-        highlight: false,
-    },
-    {
-        id: "PRO",
-        name: "Pro",
-        price: { INR: "₹3,999", USD: "$49" },
-        desc: "For growing companies with active hiring needs",
-        features: [
-            { text: "10 active job posts", icon: Briefcase },
-            { text: "Up to 500 applications/month", icon: Users },
-            { text: "5 interview process templates", icon: FileText },
-            { text: "AI-powered resume screening", icon: Sparkles },
-            { text: "Custom take-home assignments", icon: FileText },
-            { text: "Team collaboration (5 members)", icon: Building2 },
-            { text: "Priority support", icon: Zap },
-        ],
-        cta: "Upgrade to Pro",
-        highlight: true,
-    },
-    {
-        id: "ENTERPRISE",
-        name: "Enterprise",
-        price: { INR: "Custom", USD: "Custom" },
-        desc: "For large organizations with complex hiring needs",
-        features: [
-            { text: "Unlimited job posts", icon: Briefcase },
-            { text: "Unlimited applications", icon: Users },
-            { text: "Unlimited interview templates", icon: FileText },
-            { text: "Dedicated account manager", icon: Users },
-            { text: "SSO/SAML authentication", icon: Shield },
-            { text: "API access", icon: Zap },
-            { text: "SLA guarantee", icon: Shield },
-            { text: "Unlimited team members", icon: Building2 },
-        ],
-        cta: "Contact Sales",
-        highlight: false,
-    },
-]
+/**
+ * The hiring plan cards (plan/web/revamp REV-21, REV-95 to REV-97). Every price, limit,
+ * credit allowance and feature line comes from HIRING_PLANS in @repo/pricing, the same
+ * object apps/hiring's checkout reads.
+ *
+ * Two toggles: currency (INR / USD) and billing (monthly / yearly, two months free).
+ * Switching either replays a short roll-in on the numbers.
+ */
 
-export default function PricingSection() {
-    const [currency, setCurrency] = useState<"INR" | "USD">("INR")
+const ORDER: HiringPlanKey[] = ["FREE", "PRO", "ENTERPRISE"]
+export type Currency = "INR" | "USD"
+export type Billing = "monthly" | "yearly"
 
-    const handlePlanClick = (planId: string) => {
-        if (planId === "ENTERPRISE") {
-            window.open("mailto:sales@shipithq.com?subject=Enterprise%20Plan%20Inquiry", "_blank")
-            return
-        }
+export function money(n: number, c: Currency) {
+    return c === "INR" ? `₹${n.toLocaleString("en-IN")}` : `$${n.toLocaleString("en-US")}`
+}
 
-        if (planId === "FREE") {
-            window.location.href = HIRING_LINKS.signup
-            return
-        }
-
-        // This site has no auth (apps/web/CLAUDE.md): the hiring app's sign-in
-        // takes the visitor to billing afterwards, signed in or not.
-        window.location.href = `${HIRING_LINKS.signin}?callbackUrl=${encodeURIComponent(`/billing?plan=${planId}&currency=${currency}`)}`
+function priceFor(key: HiringPlanKey, currency: Currency, billing: Billing) {
+    const p = HIRING_PLANS[key]
+    if (key === "ENTERPRISE") return { value: "Custom", unit: "talk to us", note: "Priced to your hiring volume" }
+    const monthly = currency === "INR" ? p.priceINR : p.priceUSD
+    if (monthly === 0) return { value: money(0, currency), unit: "forever", note: "No card needed" }
+    if (billing === "yearly") {
+        const yearly = currency === "INR" ? p.priceYearlyINR : p.priceYearlyUSD
+        return { value: money(yearly, currency), unit: "per year", note: `${money(monthly * 12 - yearly, currency)} less than paying monthly` }
     }
+    return { value: money(monthly, currency), unit: "per month", note: "Billed monthly, cancel any time" }
+}
+
+function creditsLine(key: HiringPlanKey) {
+    const p = HIRING_PLANS[key]
+    if (p.creditsPerMonth > 0) return `${p.creditsPerMonth.toLocaleString("en-IN")} credits every month`
+    if (p.creditsOnSignup > 0) return `${p.creditsOnSignup} credits to start`
+    return "A credit allowance agreed with you"
+}
+
+export function Toggle<T extends string>({ value, options, onChange, label }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void; label: string }) {
+    const i = options.findIndex((o) => o.id === value)
+    return (
+        <div role="group" aria-label={label} className="relative inline-grid rounded-lg border border-neutral-200 bg-white p-0.5" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+            <span
+                aria-hidden
+                className="absolute inset-y-0.5 left-0.5 rounded-md bg-neutral-900 transition-transform duration-300 ease-out"
+                style={{ width: `calc(${100 / options.length}% - 2px)`, transform: `translateX(${i * 100}%)` }}
+            />
+            {options.map((o) => (
+                <button
+                    key={o.id}
+                    type="button"
+                    aria-pressed={value === o.id}
+                    onClick={() => onChange(o.id)}
+                    className={cn(MONO, "relative z-10 h-8 cursor-pointer whitespace-nowrap rounded-md px-4 text-[12px] transition-colors duration-300", value === o.id ? "text-white" : "text-neutral-600 hover:text-neutral-900")}
+                >
+                    {o.label}
+                </button>
+            ))}
+        </div>
+    )
+}
+
+export function HirePlanCards() {
+    const [currency, setCurrency] = useState<Currency>("INR")
+    const [billing, setBilling] = useState<Billing>("monthly")
 
     return (
-        <section id="pricing" className="py-32 bg-neutral-50 dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800">
-            <div className="max-w-7xl mx-auto px-6">
-
-                <div className="flex flex-col items-center text-center mb-16">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-500 mb-2">
-                        Pricing Plans
-                    </span>
-                    <h2 className="text-3xl md:text-4xl font-bold tracking-tighter text-neutral-900 dark:text-white mb-4">
-                        Simple, Transparent Pricing
-                    </h2>
-                    <p className="text-neutral-600 dark:text-neutral-400 max-w-2xl mb-8">
-                        Choose the plan that fits your hiring needs. Upgrade or downgrade anytime.
-                    </p>
-                    <div className="flex items-center gap-3 p-1 pr-4 pl-4 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-                        <span className={cn("text-xs font-bold", currency === "INR" ? "text-neutral-900 dark:text-white" : "text-neutral-400")}>INR</span>
-                        <Switch checked={currency === "USD"} onCheckedChange={(c) => setCurrency(c ? "USD" : "INR")} />
-                        <span className={cn("text-xs font-bold", currency === "USD" ? "text-neutral-900 dark:text-white" : "text-neutral-400")}>USD</span>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {
-                        plans.map((plan, index) => (
-                            <motion.div
-                                key={index}
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: index * 0.1 }}
+        <div>
+            <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
+                <Toggle label="Billing" value={billing} onChange={setBilling} options={[{ id: "monthly", label: "Monthly" }, { id: "yearly", label: "Yearly · 2 months free" }]} />
+                <Toggle label="Currency" value={currency} onChange={setCurrency} options={[{ id: "INR", label: "INR" }, { id: "USD", label: "USD" }]} />
+            </div>
+            <div className="grid gap-4 lg:grid-cols-3">
+                {ORDER.map((key, idx) => {
+                    const plan = HIRING_PLANS[key]
+                    const pro = key === "PRO"
+                    const pr = priceFor(key, currency, billing)
+                    const href = key === "ENTERPRISE"
+                        ? `mailto:${BRAND.email}?subject=${encodeURIComponent("ShipItHQ Hiring: Enterprise")}`
+                        : HIRING_LINKS.signup
+                    return (
+                        <div
+                            key={key}
+                            className={cn(
+                                "sh-reveal flex flex-col rounded-2xl p-7 transition-transform duration-300 hover:-translate-y-1",
+                                pro
+                                    ? "bg-neutral-950 text-white shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6)] lg:-translate-y-2 lg:hover:-translate-y-3"
+                                    : key === "FREE" ? "bg-[#BFE3D0] text-neutral-900" : "bg-[#F5E6A8] text-neutral-900",
+                            )}
+                            style={{ ["--sh-reveal-delay" as string]: `${idx * 0.08}s` }}
+                        >
+                            <div className="flex items-center justify-between">
+                                <Eyebrow className={pro ? "text-neutral-400" : "text-neutral-700"}>{plan.name}</Eyebrow>
+                                {pro && <span className={cn(MONO, "rounded-md bg-white px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-neutral-950")}>Most teams</span>}
+                            </div>
+                            <div key={`${currency}-${billing}`} className="mt-6 overflow-hidden">
+                                <p className="flex items-baseline gap-2">
+                                    <span className="font-display text-5xl font-semibold tracking-tight animate-in fade-in-0 slide-in-from-bottom-4 duration-500 motion-reduce:animate-none">{pr.value}</span>
+                                    <span className={cn("text-sm animate-in fade-in-0 duration-700 motion-reduce:animate-none", pro ? "text-neutral-400" : "text-neutral-700")}>{pr.unit}</span>
+                                </p>
+                                <p className={cn(MONO, "mt-2 text-[11px] uppercase tracking-[0.12em] animate-in fade-in-0 duration-700 motion-reduce:animate-none", pro ? "text-neutral-400" : "text-neutral-700")}>{pr.note}</p>
+                            </div>
+                            <p className={cn("mt-4 text-[15px]", pro ? "text-neutral-300" : "text-neutral-800")}>{plan.tagline}</p>
+                            <p className={cn("mt-5 rounded-lg px-3 py-2 text-[13px] font-medium", pro ? "bg-white/10 text-white" : "bg-white/55 text-neutral-900")}>
+                                {creditsLine(key)}
+                            </p>
+                            <ul className={cn("mt-6 flex-1 space-y-2.5 border-t pt-6", pro ? "border-neutral-800" : "border-neutral-900/15")}>
+                                {plan.features.map((f) => (
+                                    <li key={f} className={cn("flex gap-2.5 text-[14px] leading-5", pro ? "text-neutral-200" : "text-neutral-800")}>
+                                        <Check className="mt-0.5 size-4 shrink-0" aria-hidden />
+                                        {f}
+                                    </li>
+                                ))}
+                            </ul>
+                            <a
+                                href={href}
                                 className={cn(
-                                    "relative p-8 rounded-3xl flex flex-col h-full border transition-all duration-300",
-                                    plan.highlight
-                                        ? "bg-neutral-900 dark:bg-white border-neutral-900 dark:border-white text-white dark:text-black shadow-2xl"
-                                        : "bg-white dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800"
+                                    "mt-8 flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors",
+                                    pro ? "bg-white text-neutral-950 hover:bg-neutral-100" : "bg-neutral-900 text-white hover:bg-neutral-800",
                                 )}
                             >
-                                {
-                                    plan.highlight && (
-                                        <div className="absolute top-4 right-4">
-                                            <div className="bg-white dark:bg-black text-black dark:text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                                                Most Popular
-                                            </div>
-                                        </div>
-                                    )
-                                }
-                                <div className="mb-8">
-                                    <h3 className="text-lg font-bold mb-2">{plan.name}</h3>
-                                    <p className={cn("text-sm", plan.highlight ? "text-neutral-400 dark:text-neutral-500" : "text-neutral-500")}>
-                                        {plan.desc}
-                                    </p>
-                                </div>
-                                <div className="mb-8">
-                                    <span className="text-4xl font-bold tracking-tighter">
-                                        {currency === "INR" ? plan.price.INR : plan.price.USD}
-                                    </span>
-                                    {plan.price.INR !== "Custom" && <span className="text-sm opacity-60">/month</span>}
-                                </div>
-                                <ul className="space-y-4 mb-8 flex-1">
-                                    {
-                                        plan.features.map((feat, i) => (
-                                            <li key={i} className="flex items-center gap-3 text-sm font-medium">
-                                                <Check className={cn("w-4 h-4", plan.highlight ? "text-white dark:text-black" : "text-neutral-900 dark:text-white")} />
-                                                {feat.text}
-                                            </li>
-                                        ))
-                                    }
-                                </ul>
-                                <Button
-                                    onClick={() => handlePlanClick(plan.id)}
-                                    className={cn(
-                                        "cursor-pointer w-full rounded-full font-bold h-12",
-                                        plan.highlight
-                                            ? "bg-white text-black hover:bg-neutral-200 dark:bg-black dark:text-white dark:hover:bg-neutral-800"
-                                            : "bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
-                                    )}
-                                >
-                                    {plan.cta}
-                                </Button>
-                            </motion.div>
-                        ))
-                    }
-                </div>
+                                {key === "ENTERPRISE" ? "Talk to us" : key === "PRO" ? "Start with Pro" : "Start free"}
+                                <ArrowRight className="size-4" aria-hidden />
+                            </a>
+                        </div>
+                    )
+                })}
             </div>
-        </section>
+        </div>
+    )
+}
+
+/** The pricing band on /hire: the cards, and a way to the full page. */
+export default function PricingSection() {
+    return (
+        <Section
+            id="pricing"
+            eyebrow="Plans"
+            title="Start free, upgrade when you hire more"
+            sub="Every plan has every round type. Plans differ in how much you can run at once."
+            action={
+                <Link href="/hire/pricing" className="inline-flex items-center gap-1.5 border-b border-neutral-300 pb-0.5 text-sm font-medium text-neutral-900 hover:border-neutral-900">
+                    Compare plans in full <ArrowRight className="size-3.5" />
+                </Link>
+            }
+        >
+            <HirePlanCards />
+        </Section>
     )
 }

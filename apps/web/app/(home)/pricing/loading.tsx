@@ -1,17 +1,12 @@
-// Hand-matched to the pricing page: pt-32 hero over a 3-up tier grid, then the FAQ.
+// Hand-matched to the pricing page: PageHero-height hero (pt-16 / sm:pt-20 / lg:pt-24) over a 3-up tier grid, then the FAQ.
+import { PageHeroSkeleton } from "@/components/page-hero";
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
 
 export default function Loading() {
     return (
         <div className="w-full">
             <ShimmerStyles />
-            <section className="pb-20 pt-32">
-                <div className="mx-auto max-w-7xl space-y-4 px-6 text-center">
-                    <Shimmer className="mx-auto h-8 w-40 rounded-full" />
-                    <Shimmer className="mx-auto h-12 w-full" delay={0.06} />
-                    <Shimmer className="mx-auto h-5 w-3/4" delay={0.1} />
-                </div>
-            </section>
+            <PageHeroSkeleton />
 
             <section className="pb-20">
                 <div className="mx-auto max-w-7xl px-6">

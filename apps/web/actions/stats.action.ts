@@ -59,7 +59,7 @@ export async function getPlatformStats() {
         const totalSubmissions = Number(totalSubmissionsRow?.value ?? 0)
         const successRate = totalSubmissions > 0
             ? Math.round((completedTasks / totalSubmissions) * 100)
-            : 95 // Default fallback
+            : 0 // No submissions yet: say so; never an invented rate
 
         return {
             success: true,
@@ -198,7 +198,7 @@ export async function getProjectsPageStats() {
         const totalSubmissions = Number(totalSubmissionsRow?.value ?? 0)
         const successRate = totalSubmissions > 0
             ? Math.round((completedTaskSubmissions / totalSubmissions) * 100)
-            : 94
+            : 0
 
         return {
             success: true,
@@ -228,3 +228,4 @@ export async function getProjectsPageStats() {
         }
     }
 }
+

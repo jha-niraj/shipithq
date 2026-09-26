@@ -1,18 +1,14 @@
 "use client"
 
+import { SIGNUP_GRANT_CREDITS } from "@repo/pricing"
 import { useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowRight, Lock, Infinity as Infit, Server, Sparkles } from "lucide-react"
-import {
-	Accordion,
-	AccordionContent,
-	AccordionItem,
-	AccordionTrigger,
-} from "@repo/ui/components/ui/accordion"
 import { PricingBento } from "@repo/ui/components/pricing-bento"
 import { checkoutUrl } from "@repo/pricing"
 import { PageHero } from "@/components/page-hero"
+import FaqsAccrodian from "@/components/landingpage/faqs"
 import { pricingFaqs } from "./pricing-faqs"
 import { APP_LINKS, APP_URL } from "@/lib/site"
 
@@ -34,14 +30,16 @@ export default function PricingClient() {
 			    components/page-hero.tsx on why the surface is not a prop. */}
 			<PageHero
 				variant="ledger"
+				tone="butter"
+				art="pricing"
 				eyebrow="Pricing"
 				title={<>Pay only for what you run.</>}
 				sub="No subscription, no idle-time charge. Buy a pack once and spend credits when you actually build, practise or interview - and if an AI operation fails, the credits come straight back."
 				facts={[
-					{ value: "100", label: "Free credits on signup" },
+					{ value: `${SIGNUP_GRANT_CREDITS}`, label: "Free credits on signup" },
 					{ value: "0", label: "Subscriptions" },
 					{ value: "Never", label: "Credits expire" },
-					{ value: "6", label: "Languages that run" },
+					{ value: "5", label: "Languages that run" },
 				]}
 			/>
 
@@ -96,45 +94,13 @@ export default function PricingClient() {
 				</div>
 			</section>
 
-			{/* ── FAQ ──────────────────────────────────────────────────────────── */}
-			<section className="border-t border-neutral-100 py-20 dark:border-neutral-800">
-				<div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 px-6 lg:grid-cols-[0.8fr_1.2fr]">
-					<div className="lg:sticky lg:top-24 lg:h-fit">
-						<span className="font-mono text-[11px] uppercase tracking-widest text-neutral-500 dark:text-neutral-400">
-							FAQ
-						</span>
-						<h2 className="mt-3 text-3xl font-bold tracking-tight text-neutral-900 dark:text-white sm:text-4xl">
-							Questions,{" "}
-							<span className="text-neutral-500 dark:text-neutral-400">answered.</span>
-						</h2>
-						<p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
-							Everything about how credits, billing, and access work on ShipItHQ.
-						</p>
-						<Link
-							href="/aboutus#contact"
-							className="mt-6 inline-flex items-center gap-2 rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-neutral-800 dark:bg-white dark:text-neutral-900"
-						>
-							Talk to support <ArrowRight className="h-4 w-4" />
-						</Link>
-					</div>
-
-					<Accordion type="single" collapsible className="space-y-3">
-						{pricingFaqs.map((faq, i) => (
-							<AccordionItem
-								key={i}
-								value={`faq-${i}`}
-								className="rounded-xl border border-neutral-200 px-5 dark:border-neutral-800"
-							>
-								<AccordionTrigger className="py-4 text-left text-[15px] font-semibold text-neutral-900 hover:no-underline dark:text-white">
-									{faq.q}
-								</AccordionTrigger>
-								<AccordionContent className="pb-4 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
-									{faq.a}
-								</AccordionContent>
-							</AccordionItem>
-						))}
-					</Accordion>
-				</div>
+			{/* ── FAQ: the landing's shared FAQ band (plan/web/revamp REV-99) ── */}
+			<section className="border-t border-neutral-100 bg-white">
+				<FaqsAccrodian
+					faqs={pricingFaqs.map((f) => ({ question: f.q, answer: f.a }))}
+					idPrefix="pricing-faq"
+					sub="Everything about how credits, billing and access work on ShipItHQ."
+				/>
 			</section>
 
 			{/* ── CTA ──────────────────────────────────────────────────────────── */}

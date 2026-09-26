@@ -1,67 +1,69 @@
-"use client"
-
-// The companies landing page (moved from apps/hiring, plan/hiring-app HA-3,
-// Niraj 2026-09-25: moved, not deleted; it is improved later). The hiring app
-// itself opens on sign-in.
-import Navbar from "./navbar";
-import HeroSection from "./hero-section";
-import FeaturesSection from "./features-section";
-import HowItWorksSection from "./how-it-works-section";
+// The companies landing page, shipithq.com/hire (plan/web/revamp REV-21), rebuilt on
+// the same system as the student landing: hero, what you get, how it works, pricing,
+// testimonials (real quotes only), FAQ, and a closing band. Copy and sources:
+// content/hire.ts.
+import SiteHeader from "@/components/site/header";
+import SiteFooter from "@/components/site/footer";
+import FaqsAccrodian from "@/components/landingpage/faqs";
+import { HireHero } from "@/components/hire/hero";
+import { ModuleCardGrid } from "@/components/home/modules";
+import { TestimonialWall } from "@/components/site/testimonial-wall";
+import { Section } from "@/components/marketing/primitives";
+import { CtaBand, HowItWorks, NumbersBand } from "@/components/marketing/sections";
+import { ProductTour } from "@/components/marketing/product-tour";
+import { GuidesStrip } from "./guides-strip";
+import { CandidateView, FairByDesign, OldVsNew, TeamSizes } from "@/components/hire/sections";
+import { TESTIMONIALS as COMPANY_TESTIMONIALS } from "@/content/testimonials/companies";
+import { DEMO_COMPANIES } from "@/content/testimonials/demo";
+import { HIRE_FAQS, HIRE_MODULES, HIRE_STEP_CARDS, HIRE_TOUR } from "@/content/hire";
+import { BRAND, HIRING_LINKS } from "@/lib/site";
 import PricingSection from "./pricing-section";
-import TestimonialsSection from "./testimonials-section";
-import FaqSection from "./faq-section";
-import CtaSection from "./cta-section";
-import Footer from "./footer";
-import VerificationTools from "./verificationtools";
-import InterviewSuite from "./interviewsuite";
-import SmoothScroll from "@/components/smoothscroll";
-import BotTerminal from "./botterminal";
-import CandidateIntelligence from "./candidateintelliegence";
-import IntegrationMarquee from "./intergrationmarquee";
 
 export function HireLanding() {
 	return (
-		<SmoothScroll>
-			<Navbar />
-			<main className="relative bg-white dark:bg-neutral-900">
-				<section id="hero">
-					<HeroSection />
+		<>
+			<SiteHeader />
+			<main className="relative bg-neutral-50">
+				<HireHero />
+
+				<Section
+					id="features"
+					eyebrow="What you get"
+					title="Everything between a job post and a hire"
+					sub="Five parts of one workspace, for the whole hiring team. Each has its own page."
+				>
+					<ModuleCardGrid items={HIRE_MODULES} />
+				</Section>
+
+				<OldVsNew />
+				<HowItWorks title="From a job post to a shortlist that already passed" steps={HIRE_STEP_CARDS} />
+				<CandidateView />
+				<ProductTour eyebrow="Take the tour" title="See the workspace" tabs={HIRE_TOUR} />
+				<NumbersBand title="On ShipItHQ today" keys={["developers", "activeJobs", "companies", "mocks"]} />
+				<FairByDesign />
+				<TeamSizes />
+				<GuidesStrip />
+				<PricingSection />
+
+				<TestimonialWall id="testimonials" testimonials={COMPANY_TESTIMONIALS} demo={DEMO_COMPANIES} title="Teams hiring with ShipItHQ" />
+
+				<section id="faq" className="bg-white">
+					<FaqsAccrodian
+						faqs={HIRE_FAQS}
+						idPrefix="hire-faq"
+						sub="Who can sign up, what the rounds are, where candidates come from and what it costs."
+					/>
 				</section>
-				<section id="features">
-					<FeaturesSection />
-				</section>
-				<section id="how-it-works">
-					<HowItWorksSection />
-				</section>
-				<section id="botterminal">
-					<BotTerminal />
-				</section>
-				<section id="verificationtools">
-					<VerificationTools />
-				</section>
-				<section id="candidateintelliegence">
-					<CandidateIntelligence />
-				</section>
-				<section id="integrationmarquee">
-					<IntegrationMarquee />
-				</section>
-				<section id="interviewsuite">
-					<InterviewSuite />
-				</section>
-				<section id="pricing">
-					<PricingSection />
-				</section>
-				<section id="testimonials">
-					<TestimonialsSection />
-				</section>
-				<section id="faq">
-					<FaqSection />
-				</section>
-				<section id="cta">
-					<CtaSection />
-				</section>
-				<Footer />
+
+				<CtaBand
+					title={<>Design your interview <br className="hidden sm:block" />once.</>}
+					sub="Set up your workspace with a company email and build your first pipeline in minutes."
+					primary={{ text: "Start hiring free", href: HIRING_LINKS.signup }}
+					secondary={{ text: "Talk to us", href: `mailto:${BRAND.email}` }}
+					words={["Pipelines", "Hard gates", "Pass marks", "Question bank", "Take-homes", "Candidate board", "Custom roles"]}
+				/>
 			</main>
-		</SmoothScroll>
+			<SiteFooter audience="companies" />
+		</>
 	)
 }

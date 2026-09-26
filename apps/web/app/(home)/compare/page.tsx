@@ -40,6 +40,8 @@ export default function CompareIndexPage() {
 
             <PageHero
                 variant="ledger"
+                tone="sand"
+                art="compare"
                 eyebrow="Compare"
                 title={<>We will tell you when to use the other one.</>}
                 sub="Every comparison here opens with what the alternative is genuinely good at, and none of them quote a competitor's price - because prices change and comparison pages do not."

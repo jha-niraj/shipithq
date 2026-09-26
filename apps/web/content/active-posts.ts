@@ -53,4 +53,16 @@ export const ACTIVE_BLOG_SLUGS: readonly string[] = [
     'open-source-for-your-resume',
     'learning-to-code-with-ai',
     'ai-resume-screening-explained',
+    // ─── Hiring (for companies, REV-83) ───
+    'technical-interview-process-design',
+    'pass-marks-technical-assessments',
+    'work-sample-vs-take-home-assignment',
+    'structured-interviews-engineering-hiring',
+    'hiring-junior-engineers-without-resume-filter',
+    // ─── Placements (for universities, REV-31) ───
+    'placement-season-plan',
+    'placement-readiness-metrics',
+    'mock-interviews-at-scale',
+    'project-based-learning-cs',
+    'campus-recruiting-what-companies-want',
 ]

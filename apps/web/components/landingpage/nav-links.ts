@@ -4,6 +4,7 @@ import {
     MessagesSquare, Braces, FileText, GraduationCap, School, ClipboardList,
     TrendingUp, GitBranch,
 } from 'lucide-react'
+import { APP_LINKS } from '@/lib/site'
 
 /**
  * The marketing navigation, as data.
@@ -44,6 +45,8 @@ export interface NavItem {
     href: string
     label: string
     children?: readonly NavChild[]
+    /** Panel columns. Guides uses two (Niraj, 2026-09-26); everything else one. */
+    columns?: 1 | 2
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
@@ -52,31 +55,31 @@ export const NAV_ITEMS: readonly NavItem[] = [
         label: 'Features',
         children: [
             {
-                href: '/features#practice',
+                href: '/features/practice',
                 title: 'Practice',
                 description: 'DSA, system design and web tracks, run in a real Linux container',
                 icon: Code2,
             },
             {
-                href: '/features#projects',
+                href: '/features/projects',
                 title: 'Projects',
                 description: 'A brief to build, then an interview about what you built',
                 icon: FolderKanban,
             },
             {
-                href: '/features#mock',
+                href: '/features/mock',
                 title: 'Mock interviews',
                 description: 'Voice mocks with no scheduling and nobody to owe a favour to',
                 icon: Video,
             },
             {
-                href: '/features#ai',
+                href: '/features/ai',
                 title: 'AI tools',
                 description: 'ATS scoring, resume tailoring and cover letters from your own resume',
                 icon: Sparkles,
             },
             {
-                href: '/features#jobs',
+                href: '/features/jobs',
                 title: 'Jobs',
                 description: 'Browse roles, save them, and track what you applied to',
                 icon: Briefcase,
@@ -141,6 +144,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     {
         href: '/blogs',
         label: 'Guides',
+        columns: 2,
         children: [
             {
                 href: '/blogs',
@@ -192,6 +196,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
             },
         ],
     },
+    // ── Incidents ──
+    //
+    // Real production failures as playable cases (plan/incidents INC-6). It lives in the
+    // app, public to read, so this is an app-origin link: the navbar renders an absolute
+    // href as a plain <a>, never a Next <Link> (apps/web/CLAUDE.md, the separation rule).
+    { href: APP_LINKS.incidents, label: 'Incidents' },
     // ── Company ──
     //
     // Added after a manual pass found that the legal pages were reachable only from the

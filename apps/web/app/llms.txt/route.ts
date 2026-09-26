@@ -1,5 +1,6 @@
 import { publishedPosts, BLOG_CATEGORIES } from '@/content/blog'
 import { SITE, APP_URL, BRAND } from '@/lib/site'
+import { MODULES } from '@/content/modules'
 
 // Curated markdown index for AI/LLM crawlers. The blog section is generated from the
 // publish gate so it never goes stale as posts are activated - no manual edit needed.
@@ -17,6 +18,18 @@ export async function GET() {
         })
         .filter((section): section is string => section !== null)
         .join('\n\n')
+
+    // Generated from content/modules.ts, where every claim carries its source
+    // (plan/web/revamp REV-60). This section used to be hand-written and still
+    // described Project Studio and an Open Source Tracker after both were gone.
+    const coreFeatures = MODULES.map((m) => [
+        `### ${m.name}`,
+        m.detail.intro,
+        '',
+        ...m.detail.different.map((d) => `- ${d.text}`),
+        ...m.detail.limits.map((l) => `- Limit: ${l.text}`),
+        `- More: ${SITE}/features/${m.id}`,
+    ].join('\n')).join('\n\n')
 
     const body = `# ${BRAND.name} - ${BRAND.tagline}
 
@@ -39,34 +52,17 @@ software engineers.
 
 ## Core Features
 
-### AI Resume Builder & ATS Checker
-Generates ATS-parseable, recruiter-ready resumes. Paste a job description and it tailors
-bullets to match the role, then flags formatting that breaks automated parsing.
-
-### AI Cover Letter Generator
-Answers a short set of targeted questions and produces a personalised cover letter in your
-own voice, rather than the generic template recruiters now recognise instantly.
-
-### AI Mock Interviews
-Technical and behavioural interview practice with real-time feedback on structure, clarity
-and content. Covers DSA, system design and behavioural rounds, and tracks improvement.
-
-### DSA & System Design Practice
-Coding problems with hints that teach rather than hand over the answer, plus structured
-system design challenges with evaluation against the criteria real interviewers use.
-
-### Project Studio
-Guided, task-broken-down projects that produce something deployable and defensible in an
-interview - not another tutorial clone.
-
-### Open Source Tracker
-Finds beginner-appropriate issues in real projects and tracks contributions so they become
-a visible hiring signal.
+${coreFeatures}
 
 ## Site Structure
 
 - Home: ${SITE}
+- Features: ${SITE}/features
 - Pricing: ${SITE}/pricing
+- For companies (hiring): ${SITE}/hire (pipelines, questions, jobs, candidates, team: ${SITE}/hire/<name>)
+- Hiring guides for companies: ${SITE}/hire/guides
+- Ideas (public feature requests): ${SITE}/ideas
+- What's new: ${SITE}/changelog
 - About: ${SITE}/aboutus
 - Contact: ${SITE}/aboutus#contact
 - Blog: ${SITE}/blogs

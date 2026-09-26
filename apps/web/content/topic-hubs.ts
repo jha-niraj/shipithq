@@ -196,4 +196,42 @@ export const TOPIC_HUBS: Record<BlogCategory, TopicHub> = {
         ],
         nextStep: { label: 'The resume that screening actually reads', href: '/blogs/topics/resume' },
     },
+    'hiring': {
+        body: [
+            'These guides are for the other side of the table: the engineers and managers designing how their company interviews. Most interview loops were not designed; they accreted a round at a time, and nobody checked what each round predicts.',
+            'The selection research is unusually clear on a few points. Structure beats chemistry, doing the work beats talking about it, and a pass mark is a floor rather than a portrait of a great hire. The rest is making those ideas practical in a week-long loop.',
+        ],
+        path: [
+            { slug: 'technical-interview-process-design', why: 'Start here. One round per job need, a gate for each, and a loop that fits in a week.' },
+            { slug: 'structured-interviews-engineering-hiring', why: 'The single change with the largest effect on interview quality.' },
+            { slug: 'work-sample-vs-take-home-assignment', why: 'How to see real work without costing candidates a weekend.' },
+            { slug: 'pass-marks-technical-assessments', why: 'Choosing the number that decides who you never meet, and checking it afterwards.' },
+            { slug: 'hiring-junior-engineers-without-resume-filter', why: 'Screening a large junior pool on ability instead of background.' },
+        ],
+        faqs: [
+            { question: 'What predicts engineering job performance best?', answer: 'In the selection research, structured interviews and work samples are among the strongest predictors; unstructured interviews are among the weakest.' },
+            { question: 'How long should an engineering interview process take?', answer: 'About a week and four rounds for most roles. Longer loops lose the strongest candidates first, because they have other offers.' },
+            { question: 'Should every interview round be able to reject a candidate?', answer: 'No. Decide in advance which rounds are hard gates and which are advisory, so a single interviewer cannot veto on a feeling.' },
+        ],
+        nextStep: { label: 'ShipItHQ for hiring teams', href: '/hire' },
+    },
+    'placements': {
+        body: [
+            'These guides are for the people who run placements: Training and Placement Officers, heads of department, placement coordinators and the faculty whose coursework decides what students can talk about in an interview.',
+            'Most of what decides a placement season happens before the first company arrives. A batch that has been measured honestly, has a finished project each, and has sat a structured mock interview walks into the drives knowing what each round is for. The season itself is then logistics.',
+        ],
+        path: [
+            { slug: 'placement-season-plan', why: 'Start here. What to do in each month before and during the season.' },
+            { slug: 'placement-readiness-metrics', why: 'The five signals worth tracking instead of CGPA alone, and how to track them fairly.' },
+            { slug: 'project-based-learning-cs', why: 'Coursework projects that leave every student with something to defend in an interview.' },
+            { slug: 'mock-interviews-at-scale', why: 'A mock interview for every student without exhausting faculty.' },
+            { slug: 'campus-recruiting-what-companies-want', why: 'The rounds companies run on campus, and the brief to send students before each drive.' },
+        ],
+        faqs: [
+            { question: 'When should a placement cell start preparing for the season?', answer: 'At least a semester before the first drive, starting with a short readiness baseline for the whole batch.' },
+            { question: 'What should a placement cell track besides CGPA?', answer: 'Timed problem solving, one finished project, a structured mock interview score, resume quality and communication, reported by department.' },
+            { question: 'How can a college give every student a mock interview?', answer: 'Use a fixed structure and rubric, run AI voice mocks as the first pass for everyone, and save faculty and alumni for the final rounds.' },
+        ],
+        nextStep: { label: 'Campus placement preparation for students', href: '/blogs/campus-placement-preparation-guide' },
+    },
 }

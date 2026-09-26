@@ -8,6 +8,10 @@ import { SITE, BRAND, APP_LINKS } from '@/lib/site'
 import { pageMeta } from '@/lib/seo'
 import { breadcrumbSchema, webPageSchema, jsonLd } from '@/lib/schema'
 import { FEATURE_MODULES } from './_components/feature-modules'
+import { MODULES } from '@/content/modules'
+
+/** Modules with a detail page at /features/<id> (plan/web/revamp REV-12). Credits has none. */
+const DETAIL_IDS = new Set<string>(MODULES.map((m) => m.id))
 
 /**
  * The "what do I actually get" page.
@@ -76,6 +80,7 @@ export default function FeaturesPage() {
 
             <PageHero
                 variant="split"
+                tone="mint"
                 eyebrow="Features"
                 title={<>Six things, and each one does what it says.</>}
                 sub="No module on this page is coming soon, in beta, or a route you cannot reach after signing up. Where something has a limit, the limit is written next to it."
@@ -126,8 +131,8 @@ export default function FeaturesPage() {
                                 // inside it. Both work as a scroll anchor; only the section
                                 // has a box an IntersectionObserver can watch.
                                 id={m.id}
-                                // scroll-mt clears the floating navbar. Without it an anchor
-                                // from the nav dropdown lands with the heading under the pill.
+                                // scroll-mt clears the sticky navbar, so an anchor lands with
+                                // the heading below it.
                                 className={`scroll-mt-28 ${i > 0 ? 'mt-20 border-t border-neutral-200 pt-20 dark:border-neutral-800' : ''}`}
                             >
                                 <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
@@ -185,6 +190,15 @@ export default function FeaturesPage() {
                                     <span className="font-semibold text-neutral-900 dark:text-white">What it is not. </span>
                                     {m.scope}
                                 </p>
+                                {DETAIL_IDS.has(m.id) && (
+                                    <Link
+                                        href={`/features/${m.id}`}
+                                        className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline dark:text-white"
+                                    >
+                                        How {m.name.toLowerCase()} works, step by step
+                                        <ArrowRight className="h-4 w-4" aria-hidden />
+                                    </Link>
+                                )}
                             </Reveal>
                         ))}
                     </div>

@@ -122,6 +122,30 @@ function AiTools() {
     )
 }
 
+function Hiring() {
+    // A candidate card with a check, on a small ladder of rounds.
+    return (
+        <>
+            <rect x="8" y="10" width="24" height="28" rx="3" {...S} />
+            <circle cx="20" cy="19" r="4" {...S} />
+            <path d="M13 31 a7 6 0 0 1 14 0" {...S} />
+            <path d="M34 26 l3 3 l6 -7" {...S} />
+        </>
+    )
+}
+
+function Placements() {
+    // A mortarboard with its tassel: a batch heading into the season.
+    return (
+        <>
+            <path d="M6 18 L24 10 L42 18 L24 26 z" {...S} />
+            <path d="M14 22 v8 c0 3 5 5 10 5 s10 -2 10 -5 v-8" {...S} />
+            <path d="M42 18 v9" {...S} />
+            <circle cx="42" cy="30" r="2" fill="currentColor" />
+        </>
+    )
+}
+
 const GLYPHS: Record<BlogCategory, () => React.ReactElement> = {
     'interview-prep': InterviewPrep,
     'career': Career,
@@ -130,6 +154,8 @@ const GLYPHS: Record<BlogCategory, () => React.ReactElement> = {
     'portfolio': Portfolio,
     'open-source': OpenSource,
     'ai-tools': AiTools,
+    'hiring': Hiring,
+    'placements': Placements,
 }
 
 export function TopicGlyph({

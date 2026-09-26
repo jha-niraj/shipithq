@@ -26,6 +26,8 @@ export const APP_LINKS = {
     signup: `${APP_URL}/register`,
     signin: `${APP_URL}/signin`,
     dashboard: `${APP_URL}/home`,
+    // Incidents (plan/incidents INC-6): public in the app, readable signed out.
+    incidents: `${APP_URL}/incidents`,
 } as const;
 
 /**
@@ -43,6 +45,20 @@ export const HIRING_LINKS = {
     signin: `${HIRING_URL}/signin`,
     help: `${HIRING_URL}/help`,
     contact: `${HIRING_URL}/contactus`,
+} as const;
+
+/**
+ * The university product (uni.shipithq.com) - apps/uni. Linked to like the other two:
+ * /uni is its marketing page on this site (plan/web/revamp REV-31).
+ */
+export const UNI_URL = (
+    process.env.NEXT_PUBLIC_UNI_URL ?? "http://localhost:6003"
+).replace(/\/$/, "");
+
+/** Canonical CTA destinations on the university app. */
+export const UNI_LINKS = {
+    signup: `${UNI_URL}/register`,
+    signin: `${UNI_URL}/signin`,
 } as const;
 
 /** Public brand identity reused by metadata, JSON-LD and the footer. */

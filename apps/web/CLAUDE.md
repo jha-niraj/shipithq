@@ -25,10 +25,14 @@ The authenticated product (auth, dashboard, AI tools, practice, projects, checko
   - The `APP_PATHS` redirects in `next.config.mjs` are a safety net for old inbound links, not
     a routing strategy. Linking through them adds a pointless redirect hop.
 
-**Database access is allowed but narrow.** `@repo/db` is used for exactly three things:
+**Database access is allowed but narrow.** `@repo/db` is used for exactly four things:
 read-only landing stats (`actions/stats.action.ts`), newsletter capture
-(`actions/newsletter.action.ts`), and contact submissions (`actions/contact.action.ts`).
-No user records are read or written here.
+(`actions/newsletter.action.ts`), contact submissions (`actions/contact.action.ts`), and
+the read-only public Ideas board (`app/(home)/ideas`, through `listPublicIdeas` in
+`@repo/db/ideas`; plan/web/revamp REV-42, plan/ideas). The only user data that query
+returns is a poster's first name and avatar, and not even that when they posted
+anonymously (Niraj, 2026-09-26); never an id or an email. No user records are written
+here. Posting and voting on ideas happen in the app.
 
 ## URLs and SEO
 
@@ -147,8 +151,14 @@ create `middleware.ts`. The same rule applies to `apps/main`, which already has 
 
 ## Conventions
 
-- **Light/dark mode:** never hardcode a single-mode colour; always pair
-  (e.g. `bg-white dark:bg-neutral-950`).
+- **Light only** (Niraj, 2026-09-25, plan/web/revamp REV-1): `ThemeProvider` is forced
+  to light and there is no theme toggle. Do not delete existing `dark:` classes; new
+  marketing code built on `components/marketing/primitives.tsx` uses its tones and needs
+  no `dark:` pair.
+- **Chrome:** every page renders `SiteHeader` (announcement + sticky navbar, in the page
+  flow, so no top padding to clear it) and `SiteFooter`, from `components/site/`. The
+  navbar's audience (students, companies, universities) comes from the path; its data
+  is `components/site/audiences.ts`.
 - **Design system:** import UI from `@repo/ui`. Do not restyle shared components.
 - **No dead links.** No `href="#"`, no "coming soon" toasts dressed as navigation, no links to
   routes that only exist in `apps/main`.

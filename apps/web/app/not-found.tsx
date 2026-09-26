@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { ArrowRight, Code2, Coins, Swords, BookOpen, Users, LogIn } from 'lucide-react'
-import Navbar from '@/components/landingpage/homepagenavbar'
-import Footer from '@/components/landingpage/footer'
+import SiteHeader from "@/components/site/header";
+import SiteFooter from "@/components/site/footer";
 import { Reveal } from '@/components/reveal'
 import { APP_LINKS } from '@/lib/site'
 import { NotFoundArt } from './_components/not-found-art'
@@ -81,9 +81,9 @@ const DESTINATIONS = [
 export default function NotFound() {
     return (
         <div className="flex min-h-screen flex-col bg-white dark:bg-neutral-950">
-            <Navbar />
+            <SiteHeader />
 
-            <main className="flex-1 pt-20">
+            <main className="flex-1">
                 <div className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
                     <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-16">
                         <Reveal>
@@ -171,7 +171,7 @@ export default function NotFound() {
                 </div>
             </main>
 
-            <Footer />
+            <SiteFooter />
         </div>
     )
 }

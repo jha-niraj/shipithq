@@ -2,6 +2,9 @@ import type { MetadataRoute } from 'next'
 import { SITE } from '@/lib/site'
 import { BLOG_POSTS, BLOG_CATEGORY_KEYS, getPostsByCategory, publishedPosts } from '@/content/blog'
 import { COMPARISON_SLUGS } from './(home)/compare/_components/comparisons'
+import { MODULES } from '@/content/modules'
+import { HIRE_FEATURES } from '@/content/hire'
+import { UNI_FEATURES } from '@/content/uni'
 
 // Every public/SEO URL lives on this marketing deploy. Product pages (/ai, /practice,
 // /projects…) belong to the app and are excluded - they 307 away from here anyway.
@@ -11,7 +14,8 @@ import { COMPARISON_SLUGS } from './(home)/compare/_components/comparisons'
 // just now". Google treats that as an unreliable signal and then ignores lastmod
 // entirely - which would also devalue the accurate per-post dates below. Bump it only
 // on a real content revamp of the static pages.
-const STATIC_LAST_MODIFIED = '2026-07-30'
+// Bumped for the plan/web/revamp rebuild (new landing, module pages, Ideas, changelog).
+const STATIC_LAST_MODIFIED = '2026-09-25'
 
 const ROUTES: Record<string, [number, MetadataRoute.Sitemap[number]['changeFrequency']]> = {
     '': [1.0, 'weekly'],
@@ -23,7 +27,16 @@ const ROUTES: Record<string, [number, MetadataRoute.Sitemap[number]['changeFrequ
     'blogs': [0.8, 'weekly'],
     'compare': [0.7, 'monthly'],
     // ShipItHQ for companies, moved from apps/hiring (plan/hiring-app HA-3).
-    'hire': [0.7, 'monthly'],
+    'hire': [0.8, 'monthly'],
+    'hire/guides': [0.6, 'monthly'],
+    'hire/pricing': [0.8, 'monthly'],
+    'uni': [0.8, 'monthly'],
+    'uni/guides': [0.6, 'monthly'],
+    'uni/pricing': [0.8, 'monthly'],
+    // plan/web/revamp: the public Ideas board changes as people post and vote; the
+    // changelog gains an entry a month.
+    'ideas': [0.6, 'daily'],
+    'changelog': [0.5, 'monthly'],
     'aboutus': [0.6, 'monthly'],
     'termsofservice': [0.3, 'yearly'],
     'privacypolicy': [0.3, 'yearly'],
@@ -74,5 +87,28 @@ export default function sitemap(): MetadataRoute.Sitemap {
         priority: 0.7,
     }))
 
-    return [...staticEntries, ...postEntries, ...topicEntries, ...compareEntries]
+    // One per module detail page (plan/web/revamp REV-12), from the same array the pages
+    // are generated from.
+    const moduleEntries: MetadataRoute.Sitemap = MODULES.map((m) => ({
+        url: `${SITE}/features/${m.id}`,
+        lastModified: STATIC_LAST_MODIFIED,
+        changeFrequency: 'monthly' as const,
+        priority: 0.8,
+    }))
+
+    // The five company feature pages (REV-82).
+    const hireEntries: MetadataRoute.Sitemap = HIRE_FEATURES.map((f) => ({
+        url: `${SITE}/hire/${f.slug}`,
+        lastModified: STATIC_LAST_MODIFIED,
+        changeFrequency: 'monthly' as const,
+        priority: 0.7,
+    }))
+    const uniEntries: MetadataRoute.Sitemap = UNI_FEATURES.map((f) => ({
+        url: `${SITE}/uni/${f.slug}`,
+        lastModified: STATIC_LAST_MODIFIED,
+        changeFrequency: 'monthly' as const,
+        priority: 0.7,
+    }))
+
+    return [...staticEntries, ...moduleEntries, ...hireEntries, ...uniEntries, ...postEntries, ...topicEntries, ...compareEntries]
 }

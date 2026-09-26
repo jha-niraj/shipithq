@@ -83,6 +83,8 @@ export default async function ComparePage({ params }: Props) {
 
             <PageHero
                 variant="versus"
+                tone="coral"
+                crumbs={[{ name: 'Compare', href: '/compare' }, { name: c.title }]}
                 eyebrow="Compare"
                 title={<>{c.title}</>}
                 sub={c.stance}

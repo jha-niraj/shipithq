@@ -6,17 +6,13 @@
  * `Reveal` being converted to a zero-JS server component, and nothing else in the file
  * ever needed it. The cost was roughly two hundred lines of legal prose crossing a client
  * boundary for no reason.
- *
- * `SmoothScroll` below IS a client component, and that is fine - a server component can
- * render one. The boundary belongs around the thing that needs it, not around the page.
+
  */
 import Link from "next/link"
-import SmoothScroll from "@/components/smoothscroll"
 import { Reveal } from "@/components/reveal"
 
 export default function TermsOfService() {
     return (
-        <SmoothScroll>
             <div className="w-full bg-white dark:bg-neutral-950 font-sans selection:bg-neutral-100 dark:selection:bg-neutral-800">
                 <Reveal fadeOnly className="max-w-7xl mx-auto px-6 py-16 md:py-24">
                     <div className="flex gap-16 items-start">
@@ -70,7 +66,7 @@ export default function TermsOfService() {
                         {/* Main content */}
                         <main className="flex-1 min-w-0">
                             <div className="mb-12">
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Effective May 13, 2026</p>
+                                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Effective September 26, 2026</p>
                                 <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-neutral-900 dark:text-white leading-none mb-6">
                                     Terms of <em>service.</em>
                                 </h1>
@@ -161,21 +157,29 @@ export default function TermsOfService() {
                                 <div className="py-10 border-t border-neutral-200 dark:border-neutral-800">
                                     <h2 className="flex items-center text-lg font-bold text-neutral-900 dark:text-white mb-4">
                                         <span className="font-mono text-xs text-neutral-500 dark:text-neutral-400 mr-4">06</span>
-                                        Termination
+                                        Hiring Rounds
                                     </h2>
-                                    <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed pl-8">
-                                        We may suspend or terminate your access immediately, without prior notice, if you breach these Terms. You may also delete your account at any time. Upon termination, your right to use the Service ceases immediately. Unused credits are forfeited upon termination for a terms violation.
-                                    </p>
+                                    <div className="pl-8 space-y-3 text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                                        <p>Hiring rounds let you take a company&apos;s assessment rounds for a role and, if you choose, send your results to that company.</p>
+                                        <ul className="list-disc pl-5 space-y-2">
+                                            <li><strong className="text-neutral-700 dark:text-neutral-300">Nothing is sent without you:</strong> your results go to a company only when you press Send on that send, after seeing exactly what the company will receive. We keep a record of that consent: what was shared, when and with whom. You can withdraw a send until the company decides on it.</li>
+                                            <li><strong className="text-neutral-700 dark:text-neutral-300">AI assessment:</strong> some rounds (system design and voice rounds) are scored by AI against a published rubric; aptitude and coding rounds are scored automatically. Scores inform a company&apos;s decision and never make it: a person at the company decides every invite and every decline.</li>
+                                            <li><strong className="text-neutral-700 dark:text-neutral-300">Voice rounds:</strong> a voice round is a spoken conversation with an AI interviewer. We ask for your consent before the first question, and the conversation is transcribed so it can be scored and, if you send it, read by the company.</li>
+                                            <li><strong className="text-neutral-700 dark:text-neutral-300">Integrity:</strong> we record signals such as pasting and leaving the tab during a round, and show them to a company with your results. We do not watch you through your camera.</li>
+                                            <li><strong className="text-neutral-700 dark:text-neutral-300">Unclaimed company pages:</strong> some company pages are built by ShipItHQ from the company&apos;s own public website and are marked &quot;Unclaimed - not affiliated with ShipItHQ&quot;. Their rounds are ShipItHQ&apos;s generic pipelines, for practice only, and not that company&apos;s hiring process. Results cannot be sent to a company until it has claimed and verified its page.</li>
+                                            <li><strong className="text-neutral-700 dark:text-neutral-300">Companies:</strong> a company that receives results may use them only to assess you for the role you sent them for, and must not share them further.</li>
+                                        </ul>
+                                    </div>
                                 </div>
 
                                 {/* Section 07 */}
                                 <div className="py-10 border-t border-neutral-200 dark:border-neutral-800">
                                     <h2 className="flex items-center text-lg font-bold text-neutral-900 dark:text-white mb-4">
                                         <span className="font-mono text-xs text-neutral-500 dark:text-neutral-400 mr-4">07</span>
-                                        Disclaimers &amp; Liability
+                                        Termination
                                     </h2>
                                     <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed pl-8">
-                                        The Service is provided &quot;AS IS&quot; and &quot;AS AVAILABLE&quot; without warranties of any kind. ShipItHQ makes no warranties regarding the accuracy of AI-generated outputs or the likelihood of any specific outcome. Our total liability to you for any claim arising from use of the Service is capped at the amount you paid us in the 12 months preceding the claim.
+                                        We may suspend or terminate your access immediately, without prior notice, if you breach these Terms. You may also delete your account at any time from Settings; deleting it withdraws any results you have sent and removes them from the companies that received them. Upon termination, your right to use the Service ceases immediately. Unused credits are forfeited upon termination for a terms violation.
                                     </p>
                                 </div>
 
@@ -183,10 +187,10 @@ export default function TermsOfService() {
                                 <div className="py-10 border-t border-neutral-200 dark:border-neutral-800">
                                     <h2 className="flex items-center text-lg font-bold text-neutral-900 dark:text-white mb-4">
                                         <span className="font-mono text-xs text-neutral-500 dark:text-neutral-400 mr-4">08</span>
-                                        Governing Law
+                                        Disclaimers &amp; Liability
                                     </h2>
                                     <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed pl-8">
-                                        These Terms are governed by and construed in accordance with applicable law. Any disputes arising under these Terms shall be resolved through binding arbitration, except where prohibited by law.
+                                        The Service is provided &quot;AS IS&quot; and &quot;AS AVAILABLE&quot; without warranties of any kind. ShipItHQ makes no warranties regarding the accuracy of AI-generated outputs or the likelihood of any specific outcome. Our total liability to you for any claim arising from use of the Service is capped at the amount you paid us in the 12 months preceding the claim.
                                     </p>
                                 </div>
 
@@ -194,6 +198,17 @@ export default function TermsOfService() {
                                 <div className="py-10 border-t border-neutral-200 dark:border-neutral-800">
                                     <h2 className="flex items-center text-lg font-bold text-neutral-900 dark:text-white mb-4">
                                         <span className="font-mono text-xs text-neutral-500 dark:text-neutral-400 mr-4">09</span>
+                                        Governing Law
+                                    </h2>
+                                    <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed pl-8">
+                                        These Terms are governed by and construed in accordance with applicable law. Any disputes arising under these Terms shall be resolved through binding arbitration, except where prohibited by law.
+                                    </p>
+                                </div>
+
+                                {/* Section 10 */}
+                                <div className="py-10 border-t border-neutral-200 dark:border-neutral-800">
+                                    <h2 className="flex items-center text-lg font-bold text-neutral-900 dark:text-white mb-4">
+                                        <span className="font-mono text-xs text-neutral-500 dark:text-neutral-400 mr-4">10</span>
                                         Changes
                                     </h2>
                                     <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed pl-8">
@@ -214,6 +229,5 @@ export default function TermsOfService() {
                     </div>
                 </Reveal>
             </div>
-        </SmoothScroll>
     )
 }

@@ -140,13 +140,13 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
         ],
         points: [
             'Browse and filter open roles',
-            'A match score against your profile, used to flag a long-shot application before you send it',
+            'A match score against your profile, with the skills you are missing',
             'Save roles to come back to',
             'Follow companies',
-            'Track the applications you have sent',
+            'Take a company\'s interview rounds, send the results when you choose, and track every send in My rounds',
         ],
         scope: 'It surfaces, scores and tracks roles. It does not auto-apply on your behalf, and it is not a recruiter.',
-        evidence: 'apps/main/app/(jobs)/jobs/{browse,saved,applications,following}; match scores from the jobRecommendations table in packages/db/src/schema/jobs.ts, gated in actions/jobs/applications.ts',
+        evidence: 'apps/main/app/(jobs)/jobs/{browse,saved,rounds,following}; match scores from the jobRecommendations table in packages/db/src/schema/jobs.ts; sends in apps/main/lib/hiring/send.ts',
     },
     {
         id: 'credits',

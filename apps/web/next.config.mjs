@@ -104,6 +104,7 @@ const nextConfig = {
     env: {
         NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
         NEXT_PUBLIC_HIRING_URL: process.env.NEXT_PUBLIC_HIRING_URL,
+        NEXT_PUBLIC_UNI_URL: process.env.NEXT_PUBLIC_UNI_URL,
         NEXT_PUBLIC_WEB_URL: process.env.NEXT_PUBLIC_WEB_URL,
     },
 

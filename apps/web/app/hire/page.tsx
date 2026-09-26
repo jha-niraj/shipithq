@@ -11,6 +11,9 @@ export const metadata: Metadata = pageMeta({
     path: '/hire',
 })
 
+// The numbers band reads live counts, cached an hour.
+export const revalidate = 3600
+
 export default function HirePage() {
     return <HireLanding />
 }

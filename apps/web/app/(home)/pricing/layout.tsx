@@ -1,6 +1,5 @@
-import Navbar from '@/components/landingpage/homepagenavbar';
-import Footer from '@/components/landingpage/footer';
-import SmoothScroll from '@/components/smoothscroll';
+import SiteHeader from "@/components/site/header";
+import SiteFooter from "@/components/site/footer";
 
 interface LayoutProps {
     children: React.ReactNode
@@ -8,13 +7,11 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
     return (
-        <SmoothScroll>
             <div className="flex flex-col bg-white dark:bg-neutral-950">
-                <Navbar />
+                <SiteHeader />
                 {children}
-                <Footer />
+                <SiteFooter />
             </div>
-        </SmoothScroll>
     );
 };
 

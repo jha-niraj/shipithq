@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { AnnouncementHideScript } from "@/components/site/announcement-bar";
 import "@repo/ui/styles/globals.css";
 import { RevealObserver } from "@/components/reveal-observer";
 import { ThemeProvider } from "@repo/ui/components/themeprovider";
@@ -139,12 +140,21 @@ export default function RootLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	// Native scrolling only (Lenis removed, plan/web/revamp REV-70): the browser's own
+	// smooth scroll for anchor jumps, off under reduced motion.
+	//
+	// Two fixes for "the page lands a little below the hero" (Niraj, 2026-09-26, REV-87):
+	//   - `data-scroll-behavior="smooth"` tells Next to switch smooth scrolling off while
+	//     it scrolls a new page into view, so a navigation jumps instead of gliding;
+	//   - `scroll-pt-16` reserves the sticky navbar's 64px, so when Next scrolls the new
+	//     page segment into view its top is not tucked under the bar.
 	return (
-		<html lang="en" suppressHydrationWarning>
+		<html lang="en" suppressHydrationWarning data-scroll-behavior="smooth" className="scroll-smooth scroll-pt-16 motion-reduce:scroll-auto">
 			<head>
 				<script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(organizationSchema)} />
 				<script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(websiteSchema)} />
 				<script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(serviceSchema)} />
+				<AnnouncementHideScript />
 			</head>
 			<body
 				className={`${spaceGrotesk.className} ${bricolage.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
@@ -154,8 +164,11 @@ export default function RootLayout({
 				<Providers>
 					<ThemeProvider
 						attribute="class"
-						defaultTheme="system"
-						enableSystem
+						// Light only (plan/web/revamp REV-1, Niraj 2026-09-25). forcedTheme wins over
+						// a stored "dark" from before, and there is no toggle anywhere on web. The
+						// `dark:` classes stay in the code on purpose, untouched.
+						forcedTheme="light"
+						defaultTheme="light"
 						// NOT disableTransitionOnChange: that injects `* { transition: none !important }`
 						// around the class swap, which cancels the colour crossfade that
 						// packages/ui/src/lib/theme-transition.ts installs for the switch. With it

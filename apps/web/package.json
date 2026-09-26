@@ -23,7 +23,6 @@
 		"@repo/ui": "workspace:*",
 		"drizzle-orm": "^0.45.2",
 		"framer-motion": "^12.23.26",
-		"lenis": "^1.3.16",
 		"lucide-react": "^0.562.0",
 		"next": "^16.2.12",
 		"react": "^19.2.0",

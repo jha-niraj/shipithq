@@ -1,5 +1,9 @@
 import type { Metadata } from 'next'
-import { publishedPosts } from '@/content/blog'
+import { publishedPosts as allPublished } from '@/content/blog'
+
+// Hiring and placement guides are for companies and universities: they live at
+// /hire/guides (REV-83) and /uni/guides (REV-31), and the student index leaves them out.
+const publishedPosts = allPublished.filter((p) => p.category !== 'hiring' && p.category !== 'placements')
 import { SITE, BRAND } from '@/lib/site'
 import { ref, ORG_ID } from '@/lib/schema'
 import BlogIndex from './_components/blog-index'

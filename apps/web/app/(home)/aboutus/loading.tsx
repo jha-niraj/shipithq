@@ -1,4 +1,5 @@
-// Hand-matched to the About page: pt-32 hero, stat band, mission grid, team grid, then the #contact section.
+// Hand-matched to the About page: PageHero-height hero (pt-16 / sm:pt-20 / lg:pt-24), stat band, mission grid, team grid, then the #contact section.
+import { PageHeroSkeleton } from "@/components/page-hero";
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
 
 export default function Loading() {
@@ -7,16 +8,7 @@ export default function Loading() {
             <ShimmerStyles />
 
             {/* Hero */}
-            <section className="border-b border-neutral-100 pb-20 pt-32 dark:border-neutral-800">
-                <div className="mx-auto max-w-3xl px-6">
-                    <div className="max-w-3xl space-y-4">
-                        <Shimmer className="h-8 w-32 rounded-full" />
-                        <Shimmer className="h-12 w-full" delay={0.06} />
-                        <Shimmer className="h-12 w-2/3" delay={0.09} />
-                        <Shimmer className="h-5 w-full max-w-xl" delay={0.14} />
-                    </div>
-                </div>
-            </section>
+            <PageHeroSkeleton />
 
             {/* Stat band */}
             <section className="py-24">

@@ -1,6 +1,6 @@
+import { PageHero } from "@/components/page-hero"
 import Link from 'next/link'
 import { ArrowUpRight } from 'lucide-react'
-import Footer from '@/components/landingpage/footer'
 import { Reveal, RevealItem } from '@/components/reveal'
 import { PostCard } from './post-card'
 import { TopicGlyph } from './topic-glyph'
@@ -53,24 +53,15 @@ export default function BlogIndex({ posts }: Props) {
     const rest = posts.filter((p) => p.slug !== featured?.slug)
 
     return (
-        <div className="min-h-screen bg-white font-sans dark:bg-neutral-950">
-            <div className="border-b border-neutral-100 dark:border-neutral-900">
-                <div className="mx-auto max-w-7xl px-6 py-16 md:py-20">
-                    <Reveal>
-                        <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
-                            The ShipItHQ Blog
-                        </p>
-                        <h1 className="mb-6 text-5xl font-bold leading-[0.95] tracking-tight text-neutral-900 dark:text-white md:text-7xl">
-                            Engineering<br />
-                            <span className="text-neutral-500 dark:text-neutral-400">Intelligence.</span>
-                        </h1>
-                        <p className="max-w-xl text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
-                            Deep dives into software careers, interview prep, portfolio building, and the
-                            tools that get developers hired. {posts.length} guides and counting.
-                        </p>
-                    </Reveal>
-                </div>
-            </div>
+        <div className="min-h-screen bg-neutral-50 font-sans">
+            {/* The shared hero (plan/web/revamp REV-80). */}
+            <PageHero
+                eyebrow="The ShipItHQ blog"
+                title="Guides for getting hired as an engineer"
+                sub={`Interview prep, DSA, portfolios, resumes and careers, written to be useful rather than to rank. ${posts.length} guides and counting.`}
+                tone="butter"
+                art="guides"
+            />
 
             {/* Topic links, not filters. Each one is a real page with its own introduction
                 and reading path - see the note at the top of this file. */}
@@ -182,7 +173,6 @@ export default function BlogIndex({ posts }: Props) {
                 </Reveal>
             </div>
 
-            <Footer />
         </div>
     )
 }
