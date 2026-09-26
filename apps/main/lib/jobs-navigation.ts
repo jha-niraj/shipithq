@@ -28,8 +28,8 @@ export const jobsNavigation: JobsNavigationConfig = {
             status: "active"
         },
         {
-            name: "My Applications",
-            path: "jobs/applications",
+            name: "My rounds",
+            path: "jobs/rounds",
             icon: ClipboardCheck,
             status: "active"
         },

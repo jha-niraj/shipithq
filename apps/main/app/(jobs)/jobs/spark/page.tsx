@@ -1,35 +1,6 @@
-import { Suspense } from "react"
-import { Loader2 } from "lucide-react"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
-import { getSparkJobs } from "@/actions/jobs/tabs"
-import { SparkContent } from "./spark-content"
-import Loading from "./loading"
+import { redirect } from "next/navigation"
 
-export const dynamic = "force-dynamic"
-
-export const metadata = {
-    title: "Spark - Discover Jobs | ShipItHQ",
-    description: "Swipe through jobs and find your perfect match with AI-powered recommendations"
-}
-
-export default async function SparkPage() {
-    const [session, jobsResult] = await Promise.all([
-        getSession(headers()),
-        getSparkJobs(1, 20)
-    ])
-
-    const isAuthenticated = !!session?.user?.id
-    const jobs = jobsResult.success && jobsResult.data ? jobsResult.data.jobs : []
-    const pagination = jobsResult.success && jobsResult.data ? jobsResult.data.pagination : null
-
-    return (
-        <Suspense fallback={<Loading />}>
-            <SparkContent 
-                initialJobs={jobs}
-                pagination={pagination}
-                isAuthenticated={isAuthenticated}
-            />
-        </Suspense>
-    )
+// Spark is /jobs (plan/jobs JB-18, kept by Niraj 2026-09-26 in HR-20); old links land there.
+export default function SparkPage() {
+    redirect("/jobs")
 }

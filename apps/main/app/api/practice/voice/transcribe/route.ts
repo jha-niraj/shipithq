@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { getSession } from "@repo/auth"
-import { MAX_CLIP_BYTES, transcribe } from "@repo/ai/sarvam"
+import { MAX_CLIP_BYTES, transcribe } from "@repo/sarvamai/speech"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/practice/voice/transcribe   multipart: audio

@@ -165,7 +165,7 @@ export function ExperienceSheet({ open, onOpenChange, experience, onSaved }: Pro
             onDelete={editing ? remove : undefined}
             deleteWhat="this role"
         >
-            <FieldGroup title="Role">
+            <FieldGroup>
                 <Field label="Title" htmlFor="exp-title" required error={show("roleTitle")}>
                     <Input id="exp-title" autoFocus placeholder="Software Engineer" value={form.roleTitle} onChange={(e) => set("roleTitle", e.target.value)} />
                 </Field>
@@ -179,7 +179,7 @@ export function ExperienceSheet({ open, onOpenChange, experience, onSaved }: Pro
                 </div>
             </FieldGroup>
 
-            <FieldGroup title="Dates">
+            <FieldGroup>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Started" required error={show("startDate")}>
                         <MonthPicker aria-label="Start month" placeholder="Month and year" value={form.startDate} onChange={(v) => set("startDate", v ?? "")} />
@@ -200,7 +200,7 @@ export function ExperienceSheet({ open, onOpenChange, experience, onSaved }: Pro
                 </label>
             </FieldGroup>
 
-            <FieldGroup title="What you did">
+            <FieldGroup>
                 <Field label="Summary" htmlFor="exp-desc" hint="One or two sentences about the role.">
                     <Textarea id="exp-desc" rows={3} className="resize-none" placeholder="Backend engineer on the payments team." value={form.description} onChange={(e) => set("description", e.target.value)} />
                 </Field>

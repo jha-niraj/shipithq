@@ -4,6 +4,7 @@ import { openai } from "@/lib/openai-client";
 import { db, practiceProblem, sampleTests } from "@repo/db";
 import { eq } from "drizzle-orm";
 import { getSession } from "@repo/auth";
+import { liveAttemptFor, recordAiBlocked } from "@/lib/hiring/runs";
 import { loadMentorContext } from "@/lib/practice/memory-read";
 import { buildGuidedSystemPrompt, OPENING_USER_MESSAGE, resumeMessage } from "@/lib/practice/mentor-prompt";
 import { judgeStage, settleStage } from "@/lib/practice/mentor-verdict";
@@ -130,6 +131,12 @@ export async function POST(req: NextRequest) {
     const session = await getSession(req.headers);
     if (!session?.user?.id) {
         return new Response("Unauthorized", { status: 401 });
+    }
+    // No AI during a round (plan/hiring-rounds HR-13, DoD 27); the refusal is recorded.
+    const liveRound = await liveAttemptFor(session.user.id);
+    if (liveRound) {
+        await recordAiBlocked(liveRound.id);
+        return new Response("AI is off while a hiring round is running. Finish or leave the round first.", { status: 403 });
     }
 
     if (!process.env.OPENAI_API_KEY) {

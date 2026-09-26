@@ -1,5 +1,4 @@
 import { Suspense } from "react"
-import { Loader2 } from "lucide-react"
 import { browseCompanies, getFeaturedCompanies, getFollowedCompanyIds } from "@/actions/companies"
 import { CompaniesContent } from "./companies-content"
 import Loading from "./loading"

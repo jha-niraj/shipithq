@@ -1,5 +1,4 @@
 import { Suspense } from "react"
-import { Loader2 } from "lucide-react"
 import { getSession } from "@repo/auth"
 import { headers } from "next/headers"
 import { getSavedFeedJobs } from "@/actions/jobs"

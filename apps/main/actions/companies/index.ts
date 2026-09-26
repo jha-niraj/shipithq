@@ -8,8 +8,9 @@ import {
     companyFollowers,
     jobs,
     interviewProcesses,
+    jobListed,
 } from "@repo/db"
-import { eq, and, or, ilike, inArray, desc, asc, count, type SQL } from "drizzle-orm"
+import { eq, and, or, ilike, inArray, isNull, desc, asc, count, type SQL } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 export interface CompanyFilters {
@@ -29,6 +30,8 @@ export interface CompanyListResult {
     companySize: string | null
     description: string | null
     verificationStatus: string
+    /** UNCLAIMED: built by ShipItHQ from the company's site (plan/hiring-rounds HR-6); shown with no logo. */
+    claimStatus: string
     headquarters: string | null
     activeJobsCount: number
     hasTransparentProcess: boolean
@@ -39,7 +42,8 @@ export async function browseCompanies(filters: CompanyFilters = {}, page = 1, li
     try {
         const skip = (page - 1) * limit
 
-        const conditions: (SQL | undefined)[] = []
+        // A suspended company leaves the directory; its page says so (HR-24).
+        const conditions: (SQL | undefined)[] = [isNull(companies.suspendedAt)]
 
         if (filters.search) {
             conditions.push(
@@ -77,7 +81,7 @@ export async function browseCompanies(filters: CompanyFilters = {}, page = 1, li
         const [activeJobRows, processRows] = await Promise.all([
             companyIds.length > 0
                 ? db.query.jobs.findMany({
-                    where: and(inArray(jobs.companyId, companyIds), eq(jobs.status, "ACTIVE")),
+                    where: and(inArray(jobs.companyId, companyIds), jobListed),
                     columns: { id: true, companyId: true },
                 })
                 : [],
@@ -111,6 +115,7 @@ export async function browseCompanies(filters: CompanyFilters = {}, page = 1, li
             companySize: company.companySize,
             description: company.description,
             verificationStatus: company.verificationStatus,
+            claimStatus: company.claimStatus,
             headquarters: company.headquarters,
             activeJobsCount: jobCountByCompany.get(company.id) || 0,
             hasTransparentProcess: (processCountByCompany.get(company.id) || 0) > 0,
@@ -132,6 +137,11 @@ export async function browseCompanies(filters: CompanyFilters = {}, page = 1, li
         console.error("Error browsing companies:", error)
         return { success: false, error: "Failed to fetch companies" }
     }
+}
+
+/** A jsonb column that should hold a string list; anything else reads as empty. */
+function asStrings(v: unknown): string[] {
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []
 }
 
 // Get a single company by slug
@@ -163,8 +173,12 @@ export async function getCompanyBySlug(slug: string) {
                 foundedYear: company.foundedYear,
                 linkedIn: socialLinks.linkedin || null,
                 twitter: socialLinks.twitter || null,
-                techStack: [],
-                benefits: []
+                // These were hard-coded to [] and never read the row (found in HR-6).
+                techStack: asStrings(company.techStack),
+                benefits: asStrings(company.benefits),
+                culture: company.culture,
+                claimStatus: company.claimStatus,
+                careersUrl: socialLinks.careers || null,
             }
         }
     } catch (error) {
@@ -185,18 +199,36 @@ export async function getCompanyInterviewProcesses(slug: string) {
             return { success: false, error: "Company not found" }
         }
 
-        const processes = await db.query.interviewProcesses.findMany({
+        const withRounds = {
+            rounds: {
+                orderBy: (r: any, { asc: a }: any) => [a(r.roundNumber)],
+            },
+        } as const
+        // The company's own templates. A job's edited copy (isTemplate false, HR-12)
+        // belongs to that job, not to the company's public page.
+        const own = await db.query.interviewProcesses.findMany({
             where: and(
                 eq(interviewProcesses.companyId, company.id),
-                eq(interviewProcesses.isActive, true)
+                eq(interviewProcesses.isActive, true),
+                eq(interviewProcesses.isTemplate, true),
             ),
-            with: {
-                rounds: {
-                    orderBy: (r: any, { asc: a }: any) => [a(r.roundNumber)],
-                },
-            },
+            with: withRounds,
             orderBy: [desc(interviewProcesses.isDefault), asc(interviewProcesses.createdAt)],
         })
+        // A company with none of its own (every unclaimed page) shows ShipItHQ's
+        // generic role pipelines, labelled as ShipItHQ's (HR-4, HR-9).
+        const byShipItHQ = own.length === 0
+        const processes = byShipItHQ
+            ? await db.query.interviewProcesses.findMany({
+                where: and(
+                    eq(interviewProcesses.ownerKind, "PLATFORM"),
+                    eq(interviewProcesses.isActive, true),
+                    eq(interviewProcesses.isTemplate, true),
+                ),
+                with: withRounds,
+                orderBy: [asc(interviewProcesses.name)],
+            })
+            : own
 
         return {
             success: true,
@@ -206,6 +238,7 @@ export async function getCompanyInterviewProcesses(slug: string) {
                 description: process.description,
                 estimatedDurationWeeks: process.estimatedDurationWeeks,
                 isDefault: process.isDefault,
+                byShipItHQ,
                 rounds: process.rounds.map(round => ({
                     id: round.id,
                     roundNumber: round.roundNumber,
@@ -239,7 +272,7 @@ export async function getFeaturedCompanies(limit = 6) {
         const [activeJobRows, processRows] = await Promise.all([
             companyIds.length > 0
                 ? db.query.jobs.findMany({
-                    where: and(inArray(jobs.companyId, companyIds), eq(jobs.status, "ACTIVE")),
+                    where: and(inArray(jobs.companyId, companyIds), jobListed),
                     columns: { id: true, companyId: true },
                 })
                 : [],
@@ -301,7 +334,7 @@ export async function getCompanyJobs(slug: string) {
         const jobRows = await db.query.jobs.findMany({
             where: and(
                 eq(jobs.companyId, company.id),
-                eq(jobs.status, "ACTIVE"),
+                jobListed,
                 eq(jobs.visibility, "PUBLIC")
             ),
             columns: {
@@ -411,7 +444,7 @@ export async function getFollowedCompanies() {
         const [activeJobRows, processRows] = await Promise.all([
             followedCompanyIds.length > 0
                 ? db.query.jobs.findMany({
-                    where: and(inArray(jobs.companyId, followedCompanyIds), eq(jobs.status, "ACTIVE")),
+                    where: and(inArray(jobs.companyId, followedCompanyIds), jobListed),
                     columns: { id: true, companyId: true },
                 })
                 : [],

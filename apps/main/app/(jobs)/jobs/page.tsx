@@ -1,5 +1,4 @@
 import { Suspense } from "react"
-import { Loader2 } from "lucide-react"
 import { getSession } from "@repo/auth"
 import { headers } from "next/headers"
 import { getSparkJobs } from "@/actions/jobs/tabs"
@@ -10,10 +9,10 @@ export const dynamic = "force-dynamic"
 
 export const metadata = {
     title: "Spark - Discover Jobs | ShipItHQ",
-    description: "Swipe through jobs and find your perfect match with AI-powered recommendations"
+    description: "One job at a time, with your match, the skills you have and miss, and the hiring process"
 }
 
-// Default /jobs page shows Spark (swipe) interface
+// Default /jobs page shows Spark: one job at a time (plan/jobs JB-18)
 export default async function JobsPage() {
     const [session, jobsResult] = await Promise.all([
         getSession(headers()),

@@ -81,7 +81,7 @@ async function JobsTabs({ isAuthenticated }: { isAuthenticated: boolean }) {
     const countsResult = await getJobsTabCounts()
     const counts = countsResult.success && countsResult.data
         ? countsResult.data
-        : { spark: 0, following: 0, saved: 0, applied: 0, browse: 0 }
+        : { spark: 0, following: 0, saved: 0, rounds: 0, browse: 0 }
 
     return <JobsTabsWrapper counts={counts} isAuthenticated={isAuthenticated} />
 }

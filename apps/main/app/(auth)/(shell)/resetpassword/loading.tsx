@@ -1,8 +1,7 @@
-// Full-page transition: there is no content shape to preview here, so the branded
-// loader is the honest fallback. Content routes use a matching skeleton instead -
-// see @repo/ui/components/skeleton-kit.
-import { FullScreenLoader } from "@repo/ui/components/full-screen-loader";
+// Inside the auth shell, so only the form column waits: a skeleton of the form
+// (plan/auth), while the photo panel beside it stays put.
+import { AuthFormSkeleton } from "@repo/ui/components/auth/auth-form";
 
 export default function Loading() {
-    return <FullScreenLoader label="Just a moment" />;
+    return <AuthFormSkeleton fields={3} />;
 }

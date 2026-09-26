@@ -158,7 +158,7 @@ export function ImportSheet({ open, onOpenChange, links }: {
                 </div>
             ) : (
                 <>
-                    <FieldGroup title="Required">
+                    <FieldGroup>
                         <Field label="LinkedIn profile" htmlFor="imp-li" required
                             error={touched ? errors.linkedin : null}
                             hint={from(!!links.linkedinUrl) ?? "Your LinkedIn profile must be public."}>
@@ -168,7 +168,7 @@ export function ImportSheet({ open, onOpenChange, links }: {
                             <PrefixInput id="imp-gh" icon={<Github className="size-3.5" />} prefix="github.com/" value={githubUsername} onChange={setGithubUsername} placeholder="username" />
                         </Field>
                     </FieldGroup>
-                    <FieldGroup title="Optional, improves the result">
+                    <FieldGroup>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Field label="X" htmlFor="imp-x" hint={from(!!links.twitterUrl)}>
                                 <PrefixInput id="imp-x" icon={<Twitter className="size-3.5" />} prefix="@" value={twitterHandle} onChange={setTwitterHandle} placeholder="handle" />
@@ -178,7 +178,7 @@ export function ImportSheet({ open, onOpenChange, links }: {
                             </Field>
                         </div>
                     </FieldGroup>
-                    <FieldGroup title="What it builds">
+                    <FieldGroup label="What it builds">
                         <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                             {["Summary", "Work experience", "Projects from GitHub", "Skills", "Education", "Contact links"].map((x) => (
                                 <li key={x} className="flex items-center gap-2 text-[13px] text-neutral-600 dark:text-neutral-400">

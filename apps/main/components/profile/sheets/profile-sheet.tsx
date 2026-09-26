@@ -212,14 +212,21 @@ export function Field({
     )
 }
 
-/** A small uppercase divider between groups of fields, the workspace's section label. */
-export function FieldGroup({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+/**
+ * A group of related fields. No uppercase section title (Niraj, 2026-09-25:
+ * "ROLE" above "Title" said nothing the field labels did not - plan/profile
+ * PRF-16). A group that needs a name - Links, Media, Your skills - passes `label`,
+ * drawn like a field label, with an optional `action` on the same row.
+ */
+export function FieldGroup({ label, action, children }: { label?: string; action?: React.ReactNode; children: React.ReactNode }) {
     return (
         <section className="space-y-4">
-            <div className="flex items-center justify-between border-b border-neutral-200 pb-2 dark:border-neutral-800">
-                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">{title}</h3>
-                {action}
-            </div>
+            {(label || action) && (
+                <div className="flex items-center justify-between gap-2">
+                    {label && <h3 className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100">{label}</h3>}
+                    {action && <div className="ml-auto">{action}</div>}
+                </div>
+            )}
             {children}
         </section>
     )

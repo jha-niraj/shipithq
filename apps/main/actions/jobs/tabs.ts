@@ -9,14 +9,22 @@ import {
     savedJobs,
     companyFollowers,
     skills,
+    jobSkips,
+    hiringRuns,
+    jobListed,
 } from "@repo/db"
-import { eq, and, inArray, notInArray, count } from "drizzle-orm"
+import { eq, and, gte, inArray, notInArray, count } from "drizzle-orm"
+
+/** "Not for me" hides a job from Spark for this long (plan/jobs JB-19, Niraj 2026-09-25). */
+const SKIP_HIDE_DAYS = 30
+const skipCutoff = () => new Date(Date.now() - SKIP_HIDE_DAYS * 86_400_000)
 
 export interface TabCounts {
     spark: number
     following: number
     saved: number
-    applied: number
+    /** Runs in progress or finished (My rounds, HR-22). */
+    rounds: number
     browse: number
 }
 
@@ -37,7 +45,7 @@ export async function getJobsTabCounts(): Promise<{
         const [totalJobsRow] = await db
             .select({ totalJobs: count() })
             .from(jobs)
-            .where(and(eq(jobs.status, "ACTIVE"), eq(jobs.visibility, "PUBLIC")))
+            .where(and(jobListed, eq(jobs.visibility, "PUBLIC")))
         const totalJobs = totalJobsRow?.totalJobs ?? 0
 
         const total = Number(totalJobs)
@@ -50,7 +58,7 @@ export async function getJobsTabCounts(): Promise<{
                     spark: total,
                     following: 0,
                     saved: 0,
-                    applied: 0,
+                    rounds: 0,
                     browse: total
                 }
             }
@@ -70,14 +78,14 @@ export async function getJobsTabCounts(): Promise<{
         })
         const appliedJobIds = appliedJobs.map(a => a.jobId)
 
-        const [followingJobsCount, savedJobsCount, appliedJobsCount] = await Promise.all([
+        const [followingJobsCount, savedJobsCount, roundsCount] = await Promise.all([
             // Following: Jobs from followed companies
             followedCompanyIds.length > 0
                 ? db.select({ val: count() })
                     .from(jobs)
                     .where(and(
                         inArray(jobs.companyId, followedCompanyIds),
-                        eq(jobs.status, "ACTIVE"),
+                        jobListed,
                         eq(jobs.visibility, "PUBLIC")
                     ))
                     .then(rows => Number(rows[0]?.val ?? 0))
@@ -89,17 +97,17 @@ export async function getJobsTabCounts(): Promise<{
                 .where(eq(savedJobs.userId, userId))
                 .then(rows => Number(rows[0]?.val ?? 0)),
 
-            // Applied: Active applications
+            // My rounds: runs in progress or finished, job or practice.
             db.select({ val: count() })
-                .from(jobApplications)
-                .where(and(
-                    eq(jobApplications.userId, userId),
-                    notInArray(jobApplications.status, ["WITHDRAWN", "REJECTED", "HIRED"])
-                ))
+                .from(hiringRuns)
+                .where(and(eq(hiringRuns.userId, userId), inArray(hiringRuns.status, ["IN_PROGRESS", "COMPLETE"])))
                 .then(rows => Number(rows[0]?.val ?? 0)),
         ])
 
-        const sparkCount = total - appliedJobIds.length
+        // Recent skips are out of Spark too (JB-19).
+        const [{ skipped } = { skipped: 0 }] = await db.select({ skipped: count() }).from(jobSkips)
+            .where(and(eq(jobSkips.userId, userId), gte(jobSkips.skippedAt, skipCutoff())))
+        const sparkCount = total - appliedJobIds.length - Number(skipped)
 
         return {
             success: true,
@@ -107,7 +115,7 @@ export async function getJobsTabCounts(): Promise<{
                 spark: Math.max(0, sparkCount),
                 following: followingJobsCount,
                 saved: savedJobsCount,
-                applied: appliedJobsCount,
+                rounds: roundsCount,
                 browse: total
             }
         }
@@ -124,13 +132,18 @@ export async function getJobsTabCounts(): Promise<{
  * Get jobs for Spark (swipe) mode
  * Returns jobs the user hasn't interacted with yet
  */
-export async function getSparkJobs(page = 1, limit = 10) {
+/**
+ * `offset`, when given, replaces `(page - 1) * limit`. Spark passes it because
+ * a stored skip takes a row out of this list: after 5 skips a fixed page
+ * offset would jump over 5 jobs the user never saw (plan/jobs JB-19).
+ */
+export async function getSparkJobs(page = 1, limit = 10, opts?: { offset?: number }) {
     try {
         const session = await getSession(headers())
-        const skip = (page - 1) * limit
+        const skip = Math.max(0, opts?.offset ?? (page - 1) * limit)
 
         const baseWhere = and(
-            eq(jobs.status, "ACTIVE"),
+            jobListed,
             eq(jobs.visibility, "PUBLIC")
         )
 
@@ -142,6 +155,11 @@ export async function getSparkJobs(page = 1, limit = 10) {
                     with: {
                         company: {
                             columns: { id: true, name: true, logoUrl: true, industry: true, hasInterviewProcess: true },
+                        },
+                        // Spark's Process section (plan/jobs JB-18).
+                        interviewProcess: {
+                            columns: { id: true, name: true, estimatedDurationWeeks: true },
+                            with: { rounds: { columns: { id: true, roundNumber: true, title: true, roundType: true, hasMockInterview: true } } },
                         },
                     },
                     orderBy: (t, { desc }) => [desc(t.featured), desc(t.publishedAt)],
@@ -175,7 +193,7 @@ export async function getSparkJobs(page = 1, limit = 10) {
                     isSaved: false,
                     hasApplied: false,
                     isFollowingCompany: false,
-                    interviewProcess: null,
+                    interviewProcess: job.interviewProcess ?? null,
                 }
             })
 
@@ -203,6 +221,11 @@ export async function getSparkJobs(page = 1, limit = 10) {
         })
         const appliedJobIds = appliedJobs.map(a => a.jobId)
 
+        // Skipped in Spark within the window: left out until it passes (JB-19).
+        const skippedRows = await db.select({ jobId: jobSkips.jobId }).from(jobSkips)
+            .where(and(eq(jobSkips.userId, userId), gte(jobSkips.skippedAt, skipCutoff())))
+        const excludedJobIds = [...new Set([...appliedJobIds, ...skippedRows.map((r) => r.jobId)])]
+
         // Get user data for matching
         const [userSkillRows, savedJobRows, followedCompanyRows] = await Promise.all([
             db.query.skills.findMany({
@@ -223,8 +246,8 @@ export async function getSparkJobs(page = 1, limit = 10) {
         const savedIds = savedJobRows.map(s => s.jobId)
         const followedIds = followedCompanyRows.map(f => f.companyId)
 
-        const whereClause = appliedJobIds.length > 0
-            ? and(baseWhere, notInArray(jobs.id, appliedJobIds))
+        const whereClause = excludedJobIds.length > 0
+            ? and(baseWhere, notInArray(jobs.id, excludedJobIds))
             : baseWhere
 
         const [jobRows, totalRowsAuth] = await Promise.all([
@@ -233,6 +256,10 @@ export async function getSparkJobs(page = 1, limit = 10) {
                 with: {
                     company: {
                         columns: { id: true, name: true, logoUrl: true, industry: true, hasInterviewProcess: true },
+                    },
+                    interviewProcess: {
+                        columns: { id: true, name: true, estimatedDurationWeeks: true },
+                        with: { rounds: { columns: { id: true, roundNumber: true, title: true, roundType: true, hasMockInterview: true } } },
                     },
                 },
                 orderBy: (t, { desc }) => [desc(t.featured), desc(t.publishedAt)],
@@ -278,7 +305,7 @@ export async function getSparkJobs(page = 1, limit = 10) {
                 isSaved: savedIds.includes(job.id),
                 hasApplied: false,
                 isFollowingCompany: followedIds.includes(job.companyId),
-                interviewProcess: null,
+                interviewProcess: job.interviewProcess ?? null,
             }
         })
 
@@ -322,22 +349,33 @@ export async function recordSwipeAction(
         const userId = session.user.id
 
         if (action === "right" || action === "save") {
-            const existing = await db.query.savedJobs.findFirst({
-                where: and(
-                    eq(savedJobs.userId, userId),
-                    eq(savedJobs.jobId, jobId)
-                ),
-            })
-
-            if (!existing) {
-                await db.insert(savedJobs).values({ userId, jobId })
-            }
+            // Saving overrides an old "Not for me".
+            await db.batch([
+                db.insert(savedJobs).values({ userId, jobId }).onConflictDoNothing(),
+                db.delete(jobSkips).where(and(eq(jobSkips.userId, userId), eq(jobSkips.jobId, jobId))),
+            ])
+        } else {
+            // "Not for me": out of Spark for SKIP_HIDE_DAYS; a re-skip moves the date (JB-19).
+            await db.insert(jobSkips).values({ userId, jobId })
+                .onConflictDoUpdate({ target: [jobSkips.userId, jobSkips.jobId], set: { skippedAt: new Date() } })
         }
-        // For "left" swipes, we don't store anything for now
 
         return { success: true }
     } catch (error) {
         console.error("Error recording swipe:", error)
         return { success: false, error: "Failed to record action" }
+    }
+}
+
+/** Undo of Spark's "Not for me": the job can show in Spark again (plan/jobs JB-19). */
+export async function undoSkip(jobId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const session = await getSession(headers())
+        if (!session?.user?.id) return { success: false, error: "Please sign in to continue" }
+        await db.delete(jobSkips).where(and(eq(jobSkips.userId, session.user.id), eq(jobSkips.jobId, jobId)))
+        return { success: true }
+    } catch (error: unknown) {
+        console.error("undoSkip:", error instanceof Error ? error.message : error)
+        return { success: false, error: "Could not undo that" }
     }
 }

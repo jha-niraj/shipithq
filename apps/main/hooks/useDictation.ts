@@ -17,6 +17,14 @@ import { useCallback, useEffect, useRef, useState } from "react"
 const INTERVAL_MS = 2000
 /** A recording longer than this is almost certainly a forgotten mic. */
 const MAX_SECONDS = 120
+/**
+ * Sarvam's synchronous speech-to-text takes at most 30 seconds of audio, and the
+ * clip SO FAR is re-sent each time, so a long dictation starts failing at 30 s.
+ * Every 25 s the words heard are kept and a fresh clip starts (plan/voice VO-13).
+ */
+const CLIP_SECONDS = 25
+
+const join = (a: string, b: string) => [a.trim(), b.trim()].filter(Boolean).join(" ")
 
 export type DictationStatus = "idle" | "starting" | "listening" | "transcribing"
 
@@ -34,6 +42,11 @@ export function useDictation({ onText }: { onText: (text: string) => void }) {
     const seqRef = useRef(0)
     const onTextRef = useRef(onText)
     onTextRef.current = onText
+    // Words from clips already finished, and the latest words of the current one.
+    const committedRef = useRef("")
+    const clipTextRef = useRef("")
+    const clipStartRef = useRef(0)
+    const rollingRef = useRef(false)
 
     const send = useCallback(async (final: boolean) => {
         const chunks = chunksRef.current
@@ -54,7 +67,10 @@ export function useDictation({ onText }: { onText: (text: string) => void }) {
                 return
             }
             if (mine !== seqRef.current) return
-            if (data.text) onTextRef.current(data.text)
+            if (data.text) {
+                clipTextRef.current = data.text
+                onTextRef.current(join(committedRef.current, data.text))
+            }
         } catch {
             if (final) setError("Could not reach the transcriber.")
         }
@@ -82,29 +98,57 @@ export function useDictation({ onText }: { onText: (text: string) => void }) {
         chunksRef.current = []
     }, [cleanup, send])
 
+    /** A new recorder on the open stream: a fresh clip, with its own container header. */
+    const record = useCallback((stream: MediaStream) => {
+        const recorder = new MediaRecorder(stream)
+        recorderRef.current = recorder
+        chunksRef.current = []
+        clipTextRef.current = ""
+        clipStartRef.current = Date.now()
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+        // A timeslice, so a chunk exists to send before the recording ends.
+        recorder.start(INTERVAL_MS / 2)
+    }, [])
+
+    /** Finish the current clip, keep its words, and start the next one. */
+    const rollOver = useCallback(async () => {
+        const recorder = recorderRef.current
+        const stream = streamRef.current
+        if (!recorder || !stream || rollingRef.current) return
+        rollingRef.current = true
+        await new Promise<void>((resolve) => {
+            recorder.onstop = () => resolve()
+            try { recorder.stop() } catch { resolve() }
+        })
+        await send(false)
+        committedRef.current = join(committedRef.current, clipTextRef.current)
+        if (streamRef.current === stream) record(stream)
+        rollingRef.current = false
+    }, [record, send])
+
     const start = useCallback(async () => {
         setError(null)
         setStatus("starting")
+        committedRef.current = ""
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { echoCancellation: true, noiseSuppression: true },
             })
             streamRef.current = stream
-            const recorder = new MediaRecorder(stream)
-            recorderRef.current = recorder
-            chunksRef.current = []
-            recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
-            // A timeslice, so a chunk exists to send before the recording ends.
-            recorder.start(INTERVAL_MS / 2)
+            record(stream)
             setStatus("listening")
-            timerRef.current = setInterval(() => { void send(false) }, INTERVAL_MS)
+            timerRef.current = setInterval(() => {
+                if (rollingRef.current) return
+                if (Date.now() - clipStartRef.current >= CLIP_SECONDS * 1000) void rollOver()
+                else void send(false)
+            }, INTERVAL_MS)
             stopAtRef.current = setTimeout(() => { void stop() }, MAX_SECONDS * 1000)
         } catch {
             cleanup()
             setStatus("idle")
             setError("The microphone is blocked. You can still type.")
         }
-    }, [cleanup, send, stop])
+    }, [cleanup, record, rollOver, send, stop])
 
     const toggle = useCallback(() => {
         if (status === "listening") void stop()

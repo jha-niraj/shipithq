@@ -8,7 +8,6 @@ import { InlineLoader } from '@repo/ui/components/ui/inline-loader'
 import { StatBand } from '@repo/ui/components/ui/stat-band'
 import { Shimmer, ShimmerStyles } from '@repo/ui/components/skeleton-kit'
 import { cn } from '@repo/ui/lib/utils'
-import { useBackgroundJob } from '@/hooks/use-background-job'
 import { useDictation } from '@/hooks/useDictation'
 import {
     answerSprintMock, endSprintMock, getFinalMock, getSprintMock, retrySprintMockTurn, startFinalMock, startSprintMock,
@@ -21,11 +20,12 @@ import type { WorkspaceSprint } from './workspace-client'
  * A sprint's mock interview, in its tab (plan/project-workspace WS-13).
  *
  * Locked until every task in the sprint is done. A session costs 30 credits,
- * held on the job that asks the first question (so a session that never
- * starts is refunded). The interviewer's lines and the feedback are written by
- * the worker; answers are typed or dictated (the practice page's Sarvam hook,
- * reused). The transcript is saved line by line, so leaving loses nothing, and
- * every past session stays readable.
+ * held when it opens (a session whose first question never comes is refunded)
+ * and settled at feedback. Each step is one inline action (WS-24): the page
+ * waits on it, with no job to poll. Answers are typed or dictated (the practice
+ * page's Sarvam hook, reused); an answer the interviewer couldn't take comes
+ * back into the box. The transcript is saved line by line, so leaving loses
+ * nothing, and every past session stays readable.
  */
 
 /** One sprint, or the whole project (the final interview, plan/project-workspace WS-14). */
@@ -42,7 +42,8 @@ function MockTab({ scope }: { scope: MockScope }) {
     const scopeKey = scope.kind === 'sprint' ? scope.sprint.id : `final:${scope.projectId}`
     const [state, setState] = useState<SprintMockState | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [jobId, setJobId] = useState<string | null>(null)
+    // What the interviewer is doing while an action runs; null when nothing is.
+    const [thinking, setThinking] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [input, setInput] = useState('')
     // A finished session being read; null shows the live one or the start screen.
@@ -55,39 +56,38 @@ function MockTab({ scope }: { scope: MockScope }) {
         if (!result.success) { setError(result.error); return }
         setError(null)
         setState(result.data)
-        setJobId(result.data.pendingJobId)
     }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps -- the key names the scope
 
     useEffect(() => {
         setState(null)
         setReading(null)
-        setJobId(null)
+        setThinking(null)
         void load()
     }, [load, doneCount])
 
-    const job = useBackgroundJob(jobId, {
-        onCompleted: () => { setJobId(null); void load() },
-        onFailed: (message) => { setJobId(null); toast.error(message || 'The interviewer could not answer.'); void load() },
-    })
+    /** Put one session's fresh copy into the list. */
+    const put = (session: MockSessionView) => setState((s) => s && ({ ...s, sessions: s.sessions.some((x) => x.id === session.id) ? s.sessions.map((x) => (x.id === session.id ? session : x)) : [session, ...s.sessions] }))
 
     const dictation = useDictation({ onText: setInput })
 
     const live = state?.sessions.find((s) => s.status === 'opening' || s.status === 'active') ?? null
     const shown = reading ? state?.sessions.find((s) => s.id === reading) ?? null : live
     const lastRole = live?.transcript.at(-1)?.role
-    const waitingForMe = !!live && live.status === 'active' && lastRole === 'interviewer' && !jobId
-    const stalled = !!live && live.status === 'active' && lastRole === 'learner' && !jobId
+    const closed = !!live && live.status === 'active' && lastRole === 'interviewer' && /feedback/i.test(live.transcript.at(-1)?.text ?? '') && live.transcript.filter((t) => t.role === 'interviewer').length > 1
+    const waitingForMe = !!live && live.status === 'active' && lastRole === 'interviewer' && !thinking
+    const stalled = !!live && live.status === 'active' && lastRole === 'learner' && !thinking
 
-    useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [shown?.transcript.length, jobId])
+    useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [shown?.transcript.length, thinking])
 
     const start = async () => {
         setBusy(true)
+        setReading(null)
+        setThinking('Preparing the first question')
         const result = scope.kind === 'sprint' ? await startSprintMock(scope.sprint.id) : await startFinalMock(scope.projectId)
         setBusy(false)
-        if (!result.success) { toast.error(result.error); return }
-        setReading(null)
-        setJobId(result.data.jobId)
-        void load()
+        setThinking(null)
+        if (!result.success) { toast.error(result.error); void load(); return }
+        put(result.data.session)
     }
 
     const send = async () => {
@@ -96,32 +96,43 @@ function MockTab({ scope }: { scope: MockScope }) {
         const text = input.trim()
         if (!text) { toast.error('Type or say an answer first.'); return }
         setBusy(true)
-        // Shown straight away; the server's copy replaces it on the next load.
+        setInput('')
+        setThinking('The interviewer is thinking')
+        // Shown straight away; the server's copy replaces it.
         setState((s) => s && ({ ...s, sessions: s.sessions.map((x) => (x.id === live.id ? { ...x, transcript: [...x.transcript, { role: 'learner' as const, text, at: new Date().toISOString() }] } : x)) }))
         const result = await answerSprintMock(live.id, text)
         setBusy(false)
-        if (!result.success) { toast.error(result.error); void load(); return }
-        setInput('')
-        setJobId(result.data.jobId)
+        setThinking(null)
+        if (!result.success) {
+            // The answer never landed, or was taken back: it goes back into the box, never lost.
+            setInput(text)
+            toast.error(result.error)
+            void load()
+            return
+        }
+        put(result.data.session)
     }
 
     const end = async () => {
         if (!live) return
         setBusy(true)
+        setThinking('Writing your feedback')
         const result = await endSprintMock(live.id)
         setBusy(false)
+        setThinking(null)
         if (!result.success) { toast.error(result.error); return }
-        if (result.data.jobId) setJobId(result.data.jobId)
-        else void load()
+        put(result.data.session)
     }
 
     const retry = async () => {
         if (!live) return
         setBusy(true)
+        setThinking('The interviewer is thinking')
         const result = await retrySprintMockTurn(live.id)
         setBusy(false)
+        setThinking(null)
         if (!result.success) { toast.error(result.error); return }
-        setJobId(result.data.jobId)
+        put(result.data.session)
     }
 
     const header = (
@@ -133,8 +144,8 @@ function MockTab({ scope }: { scope: MockScope }) {
                     <span className="truncate">{scope.kind === 'sprint' ? scope.sprint.name : scope.title}</span>
                 </h1>
                 {live && !reading && live.status === 'active' && (
-                    <Button variant="outline" size="sm" className="ml-auto shrink-0 gap-1.5" onClick={end} disabled={busy || !!jobId}>
-                        <Square className="h-3.5 w-3.5" /> End interview
+                    <Button variant={closed ? 'default' : 'outline'} size="sm" className="ml-auto shrink-0 gap-1.5" onClick={end} disabled={busy || !!thinking}>
+                        <Square className="h-3.5 w-3.5" /> {closed ? 'Get feedback' : 'End interview'}
                     </Button>
                 )}
             </div>
@@ -152,7 +163,7 @@ function MockTab({ scope }: { scope: MockScope }) {
                     ) : !state ? (
                         <div className="mt-6 space-y-3"><ShimmerStyles /><Shimmer className="h-4 w-3/4" /><Shimmer className="h-28 w-full rounded-xl" delay={0.05} /></div>
                     ) : inSession ? (
-                        <Transcript session={live} thinking={!!jobId} phase={job.phaseLabel} stalled={stalled} busy={busy} onRetry={retry} />
+                        <Transcript session={live} thinking={!!thinking} phase={thinking ?? undefined} stalled={stalled} busy={busy} onRetry={retry} />
                     ) : shown && shown.status === 'ended' ? (
                         <Report session={shown} onBack={() => setReading(null)} />
                     ) : state.gate && !state.gate.open ? (

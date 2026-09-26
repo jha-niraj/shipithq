@@ -172,13 +172,13 @@ export async function getTransferHistory(userId: string) {
         ...sent.map(transfer => ({
             type: "sent",
             amount: transfer.amount,
-            recipientName: transfer.receiver.name || transfer.receiver.username,
+            recipientName: transfer.receiver ? (transfer.receiver.name || transfer.receiver.username) : "Deleted user",
             createdAt: transfer.createdAt,
         })),
         ...received.map(transfer => ({
             type: "received",
             amount: transfer.amount,
-            senderName: transfer.sender.name || transfer.sender.username,
+            senderName: transfer.sender ? (transfer.sender.name || transfer.sender.username) : "Deleted user",
             createdAt: transfer.createdAt,
         })),
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

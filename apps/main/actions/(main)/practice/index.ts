@@ -20,11 +20,8 @@ export {
 // AI Assessment & Mentor
 export { assessPracticeWork, getMentorResponse } from "./assess.action";
 
-// Voice (ElevenLabs STT/TTS)
-// Voice: Sarvam AI (plan/practice-workspace, PW-4). `voice.action.ts` holds the
-// old ElevenLabs pair, kept in the repo and no longer called.
+// Voice: Sarvam AI (plan/practice-workspace, PW-4; plan/voice).
 export { speakMentorReply, isVoiceAvailable } from "./voice-sarvam.action";
-export { getScribeToken, generateTTSAudio } from "./voice.action";
 
 // User-generated problems (Exa + AI)
 export {

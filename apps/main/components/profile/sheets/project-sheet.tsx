@@ -257,7 +257,7 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
             onDelete={editing ? remove : undefined}
             deleteWhat="this project"
         >
-            <FieldGroup title="Project">
+            <FieldGroup>
                 <Field label="Name" htmlFor="proj-name" required error={show("projectName")}>
                     <Input id="proj-name" autoFocus placeholder="ShipItHQ" value={form.projectName} onChange={(e) => set("projectName", e.target.value)} />
                 </Field>
@@ -293,7 +293,7 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
                 </Field>
             </FieldGroup>
 
-            <FieldGroup title="About it">
+            <FieldGroup>
                 <Field label="Summary" htmlFor="proj-desc" hint="One or two sentences: what it is and who it is for.">
                     <Textarea id="proj-desc" rows={3} className="resize-none" placeholder="A place for developers to learn by shipping real projects." value={form.description} onChange={(e) => set("description", e.target.value)} />
                 </Field>
@@ -327,7 +327,7 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
                 </Field>
             </FieldGroup>
 
-            <FieldGroup title="Dates">
+            <FieldGroup>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Started" required error={show("startDate")}>
                         <MonthPicker aria-label="Start month" placeholder="Month and year" value={form.startDate} onChange={(v) => set("startDate", v ?? "")} />
@@ -349,7 +349,7 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
             </FieldGroup>
 
             <FieldGroup
-                title="Links"
+                label="Links"
                 action={
                     <Button type="button" variant="ghost" size="sm" className="h-7 cursor-pointer px-2 text-xs" onClick={() => set("links", [...form.links, emptyLink()])}>
                         <Plus className="mr-1 size-3.5" /> Add link
@@ -376,7 +376,7 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
             </FieldGroup>
 
             <FieldGroup
-                title="Media"
+                label="Media"
                 action={
                     <Button type="button" variant="ghost" size="sm" className="h-7 cursor-pointer px-2 text-xs" onClick={() => set("media", [...form.media, emptyMedia()])}>
                         <Plus className="mr-1 size-3.5" /> Add media

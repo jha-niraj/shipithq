@@ -139,7 +139,7 @@ export function EducationSheet({ open, onOpenChange, education, onSaved }: Props
             onDelete={editing ? remove : undefined}
             deleteWhat="this school"
         >
-            <FieldGroup title="School">
+            <FieldGroup>
                 <Field label="School or university" htmlFor="edu-school" required error={show("institution")}>
                     <Input id="edu-school" autoFocus placeholder="Lovely Professional University" value={form.institution} onChange={(e) => set("institution", e.target.value)} />
                 </Field>
@@ -148,7 +148,7 @@ export function EducationSheet({ open, onOpenChange, education, onSaved }: Props
                 </Field>
             </FieldGroup>
 
-            <FieldGroup title="Dates">
+            <FieldGroup>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Started" required error={show("startDate")}>
                         <MonthPicker aria-label="Start month" placeholder="Month and year" value={form.startDate} onChange={(v) => set("startDate", v ?? "")} />
@@ -169,7 +169,7 @@ export function EducationSheet({ open, onOpenChange, education, onSaved }: Props
                 </label>
             </FieldGroup>
 
-            <FieldGroup title="Highlights">
+            <FieldGroup>
                 <Field label="Highlights" htmlFor="edu-bullets" hint="One per line: grades, coursework, clubs, awards.">
                     <Textarea
                         id="edu-bullets"

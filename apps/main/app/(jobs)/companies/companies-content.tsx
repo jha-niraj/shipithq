@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
+    Plus,
     Search, Filter, Building2, Users, MapPin,
     CheckCircle2, Briefcase, Star, Heart,
     Mic, LayoutGrid, LayoutList, X
@@ -19,6 +20,8 @@ import {
 import { Checkbox } from "@repo/ui/components/ui/checkbox"
 import { Label } from "@repo/ui/components/ui/label"
 import Link from "next/link"
+import { CompanyTrustBadge } from "@/components/companies/trust-badge"
+import { companyTrust } from "@/lib/company-trust"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { followCompany, unfollowCompany } from "@/actions/companies"
@@ -34,6 +37,8 @@ interface Company {
     companySize: string | null
     description: string | null
     verificationStatus: string
+    /** UNCLAIMED: a page ShipItHQ built from the company's own site (plan/hiring-rounds HR-6). */
+    claimStatus?: string | null
     headquarters: string | null
     activeJobsCount: number
     hasTransparentProcess: boolean
@@ -152,7 +157,7 @@ export function CompaniesContent({
 
     const getFollowButtonClasses = (isFollowed: boolean) => {
         if (isFollowed) {
-            return "absolute top-3 right-3 h-8 w-8 rounded-full bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400 transition-all"
+            return "absolute top-3 right-3 h-8 w-8 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 transition-all"
         }
         return "absolute top-3 right-3 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-all"
     }
@@ -170,10 +175,17 @@ export function CompaniesContent({
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    {/* Students ask for a company that isn't here (plan/hiring-rounds HR-7). */}
+                    <Button asChild variant="outline" size="sm" className="mr-1 gap-1.5 rounded-lg">
+                        <Link href="/companies/request">
+                            <Plus className="w-4 h-4" />
+                            <span className="hidden sm:inline">Request a company</span>
+                        </Link>
+                    </Button>
                     <Button
                         variant={viewMode === "grid" ? "secondary" : "ghost"}
                         size="icon"
-                        className="rounded-xl"
+                        className=""
                         onClick={() => setViewMode("grid")}
                     >
                         <LayoutGrid className="w-4 h-4" />
@@ -181,7 +193,7 @@ export function CompaniesContent({
                     <Button
                         variant={viewMode === "list" ? "secondary" : "ghost"}
                         size="icon"
-                        className="rounded-xl"
+                        className=""
                         onClick={() => setViewMode("list")}
                     >
                         <LayoutList className="w-4 h-4" />
@@ -213,7 +225,7 @@ export function CompaniesContent({
                 <div className="flex items-center gap-2">
                     <Button 
                         variant={onlyTransparent ? "default" : "outline"}
-                        className="rounded-xl gap-2"
+                        className="gap-2"
                         onClick={() => setOnlyTransparent(!onlyTransparent)}
                     >
                         <CheckCircle2 className="w-4 h-4" />
@@ -221,7 +233,7 @@ export function CompaniesContent({
                     </Button>
                     <Button 
                         variant="outline" 
-                        className="rounded-xl"
+                        className=""
                         onClick={() => setIsFilterOpen(true)}
                     >
                         <Filter className="w-4 h-4 mr-2" />
@@ -287,7 +299,7 @@ export function CompaniesContent({
                                 <Link href={`/companies/${company.slug}`}>
                                     <div className="flex items-start gap-4">
                                         <div className="w-14 h-14 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0 relative">
-                                            {company.logoUrl ? (
+                                            {company.logoUrl && companyTrust(company.claimStatus, company.verificationStatus).showLogo ? (
                                                 <Image src={company.logoUrl} alt={company.name} fill className="object-cover" />
                                             ) : (
                                                 <Building2 className="w-7 h-7 text-neutral-600 dark:text-neutral-400" />
@@ -303,13 +315,11 @@ export function CompaniesContent({
                                                 <h3 className="min-w-0 flex-1 truncate font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors">
                                                     {company.name}
                                                 </h3>
-                                                {company.verificationStatus === "VERIFIED" && (
-                                                    <CheckCircle2 className="w-4 h-4 text-neutral-900 dark:text-neutral-100 shrink-0" />
-                                                )}
                                             </div>
                                             {company.industry && (
                                                 <p className="text-sm text-neutral-500 dark:text-neutral-400">{company.industry}</p>
                                             )}
+                                            <CompanyTrustBadge compact className="mt-1.5" claimStatus={company.claimStatus} verificationStatus={company.verificationStatus} companyName={company.name} />
                                         </div>
                                     </div>
 
@@ -339,7 +349,7 @@ export function CompaniesContent({
                                                 onClick={(e) => {
                                                     e.preventDefault()
                                                     e.stopPropagation()
-                                                    router.push(`/companies/${company.slug}/mock`)
+                                                    router.push(`/companies/${company.slug}#roles`)
                                                 }}
                                             >
                                                 <Mic className="w-3 h-3" />
@@ -392,7 +402,7 @@ export function CompaniesContent({
                                     <Link href={`/companies/${company.slug}`}>
                                         <div className="flex items-start gap-4">
                                             <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0 relative">
-                                                {company.logoUrl ? (
+                                                {company.logoUrl && companyTrust(company.claimStatus, company.verificationStatus).showLogo ? (
                                                     <Image src={company.logoUrl} alt={company.name} fill className="object-cover" />
                                                 ) : (
                                                     <Building2 className="w-6 h-6 text-neutral-600 dark:text-neutral-400" />
@@ -403,13 +413,11 @@ export function CompaniesContent({
                                                     <h3 className="min-w-0 flex-1 truncate font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors">
                                                         {company.name}
                                                     </h3>
-                                                    {company.verificationStatus === "VERIFIED" && (
-                                                        <CheckCircle2 className="w-4 h-4 text-neutral-900 dark:text-neutral-100 shrink-0" />
-                                                    )}
                                                 </div>
                                                 {company.industry && (
                                                     <p className="text-sm text-neutral-500 dark:text-neutral-400">{company.industry}</p>
                                                 )}
+                                                <CompanyTrustBadge compact className="mt-1.5" claimStatus={company.claimStatus} verificationStatus={company.verificationStatus} companyName={company.name} />
                                             </div>
                                         </div>
 
@@ -451,7 +459,7 @@ export function CompaniesContent({
                                                     onClick={(e) => {
                                                         e.preventDefault()
                                                         e.stopPropagation()
-                                                        router.push(`/companies/${company.slug}/mock`)
+                                                        router.push(`/companies/${company.slug}#roles`)
                                                     }}
                                                 >
                                                     <Mic className="w-3 h-3" />
@@ -474,11 +482,18 @@ export function CompaniesContent({
                                 No companies found
                             </h3>
                             <p className="text-neutral-500 dark:text-neutral-400 max-w-md mx-auto mb-4">
-                                Try adjusting your filters or search criteria.
+                                Try adjusting your filters, or ask us to add the company you&apos;re looking for.
                             </p>
-                            <Button variant="outline" onClick={clearFilters} className="rounded-xl">
-                                Clear Filters
-                            </Button>
+                            <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
+                                <Button asChild className="gap-1.5">
+                                    <Link href={searchQuery.trim() ? `/companies/request?q=${encodeURIComponent(searchQuery.trim())}` : "/companies/request"}>
+                                        <Plus className="w-4 h-4" /> Request {searchQuery.trim() ? `"${searchQuery.trim().slice(0, 40)}"` : "a company"}
+                                    </Link>
+                                </Button>
+                                <Button variant="outline" onClick={clearFilters}>
+                                    Clear Filters
+                                </Button>
+                            </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -530,13 +545,13 @@ export function CompaniesContent({
                         <div className="flex gap-3 pt-4">
                             <Button
                                 variant="outline"
-                                className="flex-1 rounded-xl"
+                                className="flex-1"
                                 onClick={clearFilters}
                             >
                                 Clear All
                             </Button>
                             <Button
-                                className="flex-1 rounded-xl"
+                                className="flex-1"
                                 onClick={() => setIsFilterOpen(false)}
                             >
                                 Apply Filters

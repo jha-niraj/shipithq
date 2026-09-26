@@ -206,12 +206,12 @@ export function SkillGapModal({ job, open, onClose }: SkillGapModalProps) {
 
                         <div className="flex gap-3 pt-2">
                             <Link href={`/jobs/${job.slug}`} className="flex-1">
-                                <Button className="w-full rounded-xl" size="lg">
+                                <Button className="w-full" size="lg">
                                     <ExternalLink className="w-4 h-4 mr-2" />
                                     View Full Details
                                 </Button>
                             </Link>
-                            <Button variant="outline" className="rounded-xl" size="lg" onClick={onClose}>
+                            <Button variant="outline"  size="lg" onClick={onClose}>
                                 Close
                             </Button>
                         </div>

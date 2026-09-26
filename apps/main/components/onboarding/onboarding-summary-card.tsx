@@ -43,7 +43,7 @@ export function OnboardingSummaryCard({
             <p className={cn("mt-5 text-sm", INK_DIM)}>
                 This stays on your {moduleLabel.toLowerCase()} dashboard. You can retake it any time.
             </p>
-            <Button type="button" onClick={onContinue} disabled={continuing} className="mt-6 h-11 rounded-xl px-6">
+            <Button type="button" onClick={onContinue} disabled={continuing} className="mt-6 h-11 px-6">
                 {continuing ? <InlineLoader size="sm" className="mr-2" /> : null}
                 Open the dashboard
                 {!continuing && <ArrowRight className="ml-2 h-4 w-4" />}

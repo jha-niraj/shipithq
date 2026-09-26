@@ -58,7 +58,7 @@ export function PreparingTests({
             {ready ? (
                 <>
                     <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">Tests are ready. The problem is in your list.</p>
-                    <Button asChild className="mt-4 h-10 rounded-xl">
+                    <Button asChild className="mt-4 h-10">
                         <NextLink href={`/practice/dsa/${problem.slug}`} onClick={onDone}>
                             Open the problem <ArrowRight className="ml-2 h-4 w-4" />
                         </NextLink>
@@ -69,7 +69,7 @@ export function PreparingTests({
                     <p role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">{failedMessage}</p>
                     {retryError && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{retryError}</p>}
                     {!retried ? (
-                        <Button type="button" variant="outline" onClick={retry} className="mt-4 h-10 rounded-xl">
+                        <Button type="button" variant="outline" onClick={retry} className="mt-4 h-10">
                             <RefreshCw className="mr-2 h-3.5 w-3.5" /> Try again
                         </Button>
                     ) : (

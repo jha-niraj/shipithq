@@ -178,13 +178,13 @@ export function TaskBrief({ sprint, task, testPath, onOpenFile, onStatus, onSave
             {onGo && (prev || next) && (
                 <nav aria-label="Tasks" className="mt-10 grid grid-cols-2 gap-3 border-t border-neutral-200 pt-5 dark:border-neutral-800">
                     {prev ? (
-                        <button type="button" onClick={() => onGo(prev.id)} title="Previous task (Alt+Left)" className="group flex min-w-0 cursor-pointer flex-col items-start rounded-xl border border-neutral-200 px-4 py-3 text-left transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600">
+                        <button type="button" onClick={() => onGo(prev.id)} title="Previous task (Alt+Left)" className="group flex min-w-0 cursor-pointer flex-col items-start border border-neutral-200 px-4 py-3 text-left transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600">
                             <span className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400"><ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" /> Back · {prev.where}</span>
                             <span className="mt-0.5 w-full truncate text-sm font-medium text-neutral-900 dark:text-white">{prev.title}</span>
                         </button>
                     ) : <span />}
                     {next ? (
-                        <button type="button" onClick={() => onGo(next.id)} title="Next task (Alt+Right)" className="group flex min-w-0 cursor-pointer flex-col items-end rounded-xl border border-neutral-200 px-4 py-3 text-right transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600">
+                        <button type="button" onClick={() => onGo(next.id)} title="Next task (Alt+Right)" className="group flex min-w-0 cursor-pointer flex-col items-end border border-neutral-200 px-4 py-3 text-right transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600">
                             <span className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">{next.where} · Next <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></span>
                             <span className="mt-0.5 w-full truncate text-sm font-medium text-neutral-900 dark:text-white">{next.title}</span>
                         </button>
@@ -212,7 +212,7 @@ function NoteEditor({ initial, action, onSave, onCancel }: { initial: string; ac
         setBusy(false)
     }
     return (
-        <section className="mt-5 rounded-xl border border-neutral-300 p-4 dark:border-neutral-700">
+        <section className="mt-5 border border-neutral-300 p-4 dark:border-neutral-700">
             <label htmlFor="task-note" className="text-sm font-medium text-neutral-900 dark:text-white">What did you build or decide?</label>
             <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">A line or two. Your sprint quiz and mock interview will ask you about it.</p>
             <textarea

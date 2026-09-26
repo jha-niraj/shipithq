@@ -29,7 +29,6 @@ const check = (name: string, ok: boolean, detail = "") => { ok ? pass++ : fail++
 
 const ownerId = `e2e${crypto.randomUUID().replace(/-/g, "")}`
 const otherId = `e2e${crypto.randomUUID().replace(/-/g, "")}`
-process.env.NEXT_PUBLIC_ELEVENLABS_MOCKVOICE = "agent-test"
 
 // Some projects actions resolve the user by EMAIL, not id, so both travel
 // together - see the `@repo/auth` stub in shims.mjs.

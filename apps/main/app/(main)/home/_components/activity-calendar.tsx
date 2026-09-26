@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import { CalendarDays, Flame } from "lucide-react";
 import {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -106,7 +105,8 @@ function gridTemplate(weekCount: number): React.CSSProperties {
     };
 }
 
-const CARD = "h-full rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900";
+// Same surface as the Home module cards (plan/home HOME-2).
+const CARD = "h-full rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950";
 const GRID = "grid min-w-[640px] gap-[3px]";
 const LABEL = "text-[11px] leading-none text-neutral-600 dark:text-neutral-400";
 
@@ -180,11 +180,11 @@ export default function ActivityCalendar({ data }: { data: ActivityData[] }) {
                 <Header streak={streak} />
                 <TooltipProvider delayDuration={100}>
                     <div className="overflow-x-auto pb-1">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.4 }}
-                            className={GRID}
+                        {/* CSS fade, not framer `initial={{ opacity: 0 }}`: that inline style is
+                            in the server HTML and kept the grid invisible until hydration
+                            (plan/home HOME-1). */}
+                        <div
+                            className={cn(GRID, "animate-in fade-in-0 duration-300 [animation-fill-mode:both] motion-reduce:animate-none")}
                             style={gridTemplate(weeks.length)}
                             role="grid"
                             aria-label={`Activity over the last year: ${active} active day${active === 1 ? "" : "s"}`}
@@ -230,7 +230,7 @@ export default function ActivityCalendar({ data }: { data: ActivityData[] }) {
                                     );
                                 }),
                             )}
-                        </motion.div>
+                        </div>
                     </div>
                 </TooltipProvider>
                 <Legend />

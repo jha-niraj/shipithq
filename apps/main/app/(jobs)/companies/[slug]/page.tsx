@@ -1,57 +1,25 @@
-import { Suspense } from "react"
 import { notFound } from "next/navigation"
-import { Loader2 } from "lucide-react"
-import { 
-    getCompanyBySlug, getCompanyInterviewProcesses 
-} from "@/actions/companies"
-import { getCompanyJobs } from "@/actions/jobs"
-import { CompanyDetailContent } from "./company-detail-content"
-import Loading from "./loading"
+import { headers } from "next/headers"
+import { eq } from "drizzle-orm"
+import { getSession } from "@repo/auth"
+import { db, companies } from "@repo/db"
+import { loadCompanyPage } from "@/lib/companies/public-page"
+import { CompanyPageView } from "./_components/company-page"
 
-interface CompanyDetailPageProps {
-    params: Promise<{ slug: string }>
+export const dynamic = "force-dynamic"
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = await params
+    const c = await db.query.companies.findFirst({ where: eq(companies.slug, slug), columns: { name: true, description: true } })
+    if (!c) return { title: "Company not found | ShipItHQ" }
+    return { title: `${c.name} | ShipItHQ`, description: c.description?.slice(0, 160) || `${c.name}'s open roles and interview rounds on ShipItHQ` }
 }
 
-export async function generateMetadata({ params }: CompanyDetailPageProps) {
+/** A company's public page (plan/hiring-rounds HR-23). */
+export default async function CompanyPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params
-    const result = await getCompanyBySlug(slug)
-    
-    if (!result.success || !result.data) {
-        return { title: "Company Not Found" }
-    }
-
-    return {
-        title: `${result.data.name} | ShipItHQ`,
-        description: result.data.description?.slice(0, 160) || `Learn about ${result.data.name} and their interview process`
-    }
-}
-
-export default async function CompanyDetailPage({ params }: CompanyDetailPageProps) {
-    const { slug } = await params
-    
-    const [companyResult, processesResult, jobsResult] = await Promise.all([
-        getCompanyBySlug(slug),
-        getCompanyInterviewProcesses(slug),
-        getCompanyJobs(slug)
-    ])
-
-    if (!companyResult.success || !companyResult.data) {
-        notFound()
-    }
-
-    const company = companyResult.data
-    const interviewProcesses = processesResult.success ? processesResult.data || [] : []
-    const jobs = jobsResult.success ? jobsResult.data || [] : []
-
-    return (
-        <Suspense 
-            fallback={<Loading />}
-        >
-            <CompanyDetailContent 
-                company={company}
-                interviewProcesses={interviewProcesses}
-                jobs={jobs}
-            />
-        </Suspense>
-    )
+    const session = await getSession(await headers())
+    const data = await loadCompanyPage(slug, session?.user?.id ?? null)
+    if (!data) notFound()
+    return <CompanyPageView data={data} />
 }

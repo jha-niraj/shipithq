@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { addXpToUser } from "./level.action";
+import { toggleIdeaVote } from "../ideas/ideas.action";
 
 
 export async function submitFeedback({
@@ -111,24 +112,12 @@ export async function updateFeedbackStatus(id: string, status: "UNDER_REVIEW" | 
     }
 }
 
-// Upvote feedback
+// Upvote feedback. Delegates to the Ideas vote, which allows one vote per user
+// (plan/web/revamp REV-41); this used to add 1 on every call.
 export async function upvoteFeedback(id: string) {
-    try {
-        const session = await getSession(headers())
-        if (!session?.user?.id) {
-            throw new Error("Not authenticated")
-        }
-
-        const [feedback] = await db.update(feedbacks).set({
-            upvotes: sql`${feedbacks.upvotes} + 1`
-        }).where(eq(feedbacks.id, id)).returning()
-
-        revalidatePath("/feedback")
-        return feedback
-    } catch (error) {
-        console.error("Error upvoting feedback:", error)
-        throw error
-    }
+    const r = await toggleIdeaVote(id)
+    if (!r.success) throw new Error(r.error)
+    return r
 }
 
 // Assign reward to feedback

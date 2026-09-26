@@ -191,7 +191,7 @@ export default function KnowMeSettings({ profile, apiConfig, initialTab }: KnowM
             >
                 <div className="flex items-center gap-4 mb-4">
                     <Link href="/knowme">
-                        <Button variant="ghost" size="icon" className="rounded-xl">
+                        <Button variant="ghost" size="icon" >
                             <ArrowLeft className="w-5 h-5" />
                         </Button>
                     </Link>

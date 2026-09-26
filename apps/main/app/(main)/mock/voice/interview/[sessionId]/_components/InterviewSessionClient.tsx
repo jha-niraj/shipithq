@@ -1,561 +1,76 @@
 'use client'
 
-import { use, useEffect, useState, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useConversation } from '@elevenlabs/react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Button } from '@repo/ui/components/ui/button'
-import { Badge } from '@repo/ui/components/ui/badge'
-import {
-    Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle
-} from '@repo/ui/components/ui/dialog'
-import dynamic from 'next/dynamic'
-import type { AgentState } from '@/components/main/orb'
-
-const Orb = dynamic(() => import('@/components/main/orb').then(m => ({ default: m.Orb })), { ssr: false })
-import {
-    Mic, MicOff, Volume2, VolumeX, Phone, PhoneOff,
-    CheckCircle2, AlertCircle
-} from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import { cn } from '@repo/ui/lib/utils'
 import toast from '@repo/ui/components/ui/sonner'
-import { awaitBackgroundJob } from '@/hooks/use-background-job'
-import {
-    saveConversationData, updateSessionStatus, getSessionDetails,
-    getElevenLabsToken
-} from '@/actions/(main)/mockvoice/session.action'
-import { 
-    processConversationCompletion 
-} from '@/actions/(main)/mockvoice/conversation.action'
-import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import type { VoiceMode, VoiceTurn } from '@repo/db'
+import { handInMockInterview } from '@/actions/(main)/mockvoice/conversation.action'
+import { LiveInterview } from '@/components/voice/live-interview'
+import { formatClock } from '@/components/hiring/runner-shell'
 
-interface SessionVariables {
-    username: string
-    position: string
-    level: string
-    description: string
-    knowledge_base: string
-    resume_content?: string | null
-}
+/*
+ * A mock interview on Sarvam (plan/voice VO-10): the shared live interview,
+ * spoken or typed, on the session's clock. Handing in goes to the results page,
+ * which follows the scoring.
+ */
 
-interface SessionData {
-    id: string
-    userId: string
-    agentId: string | null
-    variables: SessionVariables | null
-    mock: {
-        title: string
-        description: string
-        level: string
-        category: string
-        duration: number | null
-    } | null
-}
-
-export default function MockInterviewPage({ params }: { params: Promise<{ sessionId: string }> }) {
-    const resolvedParams = use(params)
+export default function InterviewSessionClient({ sessionId, title, endsAt, serverNow, initial }: {
+    sessionId: string
+    title: string
+    endsAt: number
+    serverNow: number
+    initial: { mode: VoiceMode | null; consented: boolean; turns: VoiceTurn[] }
+}) {
     const router = useRouter()
+    const offset = useRef(serverNow - Date.now())
+    const [remaining, setRemaining] = useState(() => endsAt - (Date.now() + offset.current))
+    const [ending, setEnding] = useState(false)
 
-    const [sessionData, setSessionData] = useState<SessionData | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
-    const [isMicMuted, setIsMicMuted] = useState(false)
-    const [volume, setVolume] = useState(0.8)
-    const [agentState, setAgentState] = useState<AgentState>(null)
-    const [showProcessingDialog, setShowProcessingDialog] = useState(false)
-    const [processingStatus, setProcessingStatus] = useState<'processing' | 'success' | 'error'>('processing')
-    const [hasStarted, setHasStarted] = useState(false)
-
-    const conversationIdRef = useRef<string | null>(null)
-    const intentionalEndRef = useRef(false)
-    const isProcessingRef = useRef(false)
-
-    // Handler for conversation end - defined before useConversation
-    const handleConversationEnd = useCallback(async () => {
-        if (!conversationIdRef.current || isProcessingRef.current) return
-        isProcessingRef.current = true
-
-        setShowProcessingDialog(true)
-        setProcessingStatus('processing')
-
-        try {
-            // Hand the transcript off to the worker and follow the job. The
-            // wait for ElevenLabs to finish processing happens on a Durable
-            // Object alarm, so it no longer dies with this request.
-            const result = await processConversationCompletion(
-                resolvedParams.sessionId,
-                conversationIdRef.current
-            )
-
-            if (!result.success || !result.jobId) {
-                throw new Error(result.error ?? 'Failed to process interview')
-            }
-
-            const outcome = await awaitBackgroundJob(result.jobId)
-            if (!outcome.ok) {
-                throw new Error(outcome.error)
-            }
-
-            setProcessingStatus('success')
-
-            // Wait a moment to show success state
-            setTimeout(() => {
-                router.push(`/mock/voice/results/${resolvedParams.sessionId}`)
-            }, 1500)
-        } catch (error) {
-            console.error('Error processing conversation:', error)
-            setProcessingStatus('error')
-            const message = error instanceof Error ? error.message : 'Failed to process interview'
-            toast.error(message)
-        }
-    }, [resolvedParams.sessionId, router])
-
-    const conversation = useConversation({
-        micMuted: isMicMuted,
-        volume,
-        onConnect: () => {
-            console.log('[MockInterview] Connected to ElevenLabs')
-            setAgentState('listening')
-            toast.success('Interview started!')
-        },
-        onDisconnect: () => {
-            console.log('[MockInterview] Disconnected from ElevenLabs, intentional:', intentionalEndRef.current)
-            setAgentState(null)
-            // Process when we have a conversation - supports both user click and 11 Labs AI-ended interview
-            if (conversationIdRef.current && !isProcessingRef.current) {
-                handleConversationEnd()
-            }
-        },
-        onModeChange: (mode: { mode: string }) => {
-            console.log('[MockInterview] Mode changed:', mode.mode)
-            setAgentState(mode.mode === 'speaking' ? 'talking' : 'listening')
-        },
-        onError: (error: unknown) => {
-            console.error('[MockInterview] Conversation error:', error)
-            const message = error instanceof Error
-                ? error.message
-                : typeof error === 'string'
-                    ? error
-                    : 'Connection error. Please try again.'
-            toast.error(message)
-            setAgentState(null)
-            setHasStarted(false)
-        },
-        onMessage: (message: unknown) => {
-            console.log('[MockInterview] Message:', message)
-        },
-    })
-
-    // Load session details
     useEffect(() => {
-        async function loadSession() {
-            try {
-                const result = await getSessionDetails(resolvedParams.sessionId)
+        const t = window.setInterval(() => {
+            const left = endsAt - (Date.now() + offset.current)
+            setRemaining(left)
+            if (left <= 0) setEnding(true)
+        }, 250)
+        return () => window.clearInterval(t)
+    }, [endsAt])
 
-                if (!result.success || !result.session) {
-                    toast.error('Session not found')
-                    router.push('/mock/voice')
-                    return
-                }
-
-                // Transform session data to match our interface
-                const session = result.session
-                const transformedSession: SessionData = {
-                    id: session.id,
-                    userId: session.userId,
-                    agentId: session.agentId,
-                    variables: session.variables as SessionVariables | null,
-                    mock: session.mock ? {
-                        title: session.mock.title,
-                        description: session.mock.description,
-                        level: session.mock.level,
-                        category: session.mock.category,
-                        duration: session.mock.duration
-                    } : null
-                }
-
-                setSessionData(transformedSession)
-            } catch (error) {
-                console.error('Error loading session:', error)
-                toast.error('Failed to load session')
-                router.push('/mock/voice')
-            } finally {
-                setIsLoading(false)
-            }
-        }
-
-        loadSession()
-    }, [resolvedParams.sessionId, router])
-
-    // Request microphone permission on mount
-    useEffect(() => {
-        async function requestMicPermission() {
-            try {
-                await navigator.mediaDevices.getUserMedia({ audio: true })
-            } catch (error) {
-                console.error('Microphone permission denied:', error)
-                toast.error('Microphone access is required for voice interviews')
-            }
-        }
-
-        requestMicPermission()
-    }, [])
-
-    const startInterview = async () => {
-        if (!sessionData || !sessionData.variables) {
-            toast.error('Session data missing. Please go back and try again.')
-            return
-        }
-
-        try {
-            setHasStarted(true)
-            setAgentState('thinking')
-
-            // Server action reads agentId from env - no client-side secret needed
-            const tokenResult = await getElevenLabsToken()
-            if (!tokenResult.success || !tokenResult.token) {
-                toast.error('Failed to authenticate with voice agent')
-                setAgentState(null)
-                setHasStarted(false)
-                return
-            }
-
-            // Update session status
-            await updateSessionStatus(resolvedParams.sessionId, 'IN_PROGRESS')
-
-            // Start ElevenLabs conversation - pass ALL variables including knowledge_base
-            const variables = sessionData.variables
-
-            const conversationId = await conversation.startSession({
-                conversationToken: tokenResult.token,
-                connectionType: 'webrtc',
-                userId: sessionData.userId,
-                dynamicVariables: {
-                    username: variables.username,
-                    position: variables.position,
-                    level: variables.level,
-                    description: variables.description,
-                    knowledge_base: variables.knowledge_base,
-                    resume_content: variables.resume_content || '',
-                }
-            })
-
-            conversationIdRef.current = conversationId
-
-            // Save conversation ID to database
-            await saveConversationData(resolvedParams.sessionId, conversationId, new Date())
-
-        } catch (error) {
-            console.error('Error starting interview:', error)
-            toast.error('Failed to start interview. Please try again.')
-            setAgentState(null)
-            setHasStarted(false)
-        }
-    }
-
-    const endInterview = useCallback(async () => {
-        try {
-            intentionalEndRef.current = true
-            await conversation.endSession()
-            await updateSessionStatus(resolvedParams.sessionId, 'COMPLETED')
-            setAgentState(null)
-        } catch (error) {
-            console.error('Error ending interview:', error)
-            toast.error('Failed to end interview properly')
-        }
-    }, [conversation, resolvedParams.sessionId])
-
-    const toggleMic = () => {
-        setIsMicMuted(!isMicMuted)
-        toast.info(isMicMuted ? 'Microphone unmuted' : 'Microphone muted')
-    }
-
-    const toggleVolume = () => {
-        const newVolume = volume > 0 ? 0 : 0.8
-        setVolume(newVolume)
-        conversation.setVolume({ volume: newVolume })
-        toast.info(newVolume > 0 ? 'Audio unmuted' : 'Audio muted')
-    }
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <InlineLoader size="lg" />
-            </div>
-        )
-    }
+    const handIn = useCallback(async () => {
+        const r = await handInMockInterview(sessionId)
+        if (!r.success) { toast.error(r.error ?? 'Could not hand in'); return }
+        router.push(`/mock/voice/results/${sessionId}`)
+    }, [router, sessionId])
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-white dark:from-neutral-950 dark:to-neutral-900 flex flex-col">
-            <div className="container mx-auto px-4 py-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold">{sessionData?.mock?.title}</h1>
-                        <p className="text-neutral-600 dark:text-neutral-400">{sessionData?.mock?.description}</p>
-                    </div>
-                    <Badge className="text-sm">
-                        {sessionData?.mock?.level}
-                    </Badge>
+        <div className="flex min-h-dvh flex-col">
+            <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-neutral-200 bg-white/95 px-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
+                <Link href="/mock" aria-label="Back to mock interviews" className="rounded-md p-1.5 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800">
+                    <ArrowLeft className="h-4 w-4" />
+                </Link>
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">Mock interview</p>
+                    <p className="truncate text-sm font-medium text-neutral-900 dark:text-white">{title}</p>
                 </div>
-            </div>
-            <div className="flex-1 flex flex-col items-center justify-center px-4">
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="w-full max-w-2xl"
+                <span
+                    aria-label="Time left"
+                    className={cn('rounded-lg px-2.5 py-1 font-mono text-sm tabular-nums', remaining <= 60_000 ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400' : 'bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-white')}
                 >
-                    <div className="relative w-full aspect-square max-w-md mx-auto mb-8">
-                        {
-                            !hasStarted ? (
-                                <div className="w-full h-full flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/30">
-                                    <div className="text-6xl mb-4">🎙️</div>
-                                    <h3 className="font-semibold text-lg mb-2">Interview Details</h3>
-                                    <div className="text-sm text-neutral-600 dark:text-neutral-400 space-y-1 text-center">
-                                        {
-                                            sessionData?.mock?.duration && (
-                                                <p>Duration: {sessionData.mock.duration} minutes</p>
-                                            )
-                                        }
-                                        {
-                                            sessionData?.mock?.category && (
-                                                <p>Category: {sessionData.mock.category}</p>
-                                            )
-                                        }
-                                        <p className="mt-2">Voice-based AI interview with real-time feedback</p>
-                                        <p>Ensure your microphone is ready before starting</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <Orb
-                                    agentState={agentState}
-                                    volumeMode="auto"
-                                    getInputVolume={conversation.getInputVolume}
-                                    getOutputVolume={conversation.getOutputVolume}
-                                    colors={['#737373', '#404040']}
-                                />
-                            )
-                        }
-                    </div>
-                    <div className="text-center mb-8">
-                        <AnimatePresence mode="wait">
-                            {
-                                !hasStarted && (
-                                    <motion.div
-                                        key="ready"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
-                                    >
-                                        <h2 className="text-3xl font-bold mb-2">Ready to Begin?</h2>
-                                        <p className="text-neutral-600 dark:text-neutral-400">
-                                            Click the button below to start your mock interview
-                                        </p>
-                                    </motion.div>
-                                )
-                            }
-                            {
-                                hasStarted && agentState === 'thinking' && (
-                                    <motion.div
-                                        key="thinking"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
-                                    >
-                                        <h2 className="text-2xl font-bold mb-2">Connecting...</h2>
-                                        <p className="text-neutral-600 dark:text-neutral-400">
-                                            Setting up your interview session
-                                        </p>
-                                    </motion.div>
-                                )
-                            }
-                            {
-                                agentState === 'listening' && (
-                                    <motion.div
-                                        key="listening"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
-                                    >
-                                        <h2 className="text-2xl font-bold mb-2">Listening...</h2>
-                                        <p className="text-neutral-600 dark:text-neutral-400">
-                                            Your turn to speak
-                                        </p>
-                                    </motion.div>
-                                )
-                            }
-                            {
-                                agentState === 'talking' && (
-                                    <motion.div
-                                        key="talking"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
-                                    >
-                                        <h2 className="text-2xl font-bold mb-2">Interviewer Speaking...</h2>
-                                        <p className="text-neutral-600 dark:text-neutral-400">
-                                            Listen carefully to the question
-                                        </p>
-                                    </motion.div>
-                                )
-                            }
-                        </AnimatePresence>
-                    </div>
-                    <div className="flex items-center justify-center gap-4">
-                        {
-                            !hasStarted ? (
-                                <Button
-                                    size="lg"
-                                    className="bg-gradient-to-r from-neutral-800 to-neutral-800 hover:from-neutral-700 hover:to-neutral-700 text-white px-8 py-6 text-lg"
-                                    onClick={startInterview}
-                                >
-                                    <Phone className="w-5 h-5 mr-2" />
-                                    Start Interview
-                                </Button>
-                            ) : (
-                                <>
-                                    <Button
-                                        size="lg"
-                                        variant={isMicMuted ? 'destructive' : 'outline'}
-                                        onClick={toggleMic}
-                                        className="rounded-full w-14 h-14"
-                                    >
-                                        {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                                    </Button>
-                                    <Button
-                                        size="lg"
-                                        variant="destructive"
-                                        onClick={endInterview}
-                                        className="rounded-full w-16 h-16"
-                                    >
-                                        <PhoneOff className="w-6 h-6" />
-                                    </Button>
-                                    <Button
-                                        size="lg"
-                                        variant={volume === 0 ? 'destructive' : 'outline'}
-                                        onClick={toggleVolume}
-                                        className="rounded-full w-14 h-14"
-                                    >
-                                        {volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                                    </Button>
-                                </>
-                            )
-                        }
-                    </div>
-                </motion.div>
-            </div>
-            <Dialog
-                open={showProcessingDialog}
-                onOpenChange={(open) => {
-                    // Only allow closing on error state
-                    if (!open && processingStatus === 'error') {
-                        setShowProcessingDialog(false)
-                    }
-                }}
-            >
-                <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
-                    // Prevent closing during processing/success
-                    if (processingStatus !== 'error') e.preventDefault()
-                }}>
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            {processingStatus === 'processing' && (
-                                <>
-                                    <InlineLoader size="md" className="text-neutral-800 dark:text-neutral-200" />
-                                    Processing Your Interview
-                                </>
-                            )}
-                            {processingStatus === 'success' && (
-                                <>
-                                    <CheckCircle2 className="w-5 h-5 text-neutral-800 dark:text-neutral-200" />
-                                    Interview Completed!
-                                </>
-                            )}
-                            {processingStatus === 'error' && (
-                                <>
-                                    <AlertCircle className="w-5 h-5 text-red-600" />
-                                    Processing Error
-                                </>
-                            )}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {processingStatus === 'processing' && 'Please wait while we analyze your interview performance...'}
-                            {processingStatus === 'success' && 'Redirecting to your results...'}
-                            {processingStatus === 'error' && 'There was an issue processing your interview. You can still view your results.'}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-6">
-                        <AnimatePresence mode="wait">
-                            {processingStatus === 'processing' && (
-                                <motion.div
-                                    key="processing"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    className="space-y-3"
-                                >
-                                    <div className="flex items-center gap-3 text-sm">
-                                        <InlineLoader size="sm" className="text-neutral-800 dark:text-neutral-200" />
-                                        <span>Retrieving conversation details...</span>
-                                    </div>
-                                    <div className="flex items-center gap-3 text-sm">
-                                        <InlineLoader size="sm" className="text-neutral-800 dark:text-neutral-200" />
-                                        <span>Generating transcript...</span>
-                                    </div>
-                                    <div className="flex items-center gap-3 text-sm">
-                                        <InlineLoader size="sm" className="text-neutral-800 dark:text-neutral-200" />
-                                        <span>Preparing your feedback...</span>
-                                    </div>
-                                </motion.div>
-                            )}
-                            {processingStatus === 'success' && (
-                                <motion.div
-                                    key="success"
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    className="flex flex-col items-center justify-center py-8"
-                                >
-                                    <CheckCircle2 className="w-20 h-20 text-neutral-800 dark:text-neutral-200 mb-4" />
-                                    <p className="text-center text-neutral-600 dark:text-neutral-400">
-                                        Your interview has been successfully processed!
-                                    </p>
-                                </motion.div>
-                            )}
-                            {processingStatus === 'error' && (
-                                <motion.div
-                                    key="error"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="flex flex-col items-center gap-4 py-4"
-                                >
-                                    <AlertCircle className="w-16 h-16 text-red-400" />
-                                    <p className="text-center text-sm text-neutral-600 dark:text-neutral-400">
-                                        Don&apos;t worry - your session data has been saved. You can still view partial results or try again.
-                                    </p>
-                                    <div className="flex gap-3 w-full">
-                                        <Button
-                                            variant="outline"
-                                            className="flex-1"
-                                            onClick={() => {
-                                                setShowProcessingDialog(false)
-                                                router.push('/mock/voice')
-                                            }}
-                                        >
-                                            Back to Mocks
-                                        </Button>
-                                        <Button
-                                            className="flex-1"
-                                            onClick={() => {
-                                                setShowProcessingDialog(false)
-                                                router.push(`/mock/voice/results/${resolvedParams.sessionId}`)
-                                            }}
-                                        >
-                                            View Results
-                                        </Button>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </DialogContent>
-            </Dialog>
+                    {formatClock(remaining)}
+                </span>
+            </header>
+            <main className="flex-1">
+                <LiveInterview
+                    voiceRef={{ kind: 'mock', id: sessionId }}
+                    title={title}
+                    allows={{ voice: true, typed: true }}
+                    initial={initial}
+                    ending={ending}
+                    onHandIn={handIn}
+                />
+            </main>
         </div>
     )
 }

@@ -282,7 +282,7 @@ export function EditProfileSheet({ open, onOpenChange, details, onSaved, onUploa
                 </TabsContent>
 
                 <TabsContent value="privacy" className="mt-0 space-y-6">
-                    <FieldGroup title="Who can see your profile">
+                    <FieldGroup label="Who can see your profile">
                         <Segmented
                             label="Profile visibility"
                             value={form.visibility}
@@ -301,7 +301,7 @@ export function EditProfileSheet({ open, onOpenChange, details, onSaved, onUploa
                                     : "Only you see it. To anyone else your link shows a not-found page."}
                         </p>
                     </FieldGroup>
-                    <FieldGroup title="On your public profile">
+                    <FieldGroup label="On your public profile">
                         <ToggleRow title="Show my email" body="Adds an Email button to your profile." checked={form.showEmail} onChange={(v) => set("showEmail", v)} />
                         <ToggleRow title="Show my resume" body="Adds a Resume button when you have one on file." checked={form.showResume} onChange={(v) => set("showResume", v)} />
                     </FieldGroup>

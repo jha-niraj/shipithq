@@ -109,6 +109,8 @@ async function settle(orderId: string, razorpayPaymentId: string | undefined): P
     // Lost the race with `verify`, or with an earlier delivery of this same
     // event. The payment is settled; this call simply was not the settler.
     if (!claimed) return false
+    // The account was deleted: the payment keeps its record, and there's no balance to credit.
+    if (!payment.userId) return true
 
     await db
         .update(users)
@@ -242,6 +244,8 @@ async function clawBack(razorpayPaymentId: string): Promise<void> {
         .where(and(eq(payments.id, payment.id), eq(payments.status, 'COMPLETED')))
         .returning({ id: payments.id })
     if (!claimed) return
+    // The account was deleted: nothing to take credits back from.
+    if (!payment.userId) return
 
     // Credits can go negative here, and deliberately so: the alternative is
     // clamping at zero, which silently forgives a refund taken after the

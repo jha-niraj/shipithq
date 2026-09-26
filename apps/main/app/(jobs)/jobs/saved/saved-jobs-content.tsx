@@ -134,7 +134,7 @@ export function SavedJobsContent({ initialData, isAuthenticated }: SavedJobsCont
                 <div className="mt-8 text-center">
                     <Button
                         variant="outline"
-                        className="rounded-xl"
+                        className=""
                         onClick={loadMore}
                         disabled={loading}
                     >
@@ -175,7 +175,7 @@ function AuthRequiredState() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-16 px-4"
         >
-            <div className="w-20 h-20 bg-gradient-to-br from-neutral-100 to-pink-100 dark:from-neutral-800/30 dark:to-pink-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <div className="w-20 h-20 bg-gradient-to-br from-neutral-100 to-neutral-50 dark:from-neutral-800/30 dark:to-neutral-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6">
                 <UserCheck className="w-10 h-10 text-neutral-800 dark:text-neutral-100" />
             </div>
             <h3 className="text-xl font-semibold text-neutral-900 dark:text-white mb-2">
@@ -185,7 +185,7 @@ function AuthRequiredState() {
                 Create an account or sign in to save jobs and access them later.
             </p>
             <Link href="/signin">
-                <Button className="rounded-xl">
+                <Button >
                     Sign In
                 </Button>
             </Link>
@@ -207,10 +207,10 @@ function SavedEmptyState() {
                 No saved jobs yet
             </h3>
             <p className="text-neutral-500 dark:text-neutral-400 max-w-md mx-auto mb-6">
-                Swipe right on jobs you like or click the bookmark icon to save them for later.
+                Save jobs from Spark or Browse with the bookmark, and they wait here.
             </p>
             <Link href="/jobs">
-                <Button className="rounded-xl">
+                <Button >
                     <Sparkles className="w-4 h-4 mr-2" />
                     Discover Jobs
                 </Button>

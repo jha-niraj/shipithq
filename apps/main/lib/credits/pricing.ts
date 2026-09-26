@@ -79,6 +79,18 @@ export const CREDIT_PRICES = {
      * `plan/module-onboarding/overview.md`.
      */
     module_onboarding: 0,
+
+    /**
+     * One attempt at a hiring round (plan/hiring-rounds HR-13), decided by
+     * Niraj on 2026-09-25, `plan/hiring-rounds/overview.md` (Prices, limits and
+     * content). Held when the attempt starts, settled when it is scored, and
+     * refunded if scoring fails. Aptitude and DSA cost little to score but carry
+     * a price so a pool isn't burned through; sending a result is free.
+     */
+    hiring_round_aptitude: 5,
+    hiring_round_dsa: 5,
+    hiring_round_system_design: 15,
+    hiring_round_voice: 30,
 } as const
 
 export type PricedOperation = keyof typeof CREDIT_PRICES

@@ -129,7 +129,7 @@ export function SkillsSheet({ open, onOpenChange, skills: initialSkills, onSaved
             description="What you work with. Grouped by category on your public profile and in your resumes."
             closeLabel="Done"
         >
-            <FieldGroup title="Add a skill">
+            <FieldGroup>
                 <div
                     // Name on its own line: in a 512px sheet, a four-column row left the
                     // name field about 80px wide, too narrow to read what you typed.
@@ -164,7 +164,7 @@ export function SkillsSheet({ open, onOpenChange, skills: initialSkills, onSaved
                 )}
             </FieldGroup>
 
-            <FieldGroup title={`Your skills${skills.length ? ` (${skills.length})` : ""}`}>
+            <FieldGroup label={`Your skills${skills.length ? ` (${skills.length})` : ""}`}>
                 {skills.length === 0 ? (
                     <p className="text-[13px] text-neutral-500 dark:text-neutral-400">No skills yet. Add the languages and tools you use most.</p>
                 ) : (

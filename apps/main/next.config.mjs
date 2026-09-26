@@ -29,7 +29,9 @@ const nextConfig = {
     // marketing path that lands on the app host is bounced back to web so old
     // links + shared URLs keep working.
     async redirects() {
-        const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:3000";
+        // apps/web runs on 6005 in development (its package.json); 3000 was a stale default
+        // that sent Terms and Privacy to nothing (plan/auth AUTH-5).
+        const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || "http://localhost:6005";
         const marketingPaths = [
             "/aboutus", "/blogs", "/privacypolicy", "/termsofservice", "/pricing",
         ];
@@ -38,6 +40,11 @@ const nextConfig = {
                 { source: p, destination: `${WEB_URL}${p}`, permanent: false },
                 { source: `${p}/:path*`, destination: `${WEB_URL}${p}/:path*`, permanent: false },
             ])),
+
+            // Applications became My rounds (plan/hiring-rounds HR-22); the old
+            // interview journey under it is gone, so every old link lands there.
+            { source: "/jobs/applications", destination: "/jobs/rounds", permanent: false },
+            { source: "/jobs/applications/:path*", destination: "/jobs/rounds", permanent: false },
 
             // The interview assistant lives at /ai/interviewassistant. For a long time the
             // whole module linked to itself as /ai/jobinterviewassistant - 20 links across 9

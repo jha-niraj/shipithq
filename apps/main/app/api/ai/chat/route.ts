@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSession } from "@repo/auth";
+import { liveAttemptFor, recordAiBlocked } from "@/lib/hiring/runs";
 import { modelFor } from "@repo/ai";
 import { db, users } from "@repo/db";
 import type { AssistantChatAction, AssistantChatAttachment, AssistantChatStep } from "@repo/db/assistant";
@@ -197,6 +198,13 @@ export async function POST(request: NextRequest) {
     const session = await getSession(request.headers);
     if (!session?.user?.id) return json(401, { error: "Unauthorized" });
     const userId = session.user.id;
+
+    // No AI during a round (plan/hiring-rounds HR-13, DoD 27); the refusal is recorded.
+    const liveRound = await liveAttemptFor(userId);
+    if (liveRound) {
+        await recordAiBlocked(liveRound.id);
+        return json(403, { error: "AI is off while a hiring round is running. Finish or leave the round first." });
+    }
 
     let body: { sessionId?: unknown; content?: unknown; attachments?: unknown; page?: unknown; tags?: unknown };
     try {

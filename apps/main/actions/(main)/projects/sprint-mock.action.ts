@@ -4,25 +4,30 @@ import { getSession } from '@repo/auth'
 import { headers } from 'next/headers'
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import {
-    backgroundJobs, db, projectsV2, projectV2Sprints, projectV2SprintMockSessions, projectV2Tasks, userTaskV2Statuses,
+    db, projectsV2, projectV2Sprints, projectV2SprintMockSessions, projectV2Tasks, userTaskV2Statuses,
     type SprintMockFeedback,
 } from '@repo/db'
 import { toErrorMessage } from '@/lib/errors'
 import { priceOf } from '@/lib/credits/pricing'
+import { releaseCredits, reserveCredits, settleCredits, toReleaseReason } from '@/lib/credits/hold'
 import { isSetupSprint } from '@/lib/projects/sprints'
 import { MOCK_UNLOCK_PERCENT, mockUnlocked } from '@/lib/projects/gates'
-import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
+import { interviewerLine, mockContext, mockFeedback, type MockTurnRow } from '@/lib/projects/sprint-mock'
 
 /*
  * Sprint mock interviews (plan/project-workspace WS-13, decided by Niraj
  * 2026-09-24): 30 credits a session, open when every task in the sprint is
- * done, answered by typing or dictation. The worker writes the interviewer's
- * lines and the feedback; this file writes the learner's lines and dispatches.
+ * done, answered by typing or dictation. Since WS-24 every step is inline: the
+ * interviewer's line and the feedback are one model call each in the action
+ * (lib/projects/sprint-mock.ts), never a worker job. The session's credits are
+ * held when it opens, refunded if the first question never comes, and settled
+ * once at feedback.
  */
 
-type Result<T> = { success: true; data: T } | { success: false; error: string }
+type Result<T> = { success: true; data: T } | { success: false; error: string; code?: 'ANSWER_BACK' }
 
 const MAX_ANSWER_CHARS = 4000
+const holdFor = (sessionId: string) => `sprint-mock:${sessionId}`
 
 export interface MockSessionView {
     id: string
@@ -35,13 +40,13 @@ export interface MockSessionView {
 export interface SprintMockState {
     /** Newest first. */
     sessions: MockSessionView[]
-    /** The job writing the interviewer's next line or the feedback, if one is running. */
-    pendingJobId: string | null
     tasksLeft: number
     price: number
     /** The final interview only: where it opens and where the learner is (share of all tasks). */
     gate?: { unlockAt: number; progress: number; open: boolean }
 }
+
+type SessionRow = typeof projectV2SprintMockSessions.$inferSelect
 
 async function currentUserId() {
     const session = await getSession(headers())
@@ -67,24 +72,73 @@ async function tasksLeft(sprintId: string, userId: string): Promise<number> {
     return row?.n ?? 0
 }
 
-async function inFlightJob(userId: string, sessionIds: string[]): Promise<string | null> {
-    if (sessionIds.length === 0) return null
-    const [row] = await db.select({ jobId: backgroundJobs.jobId }).from(backgroundJobs).where(and(
-        eq(backgroundJobs.userId, userId),
-        eq(backgroundJobs.type, 'sprint_mock'),
-        inArray(backgroundJobs.status, ['waiting', 'active']),
-        inArray(sql`${backgroundJobs.input}->>'singleFlightKey'`, sessionIds),
-    )).limit(1)
-    return row?.jobId ?? null
-}
-
-function toView(row: typeof projectV2SprintMockSessions.$inferSelect): MockSessionView {
+function toView(row: SessionRow): MockSessionView {
     return {
         id: row.id,
         status: (['opening', 'active', 'ended', 'failed'].includes(row.status) ? row.status : 'failed') as MockSessionView['status'],
         transcript: (row.transcript ?? []).map((t) => ({ role: t.role, text: t.text, at: t.at })),
         feedback: row.feedback ?? null,
         createdAt: row.createdAt.toISOString(),
+    }
+}
+
+async function reload(sessionId: string): Promise<MockSessionView> {
+    const row = await db.query.projectV2SprintMockSessions.findFirst({ where: eq(projectV2SprintMockSessions.id, sessionId) })
+    return toView(row!)
+}
+
+/**
+ * Append the interviewer's line, only if the transcript still ends where it did
+ * when the question was asked: two requests at once can't both write a line.
+ */
+async function appendInterviewer(sessionId: string, text: string, expectLast: 'learner' | 'empty'): Promise<boolean> {
+    const line = JSON.stringify([{ role: 'interviewer', text, at: new Date().toISOString() }])
+    const guard = expectLast === 'empty'
+        ? sql`jsonb_array_length(${projectV2SprintMockSessions.transcript}) = 0`
+        : sql`${projectV2SprintMockSessions.transcript} -> -1 ->> 'role' = 'learner'`
+    const rows = await db.update(projectV2SprintMockSessions)
+        .set({ transcript: sql`${projectV2SprintMockSessions.transcript} || ${line}::jsonb`, status: 'active' })
+        .where(and(eq(projectV2SprintMockSessions.id, sessionId), guard))
+        .returning({ id: projectV2SprintMockSessions.id })
+    return rows.length > 0
+}
+
+/** Write the feedback and end the session; the session's hold is settled here, once. */
+async function finish(session: SessionRow, userId: string): Promise<void> {
+    const context = await mockContext(session.sprintId, session.projectId, userId)
+    const fresh = await db.query.projectV2SprintMockSessions.findFirst({ where: eq(projectV2SprintMockSessions.id, session.id) })
+    const feedback = await mockFeedback(context, (fresh?.transcript ?? []) as MockTurnRow[])
+    const ended = await db.update(projectV2SprintMockSessions)
+        .set({ status: 'ended', feedback, endedAt: new Date() })
+        .where(and(eq(projectV2SprintMockSessions.id, session.id), inArray(projectV2SprintMockSessions.status, ['opening', 'active'])))
+        .returning({ id: projectV2SprintMockSessions.id })
+    if (ended.length) await settleCredits(holdFor(session.id))
+}
+
+/**
+ * A new session: hold its credits, then ask the first question inline. If the
+ * question never comes, the session is marked failed and the hold released.
+ */
+async function openSession(input: { projectId: string; sprintId: string | null; userId: string; cost: number; reason: string }): Promise<Result<{ session: MockSessionView }> & { requiredCredits?: number }> {
+    const [session] = await db.insert(projectV2SprintMockSessions)
+        .values({ projectId: input.projectId, sprintId: input.sprintId, userId: input.userId, status: 'opening' })
+        .returning()
+    const hold = await reserveCredits({ userId: input.userId, amount: input.cost, reason: input.reason, holdId: holdFor(session!.id) })
+    if (!hold.ok) {
+        await db.delete(projectV2SprintMockSessions).where(eq(projectV2SprintMockSessions.id, session!.id))
+        return { success: false, error: hold.error, requiredCredits: input.cost }
+    }
+    try {
+        const context = await mockContext(input.sprintId, input.projectId, input.userId)
+        // The final interview's gate, re-checked where the credits are at stake.
+        if (!input.sprintId && !mockUnlocked(context.pct)) throw new Error(`The final mock interview opens at ${MOCK_UNLOCK_PERCENT}% of tasks; you are at ${context.pct}%`)
+        const first = await interviewerLine(context, [])
+        if (!(await appendInterviewer(session!.id, first.message, 'empty'))) throw new Error('The interview already started')
+        return { success: true, data: { session: await reload(session!.id) } }
+    } catch (error: unknown) {
+        await db.update(projectV2SprintMockSessions).set({ status: 'failed' }).where(eq(projectV2SprintMockSessions.id, session!.id))
+        await releaseCredits(holdFor(session!.id), toReleaseReason(error))
+        return { success: false, error: `${toErrorMessage(error)} Your credits were refunded.` }
     }
 }
 
@@ -96,7 +150,6 @@ export async function getSprintMock(sprintId: string): Promise<Result<SprintMock
         const sprint = await ownedSprint(sprintId, userId)
         if (!sprint) return { success: false, error: 'Sprint not found' }
         if (isSetupSprint(sprint.number)) return { success: false, error: 'Setup has no mock interview' }
-
         const [rows, left] = await Promise.all([
             db.query.projectV2SprintMockSessions.findMany({
                 where: and(eq(projectV2SprintMockSessions.sprintId, sprint.id), eq(projectV2SprintMockSessions.userId, userId)),
@@ -105,18 +158,19 @@ export async function getSprintMock(sprintId: string): Promise<Result<SprintMock
             }),
             tasksLeft(sprint.id, userId),
         ])
-        const live = rows.filter((r) => r.status === 'opening' || r.status === 'active').map((r) => r.id)
-        return {
-            success: true,
-            data: { sessions: rows.map(toView), pendingJobId: await inFlightJob(userId, live), tasksLeft: left, price: priceOf('sprint_mock') },
-        }
+        return { success: true, data: { sessions: rows.map(toView), tasksLeft: left, price: priceOf('sprint_mock') } }
     } catch (error: unknown) {
         return { success: false, error: toErrorMessage(error) }
     }
 }
 
-/** A new session; the 30 credits are held on the job that asks the first question. */
-export async function startSprintMock(sprintId: string): Promise<Result<{ sessionId: string; jobId: string }> & { requiredCredits?: number }> {
+/** A session still "opening" never got its first question (it failed before WS-24, or mid-request): it is dead. */
+async function clearDeadOpenings(where: ReturnType<typeof and>) {
+    await db.update(projectV2SprintMockSessions).set({ status: 'failed' })
+        .where(and(where, eq(projectV2SprintMockSessions.status, 'opening'), sql`${projectV2SprintMockSessions.createdAt} < now() - interval '2 minutes'`))
+}
+
+export async function startSprintMock(sprintId: string): Promise<Result<{ session: MockSessionView }> & { requiredCredits?: number }> {
     try {
         const userId = await currentUserId()
         if (!userId) return { success: false, error: 'Not signed in' }
@@ -125,48 +179,12 @@ export async function startSprintMock(sprintId: string): Promise<Result<{ sessio
         if (isSetupSprint(sprint.number)) return { success: false, error: 'Setup has no mock interview' }
         const left = await tasksLeft(sprint.id, userId)
         if (left > 0) return { success: false, error: `Finish the sprint first: ${left} task${left === 1 ? '' : 's'} left.` }
-
-        // A session still "opening" with no job running is one whose first
-        // question never came (its job failed and was refunded): it is dead,
-        // and must not block a new one.
-        const opening = await db.select({ id: projectV2SprintMockSessions.id }).from(projectV2SprintMockSessions).where(and(
-            eq(projectV2SprintMockSessions.sprintId, sprint.id),
-            eq(projectV2SprintMockSessions.userId, userId),
-            eq(projectV2SprintMockSessions.status, 'opening'),
-        ))
-        for (const o of opening) {
-            if (!(await inFlightJob(userId, [o.id]))) {
-                await db.update(projectV2SprintMockSessions).set({ status: 'failed' }).where(eq(projectV2SprintMockSessions.id, o.id))
-            }
-        }
-
+        const scope = and(eq(projectV2SprintMockSessions.sprintId, sprint.id), eq(projectV2SprintMockSessions.userId, userId))
+        await clearDeadOpenings(scope)
         // One live session per sprint: a second Start while one runs would charge twice.
-        const live = await db.query.projectV2SprintMockSessions.findFirst({
-            where: and(
-                eq(projectV2SprintMockSessions.sprintId, sprint.id),
-                eq(projectV2SprintMockSessions.userId, userId),
-                inArray(projectV2SprintMockSessions.status, ['opening', 'active']),
-            ),
-            columns: { id: true },
-        })
+        const live = await db.query.projectV2SprintMockSessions.findFirst({ where: and(scope, inArray(projectV2SprintMockSessions.status, ['opening', 'active'])), columns: { id: true } })
         if (live) return { success: false, error: 'You already have an interview open for this sprint.' }
-
-        const [session] = await db.insert(projectV2SprintMockSessions)
-            .values({ projectId: sprint.projectId, sprintId: sprint.id, userId, status: 'opening' })
-            .returning({ id: projectV2SprintMockSessions.id })
-        const cost = priceOf('sprint_mock')
-        const started = await startBackgroundJob('sprint_mock', { sessionId: session!.id, step: 'open' }, {
-            cost,
-            reason: `Sprint ${sprint.number} mock interview: ${sprint.name}`.slice(0, 250),
-            singleFlight: true,
-            singleFlightKey: session!.id,
-        })
-        if (!started.success || !started.jobId) {
-            // Not dispatched, not charged: no session to show for it.
-            await db.delete(projectV2SprintMockSessions).where(eq(projectV2SprintMockSessions.id, session!.id))
-            return { success: false, error: started.error ?? 'Could not start the interview', requiredCredits: started.required ?? cost }
-        }
-        return { success: true, data: { sessionId: session!.id, jobId: started.jobId } }
+        return openSession({ projectId: sprint.projectId, sprintId: sprint.id, userId, cost: priceOf('sprint_mock'), reason: `Sprint ${sprint.number} mock interview: ${sprint.name}`.slice(0, 250) })
     } catch (error: unknown) {
         return { success: false, error: toErrorMessage(error) }
     }
@@ -178,8 +196,13 @@ async function ownedSession(sessionId: string, userId: string) {
     })
 }
 
-/** The learner's answer, appended only while the interviewer is waiting for one; then the next line. */
-export async function answerSprintMock(sessionId: string, answer: string): Promise<Result<{ jobId: string }>> {
+/**
+ * The learner's answer, then the interviewer's next line, inline. The answer is
+ * appended only while the interviewer is waiting for one, so a double send
+ * changes nothing. If the interviewer fails, the answer is taken back out and
+ * the error says so (code ANSWER_BACK), so the learner can send it again.
+ */
+export async function answerSprintMock(sessionId: string, answer: string): Promise<Result<{ session: MockSessionView }>> {
     try {
         const userId = await currentUserId()
         if (!userId) return { success: false, error: 'Not signed in' }
@@ -188,9 +211,6 @@ export async function answerSprintMock(sessionId: string, answer: string): Promi
         const session = await ownedSession(sessionId, userId)
         if (!session) return { success: false, error: 'Interview not found' }
 
-        // Appended in SQL, guarded on the last line being the interviewer's: a
-        // double send, or a send while the next question is being written,
-        // changes nothing.
         const turn = JSON.stringify([{ role: 'learner', text, at: new Date().toISOString() }])
         const appended = await db.update(projectV2SprintMockSessions)
             .set({ transcript: sql`${projectV2SprintMockSessions.transcript} || ${turn}::jsonb` })
@@ -199,47 +219,61 @@ export async function answerSprintMock(sessionId: string, answer: string): Promi
                 eq(projectV2SprintMockSessions.status, 'active'),
                 sql`${projectV2SprintMockSessions.transcript} -> -1 ->> 'role' = 'interviewer'`,
             ))
-            .returning({ id: projectV2SprintMockSessions.id })
+            .returning({ transcript: projectV2SprintMockSessions.transcript })
         if (appended.length === 0) return { success: false, error: 'The interviewer is not waiting for an answer right now.' }
 
-        const started = await startBackgroundJob('sprint_mock', { sessionId: session.id, step: 'turn' }, { singleFlight: true, singleFlightKey: session.id })
-        if (!started.success || !started.jobId) return { success: false, error: started.error ?? 'Could not reach the interviewer' }
-        return { success: true, data: { jobId: started.jobId } }
+        let next: { message: string; done: boolean }
+        try {
+            const context = await mockContext(session.sprintId, session.projectId, userId)
+            next = await interviewerLine(context, appended[0]!.transcript as MockTurnRow[])
+        } catch (error: unknown) {
+            // Taken back out, only if it is still the last line: the learner resends it.
+            await db.update(projectV2SprintMockSessions)
+                .set({ transcript: sql`${projectV2SprintMockSessions.transcript} - -1` })
+                .where(and(eq(projectV2SprintMockSessions.id, session.id), sql`${projectV2SprintMockSessions.transcript} -> -1 ->> 'role' = 'learner'`))
+            return { success: false, error: `The interviewer couldn't answer (${toErrorMessage(error)}). Your answer is back in the box; send it again.`, code: 'ANSWER_BACK' }
+        }
+        if (!(await appendInterviewer(session.id, next.message, 'learner'))) return { success: true, data: { session: await reload(session.id) } }
+        if (next.done) {
+            // Feedback right away; if it fails, "End interview" writes it later.
+            await finish(session, userId).catch((e: unknown) => console.error('[sprint-mock] feedback after closing failed:', e))
+        }
+        return { success: true, data: { session: await reload(session.id) } }
     } catch (error: unknown) {
         return { success: false, error: toErrorMessage(error) }
     }
 }
 
 /** End now and get feedback on what was said so far. */
-export async function endSprintMock(sessionId: string): Promise<Result<{ jobId: string | null }>> {
+export async function endSprintMock(sessionId: string): Promise<Result<{ session: MockSessionView }>> {
     try {
         const userId = await currentUserId()
         if (!userId) return { success: false, error: 'Not signed in' }
         const session = await ownedSession(sessionId, userId)
         if (!session) return { success: false, error: 'Interview not found' }
-        if (session.status === 'ended') return { success: true, data: { jobId: null } }
+        if (session.status === 'ended') return { success: true, data: { session: toView(session) } }
         if (session.status !== 'active') return { success: false, error: 'This interview has not started yet.' }
-        const started = await startBackgroundJob('sprint_mock', { sessionId: session.id, step: 'feedback' }, { singleFlight: true, singleFlightKey: session.id })
-        if (!started.success || !started.jobId) return { success: false, error: started.error ?? 'Could not end the interview' }
-        return { success: true, data: { jobId: started.jobId } }
+        await finish(session, userId)
+        return { success: true, data: { session: await reload(session.id) } }
     } catch (error: unknown) {
         return { success: false, error: toErrorMessage(error) }
     }
 }
 
-/** After a failed turn the transcript ends on the learner's line; this asks the interviewer again. */
-export async function retrySprintMockTurn(sessionId: string): Promise<Result<{ jobId: string }>> {
+/** A transcript that ends on the learner's line (a request cut off mid-turn) asks the interviewer again. */
+export async function retrySprintMockTurn(sessionId: string): Promise<Result<{ session: MockSessionView }>> {
     try {
         const userId = await currentUserId()
         if (!userId) return { success: false, error: 'Not signed in' }
         const session = await ownedSession(sessionId, userId)
         if (!session) return { success: false, error: 'Interview not found' }
-        if (session.status !== 'active' || session.transcript.at(-1)?.role !== 'learner') {
-            return { success: false, error: 'Nothing to retry.' }
+        if (session.status !== 'active' || session.transcript.at(-1)?.role !== 'learner') return { success: false, error: 'Nothing to retry.' }
+        const context = await mockContext(session.sprintId, session.projectId, userId)
+        const next = await interviewerLine(context, session.transcript as MockTurnRow[])
+        if (await appendInterviewer(session.id, next.message, 'learner') && next.done) {
+            await finish(session, userId).catch((e: unknown) => console.error('[sprint-mock] feedback after closing failed:', e))
         }
-        const started = await startBackgroundJob('sprint_mock', { sessionId: session.id, step: 'turn' }, { singleFlight: true, singleFlightKey: session.id })
-        if (!started.success || !started.jobId) return { success: false, error: started.error ?? 'Could not reach the interviewer' }
-        return { success: true, data: { jobId: started.jobId } }
+        return { success: true, data: { session: await reload(session.id) } }
     } catch (error: unknown) {
         return { success: false, error: toErrorMessage(error) }
     }
@@ -285,12 +319,10 @@ export async function getFinalMock(projectId: string): Promise<Result<SprintMock
             db.query.projectV2SprintMockSessions.findMany({ where: finalScope(project.id, userId), orderBy: [desc(projectV2SprintMockSessions.createdAt)], limit: 10 }),
             progressOf(project.id, userId),
         ])
-        const live = rows.filter((r) => r.status === 'opening' || r.status === 'active').map((r) => r.id)
         return {
             success: true,
             data: {
                 sessions: rows.map(toView),
-                pendingJobId: await inFlightJob(userId, live),
                 tasksLeft: 0,
                 price: priceOf('project_mock'),
                 gate: { unlockAt: MOCK_UNLOCK_PERCENT, progress, open: mockUnlocked(progress) },
@@ -301,7 +333,7 @@ export async function getFinalMock(projectId: string): Promise<Result<SprintMock
     }
 }
 
-export async function startFinalMock(projectId: string): Promise<Result<{ sessionId: string; jobId: string }> & { requiredCredits?: number }> {
+export async function startFinalMock(projectId: string): Promise<Result<{ session: MockSessionView }> & { requiredCredits?: number }> {
     try {
         const userId = await currentUserId()
         if (!userId) return { success: false, error: 'Not signed in' }
@@ -309,35 +341,13 @@ export async function startFinalMock(projectId: string): Promise<Result<{ sessio
         if (!project) return { success: false, error: 'Project not found' }
         const progress = await progressOf(project.id, userId)
         if (!mockUnlocked(progress)) return { success: false, error: `The final mock interview opens at ${MOCK_UNLOCK_PERCENT}% of tasks; you are at ${progress}%.` }
-
-        const opening = await db.select({ id: projectV2SprintMockSessions.id }).from(projectV2SprintMockSessions)
-            .where(and(finalScope(project.id, userId), eq(projectV2SprintMockSessions.status, 'opening')))
-        for (const o of opening) {
-            if (!(await inFlightJob(userId, [o.id]))) {
-                await db.update(projectV2SprintMockSessions).set({ status: 'failed' }).where(eq(projectV2SprintMockSessions.id, o.id))
-            }
-        }
+        await clearDeadOpenings(finalScope(project.id, userId))
         const live = await db.query.projectV2SprintMockSessions.findFirst({
             where: and(finalScope(project.id, userId), inArray(projectV2SprintMockSessions.status, ['opening', 'active'])),
             columns: { id: true },
         })
         if (live) return { success: false, error: 'You already have a final interview open.' }
-
-        const [session] = await db.insert(projectV2SprintMockSessions)
-            .values({ projectId: project.id, sprintId: null, userId, status: 'opening' })
-            .returning({ id: projectV2SprintMockSessions.id })
-        const cost = priceOf('project_mock')
-        const started = await startBackgroundJob('sprint_mock', { sessionId: session!.id, step: 'open' }, {
-            cost,
-            reason: `Final mock interview: ${project.title}`.slice(0, 250),
-            singleFlight: true,
-            singleFlightKey: session!.id,
-        })
-        if (!started.success || !started.jobId) {
-            await db.delete(projectV2SprintMockSessions).where(eq(projectV2SprintMockSessions.id, session!.id))
-            return { success: false, error: started.error ?? 'Could not start the interview', requiredCredits: started.required ?? cost }
-        }
-        return { success: true, data: { sessionId: session!.id, jobId: started.jobId } }
+        return openSession({ projectId: project.id, sprintId: null, userId, cost: priceOf('project_mock'), reason: `Final mock interview: ${project.title}`.slice(0, 250) })
     } catch (error: unknown) {
         return { success: false, error: toErrorMessage(error) }
     }

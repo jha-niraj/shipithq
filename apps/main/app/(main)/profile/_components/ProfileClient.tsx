@@ -22,15 +22,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avat
 import { Button } from "@repo/ui/components/ui/button";
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader";
 import { TabsNav } from "@repo/ui/components/ui/tabs";
-import {
-    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@repo/ui/components/ui/alert-dialog";
 import toast from "@repo/ui/components/ui/sonner";
 import { cn } from "@repo/ui/lib/utils";
 import { useUserStore } from "@/app/store/useUserStore";
 import { getOwnProfile, getUserProfileStats } from "@/actions/(main)/user/profile.action";
-import { uploadResume, deleteResume, getResumeSignedUrl } from "@/actions/(main)/user/resume.action";
 import { uploadProfileImage } from "@/actions/(common)/shared/upload.action";
 import { updateUserProfile } from "@/actions/(main)/user/user.action";
 import type { ProfileStats } from "@/lib/profile/read";
@@ -41,10 +36,11 @@ import { EducationSheet } from "@/components/profile/sheets/education-sheet";
 import { ProjectSheet } from "@/components/profile/sheets/project-sheet";
 import { EditProfileSheet, type EditProfileTab } from "@/components/profile/sheets/edit-profile-sheet";
 import {
-    CareerPane, EducationPane, ExperiencePane, IdentityPane, LinksPane, ProjectsPane, ResumePane, SkillsPane,
+    CareerPane, EducationPane, ExperiencePane, IdentityPane, LinksPane, ProjectsPane, SkillsPane,
     SECTIONS, sectionStatus, type OwnProfile, type SectionId,
 } from "./profile-editor/sections";
 import { ProfileEditorSkeleton } from "./profile-editor/skeleton";
+import { ResumePane } from "./profile-editor/resume-pane";
 
 type Editing =
     | { kind: "experience"; row: OwnProfile["experiences"][number] | null }
@@ -69,9 +65,7 @@ export default function ProfileClient() {
     const [error, setError] = useState<string | null>(null);
     const [editing, setEditing] = useState<Editing>(null);
     const [shareOpen, setShareOpen] = useState(false);
-    const [resumeBusy, setResumeBusy] = useState(false);
     const [avatarBusy, setAvatarBusy] = useState(false);
-    const [confirmResumeDelete, setConfirmResumeDelete] = useState(false);
 
     const load = useCallback(async () => {
         try {
@@ -122,50 +116,6 @@ export default function ProfileClient() {
             toast.error("Could not upload that image");
         } finally {
             setAvatarBusy(false);
-        }
-    }, [refresh]);
-
-    const onUploadResume = useCallback(async (file: File) => {
-        setResumeBusy(true);
-        try {
-            // Byte-identical to onboarding's call, so both use the one pipeline (PRF-6).
-            const result = await uploadResume(file, undefined, { draftName: "My resume" });
-            if (!result.success) {
-                toast.error(result.message ?? "Could not upload that file");
-                return;
-            }
-            if (result.structureJobId) {
-                toast.success("Resume uploaded. We are reading it now - an editable version will appear in your Resume Builder shortly.");
-            } else {
-                toast.warning("Resume saved, but we could not read any text from it. If it is a scanned PDF, upload a text-based export to use the AI features.");
-            }
-            await refresh();
-        } catch (e: unknown) {
-            console.error("Resume upload failed:", e);
-            toast.error("Failed to upload resume");
-        } finally {
-            setResumeBusy(false);
-        }
-    }, [refresh]);
-
-    // Fetched on click: the signed URL is time-limited.
-    const onViewResume = useCallback(async () => {
-        const res = await getResumeSignedUrl();
-        if (res?.url) window.open(res.url, "_blank", "noopener");
-        else toast.error("Could not open your resume");
-    }, []);
-
-    const onDeleteResume = useCallback(async () => {
-        setResumeBusy(true);
-        try {
-            await deleteResume();
-            toast.success("Resume deleted");
-            await refresh();
-        } catch (e: unknown) {
-            console.error("Resume delete failed:", e);
-            toast.error("Failed to delete resume");
-        } finally {
-            setResumeBusy(false);
         }
     }, [refresh]);
 
@@ -267,10 +217,7 @@ export default function ProfileClient() {
                     )}
                     {section === "skills" && <SkillsPane p={profile} onManage={() => setEditing({ kind: "skills" })} />}
                     {section === "links" && <LinksPane p={profile} onChanged={refresh} />}
-                    {section === "resume" && (
-                        <ResumePane p={profile} busy={resumeBusy} onUpload={onUploadResume} onView={onViewResume}
-                            onDelete={() => setConfirmResumeDelete(true)} />
-                    )}
+                    {section === "resume" && <ResumePane onChanged={refresh} />}
                     {section === "career" && <CareerPane p={profile} onEdit={() => setEditing({ kind: "profile", tab: "career" })} />}
                 </main>
             </div>
@@ -337,20 +284,6 @@ export default function ProfileClient() {
                 image={profile.image}
                 visibility={profile.isPublicProfile === false ? "PRIVATE" : profile.userProfile?.visibility ?? "PUBLIC"}
             />
-            <AlertDialog open={confirmResumeDelete} onOpenChange={setConfirmResumeDelete}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete your resume?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This removes the file and the text we read from it. Resumes already built in the Resume Builder stay.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="cursor-pointer">Keep it</AlertDialogCancel>
-                        <AlertDialogAction className="cursor-pointer" onClick={() => void onDeleteResume()}>Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     );
 }

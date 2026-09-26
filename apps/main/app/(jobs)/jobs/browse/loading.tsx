@@ -1,5 +1,5 @@
 // Hand-matched to browse-content.tsx (plan/ui-pass UI-12): the floating toolbar
-// (icon, title and count, search, Filters, Swipe mode on one row from lg), then
+// (icon, title and count, search, Filters, Spark on one row from lg), then
 // JobCard's default layout - a 56px logo tile beside title and company, the
 // meta row, the skill badges and the interview line. Also the page's Suspense
 // fallback, so the two cannot disagree.

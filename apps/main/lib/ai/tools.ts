@@ -6,6 +6,7 @@ import { resolveDestination, DESTINATION_IDS } from "@/lib/ai/destinations";
 import {
     db, users, projectsV2, projectIdeas, userProjectV2Progress,
     pathfinderGoals, practiceModuleProgress, jobs, companies, resumeDraft,
+    jobListed,
 } from "@repo/db";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -666,7 +667,7 @@ const searchJobs: Handler = async (args) => {
 
     // ACTIVE + PUBLIC only: drafts, paused/closed/filled roles and invite-only
     // postings are not the assistant's to hand out.
-    const filters = [eq(jobs.status, "ACTIVE"), eq(jobs.visibility, "PUBLIC")];
+    const filters = [jobListed, eq(jobs.visibility, "PUBLIC")];
     if (query) {
         filters.push(
             or(ilike(jobs.title, `%${query}%`), ilike(jobs.description, `%${query}%`))!,

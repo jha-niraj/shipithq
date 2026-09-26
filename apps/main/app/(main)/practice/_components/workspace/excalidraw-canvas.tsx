@@ -13,9 +13,11 @@ interface ExcalidrawCanvasProps {
     initialData?: unknown;
     onChange?: (data: { elements: unknown[]; appState: unknown }) => void;
     darkMode?: boolean;
+    /** Read-only: shows the scene without editing tools. */
+    viewOnly?: boolean;
 }
 
-export function ExcalidrawCanvas({ initialData, onChange, darkMode = true }: ExcalidrawCanvasProps) {
+export function ExcalidrawCanvas({ initialData, onChange, darkMode = true, viewOnly = false }: ExcalidrawCanvasProps) {
     const isInitialRef = useRef(true);
      
     const excalidrawAPIRef = useRef<any>(null);
@@ -65,6 +67,7 @@ export function ExcalidrawCanvas({ initialData, onChange, darkMode = true }: Exc
                 initialData={initialDataObj}
                 onChange={handleChange}
                 theme={darkMode ? "dark" : "light"}
+                viewModeEnabled={viewOnly}
                 UIOptions={{
                     canvasActions: {
                         saveToActiveFile: false,

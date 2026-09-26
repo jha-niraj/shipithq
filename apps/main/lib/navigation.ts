@@ -4,7 +4,7 @@ import {
     Home, FileText, Code2,
     Network, Globe, Server, Compass, Telescope, IdCard, BarChart3,
     Upload, History, Wallet,
-    ArrowLeft, Search, Send, Bookmark, Bell, Building2, Zap,
+    ArrowLeft, Search, Send, Bookmark, Bell, Building2, Zap, Inbox, Lightbulb, Siren,
 } from "lucide-react"
 
 // The types and pin logic are shared with apps/hiring (plan/hiring-app HA-1).
@@ -57,6 +57,13 @@ export const mainNavigation: NavigationConfig = {
             status: "active"
         },
         {
+            // Messages from companies and every notification (plan/inbox IN-5).
+            name: "Inbox",
+            path: "inbox",
+            icon: Inbox,
+            status: "active"
+        },
+        {
             name: "Practice",
             path: "practice",
             icon: Code2,
@@ -102,6 +109,14 @@ export const mainNavigation: NavigationConfig = {
                 { name: 'My Goals', path: 'pathfinder', icon: LayoutDashboard },
                 { name: 'Explore', path: 'pathfinder/explore', icon: Telescope }
             ]
+        },
+        {
+            // Real production failures as playable cases (plan/incidents INC-7). Public:
+            // a signed-out reader gets the page and the shell, with a Sign in footer.
+            name: "Incidents",
+            path: "incidents",
+            icon: Siren,
+            status: "active"
         },
         {
             name: "AI Tools",
@@ -166,6 +181,14 @@ export const mainNavigation: NavigationConfig = {
             path: "purchase",
             icon: Wallet,
             status: "active"
+        },
+        {
+            // The public feature-request board (plan/ideas IDEA-5): post, vote, and
+            // follow what is planned, being built and shipped.
+            name: "Ideas",
+            path: "ideas",
+            icon: Lightbulb,
+            status: "active"
         }
     ],
     secondary: []
@@ -192,7 +215,7 @@ export const jobsNavigation: NavigationItem[] = [
     { name: "Back to ShipItHQ", path: "home", icon: ArrowLeft, status: "active" },
     { name: "Discover", path: "jobs", icon: Zap, status: "active" },
     { name: "Browse All", path: "jobs/browse", icon: Search, status: "active" },
-    { name: "Applications", path: "jobs/applications", icon: Send, status: "active" },
+    { name: "My rounds", path: "jobs/rounds", icon: Send, status: "active" },
     { name: "Saved", path: "jobs/saved", icon: Bookmark, status: "active" },
     { name: "Following", path: "jobs/following", icon: Bell, status: "active" },
     { name: "Companies", path: "companies", icon: Building2, status: "active" },

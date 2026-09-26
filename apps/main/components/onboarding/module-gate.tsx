@@ -48,7 +48,7 @@ export function ModuleGate({
                     </li>
                 </ul>
                 <div className="mt-7 flex flex-wrap items-center gap-3">
-                    <Button type="button" onClick={onStart} disabled={starting} className="h-11 rounded-xl px-6 text-sm">
+                    <Button type="button" onClick={onStart} disabled={starting} className="h-11 px-6 text-sm">
                         {starting ? (
                             <>
                                 <InlineLoader size="sm" className="mr-2" />

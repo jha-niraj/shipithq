@@ -15,7 +15,7 @@
 // with the Authorization header set to: Bearer <CRON_SECRET>
 
 import { NextRequest, NextResponse } from 'next/server'
-import { db, practiceUserSession, notifications } from '@repo/db'
+import { db, practiceUserSession, notifications, notifyEach } from '@repo/db'
 import { eq, and, lte, gte } from 'drizzle-orm'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -108,14 +108,7 @@ export async function GET(req: NextRequest) {
         )
 
         // 3. Create notifications for each due entry that hasn't been notified yet.
-        const toCreate: Array<{
-            userId: string
-            title: string
-            message: string
-            type: 'INFO'
-            platform: 'MAIN'
-            actionUrl: string
-        }> = []
+        const toCreate: Parameters<typeof notifyEach>[0] = []
 
         for (const entry of dueEntries) {
             const actionUrl = `/practice/dsa/${entry.problem.slug}`
@@ -125,11 +118,14 @@ export async function GET(req: NextRequest) {
 
             toCreate.push({
                 userId: entry.userId,
-                title: `Time to review: ${entry.problem.title}`,
-                message: `Your spaced-repetition schedule says it's time to revisit "${entry.problem.title}". Keep your streak going!`,
-                type: 'INFO',
-                platform: 'MAIN',
-                actionUrl,
+                input: {
+                    platform: 'MAIN',
+                    kind: 'PRACTICE_REMINDER',
+                    title: `Time to review: ${entry.problem.title}`,
+                    body: `Your spaced-repetition schedule says it's time to revisit "${entry.problem.title}". Keep your streak going!`,
+                    context: { label: 'Practice', href: '/practice' },
+                    href: actionUrl,
+                },
             })
 
             // Mark as seen within this batch to avoid duplicates inside the loop
@@ -141,7 +137,7 @@ export async function GET(req: NextRequest) {
         }
 
         // 4. Bulk-insert notifications
-        await db.insert(notifications).values(toCreate)
+        await notifyEach(toCreate)
 
         return NextResponse.json({ success: true, processed: toCreate.length })
     } catch (err: unknown) {

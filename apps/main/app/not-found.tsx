@@ -25,7 +25,7 @@ export default function NotFoundPage() {
                             <p className="mb-6 text-black sm:mb-5">
                                 The page you are looking for is not available!
                             </p>
-                            <Button variant="default" className="my-5 bg-neutral-800 hover:bg-neutral-700 " asChild><Link href="/">
+                            <Button variant="default" className="my-5 bg-neutral-800 hover:bg-neutral-700" asChild><Link href="/">
                                 Go to Home
                             </Link></Button>
                         </div>

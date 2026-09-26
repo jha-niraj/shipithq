@@ -82,7 +82,7 @@ export function StartSessionCard({ problem }: { problem: PracticeProblemDetail }
                     {status === "ready" ? (
                         <>
                             <div className="flex flex-wrap items-center gap-3">
-                                <Button type="button" onClick={start} disabled={busy} className="h-11 rounded-xl px-6">
+                                <Button type="button" onClick={start} disabled={busy} className="h-11 px-6">
                                     {busy ? <><InlineLoader size="sm" className="mr-2" />Starting</> : "Start guided session"}
                                 </Button>
                                 <span className={cn("text-sm", INK_DIM)}>

@@ -2,10 +2,12 @@
 
 import { getSession } from "@repo/auth"
 import { headers } from "next/headers"
-import { db, users, mockInterviewVoice, mockVoiceSession, creditTransactions } from "@repo/db"
+import { db, users, mockInterviewVoice, mockVoiceSession } from "@repo/db"
 import { eq, and, inArray, count } from "drizzle-orm"
 import { revalidatePath } from 'next/cache'
 import { resolveUserResume } from "@/lib/resume/primary"
+import { reserveCredits } from "@/lib/credits/hold"
+import { mockHoldId } from "@/lib/voice/score"
 
 interface CreateSessionInput {
     mockId: string
@@ -29,11 +31,6 @@ export async function createMockVoiceSession(input: CreateSessionInput) {
         const session = await getSession(headers())
         if (!session?.user?.id) {
             return { success: false, error: 'Unauthorized' }
-        }
-
-        const agentId = process.env.NEXT_PUBLIC_MOCK_VOICE_AI_ASSISTANT
-        if (!agentId) {
-            return { success: false, error: 'Voice interview service is not configured. Please contact support.' }
         }
 
         const userId = session.user.id
@@ -104,45 +101,44 @@ export async function createMockVoiceSession(input: CreateSessionInput) {
             resume_content: resumeContent,
         }
 
-        // Create session and deduct credits
+        // A Sarvam session (plan/voice VO-10). The clock is the mock's length
+        // plus ten minutes to read the consent and connect.
         const [newSession] = await db
             .insert(mockVoiceSession)
             .values({
                 mockId: input.mockId,
                 userId,
                 status: 'SCHEDULED',
-                agentId,
+                provider: 'SARVAM',
                 variables: variables as any,
                 creditsUsed: creditsToCharge,
                 scheduledFor: new Date(),
+                endsAt: new Date(Date.now() + (mock.duration + 10) * 60_000),
             })
-            .returning({ id: mockVoiceSession.id, variables: mockVoiceSession.variables, agentId: mockVoiceSession.agentId })
+            .returning({ id: mockVoiceSession.id, variables: mockVoiceSession.variables })
 
         if (!newSession) throw new Error("Failed to create session")
 
-        // Deduct credits
-        await db
-            .update(users)
-            .set({ credits: user.credits - creditsToCharge })
-            .where(eq(users.id, userId))
-
-        // Record credit transaction
-        await db.insert(creditTransactions).values({
-            userId,
-            amount: -creditsToCharge,
-            type: 'SPEND',
-            description: input.retakeCredits
-                ? `Mock Voice Retake: ${mock.title}`
-                : `Mock Voice Interview: ${mock.title}`,
-            currency: 'INR',
-        })
+        // Held, not spent: settled when the interview is scored, refunded if
+        // we fail to score it (CLAUDE.md "Long-running work").
+        if (creditsToCharge > 0) {
+            const hold = await reserveCredits({
+                userId,
+                amount: creditsToCharge,
+                reason: input.retakeCredits ? `Mock Voice Retake: ${mock.title}` : `Mock Voice Interview: ${mock.title}`,
+                holdId: mockHoldId(newSession.id),
+            })
+            if (!hold.ok) {
+                await db.delete(mockVoiceSession).where(eq(mockVoiceSession.id, newSession.id))
+                return { success: false, error: hold.code === 'INSUFFICIENT_CREDITS' ? 'Insufficient credits' : hold.error, required: creditsToCharge, available: hold.available ?? user.credits }
+            }
+        }
 
         revalidatePath('/mockinterview')
 
         return {
             success: true,
             sessionId: newSession.id,
-            agentId: newSession.agentId,
             variables: newSession.variables as unknown as SessionVariables,
         }
 
@@ -180,38 +176,6 @@ export async function updateSessionStatus(sessionId: string, status: 'IN_PROGRES
     } catch (error) {
         console.error('Error updating session status:', error)
         return { success: false, error: 'Failed to update status' }
-    }
-}
-
-export async function saveConversationData(
-    sessionId: string,
-    conversationId: string,
-    startedAt?: Date
-) {
-    try {
-        const session = await getSession(headers())
-        if (!session?.user?.id) {
-            return { success: false, error: 'Unauthorized' }
-        }
-
-        await db
-            .update(mockVoiceSession)
-            .set({
-                conversationId,
-                status: 'IN_PROGRESS',
-                startedAt: startedAt || new Date(),
-            })
-            .where(
-                and(
-                    eq(mockVoiceSession.id, sessionId),
-                    eq(mockVoiceSession.userId, session.user.id)
-                )
-            )
-
-        return { success: true }
-    } catch (error) {
-        console.error('Error saving conversation data:', error)
-        return { success: false, error: 'Failed to save conversation data' }
     }
 }
 
@@ -294,41 +258,5 @@ export async function getMockSessionInfo(mockId: string) {
     } catch (error) {
         console.error('Error getting mock session info:', error)
         return { success: false, error: 'Failed to get session info' }
-    }
-}
-
-export async function getElevenLabsToken(agentId?: string) {
-    try {
-        const session = await getSession(headers())
-        if (!session?.user?.id) {
-            return { success: false, error: 'Unauthorized' }
-        }
-
-        const resolvedAgentId = agentId || process.env.NEXT_PUBLIC_MOCK_VOICE_AI_ASSISTANT
-        if (!resolvedAgentId) {
-            return { success: false, error: 'Voice interview agent is not configured. Please contact support.' }
-        }
-
-        const response = await fetch(
-            `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${resolvedAgentId}`,
-            {
-                method: 'GET',
-                headers: {
-                    'xi-api-key': process.env.ELEVENLABS_API_KEY as string,
-                },
-                cache: 'no-store',
-            }
-        )
-
-        if (!response.ok) {
-            console.error('Failed to get conversation token:', response.statusText)
-            return { success: false, error: 'Failed to get conversation token' }
-        }
-
-        const data = await response.json()
-        return { success: true, token: data.token }
-    } catch (error) {
-        console.error('Error getting elevenlabs token:', error)
-        return { success: false, error: 'Failed to get elevenlabs token' }
     }
 }

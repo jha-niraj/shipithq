@@ -176,7 +176,7 @@ export default function AiToolsPage({
                             <div className="flex flex-wrap items-center gap-2 pt-1">
                                 <Button
                                     asChild
-                                    className="cursor-pointer rounded-full bg-neutral-900 px-5 text-white transition-all duration-300 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+                                    className="cursor-pointer bg-neutral-900 px-5 text-white transition-all duration-300 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
                                 >
                                     <Link href="/ai/resume">
                                         Open Resume Builder
@@ -186,7 +186,7 @@ export default function AiToolsPage({
                                 <Button
                                     asChild
                                     variant="outline"
-                                    className="cursor-pointer rounded-full border-neutral-200 bg-transparent px-5 text-neutral-900 hover:bg-neutral-50 dark:border-neutral-800 dark:text-white dark:hover:bg-neutral-900"
+                                    className="cursor-pointer border-neutral-200 bg-transparent px-5 text-neutral-900 hover:bg-neutral-50 dark:border-neutral-800 dark:text-white dark:hover:bg-neutral-900"
                                 >
                                     <Link href="/ai/resume/import">Import from LinkedIn</Link>
                                 </Button>
@@ -412,7 +412,7 @@ export default function AiToolsPage({
                             </p>
                             <Button
                                 asChild
-                                className="mt-4 w-full cursor-pointer rounded-full bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+                                className="mt-4 w-full cursor-pointer bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
                             >
                                 <Link href="/purchase">
                                     Top up credits

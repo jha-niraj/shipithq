@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { isSafeCallback } from "./lib/urls"
 import { getCookieCache } from "better-auth/cookies"
 import type { Session, User } from "better-auth"
 
@@ -156,6 +157,8 @@ const PUBLIC_EXACT = new Set([
 	// credits cost before they sign up. Its History and Bounty actions live on
 	// /credits, which is NOT public - see CR-11.
 	'/purchase',
+	// The Incidents index (plan/incidents INC-1); its cases are a prefix below.
+	'/incidents',
 ])
 
 /**
@@ -167,6 +170,9 @@ const PUBLIC_EXACT = new Set([
 const PUBLIC_PREFIXES = [
 	'/resetpassword/',
 	'/purchase/',
+	// Incidents cases (plan/incidents INC-1): readable signed out. Every action on
+	// the page asks for sign-in itself, and the progress actions check the session.
+	'/incidents/',
 ]
 
 /**
@@ -304,10 +310,24 @@ export default async function middleware(req: NextRequest) {
 			return finish(NextResponse.redirect(url))
 		}
 		if (onboardingCompleted && pathname === '/onboarding') {
-			return finish(NextResponse.redirect(new URL('/home', nextUrl.origin)))
+			// Finished already (a second tab, a back button, an old email link): go where
+			// the link was taking them, not /home (plan/auth AUTH-7).
+			const cb = nextUrl.searchParams.get('callbackUrl')
+			const to = isSafeCallback(cb) && !cb.startsWith('/onboarding') ? cb : '/home'
+			return finish(NextResponse.redirect(new URL(to, nextUrl.origin)))
 		}
 		if (pathname === '/signin' || pathname === '/register') {
-			return finish(NextResponse.redirect(new URL(onboardingCompleted ? '/home' : '/onboarding', nextUrl.origin)))
+			// Already signed in: honour a same-origin callbackUrl instead of dropping the
+			// visitor on /home (plan/ideas IDEA-1; e.g. "Post an idea" from the website
+			// while signed in). Onboarding still comes first, carrying the destination.
+			const cb = nextUrl.searchParams.get('callbackUrl')
+			const safe = isSafeCallback(cb)
+			if (!onboardingCompleted) {
+				const url = new URL('/onboarding', nextUrl.origin)
+				if (safe && cb !== '/home') url.searchParams.set('callbackUrl', cb)
+				return finish(NextResponse.redirect(url))
+			}
+			return finish(NextResponse.redirect(new URL(safe ? cb : '/home', nextUrl.origin)))
 		}
 		if (pathname === '/') {
 			return finish(NextResponse.redirect(new URL(onboardingCompleted ? '/home' : '/onboarding', nextUrl.origin)))

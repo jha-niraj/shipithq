@@ -260,7 +260,7 @@ export default function KnowmeChatSheet({
                                         <Button
                                             type="submit"
                                             disabled={!inputValue.trim() || isLoading}
-                                            className="rounded-xl shrink-0"
+                                            className="shrink-0"
                                         >
                                             <Send className="w-4 h-4" />
                                         </Button>

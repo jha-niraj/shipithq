@@ -38,6 +38,11 @@ export function absoluteUrl(path: string): string {
     return `${appOrigin()}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+/** An Incidents case, or the index - app/(public)/incidents (plan/incidents INC-1). */
+export function incidentUrl(slug?: string): string {
+    return absoluteUrl(slug ? `/incidents/${encodeURIComponent(slug)}` : "/incidents");
+}
+
 /** A user's public profile - app/(main)/profile/[username]. */
 export function publicProfileUrl(username: string): string {
     return absoluteUrl(`/profile/${encodeURIComponent(username)}`);
@@ -82,4 +87,16 @@ export function isSafeCallback(value: string | null | undefined): value is strin
 	// "//host" and "/\host" are both read as protocol-relative by browsers.
 	if (value.startsWith("//") || value.startsWith("/\\")) return false;
 	return true;
+}
+
+/**
+ * Where a brand-new account goes after sign-up: onboarding, carrying the page they
+ * started from so onboarding hands them back to it (plan/ideas IDEA-1). The
+ * destination rides in the URL, not only in sessionStorage, so it survives an OAuth
+ * round trip, a magic link opened in another tab, or another device.
+ */
+export function onboardingUrlFor(callback: string | null | undefined): string {
+	return isSafeCallback(callback) && callback !== "/home" && !callback.startsWith("/onboarding")
+		? `/onboarding?callbackUrl=${encodeURIComponent(callback)}`
+		: "/onboarding";
 }

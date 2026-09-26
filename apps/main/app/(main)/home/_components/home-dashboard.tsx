@@ -1,17 +1,28 @@
-"use client"
+/**
+ * Home, action-first (plan/home HOME-1, HOME-2).
+ *
+ * Niraj, 2026-09-25: "what should I do next" leads, "how am I doing" follows. The
+ * page is a greeting with two quick actions, the headline StatBand, a "Pick up where
+ * you left off" card, four compact module cards in a 2x2 grid, then the activity
+ * calendar (rendered by the page).
+ *
+ * No framer `initial={{ opacity: 0 }}` anywhere. That inline style is in the server
+ * HTML, so the content that replaced the skeleton stayed invisible until hydration
+ * and the animation had run - about a second of blank screen (HOME-1). Entrance
+ * motion is Tailwind's CSS `animate-in`, which plays on first paint without JS and
+ * is off under reduced motion. It is also why this file is a server component now:
+ * nothing here needs the client, and the module rows' Recharts line charts (the
+ * heaviest thing on the page) are replaced by inline SVG sparklines.
+ */
 
 import Link from "next/link"
-import { motion } from "framer-motion"
 import {
-	LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-	BarChart, Bar, Cell,
-} from "recharts"
-import {
-	FolderKanban, Target, Mic, Sparkles, Flame, Zap, ArrowRight, Activity,
-	AlertTriangle, Clock, Plus, TrendingUp, GraduationCap, CalendarDays, Trophy, CheckCircle2,
+	Activity, ArrowRight, CalendarDays, Flame, FolderKanban, GraduationCap, Mic, Plus,
+	Sparkles, Target, Zap,
 } from "lucide-react"
-import { cn } from "@repo/ui/lib/utils"
+import { Button } from "@repo/ui/components/ui/button"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { cn } from "@repo/ui/lib/utils"
 
 // ─── Types (mirror of the getHomeData payload the page passes down) ──────────
 
@@ -26,13 +37,13 @@ export interface DashboardStats {
 	activeDays: number
 }
 
-export interface DashboardActivity {
-	id: string
-	type: string
+export interface PickUpItem {
+	kind: "project" | "goal" | "studio"
 	title: string
-	description: string | null
-	xpEarned: number
-	createdAt: Date | string
+	detail: string
+	href: string
+	/** 0-100 when the item has a measurable progress. */
+	progress?: number
 }
 
 export interface HomeDashboardProps {
@@ -52,489 +63,224 @@ export interface HomeDashboardProps {
 		mocks: TrendPoint[]
 		goals: TrendPoint[]
 	}
-	activityMix: Array<{ type: string; count: number; xp: number }>
-	recentActivity: DashboardActivity[]
+	pickUp: PickUpItem[]
 }
-
-// ─── Small helpers ───────────────────────────────────────────────────────────
 
 function todayLabel() {
-	return new Date().toLocaleDateString("en-US", {
-		weekday: "long", month: "long", day: "numeric", year: "numeric",
-	})
+	return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
 }
 
-function formatDate(d: Date | string) {
-	return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-
-function titleCase(s: string) {
-	return s.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-// Chart colours are literal hex, not Tailwind classes: Recharts writes them into
-// SVG `stroke`/`fill` attributes, where a class name means nothing.
-//
-// MONOCHROME, and series are told apart by DASH rather than by hue - matching the
-// credits chart. Emerald used to mark the "completed" line, which broke the
-// palette rule in CLAUDE.md and, worse, carried no meaning a reader could act on:
-// two lines in two colours say "these differ", where solid-versus-dashed says
-// which is which even in greyscale or to a reader who cannot separate hues.
-//
-// The values themselves come from CSS variables on the wrapper so they can flip
-// for dark mode; recharts cannot read `currentColor`.
-const INK = "var(--home-ink)"
-const ACCENT = "var(--home-ink)"
-const OK = "var(--home-muted)"
-
-// Categorical ramp for the activity-mix bars. Ordered by LUMINANCE, not hue, so
-// the categories stay distinguishable in a monochrome brand - and readable for
-// anyone who cannot separate hues. The two non-neutrals are the semantic pair
-// (green = positive, red = attention) that still carry meaning elsewhere.
-const MIX_COLORS = ["#171717", "#404040", "#525252", "#737373", "#8a8a8a", "#a3a3a3", "#bdbdbd", "#d4d4d4"]
-
-interface StatItem { label: string; value: string | number; icon: React.ComponentType<{ className?: string }> }
-
-/** The module row's figures. One column beside the chart from `lg`, a scrolling row on a phone. */
-function StatColumn({ stats }: { stats: StatItem[] }) {
-	return <StatBand size="sm" cols={1} items={stats} />
-}
-
-interface TrendLine { key: string; name: string; color: string }
-
-/** Reusable trend line chart - solid lines only, readable in light + dark. */
-function TrendChart({ data, lines, height = "h-60", fill }: {
-	data: TrendPoint[]
-	lines: TrendLine[]
-	height?: string
-	fill?: boolean
-}) {
-	return (
-		// The two inks live here as CSS variables so they can flip for dark mode.
-		// recharts writes `stroke` as a real SVG attribute and cannot read
-		// `currentColor`, which is why this cannot simply be a Tailwind class.
-		<div className={cn(
-			"[--home-ink:#171717] [--home-muted:#737373] [--home-grid:#e5e5e5]",
-			"dark:[--home-ink:#f5f5f5] dark:[--home-muted:#a3a3a3] dark:[--home-grid:#262626]",
-			fill ? "h-full min-h-[220px]" : height,
-		)}>
-			<ResponsiveContainer width="100%" height="100%">
-				<LineChart data={data} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
-					<CartesianGrid stroke="var(--home-grid)" strokeDasharray="3 3" vertical={false} />
-					<XAxis
-						dataKey="month"
-						tick={{ fontSize: 12, fill: "var(--home-muted)" }}
-						axisLine={false}
-						tickLine={false}
-						minTickGap={24}
-					/>
-					<YAxis
-						allowDecimals={false}
-						width={40}
-						tick={{ fontSize: 12, fill: "var(--home-muted)" }}
-						axisLine={false}
-						tickLine={false}
-					/>
-					<Tooltip
-						cursor={{ stroke: "var(--home-muted)", strokeDasharray: "3 3" }}
-						contentStyle={{
-							background: "var(--popover)",
-							border: "1px solid var(--border)",
-							borderRadius: 10,
-							fontSize: 12,
-							color: "var(--popover-foreground)",
-						}}
-						labelStyle={{ color: "var(--popover-foreground)", fontWeight: 600, marginBottom: 4 }}
-					/>
-					{lines.map((l, i) => (
-						<Line
-							key={l.key}
-							type="monotone"
-							dataKey={l.key}
-							name={l.name}
-							stroke={l.color}
-							strokeWidth={2}
-							// The SECOND series is dashed. That is what tells the two
-							// apart now that both are the same ink - and it survives
-							// greyscale, colour blindness and a printed page, which a
-							// hue never did.
-							strokeDasharray={i === 0 ? undefined : "4 3"}
-							dot={false}
-							activeDot={{ r: 4 }}
-						/>
-					))}
-				</LineChart>
-			</ResponsiveContainer>
-			{/* Legend is hand-rolled so it matches the rest of the type scale. */}
-			<div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-				{lines.map((l, i) => (
-					<span key={l.key} className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
-						{/* The swatch has to be DASHED when its line is, or the legend
-							stops identifying anything: two identical marks beside two
-							different names is worse than no legend. */}
-						<span
-							className="h-0.5 w-4 rounded-full"
-							style={
-								i === 0
-									? { backgroundColor: l.color }
-									: { backgroundImage: `repeating-linear-gradient(90deg, ${l.color} 0 4px, transparent 4px 7px)` }
-							}
-						/>
-						{l.name}
-					</span>
-				))}
-			</div>
-		</div>
-	)
-}
-
-/** One module row: complementary STATS (1/3) beside a trend CHART (2/3).
- *  `reverse` puts the chart on the left, alternating down the page. */
-function ModuleRow({ title, icon: Icon, href, hrefLabel, stats, lines, data, reverse, delay }: {
-	title: string
-	icon: React.ComponentType<{ className?: string }>
-	href: string
-	hrefLabel?: string
-	stats: StatItem[]
-	lines: TrendLine[]
-	data: TrendPoint[]
-	reverse?: boolean
-	delay?: number
-}) {
-	return (
-		<motion.div
-			initial={{ opacity: 0, y: 12 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{ duration: 0.35, delay: delay ?? 0.2 }}
-			className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6"
-		>
-			<div className="mb-4 flex items-center justify-between">
-				<div className="flex items-center gap-2">
-					<div className="flex h-8 w-8 items-center justify-center rounded-xl bg-neutral-900/10">
-						<Icon className="h-4 w-4 text-neutral-900 dark:text-neutral-100" />
-					</div>
-					<h3 className="text-sm font-semibold text-neutral-900 dark:text-white">{title}</h3>
-				</div>
-				<Link
-					href={href}
-					className="cursor-pointer flex items-center gap-0.5 text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
-				>
-					{hrefLabel ?? "Open"} <ArrowRight className="h-3 w-3" />
-				</Link>
-			</div>
-			<div className={cn("flex flex-col gap-5 lg:flex-row lg:items-stretch", reverse && "lg:flex-row-reverse")}>
-				<div className="lg:w-1/3 lg:min-w-0"><StatColumn stats={stats} /></div>
-				<div className="lg:w-2/3 lg:min-w-0"><TrendChart data={data} lines={lines} fill /></div>
-			</div>
-		</motion.div>
-	)
-}
-
-function SectionHeader({ title, href, label = "Open" }: { title: string; href: string; label?: string }) {
-	return (
-		<div className="mb-5 flex items-center justify-between">
-			<h2 className="text-base font-semibold tracking-tight text-neutral-900 dark:text-white">{title}</h2>
-			<Link
-				href={href}
-				className="flex cursor-pointer items-center gap-1 text-sm font-medium text-neutral-600 dark:text-neutral-400 transition-colors hover:text-neutral-900 dark:hover:text-white"
-			>
-				{label} <ArrowRight className="h-3 w-3" />
-			</Link>
-		</div>
-	)
-}
+/**
+ * CSS entrance: plays on first paint, no JS, off under reduced motion. The delay is
+ * an inline style because Tailwind cannot see a class name built at runtime.
+ */
+const ENTER = "animate-in fade-in-0 slide-in-from-bottom-1 duration-300 [animation-fill-mode:both] motion-reduce:animate-none"
+const delay = (ms: number) => ({ animationDelay: `${ms}ms` })
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
-export default function HomeDashboard({
-	user, stats, trends, activityMix, recentActivity,
-}: HomeDashboardProps) {
-	const completionRate = stats.projects.total > 0
-		? Math.round((stats.projects.completed / stats.projects.total) * 100)
-		: 0
-
-	const headerStats = [
-		{ label: `${stats.projects.total} Projects`, href: "/projects", icon: FolderKanban },
-		{ label: `${stats.goals.total} Goals`, href: "/pathfinder", icon: Target },
-		{ label: `${stats.mockSessions} Mocks`, href: "/mock", icon: Mic },
-		{ label: `${stats.studios} Studios`, href: "/practice", icon: GraduationCap },
-	]
-
-	// Nudges, not errors: each one is a concrete next action, and the strip hides
-	// entirely when there's nothing worth interrupting for.
-	const alerts: Array<{ label: string; href: string }> = []
-	if (stats.projects.active === 0 && stats.projects.total > 0) {
-		alerts.push({ label: "No project in progress - pick your next build", href: "/projects" })
-	}
-	if (stats.projects.total === 0) {
-		alerts.push({ label: "Start your first project", href: "/projects" })
-	}
-	if (stats.goals.active === 0) {
-		alerts.push({ label: "Set a career goal in Pathfinder", href: "/pathfinder" })
-	}
-	if ((user?.currentStreak ?? 0) === 0) {
-		alerts.push({ label: "Your streak is at zero - do one thing today", href: "/practice" })
-	}
-
-	const mixChartData = activityMix.slice(0, 8).map((m, i) => ({
-		name: titleCase(m.type).slice(0, 12),
-		count: m.count,
-		color: MIX_COLORS[i % MIX_COLORS.length]!,
-	}))
-
+export default function HomeDashboard({ user, stats, trends, pickUp }: HomeDashboardProps) {
+	const first = user?.name?.split(" ")[0]
 	return (
-		<div className="mx-auto w-full space-y-7 px-page pt-6 pb-10">
+		<div className="mx-auto w-full space-y-6 px-page pt-6 pb-6">
 			{/* ── Header ── */}
-			<motion.div
-				initial={{ opacity: 0, y: 12 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 0.3 }}
-				className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"
-			>
+			<header className={cn("flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between", ENTER)}>
 				<div>
-					<h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
-						{user?.name ? `Welcome back, ${user.name.split(" ")[0]}` : "Home"}
+					<p className="font-mono text-xs text-neutral-500 dark:text-neutral-400">{todayLabel()}</p>
+					<h1 className="mt-1 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">
+						{first ? `Welcome back, ${first}` : "Home"}
 					</h1>
-					<p className="mt-0.5 font-mono text-sm text-neutral-500 dark:text-neutral-400">{todayLabel()}</p>
 				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					{headerStats.map((s) => (
-						<Link
-							key={s.href}
-							href={s.href}
-							className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-neutral-500 hover:text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:border-neutral-500 dark:hover:text-white"
-						>
-							<s.icon className="h-3 w-3 text-neutral-600 dark:text-neutral-400" />
-							{s.label}
-						</Link>
-					))}
-					{completionRate > 0 && (
-						<span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-neutral-100 px-3 py-1.5 text-sm font-semibold text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100">
-							<TrendingUp className="h-3 w-3" />
-							{completionRate}% done
-						</span>
-					)}
+				<div className="flex items-center gap-2">
+					<Button asChild variant="outline" size="sm"><Link href="/practice"><Zap className="mr-1.5 size-3.5" /> Practice</Link></Button>
+					<Button asChild size="sm"><Link href="/projects"><Plus className="mr-1.5 size-3.5" /> New project</Link></Button>
 				</div>
-			</motion.div>
+			</header>
 
 			{/* ── Headline counters ── */}
-			<motion.div
-				initial={{ opacity: 0, y: 10 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 0.3, delay: 0.05 }}
-			>
+			<div className={ENTER} style={delay(40)}>
 				<StatBand
 					cols={4}
 					items={[
 						{ label: "Current streak", value: `${user?.currentStreak ?? 0}d`, icon: Flame },
-						{ label: "Total XP", value: (user?.totalXp ?? 0).toLocaleString(), icon: Zap },
+						{ label: "Total XP", value: (user?.totalXp || user?.currentXp || 0).toLocaleString(), icon: Zap },
 						{ label: "Level", value: user?.currentLevel ?? 1, icon: Sparkles },
 						{ label: "Credits", value: (user?.credits ?? 0).toLocaleString(), icon: Activity },
 					]}
 				/>
-			</motion.div>
-
-			{/* ── Nudge strip ── */}
-			{alerts.length > 0 && (
-				<motion.div
-					initial={{ opacity: 0, y: 8 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.3, delay: 0.08 }}
-					className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-800/50 dark:bg-neutral-900/30"
-				>
-					<div className="flex items-center gap-2 text-neutral-700 dark:text-neutral-100">
-						<AlertTriangle className="h-4 w-4 flex-shrink-0" />
-						<span className="text-sm font-semibold">Worth a look:</span>
-					</div>
-					{alerts.map((alert) => (
-						<Link
-							key={alert.label}
-							href={alert.href}
-							className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-100 px-2.5 py-1 text-sm font-medium text-neutral-800 transition-colors hover:bg-neutral-200 dark:border-neutral-800/50 dark:bg-neutral-800/40 dark:text-neutral-100 dark:hover:bg-neutral-800/70"
-						>
-							{alert.label}
-						</Link>
-					))}
-				</motion.div>
-			)}
-
-			{/* ── Module rows: stats + trend line chart, alternating sides ── */}
-			<div className="space-y-6">
-				<ModuleRow
-					title="Momentum" icon={Zap} href="/practice" hrefLabel="Keep going" delay={0.14}
-					stats={[
-						{ label: "XP this year", value: stats.totalXpEarned.toLocaleString(), icon: Zap },
-						{ label: "Active days", value: stats.activeDays, icon: CalendarDays },
-						{ label: "Current streak", value: `${user?.currentStreak ?? 0}d`, icon: Flame },
-						{ label: "Longest streak", value: `${user?.longestStreak ?? 0}d`, icon: Trophy },
-					]}
-					data={trends.activity}
-					lines={[
-						{ key: "xp", name: "XP earned", color: ACCENT },
-						{ key: "sessions", name: "Activities", color: INK },
-					]}
-				/>
-
-				<ModuleRow
-					title="Projects" icon={FolderKanban} href="/projects" hrefLabel="All projects" reverse delay={0.2}
-					stats={[
-						{ label: "Total projects", value: stats.projects.total, icon: FolderKanban },
-						{ label: "In progress", value: stats.projects.active, icon: Clock },
-						{ label: "Completed", value: stats.projects.completed, icon: CheckCircle2 },
-						{ label: "Completion", value: `${completionRate}%`, icon: TrendingUp },
-					]}
-					data={trends.projects}
-					lines={[
-						{ key: "started", name: "Started", color: ACCENT },
-						{ key: "completed", name: "Completed", color: OK },
-					]}
-				/>
-
-				<ModuleRow
-					title="Career goals" icon={Target} href="/pathfinder" hrefLabel="Pathfinder" delay={0.26}
-					stats={[
-						{ label: "Total goals", value: stats.goals.total, icon: Target },
-						{ label: "Active", value: stats.goals.active, icon: Clock },
-						{ label: "Completed", value: stats.goals.completed, icon: CheckCircle2 },
-						{ label: "Avg progress", value: `${stats.goals.avgProgress}%`, icon: TrendingUp },
-					]}
-					data={trends.goals}
-					lines={[
-						{ key: "goals", name: "Goals set", color: ACCENT },
-						{ key: "completed", name: "Completed", color: OK },
-					]}
-				/>
-
-				<ModuleRow
-					title="Interview practice" icon={Mic} href="/mock" hrefLabel="Mock interviews" reverse delay={0.32}
-					stats={[
-						{ label: "Mock sessions", value: stats.mockSessions, icon: Mic },
-						{ label: "Study spaces", value: stats.studios, icon: GraduationCap },
-						{ label: "Active days", value: stats.activeDays, icon: CalendarDays },
-						{ label: "Level", value: user?.currentLevel ?? 1, icon: Sparkles },
-					]}
-					data={trends.mocks}
-					lines={[{ key: "sessions", name: "Sessions", color: ACCENT }]}
-				/>
 			</div>
 
-			{/* ── Bottom split: activity mix bar chart + recent activity feed ── */}
-			<div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-				<motion.div
-					initial={{ opacity: 0, y: 12 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.35, delay: 0.38 }}
-					className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900 xl:col-span-2"
-				>
-					<SectionHeader title="What you've been doing" href="/practice" label="Practice" />
-					{mixChartData.length === 0 ? (
-						<EmptyBlock
-							icon={Activity}
-							title="Nothing logged yet"
-							action={{ label: "Start your first session", href: "/practice" }}
-						/>
-					) : (
-						<>
-							<div className="h-44">
-								<ResponsiveContainer width="100%" height="100%">
-									<BarChart data={mixChartData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }} barSize={28}>
-										<CartesianGrid stroke="currentColor" className="text-neutral-200 dark:text-neutral-800" strokeOpacity={0.6} vertical={false} />
-										<XAxis dataKey="name" tick={{ fontSize: 10, fill: "currentColor" }} className="text-neutral-600 dark:text-neutral-400" axisLine={false} tickLine={false} />
-										<YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "currentColor" }} className="text-neutral-600 dark:text-neutral-400" axisLine={false} tickLine={false} />
-										<Tooltip
-											contentStyle={{
-												background: "var(--color-card)",
-												border: "1px solid var(--color-border)",
-												borderRadius: 10,
-												fontSize: 12,
-											}}
-											cursor={{ fill: "rgba(0,0,0,0.03)" }}
-											formatter={(value: number | undefined) => [`${value ?? 0} activities`, ""]}
-										/>
-										<Bar dataKey="count" name="Activities" radius={[4, 4, 0, 0]}>
-											{mixChartData.map((entry, i) => (
-												<Cell key={i} fill={entry.color} />
-											))}
-										</Bar>
-									</BarChart>
-								</ResponsiveContainer>
-							</div>
-							<div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-t border-neutral-100 pt-3 dark:border-neutral-800">
-								{activityMix.slice(0, 8).map((m, i) => (
-									<div key={m.type} className="flex items-center gap-1.5">
-										<span
-											className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-sm"
-											style={{ backgroundColor: MIX_COLORS[i % MIX_COLORS.length] }}
-										/>
-										<span className="text-sm text-neutral-500 dark:text-neutral-400">
-											{titleCase(m.type)}
-											<span className="ml-1 font-mono text-neutral-600 dark:text-neutral-400">({m.xp} XP)</span>
-										</span>
-									</div>
-								))}
-							</div>
-						</>
-					)}
-				</motion.div>
+			{/* ── Pick up where you left off ── */}
+			<div className={ENTER} style={delay(80)}>
+				<PickUp items={pickUp} streak={user?.currentStreak ?? 0} />
+			</div>
 
-				<motion.div
-					initial={{ opacity: 0, y: 12 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.35, delay: 0.42 }}
-					className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900"
-				>
-					<SectionHeader title="Recent activity" href="/profile" label="Profile" />
-					{recentActivity.length === 0 ? (
-						<EmptyBlock icon={Clock} title="No activity yet" />
-					) : (
-						<div className="space-y-5">
-							{recentActivity.slice(0, 6).map((activity, i) => (
-								<div key={activity.id} className="relative flex gap-3">
-									{i !== Math.min(recentActivity.length, 6) - 1 && (
-										<div className="absolute bottom-0 left-3.5 top-7 w-px bg-neutral-200 dark:bg-neutral-800" />
-									)}
-									<div className="z-10 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border-2 border-white bg-neutral-900/10 dark:border-neutral-900">
-										<Clock className="h-3 w-3 text-neutral-900 dark:text-neutral-100" />
-									</div>
-									<div className="min-w-0 pt-0.5">
-										<p className="text-sm leading-snug text-neutral-700 dark:text-neutral-300">
-											<span className="font-semibold text-neutral-900 dark:text-white">{activity.title}</span>
-											{activity.description ? ` - ${activity.description}` : null}
-										</p>
-										<span className="mt-0.5 block font-mono text-xs text-neutral-600 dark:text-neutral-400">
-											{formatDate(activity.createdAt)}
-											{activity.xpEarned > 0 ? ` · +${activity.xpEarned} XP` : ""}
-										</span>
-									</div>
-								</div>
-							))}
-						</div>
-					)}
-				</motion.div>
+			{/* ── Modules, 2x2 ── */}
+			<div className="grid gap-4 md:grid-cols-2">
+				<ModuleCard
+					delayMs={120}
+					title="Momentum" icon={Zap} href="/practice" cta="Keep going"
+					value={stats.totalXpEarned.toLocaleString()} unit="XP this year"
+					detail={`${stats.activeDays} active days · longest streak ${user?.longestStreak ?? 0}d`}
+					series={trends.activity.map((p) => Number(p.xp ?? 0))}
+					months={trends.activity.map((p) => String(p.month))}
+				/>
+				<ModuleCard
+					delayMs={160}
+					title="Projects" icon={FolderKanban} href="/projects" cta="All projects"
+					value={String(stats.projects.active)} unit="in progress"
+					detail={`${stats.projects.total} total · ${stats.projects.completed} completed`}
+					series={trends.projects.map((p) => Number(p.started ?? 0))}
+					months={trends.projects.map((p) => String(p.month))}
+				/>
+				<ModuleCard
+					delayMs={200}
+					title="Career goals" icon={Target} href="/pathfinder" cta="Pathfinder"
+					value={String(stats.goals.active)} unit={stats.goals.active === 1 ? "active goal" : "active goals"}
+					detail={`${stats.goals.total} total · ${stats.goals.avgProgress}% average progress`}
+					series={trends.goals.map((p) => Number(p.goals ?? 0))}
+					months={trends.goals.map((p) => String(p.month))}
+				/>
+				<ModuleCard
+					delayMs={240}
+					title="Interview practice" icon={Mic} href="/mock" cta="Mock interviews"
+					value={String(stats.mockSessions)} unit={stats.mockSessions === 1 ? "mock session" : "mock sessions"}
+					detail={`${stats.studios} study ${stats.studios === 1 ? "space" : "spaces"}`}
+					series={trends.mocks.map((p) => Number(p.sessions ?? 0))}
+					months={trends.mocks.map((p) => String(p.month))}
+				/>
 			</div>
 		</div>
 	)
 }
 
-function EmptyBlock({ icon: Icon, title, action }: {
-	icon: React.ComponentType<{ className?: string }>
+// ─── Pick up where you left off ─────────────────────────────────────────────
+
+const KIND_ICON = { project: FolderKanban, goal: Target, studio: GraduationCap } as const
+const KIND_LABEL = { project: "Project", goal: "Career goal", studio: "Study space" } as const
+
+function PickUp({ items, streak }: { items: PickUpItem[]; streak: number }) {
+	if (items.length === 0) {
+		// Honest when empty: a new account has nothing to resume, so offer the start.
+		return (
+			<section className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-5 sm:flex-row sm:items-center dark:border-neutral-800 dark:bg-neutral-950">
+				<div className="min-w-0 flex-1">
+					<p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Start here</p>
+					<p className="mt-1 text-base font-semibold text-neutral-900 dark:text-white">Build your first project</p>
+					<p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">Pick one from the catalogue or describe your own. It becomes a sprint board you work through.</p>
+				</div>
+				<Button asChild><Link href="/projects">Browse projects <ArrowRight className="ml-1.5 size-3.5" /></Link></Button>
+			</section>
+		)
+	}
+	const [lead, ...rest] = items
+	const LeadIcon = KIND_ICON[lead!.kind]
+	return (
+		<section className="overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+			<div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+				<span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
+					<LeadIcon className="size-5" />
+				</span>
+				<div className="min-w-0 flex-1">
+					<p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+						Pick up where you left off{streak === 0 ? " · keep a streak going today" : ""}
+					</p>
+					<p className="mt-1 truncate text-base font-semibold text-neutral-900 dark:text-white">{lead!.title}</p>
+					<p className="mt-0.5 truncate text-sm text-neutral-600 dark:text-neutral-400">{KIND_LABEL[lead!.kind]} · {lead!.detail}</p>
+					{lead!.progress !== undefined && (
+						<div className="mt-2.5 h-1 max-w-sm overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+							<div className="h-full rounded-full bg-neutral-900 dark:bg-white" style={{ width: `${Math.max(2, Math.min(100, lead!.progress))}%` }} />
+						</div>
+					)}
+				</div>
+				<Button asChild className="shrink-0"><Link href={lead!.href}>Continue <ArrowRight className="ml-1.5 size-3.5" /></Link></Button>
+			</div>
+			{rest.length > 0 && (
+				<ul className="divide-y divide-neutral-200 border-t border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+					{rest.map((it) => {
+						const Icon = KIND_ICON[it.kind]
+						return (
+							<li key={it.href}>
+								<Link href={it.href} className="group flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-900/60">
+									<Icon className="size-3.5 shrink-0 text-neutral-400" />
+									<span className="min-w-0 flex-1 truncate text-[13px] text-neutral-800 dark:text-neutral-200">{it.title}</span>
+									<span className="hidden shrink-0 text-xs text-neutral-500 sm:inline dark:text-neutral-400">{it.detail}</span>
+									<ArrowRight className="size-3.5 shrink-0 text-neutral-400 transition-transform group-hover:translate-x-0.5" />
+								</Link>
+							</li>
+						)
+					})}
+				</ul>
+			)}
+		</section>
+	)
+}
+
+// ─── Module card ─────────────────────────────────────────────────────────────
+
+function ModuleCard({ title, icon: Icon, href, cta, value, unit, detail, series, months, delayMs }: {
 	title: string
-	action?: { label: string; href: string }
+	icon: React.ComponentType<{ className?: string }>
+	href: string
+	cta: string
+	value: string
+	unit: string
+	detail: string
+	series: number[]
+	months: string[]
+	delayMs: number
 }) {
 	return (
-		<div className="flex flex-col items-center justify-center py-10">
-			<div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
-				<Icon className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
-			</div>
-			<p className="text-sm font-medium text-neutral-500 dark:text-neutral-300">{title}</p>
-			{action && (
-				<Link
-					href={action.href}
-					className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-900 dark:text-neutral-100 hover:underline"
-				>
-					<Plus className="h-3.5 w-3.5" /> {action.label}
-				</Link>
+		<Link
+			href={href}
+			className={cn(
+				"group flex flex-col rounded-xl border border-neutral-200 bg-white p-5 transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:border-neutral-600",
+				ENTER,
 			)}
-		</div>
+			style={delay(delayMs)}
+		>
+			<div className="flex items-center gap-2">
+				<Icon className="size-4 text-neutral-500 dark:text-neutral-400" />
+				<h2 className="text-[13px] font-semibold text-neutral-900 dark:text-white">{title}</h2>
+				<span className="ml-auto inline-flex items-center gap-1 text-xs text-neutral-500 transition-colors group-hover:text-neutral-900 dark:text-neutral-400 dark:group-hover:text-white">
+					{cta} <ArrowRight className="size-3 transition-transform group-hover:translate-x-0.5" />
+				</span>
+			</div>
+			<div className="mt-4 flex items-end justify-between gap-4">
+				<div className="min-w-0">
+					<p className="text-3xl font-semibold tabular-nums tracking-tight text-neutral-900 dark:text-white">{value}</p>
+					<p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">{unit}</p>
+				</div>
+				<Sparkline values={series} label={`${title}, last ${series.length} months`} />
+			</div>
+			<p className="mt-3 flex items-center gap-1.5 border-t border-neutral-100 pt-3 text-xs text-neutral-500 dark:border-neutral-900 dark:text-neutral-400">
+				<CalendarDays className="size-3 shrink-0" />
+				<span className="truncate">{detail}</span>
+				{months.length > 1 && <span className="ml-auto shrink-0 tabular-nums">{months[0]} - {months[months.length - 1]}</span>}
+			</p>
+		</Link>
+	)
+}
+
+/**
+ * A six-month trend as an inline SVG: no chart library, renders on the server.
+ * All-zero data draws a flat baseline, not an empty box or an error (overview 3).
+ */
+function Sparkline({ values, label }: { values: number[]; label: string }) {
+	const w = 120
+	const h = 40
+	const pad = 3
+	const max = Math.max(...values, 0)
+	const pts = values.length > 1 ? values : [0, 0]
+	const x = (i: number) => pad + (i * (w - pad * 2)) / (pts.length - 1)
+	const y = (v: number) => (max === 0 ? h - pad : h - pad - (v / max) * (h - pad * 2))
+	const line = pts.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")
+	const area = `${line} L${x(pts.length - 1).toFixed(1)},${h} L${x(0).toFixed(1)},${h} Z`
+	return (
+		<svg viewBox={`0 0 ${w} ${h}`} className="h-10 w-28 shrink-0 text-neutral-900 dark:text-white" role="img" aria-label={label}>
+			<path d={area} className="fill-current opacity-[0.06]" />
+			<path d={line} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={max === 0 ? "opacity-30" : undefined} />
+			<circle cx={x(pts.length - 1)} cy={y(pts[pts.length - 1]!)} r={2.5} className="fill-current" />
+		</svg>
 	)
 }

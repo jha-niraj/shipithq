@@ -1,5 +1,6 @@
 import { withTransaction, creditTransactions, users } from "@repo/db"
 import { and, eq, sql } from "drizzle-orm"
+import { SIGNUP_GRANT_CREDITS } from "@repo/pricing"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Credit grants - credits given, not spent.
@@ -23,9 +24,10 @@ import { and, eq, sql } from "drizzle-orm"
  * The welcome grant for a new account.
  *
  * Decided in `plan/credits/overview.md`: enough to genuinely try the product -
- * roughly 6 cover letters, or 5 JD-tailored resumes, or 3 quizzes.
+ * roughly 6 cover letters, or 5 JD-tailored resumes, or 3 quizzes. The number lives in
+ * `@repo/pricing` so the marketing site quotes the same one.
  */
-export const SIGNUP_GRANT_CREDITS = 100
+export { SIGNUP_GRANT_CREDITS }
 
 /**
  * The ledger description that marks a signup grant.

@@ -97,12 +97,12 @@ function TopBar({ signedIn, isOwn }: { signedIn: boolean; isOwn: boolean }) {
                 {isOwn ? (
                     <div className="flex items-center gap-2">
                         <span className="hidden text-xs text-neutral-500 sm:inline dark:text-neutral-400">This is your public page</span>
-                        <Button asChild size="sm" className="h-8 rounded-full"><Link href="/profile">Edit profile</Link></Button>
+                        <Button asChild size="sm" className="h-8"><Link href="/profile">Edit profile</Link></Button>
                     </div>
                 ) : signedIn ? (
-                    <Button asChild size="sm" variant="outline" className="h-8 rounded-full"><Link href="/home">Back to ShipItHQ</Link></Button>
+                    <Button asChild size="sm" variant="outline" className="h-8"><Link href="/home">Back to ShipItHQ</Link></Button>
                 ) : (
-                    <Button asChild size="sm" className="h-8 rounded-full"><Link href="/register">Join ShipItHQ</Link></Button>
+                    <Button asChild size="sm" className="h-8"><Link href="/register">Join ShipItHQ</Link></Button>
                 )}
             </div>
         </header>

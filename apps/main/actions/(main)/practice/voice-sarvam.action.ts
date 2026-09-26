@@ -2,14 +2,10 @@
 
 import { headers } from "next/headers"
 import { getSession } from "@repo/auth"
-import { isSarvamConfigured, synthesize } from "@repo/ai/sarvam"
+import { isSarvamConfigured, synthesize } from "@repo/sarvamai/speech"
 
 // The mentor's voice, on Sarvam (plan/practice-workspace, PW-4). Speech to text
 // is the route at /api/practice/voice/transcribe, because it carries audio.
-//
-// `voice.action.ts` beside this file is the old ElevenLabs pair. It is kept and
-// no longer called: Niraj asked for the provider to change without the code being
-// thrown away (2026-09-22).
 
 export async function speakMentorReply(text: string): Promise<
     { success: true; audioBase64: string; mimeType: string } | { success: false; error: string; unavailable?: boolean }

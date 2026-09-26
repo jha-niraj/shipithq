@@ -10,12 +10,14 @@ import { Badge } from '@repo/ui/components/ui/badge'
 import { Label } from '@repo/ui/components/ui/label'
 import { toast } from '@repo/ui/components/ui/sonner'
 import {
-    checkStandupConfig, createStandupConfig, getUpcomingStandups, submitStandup
+    checkStandupConfig, createStandupConfig, getUpcomingStandups
 } from '@/actions/(main)/projects/standup.action'
 import { cn } from '@repo/ui/lib/utils'
 import { StatBand } from '@repo/ui/components/ui/stat-band'
 import { Slider } from '@repo/ui/components/ui/slider'
-import { Voice, VoiceConfig } from '@/components/main/voice'
+import { LiveInterview } from '@/components/voice/live-interview'
+import { handInStandup } from '@/actions/(main)/projects/standup-voice.action'
+import { awaitBackgroundJob } from '@/hooks/use-background-job'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 
 interface DailyStandupTabProps {
@@ -53,9 +55,6 @@ interface StandupEntry {
     anyBlockers?: string
 }
 
-// ElevenLabs Agent ID for Daily Standups
-const STANDUP_AGENT_ID = process.env.NEXT_PUBLIC_ELEVENLABS_STANDUP_AGENT_ID || ''
-
 // Mirrors `daily-standup-sheet.tsx`. Flip both together.
 const STANDUPS_FOR_SALE = false
 
@@ -77,8 +76,8 @@ export default function DailyStandupTab({
     const [durationMinutes, setDurationMinutes] = useState(10)
     const [isCreating, setIsCreating] = useState(false)
 
-    // Voice session state
-    const [processingStatus, setProcessingStatus] = useState<'processing' | 'success' | 'error'>('processing')
+    // The standup being processed after hand-in (plan/voice VO-12).
+    const [processing, setProcessing] = useState(false)
 
     const checkConfig = useCallback(async () => {
         setIsChecking(true)
@@ -161,69 +160,25 @@ export default function DailyStandupTab({
         }
     }
 
-    const handleStandupEnd = async (conversationId: string) => {
+    // Handed in: the worker reads what was said and fills in the entry.
+    const handleHandIn = async () => {
         if (!activeStandup) return
-
-        setProcessingStatus('processing')
-
-        try {
-            // Submit standup with the conversation ID
-            const result = await submitStandup({
-                entryId: activeStandup.id,
-                whatDidYesterday: 'Voice standup completed',
-                whatDoingToday: 'Voice standup completed',
-                anyBlockers: "",
-                recordingUrl: conversationId
-            }, projectSlug)
-
-            if (result.success) {
-                setProcessingStatus('success')
-                toast.success('Standup submitted successfully!')
-                setTimeout(() => {
-                    setActiveStandup(null)
-                    checkConfig() // Refresh
-                }, 2000)
-            } else {
-                setProcessingStatus('error')
-                toast.error(result.error || 'Failed to submit standup')
-            }
-        } catch (error) {
-            setProcessingStatus('error')
-            toast.error('Something went wrong: ' + error)
+        setProcessing(true)
+        const started = await handInStandup(activeStandup.id, projectSlug)
+        if (!started.success || !started.jobId) {
+            toast.error(started.error ?? 'Could not save the standup')
+            setProcessing(false)
+            return
         }
+        const outcome = await awaitBackgroundJob(started.jobId)
+        setProcessing(false)
+        if (outcome.ok) toast.success('Standup saved')
+        else toast.error(outcome.error)
+        setActiveStandup(null)
+        checkConfig()
     }
 
     const weeklyCredits = selectedDays.length * 5
-
-    // Voice configuration for standup
-    const voiceConfig: VoiceConfig = {
-        agentId: STANDUP_AGENT_ID,
-        title: 'Daily Standup',
-        subtitle: `${projectTitle} - ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`,
-        orbColors: ['#525252', '#171717'],
-        knowledgeBase: `You are a friendly AI assistant conducting a daily standup for the project "${projectTitle}". 
-Your job is to ask the developer three questions:
-1. What did you work on yesterday?
-2. What are you planning to work on today?
-3. Do you have any blockers or challenges?
-
-Be encouraging, professional, and keep the conversation focused. After they answer all three questions, thank them and end the standup.
-Keep responses brief and natural.`,
-        firstMessage: `Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}! Let's do your daily standup for ${projectTitle}. What did you work on yesterday?`,
-        stateLabels: {
-            idle: { title: 'Ready for Standup', subtitle: 'Click Start to begin your voice standup' },
-            connecting: { title: 'Connecting...', subtitle: 'Setting up your standup session' },
-            listening: { title: 'Listening...', subtitle: 'Share your update' },
-            talking: { title: 'AI Responding...', subtitle: 'Listen to the next question' },
-            processing: { title: 'Processing...', subtitle: 'Saving your standup' },
-            completed: { title: 'Standup Complete!', subtitle: 'Great job staying accountable!' },
-            error: { title: 'Error', subtitle: 'Something went wrong' }
-        },
-        buttonLabels: {
-            start: 'Start Voice Standup',
-            end: 'End Standup'
-        }
-    }
 
     if (isChecking) {
         return (
@@ -236,7 +191,7 @@ Keep responses brief and natural.`,
     // Active standup voice session view
     if (activeStandup) {
         return (
-            <div className="space-y-6 max-w-2xl mx-auto py-8">
+            <div className="space-y-6 max-w-5xl mx-auto py-8">
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
@@ -260,20 +215,21 @@ Keep responses brief and natural.`,
                     </Button>
                 </div>
 
-                <div className="bg-gradient-to-br from-neutral-50 to-neutral-50 dark:from-neutral-900/20 dark:to-neutral-900/20 rounded-2xl p-8 border border-neutral-200 dark:border-neutral-800">
-                    <Voice
-                        config={voiceConfig}
-                        callbacks={{
-                            onEnd: handleStandupEnd,
-                            onError: (error) => {
-                                console.error('Standup error:', error)
-                                toast.error('Voice session error. Please try again.')
-                            }
-                        }}
-                        orbSize="lg"
-                        showProcessingDialog={true}
-                        processingStatus={processingStatus}
-                    />
+                <div className="overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-800">
+                    {processing ? (
+                        <div className="flex items-center justify-center gap-2 py-16 text-sm text-neutral-700 dark:text-neutral-300">
+                            <InlineLoader size="md" /> Reading your standup
+                        </div>
+                    ) : (
+                        <LiveInterview
+                            voiceRef={{ kind: 'standup', id: activeStandup.id }}
+                            title={`Daily standup: ${projectTitle}`}
+                            allows={{ voice: true, typed: true }}
+                            initial={{ mode: null, consented: false, turns: [] }}
+                            ending={false}
+                            onHandIn={handleHandIn}
+                        />
+                    )}
                 </div>
 
                 <div className="bg-neutral-50 dark:bg-neutral-800/10 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">

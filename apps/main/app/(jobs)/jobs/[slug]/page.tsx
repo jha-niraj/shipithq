@@ -1,8 +1,5 @@
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
-import { 
-    Loader2 
-} from "lucide-react"
 import { getJobBySlug } from "@/actions/jobs"
 import { JobDetailContent } from "./job-detail-content"
 import Loading from "./loading"

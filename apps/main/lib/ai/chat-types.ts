@@ -1,42 +1,5 @@
-// Shapes the AI panel works with (plan/ai-chat). Client-safe: no database code,
-// shared by the panel store and the server actions that fill it.
+// Shapes the AI panel works with (plan/ai-chat). They live with the shared panel in
+// @repo/ui (plan/hiring-app HA-11); re-exported here for this app's server actions.
 
-import type { AssistantChatAction, AssistantChatAttachment, AssistantFeedback } from "@repo/db/assistant"
-
-export type AIChatAction = AssistantChatAction
-export type AIChatAttachment = AssistantChatAttachment
-
-/** One tool call. `running` exists only while a turn is in flight; saved turns
- *  carry `done` or `error`. */
-export interface AIChatStep {
-    id: string
-    name: string
-    status: "running" | "done" | "error"
-    summary?: string
-}
-
-export interface AIChatMessage {
-    /** The server's id once the turn is saved; a temporary `tmp-` id before that. */
-    id: string
-    role: "user" | "assistant"
-    content: string
-    /** Epoch milliseconds. */
-    createdAt: number
-    actions?: AIChatAction[]
-    attachments?: AIChatAttachment[]
-    steps?: AIChatStep[]
-    feedback?: AssistantFeedback | null
-    /** Cut short by stop or a stream error. */
-    partial?: boolean
-}
-
-export interface AIChatSummary {
-    id: string
-    /** Null until the first exchange has been titled. */
-    title: string | null
-    createdAt: number
-    updatedAt: number
-}
-
-/** A turn that has not been saved yet. Feedback needs a real id, so it is off for these. */
-export const isTempId = (id: string) => id.startsWith("tmp-")
+export type { AIChatAction, AIChatAttachment, AIChatStep, AIChatMessage, AIChatSummary } from "@repo/ui/components/ai-chat/types"
+export { isTempId } from "@repo/ui/components/ai-chat/types"

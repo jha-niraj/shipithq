@@ -230,14 +230,14 @@ export function CreateMockSheet({
             } else {
                 toast.success('Mock interview created!')
                 if (sessionResult.error) {
-                    toast.info(sessionResult.error + ' You can start from My Mocks when ready.')
+                    toast.info(sessionResult.error + ' You can start it from Mock interviews when ready.')
                 }
                 setTimeout(() => {
                     setOpen(false)
                     resetForm()
                     if (onSuccess) onSuccess(mockId)
                     if (!spaceId) {
-                        router.push('/mock/voice/mymocks')
+                        router.push('/mock')
                     }
                 }, 1500)
             }

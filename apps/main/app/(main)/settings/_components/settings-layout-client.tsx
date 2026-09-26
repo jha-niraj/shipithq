@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { User, Plug, ChevronRight } from 'lucide-react'
+import { User, Plug, ShieldOff, ChevronRight } from 'lucide-react'
 import { cn } from '@repo/ui/lib/utils'
 
 // "Auth & Security" was removed. It rendered one card saying "More security options coming
@@ -11,6 +11,7 @@ import { cn } from '@repo/ui/lib/utils'
 const navItems = [
     { id: 'account', label: 'Account', href: '/settings/account', icon: User },
     { id: 'integrations', label: 'Integrations', href: '/settings/integrations', icon: Plug },
+    { id: 'privacy', label: 'Privacy', href: '/settings/privacy', icon: ShieldOff },
 ]
 
 export function SettingsLayoutClient({

@@ -33,7 +33,6 @@ export default function MockInterviewLandingPage() {
     // in the hardcoded pair; two of them were the loading state for the real ones.
 
     return (
-        // <SmoothScroll>
             <main>
                 <div className="page-frame px-page pt-6 pb-4">
                     <motion.div
@@ -54,7 +53,7 @@ export default function MockInterviewLandingPage() {
                         <div className="flex flex-wrap gap-2">
                             <Button
                                 size="sm"
-                                className="h-9 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-200 font-medium"
+                                className="h-9 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-200 font-medium"
                                 asChild
                             >
                                 <Link href="/mock/voice">
@@ -65,7 +64,7 @@ export default function MockInterviewLandingPage() {
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-9 rounded-xl border-neutral-200 dark:border-neutral-800"
+                                className="h-9 border-neutral-200 dark:border-neutral-800"
                                 asChild
                             >
                                 <Link href="#interview-types">

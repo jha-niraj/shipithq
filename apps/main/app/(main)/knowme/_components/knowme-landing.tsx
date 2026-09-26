@@ -455,7 +455,7 @@ export default function KnowMeLandingPage({ isLoggedIn, profile }: KnowMeLanding
                                     size="lg"
                                     onClick={handleGetStarted}
                                     disabled={isLoading}
-                                    className="bg-white text-neutral-900 hover:bg-neutral-100 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800 px-8 py-6 text-lg rounded-xl shadow-lg"
+                                    className="bg-white text-neutral-900 hover:bg-neutral-100 dark:bg-neutral-900 dark:text-white dark:hover:bg-neutral-800 px-8 py-6 text-lg shadow-lg"
                                 >
                                     {isLoading ? "Setting up..." : "Create Your AI Now"}
                                     <ArrowRight className="w-5 h-5 ml-2" />

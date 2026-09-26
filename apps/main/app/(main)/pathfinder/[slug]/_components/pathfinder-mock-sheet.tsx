@@ -116,10 +116,10 @@ export function PathfinderMockSheet({
                 onSuccess?.(result.mockId)
                 router.push(`/mock/voice/interview/${sessionResult.sessionId}`)
             } else {
-                toast.success('Mock created! Start from My Mocks when ready.')
+                toast.success('Mock created! Start it from Mock interviews when ready.')
                 onOpenChange(false)
                 onSuccess?.(result.mockId)
-                router.push('/mock/voice/mymocks')
+                router.push('/mock')
             }
         } catch {
             toast.error('Failed to start mock interview')

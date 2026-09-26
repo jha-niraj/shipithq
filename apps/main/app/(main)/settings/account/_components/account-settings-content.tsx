@@ -10,14 +10,14 @@ import { Button } from '@repo/ui/components/ui/button'
 import { Input } from '@repo/ui/components/ui/input'
 import { Label } from '@repo/ui/components/ui/label'
 import { 
-    User, Key, Mail, Check, Loader2 
-} from 'lucide-react'
+    User, Key, Mail, Check } from 'lucide-react'
 import toast from '@repo/ui/components/ui/sonner'
 import { useUserStore } from '@/app/store/useUserStore'
 import { changePassword, setPassword } from '@/actions/(auth)/auth/auth.actions'
 import { updateUserProfile } from '@/actions/(main)/user/user.action'
 import { useRouter } from "next/navigation"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { DeleteAccountCard } from "./delete-account"
 
 interface AccountSettingsContentProps {
     user: {
@@ -371,6 +371,7 @@ export function AccountSettingsContent({ user, linkedProviders }: AccountSetting
                     </div>
                 </CardContent>
             </Card>
+            <DeleteAccountCard email={user.email} />
         </div>
     )
 }

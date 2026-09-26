@@ -117,7 +117,7 @@ export function AuthDialog() {
 								<Button
 									type="button"
 									variant="outline"
-									className="w-full h-12 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 text-gray-900 dark:text-gray-100 font-medium rounded-xl transition-all duration-200 backdrop-blur-sm"
+									className="w-full h-12 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 text-gray-900 dark:text-gray-100 font-medium transition-all duration-200 backdrop-blur-sm"
 									onClick={() =>
 										signIn.social({ provider: "google", callbackURL: resolvedCallback || `${pathname}${window.location.search}` })
 									}
@@ -202,7 +202,7 @@ export function AuthDialog() {
 									<Button
 										type="submit"
 										disabled={submitting}
-										className="w-full h-12 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+										className="w-full h-12 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 									>
 										{
 											submitting ? (
@@ -232,7 +232,7 @@ export function AuthDialog() {
 										</p>
 										<Button
 											variant="outline"
-											className="w-full h-12 bg-transparent hover:bg-white/50 dark:hover:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 font-medium rounded-xl transition-all duration-200 backdrop-blur-sm"
+											className="w-full h-12 bg-transparent hover:bg-white/50 dark:hover:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200 backdrop-blur-sm"
 											onClick={() => {
 												// Was `/signup`, which is not a route - this app registers at
 												// /register, so the button 404'd. Relative too: an in-app

@@ -197,7 +197,7 @@ export function ProjectCard({ project, showProgress = false }: ProjectCardProps)
                             <>
                                 {userProgress.status === 'IN_PROGRESS' && (
                                     <Link href={`/projects/${project.slug}/workspace`}>
-                                        <Button size="sm" className="bg-neutral-900 text-white dark:bg-white dark:text-black hover:opacity-90 rounded-xl text-xs">
+                                        <Button size="sm" className="bg-neutral-900 text-white dark:bg-white dark:text-black hover:opacity-90 text-xs">
                                             <Play className="w-3.5 h-3.5 mr-1.5" />
                                             Continue
                                         </Button>
@@ -207,20 +207,20 @@ export function ProjectCard({ project, showProgress = false }: ProjectCardProps)
                                     // There is no /submit route: submitting is a sheet on the
                                     // project page (sweep 2026-09-23).
                                     <Link href={`/projects/${project.slug}`}>
-                                        <Button size="sm" className="bg-neutral-900 text-white dark:bg-white dark:text-black hover:opacity-90 rounded-xl text-xs">
+                                        <Button size="sm" className="bg-neutral-900 text-white dark:bg-white dark:text-black hover:opacity-90 text-xs">
                                             <Trophy className="w-3.5 h-3.5 mr-1.5" />
                                             Submit
                                         </Button>
                                     </Link>
                                 )}
                                 {userProgress.status === 'SUBMITTED' && (
-                                    <Button size="sm" disabled className="rounded-xl text-xs">
+                                    <Button size="sm" disabled className="text-xs">
                                         <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
                                         Submitted
                                     </Button>
                                 )}
                                 <Link href={`/projects/${project.slug}`}>
-                                    <Button variant="outline" size="sm" className="rounded-xl border-neutral-200 dark:border-neutral-700 text-xs">
+                                    <Button variant="outline" size="sm" className="border-neutral-200 dark:border-neutral-700 text-xs">
                                         <Eye className="w-3.5 h-3.5" />
                                     </Button>
                                 </Link>

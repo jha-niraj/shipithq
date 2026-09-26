@@ -12,6 +12,7 @@ import { priceOf } from '@/lib/credits/pricing'
 import { loadWorkspacePlan, type WorkspacePlanSprint } from '@/lib/projects/workspace-plan'
 import { writeProjectAiReply } from '@/lib/projects/project-ai-reply'
 import { isSetupSprint } from '@/lib/projects/sprints'
+import { liveAttemptFor, recordAiBlocked } from "@/lib/hiring/runs"
 
 /*
  * The workspace's Project AI (plan/project-workspace WS-15).
@@ -100,6 +101,12 @@ export async function sendAiMessage(
         if (!text) return { success: false, error: 'Write a message first.' }
         const project = await ownedProject(projectId)
         if (!project) return { success: false, error: 'Project not found' }
+        // No AI during a round (plan/hiring-rounds HR-13, DoD 27); the refusal is recorded.
+        const liveRound = await liveAttemptFor(project.userId)
+        if (liveRound) {
+            await recordAiBlocked(liveRound.id)
+            return { success: false, error: "AI is off while a hiring round is running. Finish or leave the round first." }
+        }
 
         // One reply at a time: a question newer than any reply is still being answered.
         const [last] = await db.select({ role: projectAiMessages.role, createdAt: projectAiMessages.createdAt })

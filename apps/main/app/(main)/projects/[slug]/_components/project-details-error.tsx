@@ -47,14 +47,14 @@ export function ProjectDetailsError() {
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <Link href="/projects" className="block">
-                                <Button className="w-full bg-black text-white dark:bg-white dark:text-black hover:opacity-90 rounded-xl">
+                                <Button className="w-full bg-black text-white dark:bg-white dark:text-black hover:opacity-90">
                                     <ArrowLeft className="w-4 h-4 mr-2" />
                                     Browse All Projects
                                 </Button>
                             </Link>
                             <Button
                                 variant="outline"
-                                className="w-full rounded-xl"
+                                className="w-full"
                                 onClick={() => window.location.reload()}
                             >
                                 <RefreshCw className="w-4 h-4 mr-2" />

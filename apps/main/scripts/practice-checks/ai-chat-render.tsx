@@ -7,7 +7,7 @@ import { renderToString } from "react-dom/server"
 // The app compiles JSX with Next's runtime; under plain tsx some files use the
 // classic transform, which needs React in scope.
 ;(globalThis as { React?: typeof React }).React = React
-const { ChatMessage } = await import("@/components/ai/chat-message")
+const { ChatMessage } = await import("@repo/ui/components/ai-chat/chat-message")
 
 let pass = 0, fail = 0
 const check = (name: string, ok: boolean) => { ok ? pass++ : fail++; console.log(`${ok ? "PASS" : "FAIL"}  ${name}`) }
@@ -48,12 +48,13 @@ const pending = renderToString(<ChatMessage message={{ id: "tmp-1", role: "assis
 check("feedback is disabled before the turn is saved", (pending.match(/disabled=""/g) ?? []).length === 2)
 const typing = renderToString(<ChatMessage message={{ id: "tmp-2", role: "assistant", content: "", createdAt: Date.now() }} isStreaming onFeedback={() => {}} />)
 check("empty streaming reply shows the typing dots", typing.includes('aria-label="Thinking"') && typing.includes("animate-bounce"))
-const { ChatEmptyState } = await import("@/components/ai/chat-empty-state")
-const docked = renderToString(<ChatEmptyState onSelect={() => {}} pageTitle="DSA Practice" wide={false} />)
+const { ChatEmptyState } = await import("@repo/ui/components/ai-chat/chat-empty-state")
+const { EMPTY_STATE } = await import("@/components/ai/empty-state-content")
+const docked = renderToString(<ChatEmptyState onSelect={() => {}} pageTitle="DSA Practice" wide={false} content={EMPTY_STATE} />)
 check("empty state: page pill, two create cards, Explain this page first", docked.includes("DSA Practice") && (docked.match(/Start a project|Plan my DSA prep|Review my resume|Design a URL shortener/g) ?? []).length === 2 && docked.indexOf("Explain this page") < docked.indexOf("What should I practice next?"))
-const wideState = renderToString(<ChatEmptyState onSelect={() => {}} pageTitle={null} wide />)
+const wideState = renderToString(<ChatEmptyState onSelect={() => {}} pageTitle={null} wide content={EMPTY_STATE} />)
 check("empty state maximized: all four cards, no page pill", (wideState.match(/Start a project|Plan my DSA prep|Review my resume|Design a URL shortener/g) ?? []).length === 4 && !wideState.includes("You&#x27;re on"))
-const { HistoryDropdown } = await import("@/components/ai/history-dropdown")
+const { HistoryDropdown } = await import("@repo/ui/components/ai-chat/history-dropdown")
 const now = Date.now()
 const hist = renderToString(<HistoryDropdown open onClose={() => {}} anchorRef={{ current: null }} loaded activeId="b" onSelect={() => {}} onDelete={() => {}} sessions={[
     { id: "a", title: "Graph practice", createdAt: now, updatedAt: now },
@@ -62,10 +63,11 @@ const hist = renderToString(<HistoryDropdown open onClose={() => {}} anchorRef={
 ]} />)
 check("history groups Today / Previous 7 days / Older", hist.indexOf("Today") < hist.indexOf("Graph practice") && hist.indexOf("Previous 7 days") < hist.indexOf("Resume review") && hist.indexOf("Older") < hist.indexOf("New conversation"))
 check("history marks the open chat", hist.includes('aria-label="Open"'))
-const { ChatComposer } = await import("@/components/ai/chat-composer")
-const comp = renderToString(<ChatComposer value="" onChange={() => {}} onSubmit={() => {}} onStop={() => {}} isStreaming={false} docs={[]} uploading={0} onRemoveDoc={() => {}} onPickFiles={() => {}} tags={[{ id: "p", kind: "project", title: "My project" }]} autoTag={null} onRemoveTag={() => {}} wide={false} />)
+const { ChatComposer } = await import("@repo/ui/components/ai-chat/chat-composer")
+const noMic = () => ({ status: "idle", error: null, start: () => undefined, stop: () => undefined })
+const comp = renderToString(<ChatComposer value="" onChange={() => {}} onSubmit={() => {}} onStop={() => {}} isStreaming={false} docs={[]} uploading={0} onRemoveDoc={() => {}} onPickFiles={() => {}} tags={[{ id: "p", kind: "project", title: "My project" }]} autoTag={null} onRemoveTag={() => {}} wide={false} useDictation={noMic} />)
 check("composer: send disabled when empty, record and attach present", /aria-label="Send message"[^>]*disabled=""|disabled=""[^>]*aria-label="Send message"/.test(comp) && comp.includes("Record") && comp.includes("Attach a document") && comp.includes("My project"))
-const streaming = renderToString(<ChatComposer value="x" onChange={() => {}} onSubmit={() => {}} onStop={() => {}} isStreaming docs={[]} uploading={0} onRemoveDoc={() => {}} onPickFiles={() => {}} tags={[]} autoTag={null} onRemoveTag={() => {}} wide={false} />)
+const streaming = renderToString(<ChatComposer value="x" onChange={() => {}} onSubmit={() => {}} onStop={() => {}} isStreaming docs={[]} uploading={0} onRemoveDoc={() => {}} onPickFiles={() => {}} tags={[]} autoTag={null} onRemoveTag={() => {}} wide={false} useDictation={noMic} />)
 check("composer: stop replaces send while streaming", streaming.includes("Stop the reply") && !streaming.includes("Send message"))
 console.log(`\nRESULT: ${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

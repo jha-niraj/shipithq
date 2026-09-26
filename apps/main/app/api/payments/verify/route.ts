@@ -120,7 +120,11 @@ export async function POST(req: NextRequest) {
         }
         console.log('Payment updated successfully');
 
-        // Add credits to user account
+        // Add credits to user account. A payment whose account was deleted keeps
+        // its record (user id set null) and credits nobody.
+        if (!payment.userId) {
+            return NextResponse.json({ success: false, error: 'This account no longer exists.' }, { status: 410 })
+        }
         await db.update(users)
             .set({ credits: sql`${users.credits} + ${payment.credits}` })
             .where(eq(users.id, payment.userId));

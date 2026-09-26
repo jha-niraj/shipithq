@@ -4,20 +4,21 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import {
     ArrowLeft, MapPin, Clock, ExternalLink, Mic, CheckCircle2,
-    ChevronRight, Play, Heart, Share2, TrendingUp, Users, FileText,
+    ChevronRight, Play, Heart, Share2, Flag, TrendingUp, Users, FileText,
     Phone, Layout, MessageSquare, Star, Calendar, Globe,
     Award, Zap, Target, BookOpen, Code, Building2, LucideIcon
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { ReportDialog } from "@repo/ui/components/moderation/report-dialog"
+import { reportJob } from "@/actions/moderation.action"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { Separator } from "@repo/ui/components/ui/separator"
 import Link from "next/link"
 import {
-    showInterest, saveJob, unsaveJob
+    saveJob, unsaveJob
 } from "@/actions/jobs"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 
 interface Job {
     id: string
@@ -111,7 +112,7 @@ const roundTypeColors: Record<string, string> = {
     SYSTEM_DESIGN: "bg-neutral-900",
     BEHAVIORAL: "bg-neutral-900",
     TAKE_HOME: "bg-neutral-900",
-    PANEL: "bg-pink-500",
+    PANEL: "bg-neutral-900",
     HIRING_MANAGER: "bg-neutral-900",
     CULTURE_FIT: "bg-neutral-900",
     HR_FINAL: "bg-neutral-900",
@@ -129,10 +130,8 @@ const formatLabels: Record<string, string> = {
 
 export function JobDetailContent({ job }: JobDetailContentProps) {
     const router = useRouter()
-    const [isApplying, setIsApplying] = useState(false)
     const [isSaved, setIsSaved] = useState(job.isSaved)
     const [isSaving, setIsSaving] = useState(false)
-    const [hasApplied, setHasApplied] = useState(job.hasApplied)
 
     const formatSalary = (min: number | null, max: number | null, currency: string) => {
         if (!min && !max) return null
@@ -153,25 +152,6 @@ export function JobDetailContent({ job }: JobDetailContentProps) {
         if (min) return `${min}+ years`
         if (max) return `Up to ${max} years`
         return null
-    }
-
-    const handleShowInterest = async () => {
-        if (hasApplied) {
-            router.push("/jobs/applications")
-            return
-        }
-        setIsApplying(true)
-        try {
-            const result = await showInterest(job.id)
-            if (result.success) {
-                setHasApplied(true)
-                router.push("/jobs/applications")
-            }
-        } catch (error) {
-            console.error("Error showing interest:", error)
-        } finally {
-            setIsApplying(false)
-        }
     }
 
     const handleToggleSave = async () => {
@@ -235,7 +215,7 @@ export function JobDetailContent({ job }: JobDetailContentProps) {
                             <Button
                                 variant="outline"
                                 size="icon"
-                                className="rounded-xl"
+                                className=""
                                 onClick={handleToggleSave}
                                 disabled={isSaving}
                             >
@@ -244,11 +224,16 @@ export function JobDetailContent({ job }: JobDetailContentProps) {
                             <Button
                                 variant="outline"
                                 size="icon"
-                                className="rounded-xl"
+                                className=""
                                 onClick={handleShare}
                             >
                                 <Share2 className="w-5 h-5" />
                             </Button>
+                            {/* Report the job (HR-24). */}
+                            <ReportDialog kind="JOB" name={job.title} onSubmit={async (reason, details) => {
+                                const r = await reportJob(job.id, reason, details)
+                                return r.success ? null : r.error
+                            }} trigger={<Button variant="outline" size="icon" aria-label="Report this job"><Flag className="w-5 h-5" /></Button>} />
                         </div>
                     </div>
                 </div>
@@ -537,7 +522,7 @@ export function JobDetailContent({ job }: JobDetailContentProps) {
                                         }
 
                                         <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
-                                            This company has shared their interview process. Practice for each round with AI mock interviews!
+                                            These are the rounds you take on ShipItHQ, in order. Clear them, then choose whether to send your results.
                                         </p>
                                         <div className="relative pl-10 space-y-6">
                                             <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-900" />
@@ -606,20 +591,6 @@ export function JobDetailContent({ job }: JobDetailContentProps) {
                                                                             )
                                                                         }
                                                                     </div>
-                                                                    {
-                                                                        round.hasMockInterview && (
-                                                                            <Button
-                                                                                className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 gap-2 shrink-0"
-                                                                                onClick={() => {
-                                                                                    // Navigate to mock interview for this round
-                                                                                    router.push(`/mock/job/${job.id}?round=${round.id}`)
-                                                                                }}
-                                                                            >
-                                                                                <Mic className="w-4 h-4" />
-                                                                                Practice
-                                                                            </Button>
-                                                                        )
-                                                                    }
                                                                 </div>
                                                             </div>
                                                         </motion.div>
@@ -627,25 +598,9 @@ export function JobDetailContent({ job }: JobDetailContentProps) {
                                                 })
                                             }
                                         </div>
-                                        <div className="mt-8 p-5 rounded-2xl bg-gradient-to-r from-neutral-50 to-neutral-50 dark:from-neutral-800/20 dark:to-neutral-800/20 border border-neutral-200 dark:border-neutral-800">
-                                            <div className="flex items-start gap-4">
-                                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-neutral-900 to-neutral-900 flex items-center justify-center shrink-0">
-                                                    <Mic className="w-6 h-6 text-white" />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <h4 className="font-semibold text-neutral-900 dark:text-white mb-1">
-                                                        Prepare with AI Mock Interviews
-                                                    </h4>
-                                                    <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
-                                                        Practice with company-specific mock interviews tailored to each round.
-                                                        Get real-time feedback and improve your chances of success.
-                                                    </p>
-                                                    <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200" asChild><Link href={`/mock/job/${job.id}`}>
-                                                        <Play className="w-4 h-4 mr-2" />
-                                                        Start Practicing
-                                                    </Link></Button>
-                                                </div>
-                                            </div>
+                                        <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900/40">
+                                            <p className="text-sm text-neutral-700 dark:text-neutral-300">Each round has a time limit and draws fresh questions. You can retake a round after its cool-down.</p>
+                                            <Button asChild className="shrink-0 gap-2"><Link href={`/jobs/${job.slug}/rounds`}><Play className="h-4 w-4" /> Take the rounds</Link></Button>
                                         </div>
                                     </div>
                                 ) : (
@@ -656,9 +611,9 @@ export function JobDetailContent({ job }: JobDetailContentProps) {
                                         </h3>
                                         <p className="text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
                                             This company hasn&apos;t shared their interview process yet.
-                                            You can still apply and practice with our general mock interviews.
+                                            You can still practise with ShipItHQ's mock interviews while you wait.
                                         </p>
-                                        <Button variant="outline" className="mt-4 rounded-xl" asChild><Link href="/mock">
+                                        <Button variant="outline" className="mt-4" asChild><Link href="/mock">
                                             <BookOpen className="w-4 h-4 mr-2" />
                                             Explore Practice Interviews
                                         </Link></Button>
@@ -682,47 +637,22 @@ export function JobDetailContent({ job }: JobDetailContentProps) {
                             transition={{ delay: 0.2 }}
                             className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-lg dark:border-neutral-800 dark:bg-neutral-900"
                         >
-                            {
-                                hasApplied ? (
-                                    <>
-                                        <div className="flex items-center gap-2 text-neutral-800 dark:text-neutral-100 mb-4">
-                                            <CheckCircle2 className="w-5 h-5" />
-                                            <span className="font-semibold">Already Applied</span>
-                                        </div>
-                                        <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
-                                            You&apos;ve shown interest in this position. Check your applications for status updates.
-                                        </p>
-                                        <Button className="w-full rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 h-12" asChild><Link href="/jobs/applications">
-                                            View My Applications
-                                        </Link></Button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Button
-                                            onClick={handleShowInterest}
-                                            disabled={isApplying}
-                                            className="w-full rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 h-12 mb-4"
-                                        >
-                                            {
-                                                isApplying ? (
-                                                    <>
-                                                        <InlineLoader size="sm" className="mr-2" />
-                                                        Processing...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Play className="w-4 h-4 mr-2" />
-                                                        I&apos;m Interested
-                                                    </>
-                                                )
-                                            }
-                                        </Button>
-                                        <p className="text-xs text-neutral-500 dark:text-neutral-400 text-center">
-                                            Click to start preparing for this role
-                                        </p>
-                                    </>
-                                )
-                            }
+                            {/* Taking the rounds and sending the results is the way in (plan/hiring-rounds HR-20). */}
+                            {job.interviewProcess && (
+                                <div>
+                                    <Button className="h-12 w-full gap-2" asChild>
+                                        <Link href={`/jobs/${job.slug}/rounds`}><Play className="h-4 w-4" /> Take the rounds</Link>
+                                    </Button>
+                                    <p className="mt-2 text-center text-xs text-neutral-500 dark:text-neutral-400">
+                                        {job.interviewProcess.rounds?.length ?? 0} rounds, taken online. Your results go to the company instead of a CV.
+                                    </p>
+                                </div>
+                            )}
+                            {!job.interviewProcess && (
+                                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                                    This role has no rounds yet. Save it, and take its rounds once {job.company.name} sets them up.
+                                </p>
+                            )}
                         </motion.div>
                         <motion.div
                             initial={{ opacity: 0, x: 20 }}

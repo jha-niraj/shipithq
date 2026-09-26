@@ -10,7 +10,7 @@ export interface TabCounts {
     spark: number
     following: number
     saved: number
-    applied: number
+    rounds: number
     browse: number
 }
 
@@ -70,11 +70,11 @@ const tabs: TabConfig[] = [
         requiresAuth: true
     },
     {
-        id: "applied",
-        label: "Applied",
-        href: "/jobs/applications",
+        id: "rounds",
+        label: "My rounds",
+        href: "/jobs/rounds",
         icon: FileText,
-        countKey: "applied",
+        countKey: "rounds",
         requiresAuth: true
     },
     {
@@ -95,7 +95,7 @@ export function JobsTabs({ counts, isAuthenticated }: JobsTabsProps) {
         if (pathname === "/jobs" || pathname === "/jobs/spark") return "spark"
         if (pathname.startsWith("/jobs/following")) return "following"
         if (pathname.startsWith("/jobs/saved")) return "saved"
-        if (pathname.startsWith("/jobs/applications")) return "applied"
+        if (pathname.startsWith("/jobs/rounds")) return "rounds"
         if (pathname.startsWith("/jobs/browse")) return "browse"
         return "spark"
     }

@@ -12,6 +12,7 @@ import {
     interviewProcesses,
     skills,
     projectsV2,
+    jobListed,
 } from "@repo/db"
 import { eq, and, inArray, desc, count, ilike } from "drizzle-orm"
 import { catalogueWhere } from '@/lib/projects/catalogue'
@@ -305,7 +306,7 @@ export async function getFollowingFeedJobs(page = 1, limit = 10) {
 
         const whereClause = and(
             inArray(jobs.companyId, followedCompanyIds),
-            eq(jobs.status, "ACTIVE"),
+            jobListed,
             eq(jobs.visibility, "PUBLIC")
         )
 
@@ -368,7 +369,7 @@ export async function getForYouFeedJobs(page = 1, limit = 10) {
         const session = await getSession(headers())
         const skip = (page - 1) * limit
 
-        const baseWhere = and(eq(jobs.status, "ACTIVE"), eq(jobs.visibility, "PUBLIC"))
+        const baseWhere = and(jobListed, eq(jobs.visibility, "PUBLIC"))
 
         // For unauthenticated users, return featured jobs
         if (!session?.user?.id) {
@@ -579,7 +580,7 @@ export async function getCompanyHiringStats(companyId: string): Promise<{
 
         // Get active jobs for this company
         const companyJobs = await db.query.jobs.findMany({
-            where: and(eq(jobs.companyId, companyId), eq(jobs.status, "ACTIVE")),
+            where: and(eq(jobs.companyId, companyId), jobListed),
             columns: { id: true },
         })
 
@@ -751,7 +752,7 @@ export async function getSavedFeedJobs(page = 1, limit = 10) {
             db.query.jobs.findMany({
                 where: and(
                     inArray(jobs.id, jobIds),
-                    eq(jobs.status, "ACTIVE")
+                    jobListed
                 ),
                 with: {
                     company: {
@@ -841,10 +842,10 @@ export async function getFeedStats() {
                 followedCompanyIds.length > 0
                     ? and(
                         inArray(jobs.companyId, followedCompanyIds),
-                        eq(jobs.status, "ACTIVE"),
+                        jobListed,
                         eq(jobs.visibility, "PUBLIC")
                     )
-                    : and(eq(jobs.status, "ACTIVE"), eq(jobs.visibility, "PUBLIC"))
+                    : and(jobListed, eq(jobs.visibility, "PUBLIC"))
             )
         const followingJobsCount = followingJobsRows[0]?.cnt ?? 0
 

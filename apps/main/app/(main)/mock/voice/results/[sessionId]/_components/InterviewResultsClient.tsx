@@ -16,8 +16,9 @@ import {
 } from 'lucide-react'
 import toast from '@repo/ui/components/ui/sonner'
 import { getSessionDetails } from '@/actions/(main)/mockvoice/session.action'
-import { generateAIFeedback } from '@/actions/(main)/mockvoice/conversation.action'
-import { awaitBackgroundJob } from '@/hooks/use-background-job'
+import { followMockScoring } from '@/actions/(main)/mockvoice/conversation.action'
+import { TranscriptPane } from '@repo/ui/components/hiring/transcript-pane'
+import type { VoiceTurn } from '@repo/db'
 import { ReviewSheet } from '../../../../_components/review-sheet'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 
@@ -58,6 +59,8 @@ export default function ResultsPage({
     const [isLoading, setIsLoading] = useState(true)
     const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false)
     const [reviewSheetOpen, setReviewSheetOpen] = useState(false)
+    const [turns, setTurns] = useState<VoiceTurn[]>([])
+    const [notScored, setNotScored] = useState<string | null>(null)
 
     useEffect(() => {
         async function loadResults() {
@@ -88,28 +91,30 @@ export default function ResultsPage({
 
                 setSessionData(transformedSession)
 
+                setTurns((session.turns ?? []) as VoiceTurn[])
                 // Check if AI analysis already exists
                 if (transformedSession.aiAnalysis) {
                     setFeedback(transformedSession.aiAnalysis)
-                } else {
-                    // Score the interview on the worker and follow the job.
-                    // The scoring completion runs long enough that it used to
-                    // die on the request that started it.
+                } else if (session.provider === 'SARVAM') {
+                    // plan/voice VO-10: follow the scoring job until it lands.
+                    setIsLoading(false)
                     setIsGeneratingFeedback(true)
-                    const started = await generateAIFeedback(resolvedParams.sessionId)
-
-                    if (started.success && started.jobId) {
-                        const outcome = await awaitBackgroundJob<{ analysis?: AIFeedback }>(started.jobId)
-                        if (outcome.ok && outcome.result?.analysis) {
-                            setFeedback(outcome.result.analysis)
-                        } else if (!outcome.ok) {
-                            toast.error(outcome.error)
-                        }
-                    } else {
-                        toast.error(started.error ?? 'Could not generate feedback')
+                    const until = Date.now() + 6 * 60_000
+                    while (Date.now() < until) {
+                        const r = await followMockScoring(resolvedParams.sessionId)
+                        if (r.state === 'scored') { setFeedback(r.analysis); break }
+                        if (r.state === 'not_scored') { setNotScored(r.reason); break }
+                        await new Promise((res) => setTimeout(res, 3000))
+                    }
+                    // Sarvam's transcript replaces the live one once scored.
+                    const again = await getSessionDetails(resolvedParams.sessionId)
+                    if (again.success && again.session) {
+                        setTurns((again.session.turns ?? []) as VoiceTurn[])
+                        setSessionData((d) => d ? { ...d, duration: again.session!.duration } : d)
                     }
                     setIsGeneratingFeedback(false)
                 }
+                // An old ElevenLabs session with no report keeps showing none: its scorer is gone.
             } catch (error) {
                 console.error('Error loading results:', error)
                 toast.error('Failed to load results')
@@ -368,12 +373,25 @@ export default function ResultsPage({
                                 <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-neutral-800 dark:text-neutral-200" />
                                 <h3 className="text-xl font-semibold mb-2">Feedback Not Available</h3>
                                 <p className="text-neutral-600 dark:text-neutral-400">
-                                    We couldn&apos;t generate feedback for this session. Please try again or contact support.
+                                    {notScored
+                                        ? `This interview couldn't be scored (${notScored}). Your credits were refunded.`
+                                        : "We couldn't generate feedback for this session. Please try again or contact support."}
                                 </p>
                             </CardContent>
                         </Card>
                     )
                 }
+                {turns.length > 0 && (
+                    <Card className="mb-8">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Transcript</CardTitle>
+                            <CardDescription>What was said, as the scorer read it.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <TranscriptPane turns={turns} className="max-h-[32rem]" />
+                        </CardContent>
+                    </Card>
+                )}
                 <div className="flex flex-wrap gap-4 justify-center">
                     <Button asChild>
                         <Link href="/mock/voice">

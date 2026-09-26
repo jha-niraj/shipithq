@@ -42,7 +42,7 @@ export function FollowButton({
 
     if (!signedIn) {
         return (
-            <Button asChild size="sm" variant="outline" className="rounded-full">
+            <Button asChild size="sm" variant="outline" >
                 <Link href={`/signin?callbackUrl=${encodeURIComponent(`/profile/${username}`)}`}>
                     <UserPlus className="mr-1.5 size-3.5" /> Follow
                 </Link>
@@ -74,7 +74,7 @@ export function FollowButton({
     }
 
     return (
-        <Button size="sm" variant={following ? "outline" : "default"} className="min-w-24 cursor-pointer rounded-full" onClick={toggle} disabled={busy}>
+        <Button size="sm" variant={following ? "outline" : "default"} className="min-w-24 cursor-pointer" onClick={toggle} disabled={busy}>
             {busy ? <InlineLoader size="sm" /> : following
                 ? <><UserCheck className="mr-1.5 size-3.5" /> Following</>
                 : <><UserPlus className="mr-1.5 size-3.5" /> Follow</>}
@@ -95,7 +95,7 @@ export function CopyLinkButton({ url }: { url: string }) {
         }
     }
     return (
-        <Button size="sm" variant="outline" className="cursor-pointer rounded-full" onClick={copy}>
+        <Button size="sm" variant="outline" className="cursor-pointer" onClick={copy}>
             {copied ? <Check className="mr-1.5 size-3.5" /> : <Link2 className="mr-1.5 size-3.5" />}
             {copied ? "Copied" : "Copy link"}
         </Button>

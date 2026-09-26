@@ -3,7 +3,7 @@
  *
  * One layer behind every shell - the auth screens and the signed-in app both. It is
  * defined once here so the two cannot drift the first time either is touched;
- * `app/(auth)/_components/auth-backdrop.tsx` re-exports it under the auth name.
+ * the auth screens use the shared kit in `@repo/ui/components/auth` (plan/auth).
  *
  * ── What it is for ──
  * The cards FLOAT on this. The sidebar, page and AI rail are rounded surfaces with a

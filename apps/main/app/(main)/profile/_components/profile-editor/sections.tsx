@@ -7,8 +7,6 @@
  */
 
 import * as React from "react"
-import Link from "next/link"
-import { ArrowUpRight, Eye, FileText, Upload } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
@@ -19,7 +17,6 @@ import {
 } from "@/actions/(main)/user/profile.action"
 import { setMyProfileLinks } from "@/actions/(main)/user/profile-links.action"
 import { githubUsernameFrom } from "@/lib/profile-links"
-import { validateResumeFile } from "@/lib/resume-extractor.client"
 import {
     normalizeProjectVisibility, projectStatusLabel, projectTypeLabel, skillCategoryLabel, skillLevelLabel,
     SKILL_CATEGORIES,
@@ -316,69 +313,6 @@ export function LinksPane({ p, onChanged }: { p: OwnProfile; onChanged: () => vo
                     </div>
                 </form>
             </PaneBody>
-        </>
-    )
-}
-
-// ── Resume ───────────────────────────────────────────────────────────────────
-
-export function ResumePane({ p, busy, onUpload, onView, onDelete }: {
-    p: OwnProfile
-    busy: boolean
-    onUpload: (f: File) => void
-    onView: () => void
-    onDelete: () => void
-}) {
-    const inputRef = React.useRef<HTMLInputElement>(null)
-    const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const f = e.target.files?.[0]
-        e.target.value = ""
-        if (!f) return
-        const check = validateResumeFile(f)
-        if (!check.valid) return void toast.error(check.error ?? "Unsupported file")
-        onUpload(f)
-    }
-    return (
-        <>
-            <PaneHeader title="Resume" action={
-                <Button asChild size="sm" variant="ghost" className="h-7 cursor-pointer gap-1 px-2 text-xs">
-                    <Link href="/ai/resume">Resume Builder <ArrowUpRight className="size-3.5" /></Link>
-                </Button>
-            } />
-            <input ref={inputRef} type="file" accept=".pdf,.doc,.docx,application/pdf" className="hidden" onChange={pick} />
-            {!p.hasResume ? (
-                <EmptyPane
-                    title="No resume on file"
-                    body="Upload a PDF or DOCX. We read it into an editable resume in the Resume Builder, and every AI feature uses it."
-                    action={
-                        <Button size="sm" className="cursor-pointer" disabled={busy} onClick={() => inputRef.current?.click()}>
-                            {busy ? <InlineLoader size="sm" /> : <><Upload className="mr-1.5 size-3.5" /> Upload resume</>}
-                        </Button>
-                    }
-                />
-            ) : (
-                <PaneBody>
-                    <div className="flex items-center gap-3 border-y border-neutral-200 py-3 dark:border-neutral-800">
-                        <FileText className="size-4 shrink-0 text-neutral-500" />
-                        <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-neutral-900 dark:text-white">Resume on file</p>
-                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                {p.userProfile?.showResume === false ? "Hidden from your public profile" : "Visitors can open it from your public profile"}
-                            </p>
-                        </div>
-                        {busy && <InlineLoader size="sm" />}
-                        <Button type="button" size="sm" variant="ghost" className="h-8 cursor-pointer" disabled={busy} onClick={onView}>
-                            <Eye className="mr-1.5 size-3.5" /> View
-                        </Button>
-                        <Button type="button" size="sm" variant="outline" className="h-8 cursor-pointer" disabled={busy} onClick={() => inputRef.current?.click()}>
-                            Replace
-                        </Button>
-                        <Button type="button" size="sm" variant="ghost" className="h-8 cursor-pointer text-red-600 hover:text-red-700 dark:text-red-400" disabled={busy} onClick={onDelete}>
-                            Delete
-                        </Button>
-                    </div>
-                </PaneBody>
-            )}
         </>
     )
 }

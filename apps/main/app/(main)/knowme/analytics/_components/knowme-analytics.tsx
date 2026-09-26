@@ -148,7 +148,7 @@ export default function KnowMeAnalytics({ analytics, initialRange, profileStatus
                 className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
             >
                 <div className="flex min-w-0 items-center gap-3">
-                    <Button asChild variant="ghost" size="icon" className="shrink-0 rounded-xl">
+                    <Button asChild variant="ghost" size="icon" className="shrink-0">
                         <Link href="/knowme" aria-label="Back to KnowMe">
                             <ArrowLeft className="h-5 w-5" />
                         </Link>

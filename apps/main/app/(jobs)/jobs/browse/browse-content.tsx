@@ -144,16 +144,16 @@ export function BrowseContent({ initialData, isAuthenticated }: BrowseContentPro
                         <Button
                             variant="outline"
                             size="sm"
-                            className="h-9 rounded-xl"
+                            className="h-9"
                             onClick={() => setIsFilterOpen(true)}
                         >
                             <Filter className="mr-2 h-4 w-4" />
                             Filters
                         </Button>
-                        <Button asChild variant="outline" size="sm" className="h-9 gap-2 rounded-xl">
+                        <Button asChild variant="outline" size="sm" className="h-9 gap-2">
                             <Link href="/jobs">
                                 <Sparkles className="h-4 w-4" />
-                                <span className="hidden sm:inline">Swipe mode</span>
+                                <span className="hidden sm:inline">Spark</span>
                             </Link>
                         </Button>
                     </div>
@@ -201,7 +201,7 @@ export function BrowseContent({ initialData, isAuthenticated }: BrowseContentPro
                         <Button
                             variant="outline"
                             size="sm"
-                            className="shrink-0 rounded-xl"
+                            className="shrink-0"
                             onClick={loadMore}
                             disabled={loading}
                         >
@@ -258,13 +258,17 @@ function BrowseEmptyState() {
                 No jobs available
             </h3>
             <p className="text-neutral-500 dark:text-neutral-400 max-w-md mx-auto mb-6">
-                There are no job postings at the moment. Check back later or explore companies to follow.
+                There are no job postings at the moment. Explore companies to follow, or ask us to add one you&apos;d like to see.
             </p>
-            <Link href="/companies">
-                <Button variant="outline" className="rounded-xl">
-                    Explore Companies
+            <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
+                <Button asChild variant="outline">
+                    <Link href="/companies">Explore Companies</Link>
                 </Button>
-            </Link>
+                {/* plan/hiring-rounds HR-7 */}
+                <Button asChild variant="ghost">
+                    <Link href="/companies/request">Request a company</Link>
+                </Button>
+            </div>
         </motion.div>
     )
 }

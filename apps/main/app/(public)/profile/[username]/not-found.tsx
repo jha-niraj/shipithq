@@ -15,7 +15,7 @@ export default function NotFound() {
                 <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
                     The link may be mistyped, or the page is not shared publicly. If someone sent it to you, ask them to check it.
                 </p>
-                <Button asChild variant="outline" size="sm" className="mt-6 rounded-full">
+                <Button asChild variant="outline" size="sm" className="mt-6">
                     <Link href="/">Go to ShipItHQ</Link>
                 </Button>
             </div>

@@ -9,6 +9,8 @@ import {
     savedJobs,
     jobRecommendations,
     interviewProcesses,
+    jobListed,
+    jobVisible,
 } from "@repo/db"
 import { eq, and, or, ilike, inArray, desc, count, sql, type SQL } from "drizzle-orm"
 
@@ -65,7 +67,7 @@ export async function browseJobs(filters: JobFilters = {}, page = 1, limit = 20)
         const skip = (page - 1) * limit
 
         const conditions: (SQL | undefined)[] = [
-            eq(jobs.status, "ACTIVE"),
+            jobListed,
             eq(jobs.visibility, "PUBLIC"),
         ]
 
@@ -179,7 +181,8 @@ export async function getJobBySlug(slug: string) {
         const userId = session?.user?.id
 
         const job = await db.query.jobs.findFirst({
-            where: eq(jobs.slug, slug),
+            // A job hidden by an admin, or a suspended company's, isn't found (HR-24).
+            where: and(eq(jobs.slug, slug), jobVisible),
             with: {
                 company: {
                     columns: {
@@ -317,7 +320,7 @@ export async function getRecommendedJobs(limit = 10) {
             // Return general featured jobs for unauthenticated users
             const jobRows = await db.query.jobs.findMany({
                 where: and(
-                    eq(jobs.status, "ACTIVE"),
+                    jobListed,
                     eq(jobs.visibility, "PUBLIC"),
                     eq(jobs.featured, true)
                 ),
@@ -369,7 +372,7 @@ export async function getJobsByCompany(companyId: string) {
         const jobRows = await db.query.jobs.findMany({
             where: and(
                 eq(jobs.companyId, companyId),
-                eq(jobs.status, "ACTIVE"),
+                jobListed,
                 eq(jobs.visibility, "PUBLIC")
             ),
             orderBy: desc(jobs.publishedAt),
@@ -434,7 +437,7 @@ export async function getSavedJobs() {
         const jobRows = await db.query.jobs.findMany({
             where: and(
                 inArray(jobs.id, jobIds),
-                eq(jobs.status, "ACTIVE")
+                jobListed
             ),
             with: {
                 company: {

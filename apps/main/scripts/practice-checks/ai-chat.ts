@@ -17,7 +17,7 @@ import {
     deleteAssistantChat, getAssistantChat, listAssistantChats, setAssistantMessageFeedback,
 } from "@/actions/(main)/ai/assistant-chat.action"
 import { createFrameParser, type ChatFrame } from "@/lib/ai/protocol"
-import { readChartSpec } from "@/components/ai/chat-chart"
+import { readChartSpec } from "@repo/ui/components/ai-chat/chat-chart"
 
 {
     const url = process.env.DATABASE_URL ?? ""

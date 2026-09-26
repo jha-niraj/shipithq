@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Zap } from "lucide-react"
 import { useSession, signOut } from "@repo/auth/client"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@repo/ui/lib/utils"
 import { AIGlyph } from "@repo/ui/components/ui/ai-mark"
 import { useSidebar } from "@repo/ui/components/shell/sidebar-provider"
@@ -11,7 +12,8 @@ import { ShellSidebar } from "@repo/ui/components/shell/shell-sidebar"
 import { mainNavigation, SIDEBAR_PRESETS, type NavigationItem } from "@/lib/navigation"
 import { useUserStore } from "@/app/store/useUserStore"
 import { useAIPanelStore } from "@/app/store/aiPanelStore"
-import { NotificationsPanel } from "./notifications-panel"
+import { inboxCountAction } from "@/actions/inbox.action"
+import { INBOX_CHANGED_EVENT } from "@repo/ui/components/inbox/types"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The main app's sidebar: the shared `ShellSidebar` (packages/ui, plan/hiring-app
@@ -38,8 +40,34 @@ export default function Sidebar({ primary }: { primary?: NavigationItem[] } = {}
     const userId = session?.user?.id
     useEffect(() => { if (userId) void fetchCreditsAndXp() }, [userId, fetchCreditsAndXp])
 
+    // Public pages inside the shell (Incidents, plan/incidents INC-7) reach a signed-out
+    // reader. The assistant needs a session: signed out, its button goes to sign-in and
+    // back, and a rail left open from an earlier session is closed.
+    const router = useRouter()
+    const pathname = usePathname()
+    const closeAI = useAIPanelStore((s) => s.close)
+    const signedOut = !isPending && !userId
+    useEffect(() => { if (signedOut && isAIOpen) closeAI() }, [signedOut, isAIOpen, closeAI])
+    const onAI = () => signedOut
+        ? router.push(`/signin?callbackUrl=${encodeURIComponent(pathname)}`)
+        : toggleAI()
+
+    // The Inbox's unread count (plan/inbox IN-4): on load, on focus, every minute,
+    // and whenever the Inbox reads or sends something.
+    const [inboxCount, setInboxCount] = useState(0)
+    useEffect(() => {
+        if (!userId) return
+        const refresh = () => { void inboxCountAction().then(setInboxCount).catch(() => undefined) }
+        refresh()
+        window.addEventListener("focus", refresh)
+        window.addEventListener(INBOX_CHANGED_EVENT, refresh)
+        const t = window.setInterval(() => { if (document.visibilityState === "visible") refresh() }, 60_000)
+        return () => { window.removeEventListener("focus", refresh); window.removeEventListener(INBOX_CHANGED_EVENT, refresh); window.clearInterval(t) }
+    }, [userId])
+
     return (
         <ShellSidebar
+            badges={{ "/inbox": inboxCount }}
             navigation={primary ?? mainNavigation.primary}
             customizable={!primary}
             presets={SIDEBAR_PRESETS}
@@ -57,7 +85,7 @@ export default function Sidebar({ primary }: { primary?: NavigationItem[] } = {}
                     </Link>
                     <button
                         type="button"
-                        onClick={() => toggleAI()}
+                        onClick={onAI}
                         aria-pressed={isAIOpen}
                         className={cn(
                             "flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-all",
@@ -71,8 +99,7 @@ export default function Sidebar({ primary }: { primary?: NavigationItem[] } = {}
                     </button>
                 </>
             }
-            notifications={<NotificationsPanel enabled={Boolean(userId)} />}
-            ai={{ label: "Ask ShipItHQ AI", open: isAIOpen, onToggle: () => toggleAI() }}
+            ai={{ label: "Ask ShipItHQ AI", open: isAIOpen, onToggle: onAI }}
             user={session?.user ? {
                 name: session.user.name,
                 image: session.user.image ?? null,

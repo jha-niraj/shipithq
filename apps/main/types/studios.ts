@@ -146,7 +146,6 @@ export interface MockSession {
   id: string;
   stepId: string;
   topic: string;
-  elevenlabsConversationId?: string;
   transcript?: Array<{
     role: "user" | "assistant";
     content: string;
