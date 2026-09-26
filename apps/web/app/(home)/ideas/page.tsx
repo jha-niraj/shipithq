@@ -58,9 +58,10 @@ export default async function IdeasPage({ searchParams }: { searchParams: Params
                 sub="Ask for features, courses and improvements, and vote on what we build next. Posting and voting happen in the app, one vote per person."
                 tone="mint"
                 art="ideas"
+                compact
                 facts={IDEA_STATUSES.map((st) => ({ value: counts[st].toLocaleString("en-IN"), label: IDEA_STATUS_LABEL[st] }))}
             />
-            <div className="mx-auto max-w-7xl px-4 pb-24 pt-10 sm:px-6">
+            <div className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6">
                 <IdeasTabs status={status ?? "all"} sort={sort} counts={counts} />
                 <Suspense key={`${status ?? "all"}-${sort}`} fallback={<IdeasListSkeleton />}>
                     <IdeasList status={status} sort={sort} total={counts.all} />

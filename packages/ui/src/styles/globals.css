@@ -1366,3 +1366,31 @@ h1, h2, h3, h4, h5, h6,
 @media (prefers-reduced-motion: reduce) {
     .auth-form :is(button, a):active { transform: none; }
 }
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Pointer cursor on everything clickable (Niraj, 2026-09-26: "on the buttons like
+   tab, it needs to be a cursor pointer, add it in the base itself"). Tailwind v4's
+   preflight sets buttons back to the default cursor, so plain <button>s, tabs and
+   role="button" elements had an arrow. In the base layer, so a utility such as
+   cursor-not-allowed or cursor-col-resize still wins.
+   ───────────────────────────────────────────────────────────────────────────── */
+@layer base {
+    button:not(:disabled),
+    [role="button"]:not([aria-disabled="true"]),
+    [role="tab"]:not([aria-disabled="true"]),
+    [role="option"],
+    [role="menuitem"],
+    [role="radio"],
+    [role="checkbox"],
+    [role="switch"],
+    select:not(:disabled),
+    summary,
+    label[for] {
+        cursor: pointer;
+    }
+    button:disabled,
+    [aria-disabled="true"] {
+        cursor: not-allowed;
+    }
+}

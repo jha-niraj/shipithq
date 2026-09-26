@@ -49,12 +49,14 @@ export interface PageHeroProps {
     tone?: Tone
     /** Crumbs above the eyebrow, the last one is the current page. */
     crumbs?: { name: string; href?: string }[]
+    /** Tighter padding and gaps, for a page whose real content is below the hero (Ideas). */
+    compact?: boolean
 }
 
-export function PageHero({ eyebrow, title, sub, ctas = [], facts = [], aside, art, tone = "stone", crumbs }: PageHeroProps) {
+export function PageHero({ eyebrow, title, sub, ctas = [], facts = [], aside, art, tone = "stone", crumbs, compact = false }: PageHeroProps) {
     const t = TONE[tone]
     const dark = isDark(tone)
-    const right = aside ?? (art ? <CardArt kind={art} dark={dark} className="mx-auto max-w-md" /> : null)
+    const right = aside ?? (art ? <CardArt kind={art} dark={dark} className={cn("mx-auto", compact ? "max-h-56 max-w-xs" : "max-w-md")} /> : null)
 
     return (
         <section className="px-4 pt-6 sm:px-6">
@@ -66,7 +68,7 @@ export function PageHero({ eyebrow, title, sub, ctas = [], facts = [], aside, ar
                     tone === "white" && "border border-neutral-200",
                 )}
             >
-                <div className={cn("grid items-center gap-10 p-8 md:p-12 lg:p-16", right && "lg:grid-cols-[1.1fr_0.9fr]")}>
+                <div className={cn("grid items-center", compact ? "gap-6 p-6 md:p-8 lg:px-12 lg:py-10" : "gap-10 p-8 md:p-12 lg:p-16", right && "lg:grid-cols-[1.1fr_0.9fr]")}>
                     <div className="sh-reveal min-w-0">
                         {crumbs && crumbs.length > 0 && (
                             <nav aria-label="Breadcrumb" className={cn("mb-8 flex flex-wrap items-center gap-1.5 text-[13px]", t.muted)}>
@@ -80,7 +82,7 @@ export function PageHero({ eyebrow, title, sub, ctas = [], facts = [], aside, ar
                         )}
                         {eyebrow && <Eyebrow className={t.muted}>{eyebrow}</Eyebrow>}
                         <h1 className="mt-3 font-display text-4xl font-semibold leading-[1.05] tracking-tight md:text-5xl">{title}</h1>
-                        {sub && <p className={cn("mt-5 max-w-xl text-lg leading-8", dark ? "text-neutral-300" : "text-neutral-800")}>{sub}</p>}
+                        {sub && <p className={cn(compact ? "mt-3 max-w-xl text-[17px] leading-7" : "mt-5 max-w-xl text-lg leading-8", dark ? "text-neutral-300" : "text-neutral-800")}>{sub}</p>}
                         {ctas.length > 0 && (
                             <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
                                 {ctas.map((c, i) =>
@@ -91,7 +93,7 @@ export function PageHero({ eyebrow, title, sub, ctas = [], facts = [], aside, ar
                             </div>
                         )}
                         {facts.length > 0 && (
-                            <dl className={cn("mt-10 grid grid-cols-2 gap-x-6 gap-y-5 border-t pt-6 sm:grid-cols-4", t.rule)}>
+                            <dl className={cn(compact ? "mt-6 pt-5" : "mt-10 pt-6", "grid grid-cols-2 gap-x-6 gap-y-5 border-t sm:grid-cols-4", t.rule)}>
                                 {facts.map((f) => (
                                     <div key={f.label}>
                                         <dt className="text-2xl font-semibold tabular-nums tracking-tight">{f.value}</dt>
@@ -111,17 +113,17 @@ export function PageHero({ eyebrow, title, sub, ctas = [], facts = [], aside, ar
 export default PageHero
 
 /** The loading shape of PageHero: the same panel, padding and two columns. */
-export function PageHeroSkeleton({ facts = 0 }: { facts?: number } = {}) {
+export function PageHeroSkeleton({ facts = 0, compact = false }: { facts?: number; compact?: boolean } = {}) {
     return (
         <section className="px-4 pt-6 sm:px-6" aria-hidden>
-            <div className="mx-auto grid max-w-7xl items-center gap-10 rounded-3xl bg-neutral-100 p-8 md:p-12 lg:grid-cols-[1.1fr_0.9fr] lg:p-16">
+            <div className={cn("mx-auto grid max-w-7xl items-center rounded-3xl bg-neutral-100 lg:grid-cols-[1.1fr_0.9fr]", compact ? "gap-6 p-6 md:p-8 lg:px-12 lg:py-10" : "gap-10 p-8 md:p-12 lg:p-16")}>
                 <div className="space-y-4">
                     <div className="h-3 w-24 animate-pulse rounded bg-neutral-200" />
                     <div className="h-12 w-4/5 animate-pulse rounded-lg bg-neutral-200" />
                     <div className="h-5 w-full animate-pulse rounded bg-neutral-200" />
                     <div className="h-5 w-2/3 animate-pulse rounded bg-neutral-200" />
                     {facts > 0 ? (
-                        <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-neutral-200 pt-6 sm:grid-cols-4">
+                        <div className={cn("grid grid-cols-2 gap-x-6 gap-y-5 border-t border-neutral-200 sm:grid-cols-4", compact ? "mt-4 pt-5" : "mt-6 pt-6")}>
                             {Array.from({ length: facts }, (_, i) => (
                                 <div key={i} className="space-y-2">
                                     <div className="h-7 w-12 animate-pulse rounded bg-neutral-200" />
@@ -136,7 +138,7 @@ export function PageHeroSkeleton({ facts = 0 }: { facts?: number } = {}) {
                         </div>
                     )}
                 </div>
-                <div className="mx-auto hidden aspect-[7/5] w-full max-w-md animate-pulse rounded-2xl bg-neutral-200 lg:block" />
+                <div className={cn("mx-auto hidden w-full animate-pulse rounded-2xl bg-neutral-200 lg:block", compact ? "h-56 max-w-xs" : "aspect-[7/5] max-w-md")} />
             </div>
         </section>
     )

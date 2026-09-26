@@ -8,8 +8,8 @@ export default function Loading() {
     return (
         <main className="bg-neutral-50">
             <ShimmerStyles />
-            <PageHeroSkeleton facts={4} />
-            <div className="mx-auto max-w-7xl px-4 pb-24 pt-10 sm:px-6">
+            <PageHeroSkeleton facts={4} compact />
+            <div className="mx-auto max-w-7xl px-4 pb-24 pt-6 sm:px-6">
                 <div className="flex flex-col gap-3 border-b border-neutral-200 pb-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex gap-1">
                         {["w-14", "w-[4.75rem]", "w-[5.5rem]", "w-[5.75rem]", "w-[5.5rem]"].map((w, i) => <Shimmer key={i} className={`h-9 rounded-lg ${w}`} delay={i * 0.03} />)}
