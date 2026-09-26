@@ -123,6 +123,8 @@ export interface ShellSidebarProps {
     tools?: React.ReactNode
     /** The bell, beside the theme and sound toggles. */
     notifications?: React.ReactNode
+    /** Counts drawn at the end of a row, keyed by its path (e.g. { "/inbox": 3 }; plan/inbox IN-4). */
+    badges?: Record<string, number>
     /** The AI assistant: drives the mobile bottom bar's centre button. */
     ai?: { label: string; open: boolean; onToggle: () => void }
     user: ShellSidebarUser | null
@@ -136,8 +138,12 @@ export interface ShellSidebarProps {
 
 export function ShellSidebar({
     navigation, customizable = false, presets = [], pinsKey = "shipithq.sidebar",
-    brand, tools, notifications, ai, user, userPending, profileHref, signInHref, onSignOut, signOutHref,
+    brand, tools, notifications, badges, ai, user, userPending, profileHref, signInHref, onSignOut, signOutHref,
 }: ShellSidebarProps) {
+    const badgeFor = (path: string) => {
+        const n = badges?.[path] ?? badges?.[path.replace(/^\//, "")] ?? 0
+        return n > 0 ? <span aria-label={`${n} unread`} className="shrink-0 rounded-full bg-neutral-200 px-1.5 text-[10px] font-semibold leading-[18px] text-neutral-900 tabular-nums dark:bg-neutral-700 dark:text-white">{n > 99 ? "99+" : n}</span> : null
+    }
     const PINS_KEY = `${pinsKey}.pins`
     const MOBILE_PINS_KEY = `${pinsKey}.mobile-pins`
     const {
@@ -351,6 +357,7 @@ export function ShellSidebar({
             >
                 <ChildIcon className="h-[15px] w-[15px] shrink-0" />
                 <span className="min-w-0 flex-1 truncate">{child.name}</span>
+                {badgeFor(child.path)}
             </Link>
         )
     }
@@ -431,6 +438,7 @@ export function ShellSidebar({
                     >
                         <Icon className="h-[18px] w-[18px] shrink-0" />
                         <span className="min-w-0 flex-1 truncate">{name}</span>
+                        {badgeFor(dest.path)}
                     </Link>
                 )}
                 <AnimatePresence initial={false}>

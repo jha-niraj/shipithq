@@ -1,0 +1,155 @@
+/**
+ * The university product's subscription plans: price, limits and what each includes
+ * (plan/web/revamp REV-30). One source for apps/uni's billing (lib/dodopayments.ts
+ * adds the payment product ids) and for shipithq.com/uni/pricing.
+ *
+ * These numbers are the table apps/uni already charged (Niraj, 2026-09-26: "the billing
+ * table"), recorded in plan/web/revamp/overview.md, "University plans". Change it there
+ * first. 999999 means unlimited; yearly is ten months' price.
+ *
+ * No environment reads here: this package is rendered statically by apps/web.
+ */
+
+export const UNI_PLANS = {
+    FREE: {
+        name: 'Free',
+        description: 'Get started with basic features',
+        priceINR: 0,
+        priceUSD: 0,
+        yearlyPriceINR: 0,
+        yearlyPriceUSD: 0,
+        billingCycle: 'free',
+        maxStudents: 50,
+        maxFaculty: 5,
+        maxDepartments: 2,
+        maxClassesPerFaculty: 3,
+        maxCreditsPerMonth: 5000,
+        hasAnalytics: false,
+        hasAdvancedReports: false,
+        hasPlacementModule: false,
+        hasCompanyPortal: false,
+        hasAPIAccess: false,
+        hasPrioritySupport: false,
+        hasWhiteLabel: false,
+        hasCustomBranding: false,
+        features: [
+            'Up to 50 students',
+            'Up to 5 faculty members',
+            '2 departments',
+            '3 classes per faculty',
+            '5,000 credits/month',
+            'Basic features',
+            'Community support',
+        ],
+    },
+    STARTER: {
+        name: 'Starter',
+        description: 'Perfect for small institutions getting started',
+        priceINR: 4999,
+        priceUSD: 59,
+        yearlyPriceINR: 49990, // ~2 months free
+        yearlyPriceUSD: 590,
+        billingCycle: 'monthly',
+        maxStudents: 500,
+        maxFaculty: 20,
+        maxDepartments: 5,
+        maxClassesPerFaculty: 10,
+        maxCreditsPerMonth: 50000,
+        hasAnalytics: true,
+        hasAdvancedReports: false,
+        hasPlacementModule: false,
+        hasCompanyPortal: false,
+        hasAPIAccess: false,
+        hasPrioritySupport: false,
+        hasWhiteLabel: false,
+        hasCustomBranding: false,
+        features: [
+            'Up to 500 students',
+            'Up to 20 faculty members',
+            '5 departments',
+            '10 classes per faculty',
+            '50,000 credits/month',
+            'Basic analytics',
+            'Email support',
+            'Student verification',
+            'Assignment management',
+        ],
+    },
+    GROWTH: {
+        name: 'Growth',
+        description: 'Ideal for growing institutions',
+        priceINR: 14999,
+        priceUSD: 179,
+        yearlyPriceINR: 149990,
+        yearlyPriceUSD: 1790,
+        billingCycle: 'monthly',
+        maxStudents: 5000,
+        maxFaculty: 100,
+        maxDepartments: 20,
+        maxClassesPerFaculty: 50,
+        maxCreditsPerMonth: 500000,
+        hasAnalytics: true,
+        hasAdvancedReports: true,
+        hasPlacementModule: true,
+        hasCompanyPortal: true,
+        hasAPIAccess: false,
+        hasPrioritySupport: true,
+        hasWhiteLabel: false,
+        hasCustomBranding: true,
+        features: [
+            'Up to 5,000 students',
+            'Up to 100 faculty members',
+            '20 departments',
+            '50 classes per faculty',
+            '500,000 credits/month',
+            'Advanced analytics & reports',
+            'Placement module',
+            'Company portal access',
+            'Custom branding',
+            'Priority email support',
+        ],
+        isPopular: true,
+    },
+    ENTERPRISE: {
+        name: 'Enterprise',
+        description: 'For large universities with advanced needs',
+        priceINR: 0, // Custom pricing
+        priceUSD: 0, // Custom pricing
+        yearlyPriceINR: 0,
+        yearlyPriceUSD: 0,
+        billingCycle: 'custom',
+        maxStudents: 999999,
+        maxFaculty: 999999,
+        maxDepartments: 999999,
+        maxClassesPerFaculty: 999999,
+        maxCreditsPerMonth: 999999999,
+        hasAnalytics: true,
+        hasAdvancedReports: true,
+        hasPlacementModule: true,
+        hasCompanyPortal: true,
+        hasAPIAccess: true,
+        hasPrioritySupport: true,
+        hasWhiteLabel: true,
+        hasCustomBranding: true,
+        features: [
+            'Unlimited students',
+            'Unlimited faculty members',
+            'Unlimited departments',
+            'Unlimited classes',
+            'Unlimited credits',
+            'Full analytics suite',
+            'All modules included',
+            'API access',
+            'White-label options',
+            'Dedicated account manager',
+            'Custom integrations',
+            'SLA guarantee',
+            '24/7 priority support',
+        ],
+    },
+} as const;
+
+export type UniPlanKey = keyof typeof UNI_PLANS
+
+/** Display order on the pricing page. */
+export const UNI_PLAN_ORDER: UniPlanKey[] = ["FREE", "STARTER", "GROWTH", "ENTERPRISE"]

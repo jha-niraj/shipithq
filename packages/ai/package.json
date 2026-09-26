@@ -12,7 +12,7 @@
     "./models": "./src/models.ts",
     "./tasks": "./src/tasks.ts",
     "./project-ai": "./src/project-ai.ts",
-    "./sarvam": "./src/sarvam/index.ts"
+    "./sprint-mock": "./src/sprint-mock.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit"

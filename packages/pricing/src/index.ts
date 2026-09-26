@@ -38,6 +38,13 @@ export interface PricingConfig {
 	maxCredits: number;
 }
 
+/**
+ * The welcome grant for a new account, in credits. Decided in
+ * `plan/credits/overview.md`. Lives here so the marketing site quotes the number the
+ * app actually grants (apps/main/lib/credits/grant.ts re-exports it).
+ */
+export const SIGNUP_GRANT_CREDITS = 100;
+
 // Base rates for custom credit calculations
 const baseRateINR = 0.5; // Price per credit in INR
 const baseRateUSD = 0.006; // Price per credit in USD
@@ -289,3 +296,7 @@ export function checkoutUrl(
 ): string {
 	return `${appUrl.replace(/\/$/, "")}${checkoutPath(pkg, currency)}`;
 }
+
+export * from "./hiring";
+export * from "./hiring-plans";
+export * from "./uni-plans";

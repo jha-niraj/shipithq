@@ -44,6 +44,24 @@ export const AI_TASKS = {
     sprintMock: DEFAULT_CHAT_MODEL,
     /** A company's draft profile, drafted from its own site's pages (plan/hiring-rounds HR-5). */
     companyProfileDraft: DEFAULT_CHAT_MODEL,
+    /** Hiring: a pipeline's rounds drafted from a role description (plan/hiring-rounds HR-10). Inline, 25s. */
+    pipelineDraft: DEFAULT_CHAT_MODEL,
+    /** Hiring: a company's aptitude questions on its own topics, as drafts it approves (HR-11). Worker job. */
+    aptitudeGenerate: DEFAULT_CHAT_MODEL,
+    /** Hiring rounds: a system design answer scored against its prompt's rubric (HR-16). Inline, 25s. */
+    hiringDesignScore: DEFAULT_CHAT_MODEL,
+    /** A typed interview: the interviewer's next question, on the same brief as the voice agent (plan/voice VO-8). Inline, 25s. */
+    voiceInterviewer: DEFAULT_CHAT_MODEL,
+    /** A voice or typed interview scored against its rubric from the transcript (plan/voice VO-9). Worker job. */
+    voiceInterviewScore: DEFAULT_CHAT_MODEL,
+    /** A daily standup's done / planned / blockers and a one-line summary, from its transcript (plan/voice VO-12). Worker job. */
+    standupExtract: DEFAULT_CHAT_MODEL,
+    /** Hiring: a personal invite or decline note drafted from a candidate's round results (plan/hiring-rounds HR-19). Inline, 25s. */
+    candidateFeedback: DEFAULT_CHAT_MODEL,
+    /** The company AI panel: answers about the company's roles, results and threads, with tool rounds (plan/hiring-app HA-11). Inline, streamed, 25s. */
+    hiringAi: DEFAULT_CHAT_MODEL,
+    /** The company AI panel's conversation titles (HA-11). Inline. */
+    hiringAiTitle: DEFAULT_CHAT_MODEL,
 } as const satisfies Record<string, ModelId>
 
 export type AiTask = keyof typeof AI_TASKS

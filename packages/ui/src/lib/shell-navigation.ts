@@ -65,7 +65,8 @@ export function flattenNavigation(items: NavigationItem[]): FlatDestination[] {
 }
 
 /** Always pinned, always first. */
-export const SIDEBAR_LOCKED_PATHS: string[] = ["/home"]
+/** Always in the sidebar, whatever is pinned: Home, and the Inbox with its count (plan/inbox IN-4). */
+export const SIDEBAR_LOCKED_PATHS: string[] = ["/home", "/inbox"]
 
 /** The most rows the pinned list holds. */
 export const SIDEBAR_PRIMARY_CAP = 10

@@ -4,9 +4,12 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "../../lib/utils"
 
-// Base (cursor-pointer, rounded-xl) and size radii aligned with gurukulhq's button (2026-09-22).
+// Base (cursor-pointer) and size radii aligned with gurukulhq's button (2026-09-22).
+// rounded-md since 2026-09-25 (plan/ui-pass UI-18): rounded-xl is 14px here, which on
+// a 36px button reads as a pill. Niraj asked for less rounded; 8px matches the
+// project workspace's own controls.
 const buttonVariants = cva(
-	"cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+	"cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
 	{
 		variants: {
 			variant: {

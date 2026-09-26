@@ -316,6 +316,13 @@ export interface ScrapeSiteOptions extends ScrapeOptions {
      * rejected URL does not use up a page of the budget.
      */
     filter?: (url: string) => boolean
+    /**
+     * URLs the caller already knows exist (it probed them itself), read right after the
+     * entry URL and before anything discovery found. Map's `search` is a fuzzy match on
+     * its own index: for razorpay.com, "about" returned docs pages titled "About Payment
+     * Pages" and never `/about-us`, which the index did not hold at all.
+     */
+    seeds?: string[]
 }
 
 export interface ScrapeSiteResult {
@@ -407,14 +414,22 @@ async function discover(
  * show the real reason), a partial failure returns what came back with `degraded` set.
  */
 export async function scrapeSite(apiKey: string, url: string, opts: ScrapeSiteOptions): Promise<ScrapeSiteResult> {
-    const { maxPages, prefer, concurrency, mapOptions, filter, ...scrapeOpts } = opts
+    const { maxPages, prefer, concurrency, mapOptions, filter, seeds, ...scrapeOpts } = opts
 
     const discovered = await discover(apiKey, url, prefer ?? [], maxPages, mapOptions)
 
     // Discovery can legitimately return nothing (a single-page site, or one with no sitemap
     // and no discoverable links). Falling back to the entry URL means a one-page site still
     // reads correctly instead of looking like a failure.
-    const all = discovered.length ? discovered.map((l) => l.url) : [url]
+    const found = discovered.length ? discovered.map((l) => l.url) : [url]
+    // The entry URL stays first, then the caller's seeds, then discovery's own order.
+    const seen = new Set<string>()
+    const all = [found[0]!, ...(seeds ?? []), ...found.slice(1)].filter((u) => {
+        const k = u.replace(/\/$/, '')
+        if (seen.has(k)) return false
+        seen.add(k)
+        return true
+    })
     const filteredUrls = filter ? all.filter((u) => !filter(u)) : []
     const candidates = filter ? all.filter(filter) : all
     if (candidates.length === 0) {
