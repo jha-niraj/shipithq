@@ -12,7 +12,7 @@ import { Section } from "@/components/marketing/primitives";
 import { CtaBand, HowItWorks, NumbersBand } from "@/components/marketing/sections";
 import { ProductTour } from "@/components/marketing/product-tour";
 import { GuidesStrip } from "./guides-strip";
-import { CandidateView, FairByDesign, OldVsNew, TeamSizes } from "@/components/hire/sections";
+import { AlreadyPractising, CandidateView, FairByDesign, OldVsNew, TeamSizes } from "@/components/hire/sections";
 import { TESTIMONIALS as COMPANY_TESTIMONIALS } from "@/content/testimonials/companies";
 import { DEMO_COMPANIES } from "@/content/testimonials/demo";
 import { HIRE_FAQS, HIRE_MODULES, HIRE_STEP_CARDS, HIRE_TOUR } from "@/content/hire";
@@ -38,6 +38,7 @@ export function HireLanding() {
 				<OldVsNew />
 				<HowItWorks title="From a job post to a shortlist that already passed" steps={HIRE_STEP_CARDS} />
 				<CandidateView />
+				<AlreadyPractising />
 				<ProductTour eyebrow="Take the tour" title="See the workspace" tabs={HIRE_TOUR} />
 				<NumbersBand title="On ShipItHQ today" keys={["developers", "activeJobs", "companies", "mocks"]} />
 				<FairByDesign />

@@ -1,8 +1,10 @@
 import Link from "next/link"
-import { ArrowRight, Check, ListChecks, Mail, Scale, Shuffle, X } from "lucide-react"
+import { ArrowRight, Check, ClipboardPaste, Combine, FileText, ListChecks, Mail, Scale, Shuffle, X } from "lucide-react"
 import { HIRING_PLANS, UNLIMITED, type HiringPlanKey } from "@repo/pricing"
 import { cn } from "@repo/ui/lib/utils"
-import { Eyebrow, MONO, Section } from "@/components/marketing/primitives"
+import { Eyebrow, MONO, PrimaryCta, Section, TONE } from "@/components/marketing/primitives"
+import { HIRE_WEDGE } from "@/content/hire"
+import { HIRING_LINKS } from "@/lib/site"
 
 /**
  * The sections only /hire has (plan/web/revamp REV-103 to REV-106), each laid out
@@ -186,6 +188,42 @@ export function CandidateView() {
                 </div>
                 <div className="sh-reveal" style={{ ["--sh-reveal-delay" as string]: "0.1s" }}>
                     <Phone />
+                </div>
+            </div>
+        </section>
+    )
+}
+
+// ── Students already practise your interview (CMP-5) ─────────────────────────
+
+const WEDGE_ICONS = [ClipboardPaste, Combine, FileText]
+
+/** The wedge from the company's side: imported jobs, adopt or replace, and reported totals. */
+export function AlreadyPractising() {
+    const w = HIRE_WEDGE
+    const tone = TONE.sand
+    return (
+        <section className="px-4 pb-20 sm:px-6 md:pb-28">
+            <div className={cn("sh-reveal mx-auto max-w-7xl rounded-3xl p-8 md:p-14", tone.surface, tone.ink)}>
+                <div className="max-w-2xl">
+                    <Eyebrow className={tone.muted}>{w.eyebrow}</Eyebrow>
+                    <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight md:text-4xl">{w.title}</h2>
+                    <p className={cn("mt-4 text-[16px] leading-7", tone.muted)}>{w.sub}</p>
+                </div>
+                <ul className="mt-10 grid gap-6 md:grid-cols-3">
+                    {w.points.map((p, i) => {
+                        const Icon = WEDGE_ICONS[i] ?? FileText
+                        return (
+                            <li key={p.t} className="rounded-2xl bg-white/70 p-5 ring-1 ring-neutral-900/10">
+                                <Icon className="size-5 text-neutral-900" aria-hidden />
+                                <p className="mt-3 text-[16px] font-semibold text-neutral-900">{p.t}</p>
+                                <p className="mt-1 text-[15px] leading-6 text-neutral-800">{p.b}</p>
+                            </li>
+                        )
+                    })}
+                </ul>
+                <div className="mt-10">
+                    <PrimaryCta href={HIRING_LINKS.signup}>{w.cta}</PrimaryCta>
                 </div>
             </div>
         </section>

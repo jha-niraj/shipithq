@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import SiteHeader from "@/components/site/header";
 import SiteFooter from "@/components/site/footer";
 import { HomeHero } from "@/components/home/hero";
+import { PasteJobBand } from "@/components/home/paste-job-band";
 import { HomeModules } from "@/components/home/modules";
 import { EverythingElse } from "@/components/home/everything-else";
 import { IncidentsBand } from "@/components/home/incidents-band";
@@ -55,6 +56,7 @@ export const metadata: Metadata = {
  * (2026-09-25). It reads top to bottom as:
  *
  *   Hero            the promise, with the product's own fragments around it
+ *   Paste a job     the wedge: any job's interview, round by round (CMP-5)
  *   Modules         the five parts of the product, each a card into its detail page
  *   Everything else the rest of the product and the site, as numbered tiles
  *   Pricing         the three ways to pay, every number from @repo/pricing
@@ -95,6 +97,8 @@ export default function LandingPage() {
             <SiteHeader />
             <main className="relative bg-neutral-50">
                 <HomeHero />
+                {/* The wedge (plan/competition/skillmeet CMP-5): paste a job, practise its rounds. */}
+                <PasteJobBand />
                 <HomeModules />
                 <WalkAway />
                 <HowItWorks title="From sign-up to an offer, in four steps" steps={HOME_STEPS} />

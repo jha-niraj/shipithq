@@ -28,6 +28,8 @@ export const APP_LINKS = {
     dashboard: `${APP_URL}/home`,
     // Incidents (plan/incidents INC-6): public in the app, readable signed out.
     incidents: `${APP_URL}/incidents`,
+    // Paste a job, practise its rounds (plan/job-import; the wedge, plan/competition/skillmeet CMP-5).
+    importJob: `${APP_URL}/jobs/import`,
 } as const;
 
 /**

@@ -301,3 +301,25 @@ export const HIRE_TOUR: TourTab[] = [
         href: "/hire/team", cta: "How teams work",
     },
 ]
+
+/**
+ * The wedge from the company's side (plan/competition/skillmeet CMP-5; Niraj,
+ * 2026-09-26). Each point is something that ships:
+ *   1. plan/job-import JI-1 to JI-8: students paste a posting and practise rounds
+ *      ShipItHQ designs from it (and from what students reported, JI-11).
+ *   2. JI-9: a verified company sees those imports under its pipelines (private ones
+ *      anonymised) and adopts, edits or replaces them; students then practise its version.
+ *   3. CMP-1, CMP-2: students report real interviews; only totals are shown ("reported
+ *      N times"), once a role has 3 reports from the last year.
+ */
+export const HIRE_WEDGE = {
+    eyebrow: "Already happening",
+    title: "Students are already practising your interview",
+    sub: "They paste your job posts into ShipItHQ and rehearse the rounds we design from them. Claim your page and make those rounds yours.",
+    points: [
+        { t: "See the jobs they imported", b: "Every job students pasted from your postings, with the rounds ShipItHQ built for it. Private imports never say who made them." },
+        { t: "Adopt, edit or replace", b: "Make a pipeline yours and edit it like any other, or point it at one you already run. From then on, students practise your version." },
+        { t: "What candidates report", b: "Students report the rounds they actually took. Only totals are ever shown, once a role has three reports from the last year." },
+    ],
+    cta: "Claim your company page",
+} as const
