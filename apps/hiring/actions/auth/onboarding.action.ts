@@ -1,7 +1,7 @@
 "use server"
 
-import { db, users, companies, companyMembers, companyRoles, withTransaction, ROLE_PRESETS, type RolePresetKey } from "@repo/db"
-import { eq, inArray } from "drizzle-orm"
+import { db, users, companies, companyClaims, companyMembers, companyRoles, withTransaction, ROLE_PRESETS, type RolePresetKey } from "@repo/db"
+import { and, desc, eq, inArray } from "drizzle-orm"
 import { getSession } from "@repo/auth"
 import { checkWorkEmail } from "@repo/auth/work-email"
 import { getMyPendingInvitation } from "@/actions/team/invite.action"
@@ -46,7 +46,7 @@ export async function getPendingCompanyInfo() {
                 suggestedWebsite
             }
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get pending company info error:", error)
         return { success: false, error: "Failed to fetch company info" }
     }
@@ -68,6 +68,9 @@ interface OnboardingData {
 }
 
 export async function checkSlugAvailability(slug: string): Promise<{ available: boolean; suggestions?: string[] }> {
+    // Only someone signing up asks this (HA-14 sweep: it answered anyone).
+    const session = await getSession(await headers())
+    if (!session?.user?.id) return { available: false }
     if (!slug || slug.length < 2) {
         return { available: false }
     }
@@ -121,7 +124,7 @@ function domainCandidates(domain: string): string[] {
 async function companyForEmailDomain(domain: string) {
     return db.query.companies.findFirst({
         where: inArray(companies.websiteDomain, domainCandidates(domain)),
-        columns: { id: true, name: true },
+        columns: { id: true, name: true, website: true, claimStatus: true },
     })
 }
 
@@ -137,6 +140,12 @@ export async function getOnboardingEligibility(): Promise<
     | { status: "ok" }
     | { status: "invited"; code: string; companyName: string; roleName: string }
     | { status: "company_exists"; companyName: string; message: string }
+    /** ShipItHQ built this company's page and nobody has claimed it (HR-8). */
+    | { status: "claimable"; companyName: string; website: string | null; lastRejection: string | null }
+    /** This user's claim is waiting for an admin. */
+    | { status: "claim_pending"; companyName: string; submittedAt: Date }
+    /** Someone else from the company has claimed it. */
+    | { status: "claim_in_review"; companyName: string; message: string }
     | { status: "work_email_required"; message: string }
     | { status: "already_member" }
     | { status: "unauthorized" }
@@ -155,8 +164,29 @@ export async function getOnboardingEligibility(): Promise<
     const invite = await getMyPendingInvitation()
     if (invite) return { status: "invited", ...invite }
     const existing = await companyForEmailDomain(workEmail.domain)
-    if (existing) return { status: "company_exists", companyName: existing.name, message: ASK_FOR_INVITE(existing.name) }
-    return { status: "ok" }
+    if (!existing) return { status: "ok" }
+    if (existing.claimStatus === "CLAIMED") return { status: "company_exists", companyName: existing.name, message: ASK_FOR_INVITE(existing.name) }
+
+    // An unclaimed page, or one with a claim under review (HR-8).
+    const myLatest = await db.query.companyClaims.findFirst({
+        where: and(eq(companyClaims.companyId, existing.id), eq(companyClaims.userId, session.user.id)),
+        orderBy: [desc(companyClaims.createdAt)],
+        columns: { status: true, rejectReason: true, createdAt: true },
+    })
+    if (existing.claimStatus === "CLAIM_PENDING") {
+        if (myLatest?.status === "PENDING") return { status: "claim_pending", companyName: existing.name, submittedAt: myLatest.createdAt }
+        return {
+            status: "claim_in_review",
+            companyName: existing.name,
+            message: `Someone from ${existing.name} has already claimed its page, and we're checking it. Once it's approved, ask them to invite you.`,
+        }
+    }
+    return {
+        status: "claimable",
+        companyName: existing.name,
+        website: existing.website,
+        lastRejection: myLatest?.status === "REJECTED" ? myLatest.rejectReason ?? "Your last claim wasn't approved." : null,
+    }
 }
 
 /**
@@ -200,6 +230,10 @@ export async function completeOnboarding(data: OnboardingData) {
         }
 
         const existingForDomain = await companyForEmailDomain(workEmail.domain)
+        if (existingForDomain?.claimStatus === "UNCLAIMED") {
+            // ShipItHQ already built this company's page: claim it, don't make a second one (HR-8).
+            return { success: false, error: `${existingForDomain.name} already has a page on ShipItHQ. Claim it instead.`, code: "CLAIMABLE" as const }
+        }
         if (existingForDomain) {
             return { success: false, error: ASK_FOR_INVITE(existingForDomain.name), code: "COMPANY_EXISTS" as const }
         }
@@ -301,8 +335,71 @@ export async function getUserCompany() {
         }
 
         return { success: true, data: companyMember }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get company error:", error)
         return { success: false, error: "Failed to fetch company" }
     }
 }
+
+export interface ClaimInput {
+    jobTitle: string
+    linkedinUrl?: string
+    note?: string
+}
+
+/**
+ * Claim the unclaimed page whose domain matches this user's work email
+ * (plan/hiring-rounds HR-8). The claim waits for an admin; until then the page
+ * is CLAIM_PENDING and nothing on it changes (Niraj, 2026-09-25).
+ */
+export async function claimCompany(input: ClaimInput): Promise<{ success: true } | { success: false; error: string }> {
+    const session = await getSession(headers())
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" }
+    const userId = session.user.id
+    // Free-mail and disposable domains never claim: the domain match is the evidence.
+    const workEmail = checkWorkEmail(session.user.email ?? "")
+    if (!workEmail.ok) return { success: false, error: workEmail.message }
+
+    const jobTitle = input.jobTitle.trim().replace(/\s+/g, " ").slice(0, 80)
+    if (jobTitle.length < 2) return { success: false, error: "Add your job title at the company." }
+    let linkedinUrl: string | null = null
+    if (input.linkedinUrl?.trim()) {
+        try {
+            const u = new URL(input.linkedinUrl.trim())
+            if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("protocol")
+            if (!/(^|\.)linkedin\.com$/i.test(u.hostname)) return { success: false, error: "That isn't a LinkedIn profile link." }
+            linkedinUrl = u.toString().slice(0, 300)
+        } catch {
+            return { success: false, error: "That LinkedIn link isn't a valid URL." }
+        }
+    }
+    const note = input.note?.trim().slice(0, 500) || null
+
+    try {
+        const member = await db.query.companyMembers.findFirst({ where: eq(companyMembers.userId, userId), columns: { id: true } })
+        if (member) return { success: false, error: "You already belong to a company on ShipItHQ." }
+        const company = await companyForEmailDomain(workEmail.domain)
+        if (!company) return { success: false, error: "There's no page for your company to claim. Create your workspace instead." }
+        if (company.claimStatus === "CLAIM_PENDING") return { success: false, error: `Someone has already claimed ${company.name}'s page, and it's being checked.` }
+        if (company.claimStatus !== "UNCLAIMED") return { success: false, error: ASK_FOR_INVITE(company.name) }
+
+        await withTransaction(async (tx) => {
+            const [moved] = await tx.update(companies).set({ claimStatus: "CLAIM_PENDING" })
+                .where(and(eq(companies.id, company.id), eq(companies.claimStatus, "UNCLAIMED")))
+                .returning({ id: companies.id })
+            if (!moved) throw new Error("CLAIM_RACE")
+            await tx.insert(companyClaims).values({
+                companyId: company.id, userId, email: (session.user.email ?? "").toLowerCase(), jobTitle, linkedinUrl, note,
+            })
+        })
+        return { success: true }
+    } catch (error: unknown) {
+        const text = error instanceof Error ? `${error.message} ${String((error as { cause?: unknown }).cause ?? "")}` : String(error)
+        if (/CLAIM_RACE|uq_company_claim_pending/.test(text)) {
+            return { success: false, error: "Someone from your company claimed this page a moment ago, and it's being checked." }
+        }
+        console.error("claimCompany:", error instanceof Error ? error.message : error)
+        return { success: false, error: "Could not send your claim" }
+    }
+}
+

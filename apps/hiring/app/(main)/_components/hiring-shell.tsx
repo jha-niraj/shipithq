@@ -6,12 +6,13 @@ import { Lock } from "lucide-react"
 import { SidebarProvider } from "@repo/ui/components/shell/sidebar-provider"
 import { ShellFrame } from "@repo/ui/components/shell/shell-frame"
 import { HiringSidebar } from "@/components/navigation/sidebar"
+import { HiringAIRail } from "@/components/ai/hiring-ai-rail"
 import { navigationFor, permissionForPath } from "@/lib/navigation"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The hiring shell (plan/hiring-app HA-2): the same frame as apps/main - the
-// sidebar, the hover strip, the page column and (from HA-11) the docked AI
-// rail - from packages/ui. The page surface is opaque white: the hiring pages
+// sidebar, the hover strip, the page column and the docked company AI rail
+// (HA-11, for members with "use AI") - from packages/ui. The page surface is opaque white: the hiring pages
 // were designed on it.
 //
 // Signed-out visitors and people without a company are sent away by the server
@@ -29,11 +30,13 @@ export function HiringShell({ children, unpinned, permissions, roleName }: {
     const pathname = usePathname()
     const needed = permissionForPath(pathname)
     const allowed = !needed || permissions.includes(needed)
+    // The company AI panel (HA-11) is there only for members with "use AI".
+    const canUseAI = permissions.includes("use_ai")
 
     return (
         <SidebarProvider initialUnpinned={unpinned}>
             <div className="relative flex h-dvh w-full overflow-hidden bg-neutral-50 dark:bg-black">
-                <ShellFrame sidebar={<HiringSidebar navigation={navigationFor(permissions)} />} surfaceClassName="bg-white dark:bg-neutral-950">
+                <ShellFrame sidebar={<HiringSidebar navigation={navigationFor(permissions)} canUseAI={canUseAI} />} rail={canUseAI ? <HiringAIRail /> : undefined} surfaceClassName="bg-white dark:bg-neutral-950">
                     {allowed ? children : <NoAccess roleName={roleName} />}
                 </ShellFrame>
             </div>

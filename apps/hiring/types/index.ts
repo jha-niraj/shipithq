@@ -19,7 +19,6 @@ export type * from "./profile"
 export type * from "./application"
 
 // Assessment-related types
-export type * from "./assignment"
 
 // Billing-related types
 export type * from "./billing"

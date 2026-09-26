@@ -6,8 +6,8 @@ import { eq, and, desc, count, isNotNull, ne, asc } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import type { InterviewProcessInput } from "@/types"
 
-// Re-export types for backwards compatibility
-export type { InterviewProcessInput } from "@/types"
+// Types come from @/types: a "use server" file may export only async functions,
+// and Turbopack registers an `export type { ... }` list as action exports.
 
 // ============================================
 // INTERVIEW PROCESS CRUD
@@ -54,7 +54,7 @@ export async function getInterviewProcesses() {
         }))
 
         return { success: true, data: processesWithCount }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error fetching interview processes:", error)
         return { success: false, error: "Failed to fetch interview processes" }
     }
@@ -90,7 +90,7 @@ export async function getInterviewProcess(processId: string) {
             .where(and(eq(jobs.interviewProcessId, processId), eq(jobs.companyId, member.companyId)))
 
         return { success: true, data: { ...process, jobs: linkedJobs } }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error fetching interview process:", error)
         return { success: false, error: "Failed to fetch interview process" }
     }
@@ -161,7 +161,7 @@ export async function createInterviewProcess(input: InterviewProcessInput) {
 
         revalidatePath("/interview-config")
         return { success: true, data: fullProcess }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error creating interview process:", error)
         return { success: false, error: "Failed to create interview process" }
     }
@@ -223,7 +223,7 @@ export async function updateInterviewProcess(processId: string, input: Partial<I
 
         revalidatePath("/interview-config")
         return { success: true, data: fullProcess }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error updating interview process:", error)
         return { success: false, error: "Failed to update interview process" }
     }
@@ -262,7 +262,7 @@ export async function deleteInterviewProcess(processId: string) {
 
         revalidatePath("/interview-config")
         return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error deleting interview process:", error)
         return { success: false, error: "Failed to delete interview process" }
     }
@@ -345,7 +345,7 @@ export async function cloneInterviewProcess(processId: string, newName?: string)
 
         revalidatePath("/interview-config")
         return { success: true, data: fullProcess }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error cloning interview process:", error)
         return { success: false, error: "Failed to clone interview process" }
     }
@@ -367,7 +367,7 @@ export async function hasInterviewProcessConfigured() {
             ))
 
         return { success: true, hasConfig: (result[0]?.count ?? 0) > 0 }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error checking interview config:", error)
         return { success: false, hasConfig: false }
     }
@@ -421,7 +421,7 @@ export async function getInterviewProcessStats() {
                 jobsWithProcess: jobsWithProcessRows[0]?.count ?? 0
             }
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error fetching interview stats:", error)
         return { success: false, error: "Failed to fetch statistics" }
     }

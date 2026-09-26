@@ -1,301 +1,181 @@
 "use client"
 
-import { motion } from "framer-motion"
-import {
-    BarChart3, Users, Briefcase, Clock, Target, Eye, TrendingUp,
-    TrendingDown, CheckCircle, ArrowRight, Award
-} from "lucide-react"
-import { Badge } from "@repo/ui/components/ui/badge"
-import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
-import { PageHeader } from "@repo/ui/components/ui/page-header"
 import Link from "next/link"
-import Image from "next/image"
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
+import { CheckCircle2, Clock, Inbox, Send, Trophy, XCircle } from "lucide-react"
+import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@repo/ui/components/ui/chart"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
+import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { cn } from "@repo/ui/lib/utils"
+import type { AnalyticsData } from "@/lib/analytics"
 
-interface AnalyticsData {
-    overview: {
-        totalJobs: number
-        activeJobs: number
-        totalApplications: number
-        recentApplications: number
-        applicationChange: number
-        totalViews: number
-        hiredCount: number
-        interviewsScheduled: number
-        avgTimeToHire: string
-        conversionRate: number
-    }
-    pipeline: {
-        applied: number
-        reviewing: number
-        shortlisted: number
-        interviewing: number
-        offered: number
-        hired: number
-        rejected: number
-    }
-    topJobs: Array<{
-        id: string
-        title: string
-        slug: string
-        viewsCount: number
-        applicationsCount: number
-        status: string
-        createdAt: Date
-    }>
-}
+/*
+ * Analytics (plan/hiring-app HA-21): the range picker, the headline numbers,
+ * results and decisions per week, students practising per week, then per role,
+ * outcomes and the team. Monochrome lines; every week in the range is drawn,
+ * zeros included, so a line is to scale.
+ */
 
-interface RecruiterPerformance {
-    id: string
-    name: string
-    image: string | null
-    role: string
-    jobsPosted: number
-    applicationsReviewed: number
-}
+const TYPE: Record<string, string> = { APTITUDE: "Aptitude", DSA: "Coding", SYSTEM_DESIGN: "System design", VOICE_BEHAVIOURAL: "Behavioural", VOICE_CULTURE: "Culture" }
+const OUTCOME: Record<string, string> = { INTERVIEWING: "Interviewing", OFFER: "Offer", HIRED: "Hired", NOT_SELECTED: "Not selected" }
+const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "-")
+const shortWeek = (w: string) => new Date(`${w}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })
 
-interface AnalyticsContentProps {
-    analytics: AnalyticsData | null
-    recruiterPerformance: RecruiterPerformance[]
-}
+// Greys that hold contrast on both surfaces: the strongest line flips with the theme.
+const resultsConfig = {
+    received: { label: "Received", theme: { light: "#171717", dark: "#fafafa" } },
+    invited: { label: "Invited", theme: { light: "#525252", dark: "#a3a3a3" } },
+    declined: { label: "Declined", theme: { light: "#a3a3a3", dark: "#525252" } },
+} satisfies ChartConfig
+const practiceConfig = { practising: { label: "Students practising", theme: { light: "#262626", dark: "#e5e5e5" } } } satisfies ChartConfig
 
-export function AnalyticsContent({ analytics, recruiterPerformance }: AnalyticsContentProps) {
-    if (!analytics) {
-        return (
-            <div className="page-frame space-y-5 px-page py-6">
-                <PageHeader title="Analytics" subtitle="Track your hiring pipeline performance" />
-                <div className="text-center py-16 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl">
-                    <div className="w-20 h-20 rounded-2xl bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mx-auto mb-6">
-                        <BarChart3 className="w-10 h-10 text-neutral-400" />
-                    </div>
-                    <h3 className="font-bold text-xl text-neutral-900 dark:text-white mb-2">
-                        No data yet
-                    </h3>
-                    <p className="text-neutral-500 max-w-md mx-auto">
-                        Analytics will appear once you start posting jobs and receiving applications.
-                    </p>
-                </div>
-            </div>
-        )
-    }
-
-    const { overview, pipeline, topJobs } = analytics
-    const totalPipeline = Object.values(pipeline).reduce((a, b) => a + b, 0)
-
-    const statsCards: StatBandItem[] = [
-        {
-            label: "Total Views",
-            value: overview.totalViews.toLocaleString(),
-            icon: Eye,
-        },
-        {
-            label: "Applications",
-            value: overview.totalApplications.toLocaleString(),
-            hint: (
-                <span className={`inline-flex items-center gap-0.5 ${overview.applicationChange >= 0 ? "" : "text-rose-700 dark:text-rose-400"}`}>
-                    {overview.applicationChange >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                    {Math.abs(overview.applicationChange)}%
-                </span>
-            ),
-            icon: Users,
-        },
-        {
-            label: "Active Jobs",
-            value: overview.activeJobs.toString(),
-            icon: Briefcase,
-        },
-        {
-            label: "Avg. Time to Hire",
-            value: overview.avgTimeToHire,
-            icon: Clock,
-        },
-        {
-            label: "Total Hired",
-            value: overview.hiredCount.toString(),
-            icon: CheckCircle,
-        },
-        {
-            label: "Conversion Rate",
-            value: `${overview.conversionRate}%`,
-            icon: Target,
-        },
-    ]
-
-    const pipelineStages = [
-        { label: "Applied", count: pipeline.applied, color: "bg-neutral-900" },
-        { label: "Reviewing", count: pipeline.reviewing, color: "bg-neutral-900" },
-        { label: "Shortlisted", count: pipeline.shortlisted, color: "bg-neutral-900" },
-        { label: "Interviewing", count: pipeline.interviewing, color: "bg-neutral-900" },
-        { label: "Offered", count: pipeline.offered, color: "bg-neutral-900" },
-        { label: "Hired", count: pipeline.hired, color: "bg-neutral-900" },
-        { label: "Rejected", count: pipeline.rejected, color: "bg-red-500" },
-    ]
-
+export function AnalyticsContent({ data }: { data: AnalyticsData }) {
+    const t = data.totals
+    const empty = data.series.every((w) => !w.received && !w.practising && !w.invited && !w.declined)
     return (
-        <div className="page-frame space-y-5 px-page py-6">
-            <PageHeader title="Analytics" subtitle="Track your hiring pipeline performance" />
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                <StatBand cols={6} items={statsCards} />
-            </motion.div>
-            <div className="grid lg:grid-cols-3 gap-6">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="lg:col-span-2 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                >
-                    <h2 className="font-semibold text-lg text-neutral-900 dark:text-white mb-6">
-                        Hiring Pipeline
-                    </h2>
-                    <div className="space-y-4">
-                        {
-                            pipelineStages.map((stage, i) => {
-                                const percentage = totalPipeline > 0 ? (stage.count / totalPipeline) * 100 : 0
-                                return (
-                                    <motion.div
-                                        key={stage.label}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: 0.4 + i * 0.05 }}
-                                        className="flex items-center gap-4"
-                                    >
-                                        <div className="w-24 text-sm text-neutral-600 dark:text-neutral-400">
-                                            {stage.label}
-                                        </div>
-                                        <div className="flex-1 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-lg overflow-hidden relative">
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${percentage}%` }}
-                                                transition={{ delay: 0.5 + i * 0.1, duration: 0.5 }}
-                                                className={`h-full ${stage.color} rounded-lg`}
-                                            />
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-neutral-900 dark:text-white">
-                                                {stage.count}
-                                            </span>
-                                        </div>
-                                        <div className="w-12 text-right text-sm text-neutral-500">
-                                            {percentage.toFixed(0)}%
-                                        </div>
-                                    </motion.div>
-                                )
-                            })
-                        }
-                    </div>
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                >
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="font-semibold text-lg text-neutral-900 dark:text-white">
-                            Top Jobs
-                        </h2>
-                        <Link href="/jobs" className="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1">
-                            View all <ArrowRight className="w-4 h-4" />
-                        </Link>
-                    </div>
-                    {
-                        topJobs.length > 0 ? (
-                            <div className="space-y-4">
-                                {
-                                    topJobs.map((job, i) => (
-                                        <motion.div
-                                            key={job.id}
-                                            initial={{ opacity: 0, x: 20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.5 + i * 0.05 }}
-                                            className="flex items-center gap-3"
-                                        >
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${i === 0 ? "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100" :
-                                                i === 1 ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300" :
-                                                    i === 2 ? "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100" :
-                                                        "bg-neutral-100 dark:bg-neutral-800 text-neutral-500"
-                                                }`}>
-                                                {i + 1}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <Link href={`/jobs/${job.slug}`}>
-                                                    <p className="font-medium text-neutral-900 dark:text-white truncate hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors">
-                                                        {job.title}
-                                                    </p>
-                                                </Link>
-                                                <p className="text-xs text-neutral-500">
-                                                    {job.viewsCount} views • {job.applicationsCount} apps
-                                                </p>
-                                            </div>
-                                            <Badge variant={job.status === "ACTIVE" ? "default" : "secondary"} className="text-xs">
-                                                {job.status.toLowerCase()}
-                                            </Badge>
-                                        </motion.div>
-                                    ))
-                                }
-                            </div>
-                        ) : (
-                            <p className="text-neutral-500 text-sm text-center py-8">
-                                No jobs posted yet
-                            </p>
-                        )
-                    }
-                </motion.div>
+        <div className="page-frame space-y-6 px-page py-6">
+            <PageHeader
+                title="Analytics"
+                subtitle={`Results, decisions and rounds over the last ${data.weeks} weeks.`}
+                tabs={
+                    <nav aria-label="Range" className="inline-flex rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-800">
+                        {([4, 12, 26] as const).map((w) => (
+                            <Link key={w} href={`/analytics?weeks=${w}`} aria-current={data.weeks === w ? "page" : undefined}
+                                className={cn("rounded-md px-3 py-1 text-sm font-medium", data.weeks === w ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "text-neutral-600 dark:text-neutral-300")}>
+                                {w} weeks
+                            </Link>
+                        ))}
+                    </nav>
+                }
+            />
+
+            <StatBand
+                cols={6}
+                items={[
+                    { icon: Inbox, label: "Results received", value: t.received.toLocaleString("en-IN") },
+                    { icon: Clock, label: "Waiting", value: t.waiting.toLocaleString("en-IN"), hint: "no decision yet" },
+                    { icon: Send, label: "Invited", value: t.invited.toLocaleString("en-IN"), hint: t.received ? `${pct(t.invited, t.received)} of results` : undefined },
+                    { icon: XCircle, label: "Declined", value: t.declined.toLocaleString("en-IN") },
+                    { icon: CheckCircle2, label: "Days to decide", value: t.medianDaysToDecide === null ? "-" : t.medianDaysToDecide < 1 ? "< 1" : t.medianDaysToDecide.toFixed(1), hint: "median" },
+                    { icon: Trophy, label: "Hired", value: t.hired.toLocaleString("en-IN") },
+                ]}
+            />
+
+            {empty && (
+                <p className="rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
+                    Nothing in this range yet. The lines fill in as students take your rounds and send you their results.
+                </p>
+            )}
+
+            <div className="grid gap-6 xl:grid-cols-2">
+                <ChartCard title="Results and decisions per week" subtitle="Results received, and the invites and declines made that week">
+                    <ChartContainer config={resultsConfig} className="h-64 w-full">
+                        <LineChart data={data.series} margin={{ left: 0, right: 12, top: 8 }}>
+                            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                            <XAxis dataKey="week" tickFormatter={shortWeek} tickLine={false} axisLine={false} minTickGap={24} />
+                            <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={32} />
+                            <ChartTooltip content={<ChartTooltipContent labelFormatter={(v) => `Week of ${shortWeek(String(v))}`} />} />
+                            <ChartLegend content={<ChartLegendContent />} />
+                            <Line type="monotone" dataKey="received" stroke="var(--color-received)" strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="invited" stroke="var(--color-invited)" strokeWidth={2} dot={false} strokeDasharray="6 3" />
+                            <Line type="monotone" dataKey="declined" stroke="var(--color-declined)" strokeWidth={2} dot={false} strokeDasharray="2 3" />
+                        </LineChart>
+                    </ChartContainer>
+                </ChartCard>
+                <ChartCard title="Students practising per week" subtitle="Everyone taking your rounds, whether or not they sent you results. Counts only.">
+                    <ChartContainer config={practiceConfig} className="h-64 w-full">
+                        <LineChart data={data.series} margin={{ left: 0, right: 12, top: 8 }}>
+                            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                            <XAxis dataKey="week" tickFormatter={shortWeek} tickLine={false} axisLine={false} minTickGap={24} />
+                            <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={32} />
+                            <ChartTooltip content={<ChartTooltipContent labelFormatter={(v) => `Week of ${shortWeek(String(v))}`} />} />
+                            <Line type="monotone" dataKey="practising" stroke="var(--color-practising)" strokeWidth={2} dot={false} />
+                        </LineChart>
+                    </ChartContainer>
+                </ChartCard>
             </div>
 
-            {
-                recruiterPerformance.length > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.5 }}
-                        className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                    >
-                        <h2 className="font-semibold text-lg text-neutral-900 dark:text-white mb-6 flex items-center gap-2">
-                            <Award className="w-5 h-5 text-neutral-900 dark:text-white" />
-                            Team Performance
-                        </h2>
-                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {
-                                recruiterPerformance.map((recruiter, i) => (
-                                    <motion.div
-                                        key={recruiter.id}
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.6 + i * 0.05 }}
-                                        className="p-4 bg-neutral-50 dark:bg-neutral-900 rounded-xl"
-                                    >
-                                        <div className="flex items-center gap-3 mb-3">
-                                            <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center overflow-hidden relative">
-                                                {
-                                                    recruiter.image ? (
-                                                        <Image src={recruiter.image} alt={recruiter.name} fill className="object-cover" />
-                                                    ) : (
-                                                        <span className="font-bold text-neutral-600 dark:text-neutral-400">
-                                                            {recruiter.name.charAt(0)}
-                                                        </span>
-                                                    )
-                                                }
-                                            </div>
-                                            <div>
-                                                <p className="font-medium text-neutral-900 dark:text-white text-sm">{recruiter.name}</p>
-                                                <p className="text-xs text-neutral-500">{recruiter.role}</p>
-                                            </div>
+            <section aria-label="By role" className="space-y-2">
+                <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">By role</h2>
+                <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+                    <table className="w-full min-w-[720px] text-sm">
+                        <thead className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                            <tr>
+                                <th className="px-4 py-2.5 font-medium">Role</th>
+                                <th className="px-4 py-2.5 text-right font-medium">Results</th>
+                                <th className="px-4 py-2.5 text-right font-medium">Invite rate</th>
+                                <th className="px-4 py-2.5 font-medium">Rounds: started, passed (pass rate, all time)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                            {data.roles.length === 0 && <tr><td colSpan={4} className="px-4 py-4 text-neutral-500">No published roles yet.</td></tr>}
+                            {data.roles.map((r) => (
+                                <tr key={r.id}>
+                                    <td className="px-4 py-3">
+                                        <Link href={`/applications/${r.slug}`} className="font-medium text-neutral-900 hover:underline dark:text-white">{r.title}</Link>
+                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">{r.status.charAt(0) + r.status.slice(1).toLowerCase()}</p>
+                                    </td>
+                                    <td className="px-4 py-3 text-right tabular-nums text-neutral-900 dark:text-white">{r.received}</td>
+                                    <td className="px-4 py-3 text-right tabular-nums text-neutral-900 dark:text-white">{pct(r.invited, r.invited + r.declined)}</td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {r.rounds.map((x) => (
+                                                <span key={x.number} title={`${x.title}: ${x.practising} started, ${x.scored} scored, ${x.passed} reached ${x.passMark}`} className="rounded-md border border-neutral-200 px-1.5 py-0.5 text-xs text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
+                                                    {TYPE[x.type] ?? x.title} <span className="tabular-nums">{x.practising}, {x.passed}</span> <span className="font-medium text-neutral-900 dark:text-white">({pct(x.passed, x.scored)})</span>
+                                                </span>
+                                            ))}
+                                            {!r.rounds.length && <span className="text-xs text-neutral-500">No rounds</span>}
                                         </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div className="text-center p-2 bg-white dark:bg-neutral-800 rounded-lg">
-                                                <p className="text-lg font-bold text-neutral-900 dark:text-white">{recruiter.jobsPosted}</p>
-                                                <p className="text-xs text-neutral-500">Jobs</p>
-                                            </div>
-                                            <div className="text-center p-2 bg-white dark:bg-neutral-800 rounded-lg">
-                                                <p className="text-lg font-bold text-neutral-900 dark:text-white">{recruiter.applicationsReviewed}</p>
-                                                <p className="text-xs text-neutral-500">Reviewed</p>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                ))
-                            }
-                        </div>
-                    </motion.div>
-                )
-            }
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+                <section aria-label="Outcomes after an invite" className="space-y-2">
+                    <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Outcomes after an invite</h2>
+                    <table className="w-full rounded-2xl border border-neutral-200 bg-white text-sm dark:border-neutral-800 dark:bg-neutral-900">
+                        <thead className="text-left text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                            <tr><th className="px-4 py-2.5 font-medium">Outcome</th><th className="px-4 py-2.5 text-right font-medium">Your team says</th><th className="px-4 py-2.5 text-right font-medium">Candidates say</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                            {data.outcomes.map((o) => (
+                                <tr key={o.outcome}><td className="px-4 py-2.5 text-neutral-800 dark:text-neutral-200">{OUTCOME[o.outcome]}</td><td className="px-4 py-2.5 text-right tabular-nums text-neutral-900 dark:text-white">{o.company}</td><td className="px-4 py-2.5 text-right tabular-nums text-neutral-900 dark:text-white">{o.candidate}</td></tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </section>
+                <section aria-label="Decisions by teammate" className="space-y-2">
+                    <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Decisions by teammate</h2>
+                    {data.members.length === 0 ? (
+                        <p className="rounded-2xl border border-neutral-200 bg-white px-4 py-4 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900">No decisions in this range.</p>
+                    ) : (
+                        <table className="w-full rounded-2xl border border-neutral-200 bg-white text-sm dark:border-neutral-800 dark:bg-neutral-900">
+                            <thead className="text-left text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                                <tr><th className="px-4 py-2.5 font-medium">Teammate</th><th className="px-4 py-2.5 text-right font-medium">Invited</th><th className="px-4 py-2.5 text-right font-medium">Declined</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                {data.members.map((m, i) => (
+                                    <tr key={i}><td className="px-4 py-2.5 text-neutral-800 dark:text-neutral-200">{m.name}</td><td className="px-4 py-2.5 text-right tabular-nums text-neutral-900 dark:text-white">{m.invited}</td><td className="px-4 py-2.5 text-right tabular-nums text-neutral-900 dark:text-white">{m.declined}</td></tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </section>
+            </div>
         </div>
+    )
+}
+
+function ChartCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+    return (
+        <section aria-label={title} className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">{title}</h2>
+            <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">{subtitle}</p>
+            {children}
+        </section>
     )
 }

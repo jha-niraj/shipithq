@@ -113,6 +113,8 @@ export interface UsageStats {
     templatesLimit: number
     teamMembers: number
     teamLimit: number
+    /** Company credits (plan/hiring-app HA-20). */
+    credits: number
 }
 
 // ============================================

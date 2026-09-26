@@ -1,6 +1,6 @@
 "use server"
 
-import { db, companyMembers, companyRoles, jobs, jobApplications, memberInvitations } from "@repo/db"
+import { db, companyMembers, companyRoles, hiringSends, jobs, memberInvitations } from "@repo/db"
 import { requirePermission, type CompanyContext } from "@/lib/permissions"
 import { eq, and, count, isNotNull, asc } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
@@ -118,7 +118,7 @@ export async function getTeamMembers() {
             data: teamMembers,
             isHead: ctx.can("manage_team")
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get team members error:", error)
         return { success: false, error: "Failed to fetch team members" }
     }
@@ -188,7 +188,7 @@ export async function getTeamMember(memberId: string) {
             data: teamMember,
             isHead: ctx.can("manage_team")
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get team member error:", error)
         return { success: false, error: "Failed to fetch team member" }
     }
@@ -253,7 +253,7 @@ export async function updateTeamMember(memberId: string, payload: UpdateTeamMemb
 
         revalidatePath("/team")
         return { success: true, message: "Team member updated successfully" }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Update team member error:", error)
         return { success: false, error: "Failed to update team member" }
     }
@@ -295,7 +295,7 @@ export async function updateMemberRole(memberId: string, newRole: CompanyMemberR
 
         revalidatePath("/team")
         return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error updating member role:", error)
         return { success: false, error: "Failed to update role" }
     }
@@ -337,7 +337,7 @@ export async function deactivateTeamMember(memberId: string) {
 
         revalidatePath("/team")
         return { success: true, message: "Team member deactivated" }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Deactivate team member error:", error)
         return { success: false, error: "Failed to deactivate team member" }
     }
@@ -372,7 +372,7 @@ export async function reactivateTeamMember(memberId: string) {
 
         revalidatePath("/team")
         return { success: true, message: "Team member reactivated" }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Reactivate team member error:", error)
         return { success: false, error: "Failed to reactivate team member" }
     }
@@ -410,7 +410,7 @@ export async function removeTeamMember(memberId: string) {
 
         revalidatePath("/team")
         return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error removing member:", error)
         return { success: false, error: "Failed to remove member" }
     }
@@ -447,25 +447,12 @@ export async function getTeamStats() {
             .from(jobs)
             .where(eq(jobs.companyId, member.companyId))
 
-        // Count applications reviewed (have a reviewedById)
-        const companyJobIds = await db
-            .select({ id: jobs.id })
-            .from(jobs)
-            .where(eq(jobs.companyId, member.companyId))
-        const jobIds = companyJobIds.map(j => j.id)
-
-        let candidatesProcessed = 0
-        if (jobIds.length > 0) {
-            const { inArray } = await import("drizzle-orm")
-            const processedRows = await db
-                .select({ count: count() })
-                .from(jobApplications)
-                .where(and(
-                    inArray(jobApplications.jobId, jobIds),
-                    isNotNull(jobApplications.reviewedById)
-                ))
-            candidatesProcessed = processedRows[0]?.count ?? 0
-        }
+        // Results the team has decided on, invited or declined (plan/hiring-app HA-23).
+        const processedRows = await db
+            .select({ count: count() })
+            .from(hiringSends)
+            .where(and(eq(hiringSends.companyId, member.companyId), isNotNull(hiringSends.decidedAt)))
+        const candidatesProcessed = processedRows[0]?.count ?? 0
 
         return {
             success: true,
@@ -476,7 +463,7 @@ export async function getTeamStats() {
                 candidatesProcessed
             }
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error fetching team stats:", error)
         return { success: false, error: "Failed to fetch stats" }
     }

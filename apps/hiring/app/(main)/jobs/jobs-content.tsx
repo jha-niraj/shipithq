@@ -25,6 +25,7 @@ import {
 } from "@/actions/jobs"
 import { toast } from "@repo/ui/components/ui/sonner"
 import type { JobStats, Job } from "@/types"
+import { publicJobUrl } from "@/lib/urls"
 
 // View-specific types for job list display
 type InterviewRoundView = {
@@ -167,7 +168,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                                 { icon: Pause, label: "Paused", value: stats.paused },
                                 { icon: Edit, label: "Drafts", value: stats.draft },
                                 { icon: Eye, label: "Total Views", value: stats.totalViews },
-                                { icon: Users, label: "Applications", value: stats.totalApplications },
+                                { icon: Users, label: "Results received", value: stats.totalApplications },
                             ]}
                         />
                     </motion.div>
@@ -245,6 +246,10 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                                                     <Badge className={`${getStatusBadge(job.status)} shrink-0`}>
                                                         {job.status.charAt(0) + job.status.slice(1).toLowerCase()}
                                                     </Badge>
+                                                    {/* Hidden by an admin after a report (HR-24): students can't see it, and it can't be republished. */}
+                                                    {Boolean(job.adminHiddenAt) && (
+                                                        <Badge variant="outline" className="shrink-0" title="ShipItHQ hid this job after a report. Write to support@shipithq.com.">Hidden by ShipItHQ</Badge>
+                                                    )}
                                                     {
                                                         job.interviewProcess && (
                                                             <Badge variant="outline" className="shrink-0">
@@ -272,7 +277,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                                                     </span>
                                                     <span className="flex items-center gap-1">
                                                         <Users className="w-4 h-4" />
-                                                        {job.applicationsCount} applicants
+                                                        {job.applicationsCount} {job.applicationsCount === 1 ? "result" : "results"}
                                                     </span>
                                                 </div>
                                                 {
@@ -297,10 +302,10 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                                                         </Link>
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem asChild>
-                                                        <Link href={`/jobs/${job.slug}`} className="flex items-center">
+                                                        <a href={publicJobUrl(job.slug)} target="_blank" rel="noopener noreferrer" className="flex items-center">
                                                             <ExternalLink className="w-4 h-4 mr-2" />
-                                                            View Details
-                                                        </Link>
+                                                            View as candidates see it
+                                                        </a>
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
                                                     {

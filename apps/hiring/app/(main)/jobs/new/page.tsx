@@ -1,4 +1,4 @@
-import { getInterviewProcesses } from "@/actions/interview-config"
+import { getPipelineChoices } from "@/actions/jobs/job-pipeline.action"
 import JobFormContent from "./job-form-content"
 
 export const dynamic = "force-dynamic"
@@ -9,8 +9,6 @@ export const metadata = {
 }
 
 export default async function NewJobPage() {
-    const processesResult = await getInterviewProcesses()
-    const interviewProcesses = processesResult.success ? processesResult.data ?? [] : []
-
-    return <JobFormContent interviewProcesses={interviewProcesses} />
+    const choices = await getPipelineChoices()
+    return <JobFormContent pipelineChoices={choices.success ? choices.data : []} />
 }

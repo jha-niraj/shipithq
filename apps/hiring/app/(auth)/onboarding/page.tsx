@@ -19,7 +19,7 @@ import {
 } from "@repo/ui/components/ui/select"
 import { cn } from "@repo/ui/lib/utils"
 import { 
-    completeOnboarding, checkSlugAvailability, getPendingCompanyInfo, getOnboardingEligibility
+    completeOnboarding, checkSlugAvailability, getPendingCompanyInfo, getOnboardingEligibility, claimCompany
 } from "@/actions/auth/onboarding.action"
 import { signOut } from "@repo/auth/client"
 import { acceptInvitation } from "@/actions/team/invite.action"
@@ -112,6 +112,105 @@ function OnboardingBlocked({ title, message }: { title: string; message: string 
                 </div>
                 <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">{title}</h1>
                 <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">{message}</p>
+                <Button
+                    variant="outline"
+                    className="mt-6 w-full"
+                    disabled={signingOut}
+                    onClick={async () => {
+                        setSigningOut(true)
+                        await signOut().catch(() => {})
+                        window.location.href = "/signin"
+                    }}
+                >
+                    Sign out
+                </Button>
+            </div>
+        </div>
+    )
+}
+
+/*
+ * ShipItHQ built this company's page from its website, and nobody has claimed it
+ * (plan/hiring-rounds HR-8). Claiming sends it to an admin; approval makes this
+ * person the page's Owner. Nothing changes on the page until then.
+ */
+function OnboardingClaim({ companyName, website, lastRejection, onClaimed }: {
+    companyName: string
+    website: string | null
+    lastRejection: string | null
+    onClaimed: () => void
+}) {
+    const [jobTitle, setJobTitle] = useState("")
+    const [linkedinUrl, setLinkedinUrl] = useState("")
+    const [note, setNote] = useState("")
+    const [error, setError] = useState<string | null>(null)
+    const [pending, startTransition] = useTransition()
+    const host = website?.replace(/^https?:\/\//, "").replace(/\/$/, "")
+    return (
+        <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-page py-10 dark:bg-neutral-950">
+            <form
+                className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900"
+                onSubmit={(e) => {
+                    e.preventDefault()
+                    startTransition(async () => {
+                        setError(null)
+                        const r = await claimCompany({ jobTitle, linkedinUrl, note })
+                        if (!r.success) { setError(r.error); return }
+                        onClaimed()
+                    })
+                }}
+            >
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
+                    <Building2 className="h-5 w-5 text-neutral-700 dark:text-neutral-300" />
+                </div>
+                <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">Claim {companyName}&apos;s page</h1>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+                    {companyName} already has a page on ShipItHQ, built from {host ?? "its website"}. Claim it and, once we&apos;ve checked, you&apos;ll be its Owner: you can edit the page, invite your team and start hiring.
+                </p>
+                {lastRejection && (
+                    <p className="mt-3 rounded-lg bg-neutral-100 px-3 py-2 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                        Your last claim wasn&apos;t approved: {lastRejection}
+                    </p>
+                )}
+                <div className="mt-5 space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="claim-title">Your job title</Label>
+                        <Input id="claim-title" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="Head of Talent" maxLength={80} required />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="claim-linkedin">LinkedIn profile <span className="font-normal text-neutral-500">(optional)</span></Label>
+                        <Input id="claim-linkedin" type="url" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://www.linkedin.com/in/..." maxLength={300} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="claim-note">Anything that helps us check <span className="font-normal text-neutral-500">(optional)</span></Label>
+                        <Textarea id="claim-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={500} />
+                    </div>
+                </div>
+                {error && <p role="alert" className="mt-4 text-sm text-rose-700 dark:text-rose-400">{error}</p>}
+                <Button type="submit" className="mt-6 w-full gap-1.5" disabled={pending || jobTitle.trim().length < 2}>
+                    {pending && <InlineLoader size="sm" />} Claim this page
+                </Button>
+                <p className="mt-3 text-center text-xs text-neutral-500 dark:text-neutral-400">
+                    We check that you work there before anything changes. It usually takes a working day.
+                </p>
+            </form>
+        </div>
+    )
+}
+
+/* The claim is with an admin (HR-8): no workspace until it is approved. */
+function OnboardingClaimPending({ companyName, submittedAt }: { companyName: string; submittedAt: Date }) {
+    const [signingOut, setSigningOut] = useState(false)
+    return (
+        <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-page dark:bg-neutral-950">
+            <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
+                    <CheckCircle2 className="h-5 w-5 text-neutral-700 dark:text-neutral-300" />
+                </div>
+                <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">Your claim for {companyName} is pending</h1>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+                    Sent {new Date(submittedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}. We&apos;re checking that you work there. We&apos;ll email you when it&apos;s approved, and then this sign-in takes you straight to your workspace.
+                </p>
                 <Button
                     variant="outline"
                     className="mt-6 w-full"
@@ -297,6 +396,22 @@ function OnboardingContent() {
     }
     if (eligibility.status === "invited") {
         return <OnboardingInvited code={eligibility.code} companyName={eligibility.companyName} roleName={eligibility.roleName} />
+    }
+    if (eligibility.status === "claimable") {
+        return (
+            <OnboardingClaim
+                companyName={eligibility.companyName}
+                website={eligibility.website}
+                lastRejection={eligibility.lastRejection}
+                onClaimed={() => setEligibility({ status: "claim_pending", companyName: eligibility.companyName, submittedAt: new Date() })}
+            />
+        )
+    }
+    if (eligibility.status === "claim_pending") {
+        return <OnboardingClaimPending companyName={eligibility.companyName} submittedAt={eligibility.submittedAt} />
+    }
+    if (eligibility.status === "claim_in_review") {
+        return <OnboardingBlocked title="Your company's page is being claimed" message={eligibility.message} />
     }
     if (eligibility.status === "work_email_required") {
         return <OnboardingBlocked title="A company email is needed" message={eligibility.message} />

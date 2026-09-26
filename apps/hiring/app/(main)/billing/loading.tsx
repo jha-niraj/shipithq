@@ -31,7 +31,7 @@ export default function Loading() {
 
             <div>
                 <Shimmer className="mb-4 h-6 w-44" />
-                <StatBandSkeleton count={4} cols={4} />
+                <StatBandSkeleton count={5} cols={5} />
             </div>
 
             <div>

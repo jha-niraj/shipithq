@@ -36,6 +36,16 @@
 		}
 	],
 
+	// The background job worker (apps/worker), for "Generate with AI" aptitude
+	// questions (plan/hiring-rounds HR-11). `lib/workers.ts` falls back to
+	// WORKER_URL under `next dev`.
+	"services": [
+		{
+			"binding": "WORKER",
+			"service": "shipithq-worker"
+		}
+	],
+
 	"vars": {
 		// Namespaces this app's entries inside the shared bucket so the apps never
 		// collide in the keyspace.

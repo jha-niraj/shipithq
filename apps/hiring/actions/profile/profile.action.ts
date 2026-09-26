@@ -52,7 +52,7 @@ export async function getUserProfile() {
         }
 
         return { success: true, data: profile }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get user profile error:", error)
         return { success: false, error: "Failed to fetch user profile" }
     }
@@ -113,7 +113,7 @@ export async function getCurrentMember() {
                 permissions
             }
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get current member error:", error)
         return { success: false, error: "Failed to fetch member info" }
     }
@@ -190,7 +190,7 @@ export async function getCompanyDetails() {
             data: companyDetails,
             isHead: ctx.can("edit_company")
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get company details error:", error)
         return { success: false, error: "Failed to fetch company details" }
     }
@@ -233,7 +233,7 @@ export async function updateUserProfile(payload: UpdateProfilePayload) {
         }
 
         return { success: true, message: "Profile updated successfully" }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Update profile error:", error)
         return { success: false, error: "Failed to update profile" }
     }
@@ -334,7 +334,7 @@ export async function updateCompanyDetails(payload: UpdateCompanyPayload) {
         }
 
         return { success: true, message: "Company details updated successfully" }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Update company error:", error)
         return { success: false, error: "Failed to update company details" }
     }

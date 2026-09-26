@@ -29,18 +29,17 @@ import {
     HIRING_SUBSCRIPTION_PLANS, type HiringSubscriptionPlanType 
 } from "@/lib/dodopayments"
 import { 
-    getCurrentSubscription, getUsageStats, cancelSubscription,
-    type SubscriptionDetails, type UsageStats
+    getCurrentSubscription, getUsageStats, cancelSubscription
 } from "@/actions/billing/subscription.action"
+import type { SubscriptionDetails, UsageStats, PaymentRecord, InvoiceDetails } from "@/types"
 import { 
     createCheckoutSession 
 } from "@/actions/billing/checkout.action"
 import { 
-    getPaymentHistory, type PaymentRecord
+    getPaymentHistory
 } from "@/actions/billing/payment.action"
 import {
-    getInvoices, getBillingOverview,
-    type InvoiceDetails
+    getInvoices, getBillingOverview
 } from "@/actions/billing/invoice.action"
 
 // ============================================
@@ -535,12 +534,13 @@ export default function BillingPage() {
                 >
                     <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Usage This Month</h2>
                     <StatBand
-                        cols={4}
+                        cols={5}
                         items={[
-                            usageItem("Active Jobs", usage.jobsUsed, usage.jobsLimit, Briefcase),
-                            usageItem("Applications", usage.applicationsUsed, usage.applicationsLimit, Users),
-                            usageItem("Interview Templates", usage.templatesUsed, usage.templatesLimit, FileText),
-                            usageItem("Team Members", usage.teamMembers, usage.teamLimit, Building2),
+                            usageItem("Live jobs", usage.jobsUsed, usage.jobsLimit, Briefcase),
+                            usageItem("Results received", usage.applicationsUsed, usage.applicationsLimit, Users),
+                            usageItem("Pipelines", usage.templatesUsed, usage.templatesLimit, FileText),
+                            usageItem("Team and invites", usage.teamMembers, usage.teamLimit, Building2),
+                            { icon: Sparkles, label: "Company credits", value: usage.credits.toLocaleString("en-IN"), hint: "for AI past the free daily drafts" },
                         ]}
                     />
                 </motion.div>

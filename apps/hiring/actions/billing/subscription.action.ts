@@ -1,16 +1,17 @@
 "use server"
 
-import { db, companyMembers, companySubscriptions, jobs, jobApplications, interviewProcesses } from "@repo/db"
+import { db, companyMembers, companySubscriptions, hiringSends, jobs, interviewProcesses, memberInvitations } from "@repo/db"
 import { requirePermission } from "@/lib/permissions"
-import { eq, and, count, gte } from "drizzle-orm"
+import { creditBalance, effectivePlan, ensureGrants } from "@/lib/plan"
+import { eq, and, count, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import {
     HIRING_SUBSCRIPTION_PLANS, type HiringSubscriptionPlanType
 } from "@/lib/dodopayments"
 import type { SubscriptionDetails, UsageStats } from "@/types"
 
-// Re-export types for backward compatibility
-export type { SubscriptionDetails, UsageStats }
+// Types come from @/types: a "use server" file may export only async functions,
+// and Turbopack registers an `export type { ... }` list as action exports.
 
 // ============================================
 // SERVER ACTIONS
@@ -88,7 +89,7 @@ export async function getCurrentSubscription(): Promise<{
                 billingCycle: subscription.billingCycle
             }
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get subscription error:", error)
         return { success: false, subscription: null, error: "Failed to fetch subscription" }
     }
@@ -105,80 +106,33 @@ export async function getUsageStats(): Promise<{
     try {
         const auth = await requirePermission("billing")
         if (!auth.ok) return { success: false, usage: null, error: auth.error }
-        const member = auth.ctx.member
-
-        // Get subscription limits
-        const subscription = await db.query.companySubscriptions.findFirst({
-            where: eq(companySubscriptions.companyId, member.companyId)
-        })
-
-        const limits = subscription || {
-            maxJobPosts: HIRING_SUBSCRIPTION_PLANS.FREE.maxJobPosts,
-            maxApplications: HIRING_SUBSCRIPTION_PLANS.FREE.maxApplications,
-            maxInterviewTemplates: HIRING_SUBSCRIPTION_PLANS.FREE.maxInterviewTemplates,
-            maxTeamMembers: HIRING_SUBSCRIPTION_PLANS.FREE.maxTeamMembers
-        }
-
-        // Get current month usage
-        const startOfMonth = new Date()
-        startOfMonth.setDate(1)
-        startOfMonth.setHours(0, 0, 0, 0)
-
-        // Count applications this month
-        const companyJobIds = await db
-            .select({ id: jobs.id })
-            .from(jobs)
-            .where(eq(jobs.companyId, member.companyId))
-        const jobIds = companyJobIds.map(j => j.id)
-
-        let applicationsThisMonth = 0
-        if (jobIds.length > 0) {
-            const { inArray } = await import("drizzle-orm")
-            const appsRows = await db
-                .select({ count: count() })
-                .from(jobApplications)
-                .where(and(
-                    inArray(jobApplications.jobId, jobIds),
-                    gte(jobApplications.appliedAt, startOfMonth)
-                ))
-            applicationsThisMonth = appsRows[0]?.count ?? 0
-        }
-
-        // Count interview templates
-        const interviewTemplatesRows = await db
-            .select({ count: count() })
-            .from(interviewProcesses)
-            .where(eq(interviewProcesses.companyId, member.companyId))
-
-        // Count team members
-        const teamMembersRows = await db
-            .select({ count: count() })
-            .from(companyMembers)
-            .where(eq(companyMembers.companyId, member.companyId))
-
-        // Count active jobs
-        const activeJobsRows = await db
-            .select({ count: count() })
-            .from(jobs)
-            .where(and(
-                eq(jobs.companyId, member.companyId),
-                eq(jobs.status, "ACTIVE")
-            ))
-
+        const companyId = auth.ctx.companyId
+        // The plan in force and its numbers (plan/hiring-app HA-20), and any grant now owed.
+        await ensureGrants(companyId)
+        const { limits } = await effectivePlan(companyId)
+        const [[live], [sent], [pipes], [members], [invites], credits] = await Promise.all([
+            db.select({ n: count() }).from(jobs).where(and(eq(jobs.companyId, companyId), eq(jobs.status, "ACTIVE"))),
+            db.select({ n: count() }).from(hiringSends).where(and(eq(hiringSends.companyId, companyId), sql`${hiringSends.createdAt} >= date_trunc('month', now())`)),
+            db.select({ n: count() }).from(interviewProcesses).where(and(eq(interviewProcesses.companyId, companyId), eq(interviewProcesses.isTemplate, true), eq(interviewProcesses.isActive, true))),
+            db.select({ n: count() }).from(companyMembers).where(and(eq(companyMembers.companyId, companyId), eq(companyMembers.isActive, true))),
+            db.select({ n: count() }).from(memberInvitations).where(and(eq(memberInvitations.companyId, companyId), eq(memberInvitations.status, "PENDING"))),
+            creditBalance(companyId),
+        ])
         return {
             success: true,
             usage: {
-                jobsUsed: activeJobsRows[0]?.count ?? 0,
+                jobsUsed: live?.n ?? 0,
                 jobsLimit: limits.maxJobPosts,
-                applicationsUsed: applicationsThisMonth,
+                applicationsUsed: sent?.n ?? 0,
                 applicationsLimit: limits.maxApplications,
-                templatesUsed: interviewTemplatesRows[0]?.count ?? 0,
-                templatesLimit: limits.maxInterviewTemplates,
-                teamMembers: teamMembersRows[0]?.count ?? 0,
-                teamLimit: limits.maxTeamMembers
-            }
+                templatesUsed: pipes?.n ?? 0,
+                templatesLimit: limits.maxPipelines,
+                teamMembers: (members?.n ?? 0) + (invites?.n ?? 0),
+                teamLimit: limits.maxTeamMembers,
+                credits,
+            },
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get usage stats error:", error)
         return { success: false, usage: null, error: "Failed to fetch usage stats" }
     }
@@ -219,78 +173,8 @@ export async function cancelSubscription(): Promise<{
         revalidatePath("/billing")
 
         return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Cancel subscription error:", error)
         return { success: false, error: "Failed to cancel subscription" }
-    }
-}
-
-/**
- * Check if company can perform action based on subscription limits
- */
-export async function checkSubscriptionLimit(action: 'job' | 'application' | 'template' | 'member'): Promise<{
-    allowed: boolean
-    message?: string
-    currentUsage?: number
-    limit?: number
-}> {
-    try {
-        const auth = await requirePermission("billing")
-        if (!auth.ok) return { allowed: false, message: auth.error }
-
-        const usageResult = await getUsageStats()
-        if (!usageResult.success || !usageResult.usage) {
-            return { allowed: false, message: "Failed to check limits" }
-        }
-
-        const usage = usageResult.usage
-
-        switch (action) {
-            case 'job':
-                if (usage.jobsUsed >= usage.jobsLimit) {
-                    return {
-                        allowed: false,
-                        message: `Job post limit reached (${usage.jobsLimit}). Please upgrade your plan.`,
-                        currentUsage: usage.jobsUsed,
-                        limit: usage.jobsLimit
-                    }
-                }
-                break
-            case 'application':
-                if (usage.applicationsUsed >= usage.applicationsLimit) {
-                    return {
-                        allowed: false,
-                        message: `Monthly application limit reached (${usage.applicationsLimit}). Please upgrade your plan.`,
-                        currentUsage: usage.applicationsUsed,
-                        limit: usage.applicationsLimit
-                    }
-                }
-                break
-            case 'template':
-                if (usage.templatesUsed >= usage.templatesLimit) {
-                    return {
-                        allowed: false,
-                        message: `Interview template limit reached (${usage.templatesLimit}). Please upgrade your plan.`,
-                        currentUsage: usage.templatesUsed,
-                        limit: usage.templatesLimit
-                    }
-                }
-                break
-            case 'member':
-                if (usage.teamMembers >= usage.teamLimit) {
-                    return {
-                        allowed: false,
-                        message: `Team member limit reached (${usage.teamLimit}). Please upgrade your plan.`,
-                        currentUsage: usage.teamMembers,
-                        limit: usage.teamLimit
-                    }
-                }
-                break
-        }
-
-        return { allowed: true }
-    } catch (error) {
-        console.error("Check subscription limit error:", error)
-        return { allowed: false, message: "Failed to check subscription limits" }
     }
 }

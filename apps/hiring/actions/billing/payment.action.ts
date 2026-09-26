@@ -9,8 +9,8 @@ import {
 } from "@/lib/dodopayments"
 import type { PaymentRecord, WebhookPaymentData } from "@/types"
 
-// Re-export types for backward compatibility
-export type { PaymentRecord, WebhookPaymentData }
+// Types come from @/types: a "use server" file may export only async functions,
+// and Turbopack registers an `export type { ... }` list as action exports.
 
 // ============================================
 // SERVER ACTIONS
@@ -47,7 +47,7 @@ export async function getPaymentHistory(limit: number = 10): Promise<{
                 paidAt: p.paidAt
             }))
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get payment history error:", error)
         return { success: false, payments: [], error: "Failed to fetch payment history" }
     }
@@ -159,7 +159,7 @@ export async function verifyPayment(paymentId: string): Promise<{
 
         // Still pending
         return { success: false, error: "Payment is still processing" }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Verify payment error:", error)
         return { success: false, error: "Failed to verify payment" }
     }

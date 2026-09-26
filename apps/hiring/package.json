@@ -30,7 +30,6 @@
 		"bcryptjs": "^3.0.3",
 		"date-fns": "^4.1.0",
 		"framer-motion": "^12.23.26",
-		"lenis": "^1.3.16",
 		"lucide-react": "^0.562.0",
 		"next": "^16.2.12",
 		"postcss": "^8.5.6",
@@ -38,9 +37,17 @@
 		"react-dom": "^19.2.0",
 		"react-hook-form": "^7.69.0",
 		"react-icons": "^5.5.0",
+		"recharts": "^3.6.0",
 		"resend": "^4.0.0",
 		"tailwindcss": "^4.1.18",
-		"zod": "^3.24.3"
+		"zod": "^3.24.3",
+		"@aws-sdk/client-s3": "3.958.0",
+		"@aws-sdk/s3-request-presigner": "3.958.0",
+		"@excalidraw/excalidraw": "0.18.0",
+		"@repo/ai": "workspace:*",
+		"@repo/pricing": "workspace:*",
+		"mammoth": "^1.11.0",
+		"unpdf": "^1.6.2"
 	},
 	"devDependencies": {
 		"@repo/eslint-config": "workspace:*",

@@ -1,34 +1,23 @@
-import { Suspense } from "react"
-import Loading from "./loading"
-import { 
-    getInterviewProcesses, getInterviewProcessStats 
-} from "@/actions/interview-config"
-import { InterviewConfigContent } from "./interview-config-content"
+import { listPipelines } from "@/actions/interview-config/pipeline-builder.action"
+import { PipelinesList } from "./_components/pipelines-list"
 
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-    title: "Interview Process Configuration | ShipItHQ Hiring",
-    description: "Configure your interview process for transparency and enable AI mock interviews"
+    title: "Interview pipelines | ShipItHQ Hiring",
+    description: "The rounds candidates take for each role, with pass marks and gates.",
 }
 
+/** The company's pipelines (plan/hiring-rounds HR-10). The builder is /interview-config/[id]. */
 export default async function InterviewConfigPage() {
-    const [processesResult, statsResult] = await Promise.all([
-        getInterviewProcesses(),
-        getInterviewProcessStats()
-    ])
-
-    const processes = processesResult.success ? processesResult.data : []
-    const stats = statsResult.success ? statsResult.data : { processCount: 0, totalRounds: 0, jobsWithProcess: 0 }
-
+    const result = await listPipelines()
     return (
-        <Suspense 
-            fallback={<Loading />}
-        >
-            <InterviewConfigContent 
-                initialProcesses={processes ?? []}
-                initialStats={stats ?? { processCount: 0, totalRounds: 0, jobsWithProcess: 0 }}
-            />
-        </Suspense>
+        <PipelinesList
+            pipelines={result.success ? result.data.pipelines : []}
+            templates={result.success ? result.data.templates : []}
+            canManage={result.success ? result.data.canManage : false}
+            aiDraftsLeft={result.success ? result.data.aiDraftsLeft : 0}
+            loadError={result.success ? null : result.error}
+        />
     )
 }

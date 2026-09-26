@@ -6,8 +6,8 @@ import { eq, and } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import type { InterviewRoundInput } from "@/types"
 
-// Re-export types for backwards compatibility
-export type { InterviewRoundInput } from "@/types"
+// Types come from @/types: a "use server" file may export only async functions,
+// and Turbopack registers an `export type { ... }` list as action exports.
 
 // ============================================
 // INTERVIEW ROUND MANAGEMENT
@@ -53,7 +53,7 @@ export async function addInterviewRound(processId: string, round: InterviewRound
 
         revalidatePath("/interview-config")
         return { success: true, data: newRound }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error adding interview round:", error)
         return { success: false, error: "Failed to add interview round" }
     }
@@ -104,7 +104,7 @@ export async function updateInterviewRound(roundId: string, input: Partial<Inter
 
         revalidatePath("/interview-config")
         return { success: true, data: round }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error updating interview round:", error)
         return { success: false, error: "Failed to update interview round" }
     }
@@ -135,7 +135,7 @@ export async function deleteInterviewRound(roundId: string) {
 
         revalidatePath("/interview-config")
         return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error deleting interview round:", error)
         return { success: false, error: "Failed to delete interview round" }
     }
@@ -171,7 +171,7 @@ export async function reorderInterviewRounds(processId: string, roundIds: string
 
         revalidatePath("/interview-config")
         return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error reordering interview rounds:", error)
         return { success: false, error: "Failed to reorder rounds" }
     }

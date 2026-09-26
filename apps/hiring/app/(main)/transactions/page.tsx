@@ -17,8 +17,9 @@ import {
 } from "@repo/ui/components/ui/select"
 import { Alert, AlertDescription } from "@repo/ui/components/ui/alert"
 import {
-    getPaymentHistory, type PaymentRecord
+    getPaymentHistory
 } from "@/actions/billing/payment.action"
+import type { PaymentRecord } from "@/types"
 import { getBillingOverview } from "@/actions/billing/invoice.action"
 
 // Status configurations

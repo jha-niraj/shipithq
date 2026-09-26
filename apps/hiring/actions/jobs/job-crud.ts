@@ -1,8 +1,10 @@
 "use server"
 
-import { db, companyMembers, jobs, interviewProcesses, interviewRounds } from "@repo/db"
+import { db, companyMembers, hiringSends, jobs, interviewProcesses, interviewRounds, withTransaction } from "@repo/db"
+import { notPurged } from "@repo/db/hiring-purge"
 import { requirePermission } from "@/lib/permissions"
-import { eq, and, desc, inArray, ilike, or, asc } from "drizzle-orm"
+import { createJobCopy, isUsableTemplate, pipelineReadiness } from "@/lib/pipelines"
+import { eq, and, desc, inArray, ilike, or, asc, count, ne } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import type { CreateJobInput } from "@/types"
 
@@ -27,40 +29,64 @@ export async function createJob(input: CreateJobInput) {
         if (!auth.ok) return { success: false, error: auth.error }
         const member = auth.ctx.member
 
+        // The pipeline (plan/hiring-rounds HR-12): `interviewProcessId` names the
+        // template to start from, which becomes the job's own copy. It must be
+        // the company's template or ShipItHQ's, and a published job needs one
+        // that is ready.
+        const templateId = input.interviewProcessId || null
+        if (templateId && !(await isUsableTemplate(member.companyId, templateId))) {
+            return { success: false, error: "That pipeline isn't available." }
+        }
+        if (input.status === "ACTIVE") {
+            if (!templateId) return { success: false, error: "Pick a pipeline to publish the job: candidates take its rounds instead of applying." }
+            const problems = await pipelineReadiness(templateId)
+            if (problems.length) return { success: false, error: `The pipeline isn't ready: ${problems[0]} Save as a draft and fix its rounds.` }
+        }
+
         const slug = generateSlug(input.title)
 
-        const [job] = await db.insert(jobs).values({
-            companyId: member.companyId,
-            postedById: member.id,
-            title: input.title,
-            slug,
-            description: input.description,
-            requirements: input.requirements || [],
-            responsibilities: input.responsibilities || [],
-            benefits: input.benefits || [],
-            location: input.location,
-            locationType: input.locationType,
-            employmentType: input.employmentType,
-            experienceMin: input.experienceMin,
-            experienceMax: input.experienceMax,
-            salaryMin: input.salaryMin,
-            salaryMax: input.salaryMax,
-            salaryCurrency: input.salaryCurrency || "INR",
-            salaryDisclosed: input.salaryDisclosed ?? true,
-            skillsRequired: input.skillsRequired || [],
-            skillsPreferred: input.skillsPreferred || [],
-            hasAssignment: input.hasAssignment || false,
-            assignmentDetails: input.assignmentDetails,
-            assignmentDeadlineDays: input.assignmentDeadlineDays,
-            interviewProcessId: input.interviewProcessId,
-            customQuestions: JSON.parse(JSON.stringify(input.customQuestions || [])),
-            visibility: input.visibility || "PUBLIC",
-            status: input.status || "DRAFT"
-        }).returning()
+        const job = await withTransaction(async (tx) => {
+            const [created] = await tx.insert(jobs).values({
+                companyId: member.companyId,
+                postedById: member.id,
+                title: input.title,
+                slug,
+                description: input.description,
+                requirements: input.requirements || [],
+                responsibilities: input.responsibilities || [],
+                benefits: input.benefits || [],
+                location: input.location,
+                locationType: input.locationType,
+                employmentType: input.employmentType,
+                experienceMin: input.experienceMin,
+                experienceMax: input.experienceMax,
+                salaryMin: input.salaryMin,
+                salaryMax: input.salaryMax,
+                salaryCurrency: input.salaryCurrency || "INR",
+                salaryDisclosed: input.salaryDisclosed ?? true,
+                skillsRequired: input.skillsRequired || [],
+                skillsPreferred: input.skillsPreferred || [],
+                hasAssignment: input.hasAssignment || false,
+                assignmentDetails: input.assignmentDetails,
+                assignmentDeadlineDays: input.assignmentDeadlineDays,
+                interviewProcessId: null,
+                customQuestions: JSON.parse(JSON.stringify(input.customQuestions || [])),
+                visibility: input.visibility || "PUBLIC",
+                status: input.status || "DRAFT",
+                publishedAt: input.status === "ACTIVE" ? new Date() : null,
+            }).returning()
+            if (!created) throw new Error("Failed to create job")
+            if (templateId) {
+                const copyId = await createJobCopy(tx, { sourceId: templateId, companyId: member.companyId, jobId: created.id })
+                await tx.update(jobs).set({ interviewProcessId: copyId }).where(eq(jobs.id, created.id))
+                return { ...created, interviewProcessId: copyId }
+            }
+            return created
+        })
 
         revalidatePath("/jobs")
         return { success: true, data: job }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error creating job:", error)
         return { success: false, error: "Failed to create job" }
     }
@@ -101,10 +127,19 @@ export async function updateJob(jobId: string, input: Partial<CreateJobInput>) {
         if (input.hasAssignment !== undefined) updateData.hasAssignment = input.hasAssignment
         if (input.assignmentDetails !== undefined) updateData.assignmentDetails = input.assignmentDetails
         if (input.assignmentDeadlineDays !== undefined) updateData.assignmentDeadlineDays = input.assignmentDeadlineDays
-        if (input.interviewProcessId !== undefined) updateData.interviewProcessId = input.interviewProcessId
+        // The pipeline changes only through assignJobPipeline (a fresh copy); an id
+        // passed here was never checked against the company (HA-18) and is ignored.
         if (input.customQuestions !== undefined) updateData.customQuestions = JSON.parse(JSON.stringify(input.customQuestions))
         if (input.visibility !== undefined) updateData.visibility = input.visibility
-        if (input.status !== undefined) updateData.status = input.status
+        if (input.status !== undefined) {
+            if (input.status === "ACTIVE" && existingJob.status !== "ACTIVE") {
+                if (!existingJob.interviewProcessId) return { success: false, error: "Pick a pipeline to publish the job." }
+                const problems = await pipelineReadiness(existingJob.interviewProcessId)
+                if (problems.length) return { success: false, error: `The pipeline isn't ready: ${problems[0]}` }
+                updateData.publishedAt = new Date()
+            }
+            updateData.status = input.status
+        }
 
         const updatedJobs = await db.update(jobs)
             .set(updateData)
@@ -117,7 +152,7 @@ export async function updateJob(jobId: string, input: Partial<CreateJobInput>) {
         revalidatePath("/jobs")
         revalidatePath(`/jobs/${job.slug}`)
         return { success: true, data: job }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error updating job:", error)
         return { success: false, error: "Failed to update job" }
     }
@@ -156,12 +191,17 @@ export async function getJobs(filters: {
                         email: true
                     }
                 },
-                applications: {
-                    columns: { id: true }
-                }
             },
             orderBy: [desc(jobs.createdAt)]
         })
+
+        // Results received per job (plan/hiring-app HA-23): withdrawn and purged ones left out.
+        const resultRows = jobList.length
+            ? await db.select({ jobId: hiringSends.jobId, n: count() }).from(hiringSends)
+                .where(and(inArray(hiringSends.jobId, jobList.map((j) => j.id)), ne(hiringSends.status, "WITHDRAWN"), notPurged))
+                .groupBy(hiringSends.jobId)
+            : []
+        const resultsFor = (id: string) => Number(resultRows.find((r) => r.jobId === id)?.n ?? 0)
 
         // Get interview process info separately since it's not in jobsRelations
         const processIds = [...new Set(jobList.map(j => j.interviewProcessId).filter(Boolean))] as string[]
@@ -185,11 +225,12 @@ export async function getJobs(filters: {
         const jobsWithCount = jobList.map(job => ({
             ...job,
             interviewProcess: job.interviewProcessId ? processMap.get(job.interviewProcessId) ?? null : null,
-            _count: { applications: job.applications.length }
+            applicationsCount: resultsFor(job.id),
+            _count: { applications: resultsFor(job.id) }
         }))
 
         return { success: true, data: jobsWithCount }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error fetching jobs:", error)
         return { success: false, error: "Failed to fetch jobs" }
     }
@@ -229,7 +270,7 @@ export async function getJobById(jobId: string) {
             : null
 
         return { success: true, data: { ...job, interviewProcess, _count: { applications: job.applications.length } } }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error fetching job:", error)
         return { success: false, error: "Failed to fetch job" }
     }
@@ -269,7 +310,7 @@ export async function getJobBySlug(slug: string) {
             : null
 
         return { success: true, data: { ...job, interviewProcess, _count: { applications: job.applications.length } } }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error fetching job:", error)
         return { success: false, error: "Failed to fetch job" }
     }
@@ -285,7 +326,7 @@ export async function deleteJob(jobId: string) {
 
         revalidatePath("/jobs")
         return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error deleting job:", error)
         return { success: false, error: "Failed to delete job" }
     }

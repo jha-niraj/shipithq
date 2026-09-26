@@ -3,6 +3,7 @@
 import { db, companyMembers, companyRoles, memberInvitations, users } from "@repo/db"
 import { checkWorkEmail } from "@repo/auth/work-email"
 import { requirePermission } from "@/lib/permissions"
+import { canAddMember } from "@/lib/plan"
 import { eq, and, desc, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { randomBytes } from "crypto"
@@ -79,6 +80,9 @@ export async function inviteTeamMember(payload: InviteTeamMemberPayload) {
             columns: { id: true },
         })
         if (pending) return { success: false, error: "An invitation is already pending for this email. Resend it instead." }
+        // The plan's member limit; pending invitations count (plan/hiring-app HA-20).
+        const room = await canAddMember(ctx.companyId)
+        if (!room.ok) return { success: false, error: room.error }
 
         const inviteCode = generateInviteCode()
         await db.insert(memberInvitations).values({
@@ -181,7 +185,7 @@ export async function getPendingInvites(): Promise<{ success: boolean; data?: Pe
         }))
 
         return { success: true, data: pendingInvites }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error fetching pending invites:", error)
         return { success: false, error: "Failed to fetch invites" }
     }
@@ -246,7 +250,7 @@ export async function getPendingInvitations() {
             })),
             isHead: ctx.can("manage_team")
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get pending invitations error:", error)
         return { success: false, error: "Failed to fetch invitations" }
     }
@@ -278,7 +282,7 @@ export async function cancelInvitation(invitationId: string) {
 
         revalidatePath("/team")
         return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error canceling invitation:", error)
         return { success: false, error: "Failed to cancel invitation" }
     }
@@ -338,7 +342,7 @@ export async function resendInvitation(invitationId: string) {
 
         revalidatePath("/team")
         return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error resending invitation:", error)
         return { success: false, error: "Failed to resend invitation" }
     }

@@ -8,8 +8,8 @@ import {
 } from "@/lib/dodopayments"
 import type { InvoiceLineItem, InvoiceDetails } from "@/types"
 
-// Re-export types for backward compatibility
-export type { InvoiceLineItem, InvoiceDetails }
+// Types come from @/types: a "use server" file may export only async functions,
+// and Turbopack registers an `export type { ... }` list as action exports.
 
 // ============================================
 // HELPERS
@@ -77,7 +77,7 @@ export async function getInvoices(limit: number = 20): Promise<{
                 paymentStatus: inv.payment.status
             }))
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get invoices error:", error)
         return { success: false, invoices: [], error: "Failed to fetch invoices" }
     }
@@ -138,7 +138,7 @@ export async function getInvoiceById(invoiceId: string): Promise<{
                 paymentStatus: invoice.payment.status
             }
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get invoice error:", error)
         return { success: false, invoice: null, error: "Failed to fetch invoice" }
     }
@@ -237,7 +237,7 @@ export async function createInvoiceForPayment(paymentId: string): Promise<{
         }
 
         return { success: true, invoiceId: invoice.id }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Create invoice error:", error)
         return { success: false, error: "Failed to create invoice" }
     }
@@ -266,7 +266,7 @@ export async function markInvoicePaid(invoiceId: string): Promise<{
             ))
 
         return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Mark invoice paid error:", error)
         return { success: false, error: "Failed to update invoice" }
     }
@@ -324,7 +324,7 @@ export async function getBillingOverview(): Promise<{
                 nextBillingDate: subscription?.currentPeriodEnd || null
             }
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Get billing overview error:", error)
         return { success: false, data: null, error: "Failed to fetch billing overview" }
     }

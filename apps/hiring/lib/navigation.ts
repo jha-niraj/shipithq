@@ -1,7 +1,7 @@
 import {
-    Home, Briefcase, Users, FileText, ClipboardList, UserPlus, BarChart3,
+    Home, Briefcase, Users, FileText, UserPlus, BarChart3,
     Building2, CreditCard, Settings, HelpCircle, ListChecks, Plus, GraduationCap,
-    Receipt, ArrowLeftRight, ShieldCheck,
+    Receipt, ArrowLeftRight, ShieldCheck, Inbox, FolderOpen,
 } from "lucide-react"
 import type { NavigationItem } from "@repo/ui/lib/shell-navigation"
 
@@ -21,6 +21,8 @@ export type { NavigationItem } from "@repo/ui/lib/shell-navigation"
 
 export const hiringNavigation: NavigationItem[] = [
     { name: "Home", path: "home", icon: Home },
+    // Candidate replies, new results and team news (plan/inbox IN-6).
+    { name: "Inbox", path: "inbox", icon: Inbox },
     {
         name: "Jobs",
         path: "jobs",
@@ -30,7 +32,7 @@ export const hiringNavigation: NavigationItem[] = [
             { name: "Create a job", path: "jobs/new", icon: Plus },
         ],
     },
-    { name: "Applications", path: "applications", icon: FileText, requiredPermission: "view_candidates" },
+    { name: "Results", path: "applications", icon: FileText, requiredPermission: "view_candidates" },
     {
         name: "Candidates",
         path: "candidates",
@@ -41,8 +43,9 @@ export const hiringNavigation: NavigationItem[] = [
             { name: "Universities", path: "candidates/universities", icon: GraduationCap },
         ],
     },
-    { name: "Interview process", path: "interview-config", icon: ListChecks },
-    { name: "Assignments", path: "assignments", icon: ClipboardList, requiredPermission: "view_candidates" },
+    { name: "Interview pipelines", path: "interview-config", icon: ListChecks },
+    // The company's documents for its AI (plan/hiring-app HA-13).
+    { name: "Documents", path: "documents", icon: FolderOpen, requiredPermission: "use_ai" },
     { name: "Analytics", path: "analytics", icon: BarChart3, requiredPermission: "view_analytics" },
     {
         name: "Company",

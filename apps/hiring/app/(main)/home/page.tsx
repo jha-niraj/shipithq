@@ -1,32 +1,15 @@
-import { Suspense } from "react"
-import Loading from "./loading"
-import { getSession } from "@repo/auth"
-import { headers } from "next/headers"
-import { getCandidateStats } from "@/actions/candidates"
-import { getInterviewProcesses } from "@/actions/interview-config"
+import { redirect } from "next/navigation"
+import { getCompanyContext } from "@/lib/permissions"
+import { loadHome } from "@/lib/home"
 import HomeContent from "./home-content"
 
 export const dynamic = "force-dynamic"
+export const metadata = { title: "Home | ShipItHQ Hiring" }
 
+/** The company's Home (plan/hiring-app HA-15): roles, the funnel per round, and what needs attention. */
 export default async function HomePage() {
-    const session = await getSession(headers())
-
-    // Fetch real stats
-    const [candidateStatsResult, interviewProcessesResult] = await Promise.all([
-        getCandidateStats(),
-        getInterviewProcesses()
-    ])
-
-    const candidateStats = candidateStatsResult.success ? candidateStatsResult.data ?? null : null
-    const interviewProcesses = interviewProcessesResult.success ? interviewProcessesResult.data : []
-
-    return (
-        <Suspense fallback={<Loading />}>
-            <HomeContent
-                userName={session?.user?.name?.split(" ")[0] || "there"}
-                candidateStats={candidateStats}
-                interviewProcessCount={interviewProcesses?.length || 0}
-            />
-        </Suspense>
-    )
+    const ctx = await getCompanyContext()
+    if (!ctx) redirect("/onboarding")
+    const data = await loadHome(ctx.companyId, ctx.member.company, { candidates: ctx.can("view_candidates"), jobs: ctx.can("manage_jobs") })
+    return <HomeContent data={data} canCreateJob={ctx.can("manage_jobs")} canSeeCandidates={ctx.can("view_candidates")} />
 }

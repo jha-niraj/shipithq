@@ -98,7 +98,7 @@ export async function handlePaymentWebhook(data: WebhookPaymentData): Promise<{
         }
 
         return { success: true }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Payment webhook error:", error)
         return { success: false, error: "Webhook processing failed" }
     }

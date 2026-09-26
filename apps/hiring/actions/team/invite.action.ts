@@ -3,7 +3,7 @@
 import { headers } from "next/headers"
 import { and, eq, gt, sql } from "drizzle-orm"
 import { getSession } from "@repo/auth"
-import { db, companies, companyMembers, companyRoles, memberInvitations, withTransaction } from "@repo/db"
+import { db, companies, companyMembers, companyRoles, memberInvitations, notifyCompany, withTransaction } from "@repo/db"
 
 /*
  * Accepting an invitation (plan/hiring-app HA-8). The invite email links to
@@ -126,6 +126,15 @@ export async function acceptInvitation(code: string): Promise<{ success: true } 
             }).returning({ id: companyMembers.id })
             await tx.update(memberInvitations).set({ resultingMemberId: member!.id }).where(eq(memberInvitations.id, row.id))
         })
+        // The team hears who joined (plan/inbox, Team tab); the new member isn't told about themselves.
+        await notifyCompany(row.companyId, "manage_team", {
+            kind: "MEMBER_JOINED",
+            title: "joined your team",
+            body: `${row.email} accepted their invitation.`,
+            actor: { name: session.user.name || row.email },
+            context: { label: "Team", href: "/team" },
+            href: "/team",
+        }, { except: [userId] }).catch((e: unknown) => console.error("notify MEMBER_JOINED:", e))
         return { success: true }
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : ""

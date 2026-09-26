@@ -7,6 +7,7 @@ import {
     ROLE_PRESETS, sanitizePermissions, type HiringPermission, type RolePresetKey,
 } from "@repo/db"
 import { requirePermission } from "@/lib/permissions"
+import { canAddCustomRole } from "@/lib/plan"
 
 /*
  * The company's roles (plan/hiring-app HA-6, HA-7, Niraj 2026-09-25): the fixed
@@ -87,6 +88,9 @@ export async function createCompanyRole(input: { name: string; fromRoleId?: stri
     const name = cleanName(input.name)
     if (!name) return { success: false, error: "Give the role a name." }
     if (/^owner$/i.test(name)) return { success: false, error: "\"Owner\" is reserved for the company's owners." }
+    // The plan's custom-role limit (plan/hiring-app HA-20).
+    const room = await canAddCustomRole(ctx.companyId)
+    if (!room.ok) return { success: false, error: room.error }
     try {
         let permissions: HiringPermission[] = []
         if (input.fromRoleId) {

@@ -56,7 +56,7 @@ export default function TermsPage() {
                     {/* Main content */}
                     <main className="flex-1 min-w-0">
                         <div className="mb-12">
-                            <p className="text-sm text-neutral-400 mb-6">Last updated: December 29, 2025</p>
+                            <p className="text-sm text-neutral-400 mb-6">Last updated: September 26, 2026</p>
                             <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-neutral-900 dark:text-white leading-none mb-6">
                                 Terms of <em>service.</em>
                             </h1>
@@ -134,6 +134,23 @@ export default function TermsPage() {
                             <div className="py-10 border-t border-neutral-200 dark:border-neutral-800">
                                 <h2 className="flex items-center text-lg font-bold text-neutral-900 dark:text-white mb-4">
                                     <span className="font-mono text-xs text-neutral-400 mr-4">05</span>
+                                    Candidate Results
+                                </h2>
+                                <div className="pl-8 space-y-3 text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                                    <p>Candidates take your rounds on ShipItHQ and choose, one send at a time, to share their results with you.</p>
+                                    <ul className="list-disc pl-5 space-y-2">
+                                        <li><strong className="text-neutral-700 dark:text-neutral-300">One purpose:</strong> use a candidate&apos;s results only to assess them for the role they sent them for. Do not export, resell or share them outside your team.</li>
+                                        <li><strong className="text-neutral-700 dark:text-neutral-300">A person decides:</strong> AI scores and integrity signals inform your decision; they must not be the only basis for it. Someone on your team decides every invite and every decline, and remains responsible for it, including under the laws on discrimination that apply to you.</li>
+                                        <li><strong className="text-neutral-700 dark:text-neutral-300">Withdrawal and retention:</strong> a candidate can withdraw a send until you decide on it, and it then leaves your view. Withdrawn and declined results are deleted after 90 days, and at once if the candidate deletes their account.</li>
+                                        <li><strong className="text-neutral-700 dark:text-neutral-300">Your page:</strong> until you claim and verify your company page, it is marked &quot;Unclaimed - not affiliated with ShipItHQ&quot;, shows ShipItHQ&apos;s generic rounds, and cannot receive results. Claiming it needs a work email on your company&apos;s domain and our approval.</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {/* Section 06 */}
+                            <div className="py-10 border-t border-neutral-200 dark:border-neutral-800">
+                                <h2 className="flex items-center text-lg font-bold text-neutral-900 dark:text-white mb-4">
+                                    <span className="font-mono text-xs text-neutral-400 mr-4">06</span>
                                     Fees and Payment
                                 </h2>
                                 <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed pl-8">
@@ -142,10 +159,10 @@ export default function TermsPage() {
                                 </p>
                             </div>
 
-                            {/* Section 06 */}
+                            {/* Section 07 */}
                             <div className="py-10 border-t border-neutral-200 dark:border-neutral-800">
                                 <h2 className="flex items-center text-lg font-bold text-neutral-900 dark:text-white mb-4">
-                                    <span className="font-mono text-xs text-neutral-400 mr-4">06</span>
+                                    <span className="font-mono text-xs text-neutral-400 mr-4">07</span>
                                     Quality Guarantee
                                 </h2>
                                 <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed pl-8">
@@ -155,10 +172,10 @@ export default function TermsPage() {
                                 </p>
                             </div>
 
-                            {/* Section 07 */}
+                            {/* Section 08 */}
                             <div className="py-10 border-t border-neutral-200 dark:border-neutral-800">
                                 <h2 className="flex items-center text-lg font-bold text-neutral-900 dark:text-white mb-4">
-                                    <span className="font-mono text-xs text-neutral-400 mr-4">07</span>
+                                    <span className="font-mono text-xs text-neutral-400 mr-4">08</span>
                                     Intellectual Property
                                 </h2>
                                 <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed pl-8">
@@ -168,10 +185,10 @@ export default function TermsPage() {
                                 </p>
                             </div>
 
-                            {/* Section 08 */}
+                            {/* Section 09 */}
                             <div className="py-10 border-t border-neutral-200 dark:border-neutral-800">
                                 <h2 className="flex items-center text-lg font-bold text-neutral-900 dark:text-white mb-4">
-                                    <span className="font-mono text-xs text-neutral-400 mr-4">08</span>
+                                    <span className="font-mono text-xs text-neutral-400 mr-4">09</span>
                                     Limitation of Liability
                                 </h2>
                                 <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed pl-8">
@@ -180,10 +197,10 @@ export default function TermsPage() {
                                 </p>
                             </div>
 
-                            {/* Section 09 */}
+                            {/* Section 10 */}
                             <div className="py-10 border-t border-neutral-200 dark:border-neutral-800">
                                 <h2 className="flex items-center text-lg font-bold text-neutral-900 dark:text-white mb-4">
-                                    <span className="font-mono text-xs text-neutral-400 mr-4">09</span>
+                                    <span className="font-mono text-xs text-neutral-400 mr-4">10</span>
                                     Termination
                                 </h2>
                                 <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed pl-8">

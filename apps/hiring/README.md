@@ -31,7 +31,7 @@ ShipItHQ Hiring is a comprehensive recruitment platform designed specifically fo
 - **Styling**: Tailwind CSS + shadcn/ui
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: NextAuth.js
-- **AI Integration**: OpenAI GPT-4, ElevenLabs
+- **AI Integration**: OpenAI, Sarvam (speech)
 - **Payments**: Dodo Payments
 - **Monorepo**: Turborepo
 
@@ -111,7 +111,7 @@ BETTER_AUTH_URL=
 
 # AI Services
 OPENAI_API_KEY=
-ELEVENLABS_API_KEY=
+SARVAM_API_KEY=
 
 # Payments
 DODO_PAYMENTS_API_KEY=

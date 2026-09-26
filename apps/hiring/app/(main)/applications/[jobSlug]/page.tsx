@@ -1,61 +1,26 @@
-import { Suspense } from "react"
-import Loading from "./loading"
 import { notFound } from "next/navigation"
-import { 
-    getApplications, getJobBySlug 
-} from "@/actions/applications"
-import { JobApplicationsContent } from "./job-applications-content"
-import type { ApplicationStatus } from "@/types"
+import { listJobSends } from "@/actions/sends"
+import { getCompanyContext } from "@/lib/permissions"
+import { SendsWorkspace } from "./_components/sends-workspace"
 
-interface JobApplicationsPageProps {
-    params: Promise<{
-        jobSlug: string
-    }>
-    searchParams: Promise<{
-        page?: string
-        status?: string
-        search?: string
-    }>
-}
+export const dynamic = "force-dynamic"
 
-export default async function JobApplicationsPage({ params, searchParams }: JobApplicationsPageProps) {
-    const { jobSlug } = await params
-    const { page = "1", status, search } = await searchParams
-
-    // Get job info
-    const jobResult = await getJobBySlug(jobSlug)
-
-    if (!jobResult.success || !jobResult.data) {
-        notFound()
+/** A role's candidates by round (plan/hiring-rounds HR-18). */
+export default async function JobApplicationsPage({ params, searchParams }: { params: Promise<{ jobSlug: string }>; searchParams: Promise<{ send?: string }> }) {
+    const [{ jobSlug }, { send }] = await Promise.all([params, searchParams])
+    const r = await listJobSends(jobSlug)
+    if (!r.success) {
+        if (r.error === "That role doesn't exist.") notFound()
+        return <p className="p-8 text-sm text-neutral-700 dark:text-neutral-300">{r.error}</p>
     }
-
-    // Get applications for this job
-    const applicationsResult = await getApplications(
-        jobSlug,
-        parseInt(page, 10),
-        25, // 25 items per page
-        {
-            status: status ? (status.split(",") as ApplicationStatus[]) : undefined,
-            search: search || undefined
-        }
-    )
-
+    const ctx = await getCompanyContext()
     return (
-        <Suspense fallback={<Loading />}>
-            <JobApplicationsContent
-                job={jobResult.data}
-                initialApplications={applicationsResult.success ? applicationsResult.data! : {
-                    applications: [],
-                    total: 0,
-                    page: 1,
-                    pageSize: 25,
-                    totalPages: 0
-                }}
-                initialFilters={{
-                    status: status ? status.split(",") as ApplicationStatus[] : undefined,
-                    search: search || undefined
-                }}
-            />
-        </Suspense>
+        <SendsWorkspace
+            data={r.data}
+            canMessage={Boolean(ctx?.can("message_candidates"))}
+            canDecide={Boolean(ctx?.can("invite_decline"))}
+            canDraft={Boolean(ctx?.can("invite_decline") && ctx?.can("use_ai"))}
+            initialSendId={send && r.data.rows.some((x) => x.id === send) ? send : null}
+        />
     )
 }

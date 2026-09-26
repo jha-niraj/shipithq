@@ -1,27 +1,11 @@
-import { Suspense } from "react"
-import Loading from "./loading"
-import { 
-    getApplicationStats, getJobApplicationStats 
-} from "@/actions/applications"
-import { ApplicationsContent } from "./applications-content"
+import { listRolesWithSends } from "@/actions/sends"
+import { RolesContent } from "./roles-content"
 
 export const dynamic = "force-dynamic"
 
+/** Every role and the results it has received (plan/hiring-rounds HR-18). */
 export default async function ApplicationsPage() {
-    const [statsResult, jobStatsResult] = await Promise.all([
-        getApplicationStats(),
-        getJobApplicationStats()
-    ])
-
-    const stats = statsResult.success ? statsResult.data : null
-    const jobStats = jobStatsResult.success ? jobStatsResult.data : []
-
-    return (
-        <Suspense fallback={<Loading />}>
-            <ApplicationsContent 
-                stats={stats ?? null}
-                jobStats={jobStats ?? []}
-            />
-        </Suspense>
-    )
+    const r = await listRolesWithSends()
+    if (!r.success) return <p className="p-8 text-sm text-neutral-700 dark:text-neutral-300">{r.error}</p>
+    return <RolesContent roles={r.data} />
 }

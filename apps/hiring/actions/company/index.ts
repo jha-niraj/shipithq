@@ -1,7 +1,7 @@
 // Company Actions - Server actions for company management
 "use server"
 
-import { db, companies, companyMembers, jobs, jobApplications } from "@repo/db"
+import { db, companies, companyMembers, hiringSends, jobs } from "@repo/db"
 import { requirePermission } from "@/lib/permissions"
 import { eq, and, count } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
@@ -41,7 +41,7 @@ export async function getCompanyProfile() {
                 membersCount: company.members.length
             }
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error fetching company profile:", error)
         return { success: false, error: "Failed to fetch company profile" }
     }
@@ -89,7 +89,7 @@ export async function updateCompanyProfile(data: {
         revalidatePath("/company")
         revalidatePath(`/companies/${updated.slug}`)
         return { success: true, data: updated }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error updating company profile:", error)
         return { success: false, error: "Failed to update profile" }
     }
@@ -109,7 +109,7 @@ export async function updateCompanyLogo(logoUrl: string) {
 
         revalidatePath("/company")
         return { success: true, data: updated }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error updating logo:", error)
         return { success: false, error: "Failed to update logo" }
     }
@@ -141,7 +141,7 @@ export async function updateCompanyCover(coverUrl: string) {
 
         revalidatePath("/company")
         return { success: true, data: updated }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error updating cover:", error)
         return { success: false, error: "Failed to update cover" }
     }
@@ -170,7 +170,7 @@ export async function addMediaToGallery(media: AddMediaInput) {
 
         revalidatePath("/company")
         return { success: true, data: updated }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error adding media:", error)
         return { success: false, error: "Failed to add media" }
     }
@@ -198,7 +198,7 @@ export async function removeMediaFromGallery(mediaId: string) {
 
         revalidatePath("/company")
         return { success: true, data: updated }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error removing media:", error)
         return { success: false, error: "Failed to remove media" }
     }
@@ -216,21 +216,12 @@ export async function getCompanyPublicStats() {
             .from(jobs)
             .where(and(eq(jobs.companyId, member.companyId), eq(jobs.status, "ACTIVE")))
 
-        const allJobIds = await db
-            .select({ id: jobs.id })
-            .from(jobs)
-            .where(eq(jobs.companyId, member.companyId))
-        const jobIds = allJobIds.map(j => j.id)
-
-        let totalHires = 0
-        if (jobIds.length > 0) {
-            const { inArray } = await import("drizzle-orm")
-            const hiresRows = await db
-                .select({ count: count() })
-                .from(jobApplications)
-                .where(and(inArray(jobApplications.jobId, jobIds), eq(jobApplications.status, "HIRED")))
-            totalHires = hiresRows[0]?.count ?? 0
-        }
+        // Candidates the company marked Hired after an invite (plan/hiring-app HA-23).
+        const hiresRows = await db
+            .select({ count: count() })
+            .from(hiringSends)
+            .where(and(eq(hiringSends.companyId, member.companyId), eq(hiringSends.companyOutcome, "HIRED")))
+        const totalHires = hiresRows[0]?.count ?? 0
 
         const company = await db.query.companies.findFirst({
             where: eq(companies.id, member.companyId),
@@ -245,7 +236,7 @@ export async function getCompanyPublicStats() {
                 avgTimeToHireDays: company?.avgTimeToHireDays || 0
             }
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error fetching stats:", error)
         return { success: false, error: "Failed to fetch stats" }
     }

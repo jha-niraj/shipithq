@@ -25,9 +25,9 @@ import {
 } from "@repo/ui/components/ui/table"
 import { Separator } from "@repo/ui/components/ui/separator"
 import { 
-    getInvoices, getInvoiceById, getBillingOverview,
-    type InvoiceDetails 
+    getInvoices, getInvoiceById, getBillingOverview 
 } from "@/actions/billing/invoice.action"
+import type { InvoiceDetails } from "@/types"
 
 // Status configurations
 const statusConfig = {

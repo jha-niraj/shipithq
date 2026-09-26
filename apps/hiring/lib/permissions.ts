@@ -81,5 +81,12 @@ export async function requirePermission(permission?: HiringPermission): Promise<
     if (permission && !ctx.can(permission)) {
         return { ok: false, status: "forbidden", error: "You don't have permission to do this. Ask your company's owner." }
     }
+    // A suspended company is frozen (plan/hiring-rounds HR-24): it can read, not act.
+    if (permission && FROZEN_WHILE_SUSPENDED.has(permission) && ctx.member.company.suspendedAt) {
+        return { ok: false, status: "forbidden", error: "ShipItHQ has suspended your company while it reviews a report, so this is paused. Write to support@shipithq.com." }
+    }
     return { ok: true, ctx }
 }
+
+/** What a suspended company can't do. Reading candidates, the team, billing and deleting stay open. */
+const FROZEN_WHILE_SUSPENDED: ReadonlySet<HiringPermission> = new Set(["message_candidates", "invite_decline", "manage_jobs", "manage_pipelines", "edit_company", "use_ai"])

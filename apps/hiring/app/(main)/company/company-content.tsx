@@ -27,6 +27,7 @@ import Link from "next/link"
 import { Label } from "@repo/ui/components/ui/label"
 import Image from "next/image"
 import type { CompanyProfile, CompanyStats, MediaItem } from "@/types"
+import { publicCompanyUrl } from "@/lib/urls"
 
 interface CompanyProfileContentProps {
     profile: CompanyProfile | null
@@ -161,10 +162,10 @@ export function CompanyProfileContent({ profile, stats }: CompanyProfileContentP
                                     className="rounded-xl"
                                     asChild
                                 >
-                                    <Link href={`/companies/${profile.slug}`} target="_blank" rel="noopener noreferrer">
+                                    <a href={publicCompanyUrl(profile.slug)} target="_blank" rel="noopener noreferrer">
                                         <ExternalLink className="w-4 h-4 mr-2" />
                                         View Public Page
-                                    </Link>
+                                    </a>
                                 </Button>
                                 <Button
                                     onClick={() => setIsEditing(true)}

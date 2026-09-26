@@ -1,53 +1,43 @@
-// Hand-matched to interview-config-content.tsx: the page frame, PageHeader with
-// two buttons, the three-cell StatBand, the search field, then one card per
-// process (name + badges, description, round pills, jobs count and menu).
-import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";
-import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band";
+// Matches _components/pipelines-list.tsx: PageHeader with two buttons, a
+// 3-cell StatBand, the "Your pipelines" list, then three template cards.
+import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
+import { StatBandSkeleton } from "@repo/ui/components/ui/stat-band"
 
 export default function Loading() {
     return (
         <div className="page-frame space-y-5 px-page py-6">
             <ShimmerStyles />
-
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1.5">
-                    <Shimmer className="h-6 w-44" />
-                    <Shimmer className="h-4 w-80 max-w-full" delay={0.04} />
+                    <Shimmer className="h-6 w-52" />
+                    <Shimmer className="h-4 w-96 max-w-full" delay={0.04} />
                 </div>
                 <div className="flex gap-2">
-                    <Shimmer className="h-9 w-32 rounded-xl" delay={0.06} />
-                    <Shimmer className="h-9 w-36 rounded-xl" delay={0.08} />
+                    <Shimmer className="h-8 w-32 rounded-md" delay={0.06} />
+                    <Shimmer className="h-8 w-32 rounded-md" delay={0.08} />
                 </div>
             </div>
-
             <StatBandSkeleton count={3} cols={3} />
-
-            <Shimmer className="h-9 w-full max-w-md rounded-xl" />
-
-            <div className="space-y-4">
-                {Array.from({ length: 3 }).map((_, s) => (
-                    <div key={s} className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-                        <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0 flex-1">
-                                <div className="mb-2 flex items-center gap-3">
-                                    <Shimmer className="h-6 w-56" delay={s * 0.08} />
-                                    <Shimmer className="h-5 w-16 rounded-full" delay={s * 0.08} />
-                                </div>
-                                <Shimmer className="mb-4 h-4 w-3/4" delay={s * 0.08} />
-                                <div className="flex flex-wrap gap-2">
-                                    {Array.from({ length: 4 }).map((_, i) => (
-                                        <Shimmer key={i} className="h-8 w-32 rounded-lg" delay={s * 0.08 + i * 0.04} />
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <Shimmer className="hidden h-4 w-28 md:block" delay={s * 0.08} />
-                                <Shimmer className="h-9 w-9 rounded-xl" delay={s * 0.08} />
-                            </div>
-                        </div>
+            <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+                <div className="border-b border-neutral-200 px-5 py-3 dark:border-neutral-800"><Shimmer className="h-4 w-32" /></div>
+                {[0, 1, 2].map((i) => (
+                    <div key={i} className="flex items-center gap-4 border-b border-neutral-100 px-5 py-4 last:border-0 dark:border-neutral-800">
+                        <div className="flex-1 space-y-1.5"><Shimmer className="h-4 w-48" delay={i * 0.04} /><Shimmer className="h-3.5 w-64" delay={i * 0.04} /></div>
+                        <Shimmer className="h-4 w-4 rounded" delay={i * 0.04} />
+                    </div>
+                ))}
+            </div>
+            <div className="space-y-1.5"><Shimmer className="h-4 w-56" /><Shimmer className="h-4 w-72" delay={0.04} /></div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                {[0, 1, 2].map((i) => (
+                    <div key={i} className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                        <Shimmer className="h-5 w-32" delay={i * 0.05} />
+                        <Shimmer className="h-4 w-full" delay={i * 0.05} />
+                        {[0, 1, 2, 3].map((j) => <Shimmer key={j} className="h-3.5 w-40" delay={i * 0.05 + j * 0.02} />)}
+                        <Shimmer className="h-8 w-full rounded-md" delay={i * 0.05} />
                     </div>
                 ))}
             </div>
         </div>
-    );
+    )
 }

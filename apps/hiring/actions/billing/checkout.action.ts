@@ -119,7 +119,7 @@ export async function createCheckoutSession(input: CreateCheckoutInput): Promise
             sessionUrl: checkoutSession.checkout_url || undefined,
             sessionId: checkoutSession.session_id
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Create checkout error:", error)
         return { success: false, error: "Failed to create checkout session" }
     }
@@ -240,7 +240,7 @@ export async function verifyCheckoutSession(input: VerifyCheckoutInput): Promise
         }
 
         return { success: false, error: "Payment is still processing" }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Verify payment error:", error)
         return { success: false, error: "Failed to verify payment" }
     }

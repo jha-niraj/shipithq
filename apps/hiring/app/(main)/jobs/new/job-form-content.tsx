@@ -1,7 +1,9 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
+import type { JobPipeline, PipelineChoice } from "@/actions/jobs/job-pipeline.action"
+import { ExistingJobPipeline, NewJobPipeline, suggestTemplate } from "./pipeline-section"
 import { motion } from "framer-motion"
 import {
     ArrowLeft, Briefcase, MapPin, DollarSign, Clock, Users,
@@ -21,7 +23,7 @@ import {
 import Link from "next/link"
 import { PageHeader } from "@repo/ui/components/ui/page-header"
 import toast from "@repo/ui/components/ui/sonner"
-import { createJob } from "@/actions/jobs"
+import { createJob, updateJob } from "@/actions/jobs"
 import { createJobSchema } from "@/types/job-schema"
 import type {
     JobLocationType, EmploymentType
@@ -58,21 +60,39 @@ interface CustomQuestion {
     order: number
 }
 
-// Simplified interview process type for job form selection
-interface InterviewProcessOption {
+/** A saved job, for the form in edit mode (the /jobs/[slug]/edit page). */
+export interface EditableJob {
     id: string
-    name: string
-    description?: string | null
-    isDefault?: boolean
-    rounds: Array<{
-        id: string
-        roundType: string
-        title: string
-    }>
+    slug: string
+    status: string
+    title: string
+    description: string
+    location: string | null
+    locationType: JobLocationType
+    employmentType: EmploymentType
+    experienceMin: number | null
+    experienceMax: number | null
+    salaryMin: number | null
+    salaryMax: number | null
+    salaryCurrency: string
+    salaryDisclosed: boolean
+    skillsRequired: string[]
+    skillsPreferred: string[]
+    requirements: string[]
+    responsibilities: string[]
+    benefits: string[]
+    hasAssignment: boolean
+    assignmentDetails: { title?: string; description?: string } | null
+    assignmentDeadlineDays: number | null
+    customQuestions: CustomQuestion[]
 }
 
 interface JobFormContentProps {
-    interviewProcesses: InterviewProcessOption[]
+    /** Templates a job can start from (plan/hiring-rounds HR-12). */
+    pipelineChoices: PipelineChoice[]
+    /** Edit mode: the job, and its own pipeline. */
+    job?: EditableJob
+    jobPipeline?: JobPipeline | null
 }
 
 // Question type configuration
@@ -325,339 +345,40 @@ function SkillsInput({
     )
 }
 
-// ============================================
-// CUSTOM QUESTIONS BUILDER COMPONENT
-// ============================================
-
-function CustomQuestionsBuilder({
-    questions,
-    onAdd,
-    onUpdate,
-    onRemove,
-    onReorder,
-}: {
-    questions: CustomQuestion[]
-    onAdd: () => void
-    onUpdate: (id: string, updates: Partial<CustomQuestion>) => void
-    onRemove: (id: string) => void
-    onReorder: (fromIndex: number, toIndex: number) => void
-}) {
-    const [expandedId, setExpandedId] = useState<string | null>(null)
-    const [newOption, setNewOption] = useState("")
-
-    const moveQuestion = (index: number, direction: "up" | "down") => {
-        const newIndex = direction === "up" ? index - 1 : index + 1
-        if (newIndex >= 0 && newIndex < questions.length) {
-            onReorder(index, newIndex)
-        }
-    }
-
-    const addOption = (questionId: string, currentOptions: string[] = []) => {
-        if (newOption.trim()) {
-            onUpdate(questionId, { options: [...currentOptions, newOption.trim()] })
-            setNewOption("")
-        }
-    }
-
-    const removeOption = (questionId: string, currentOptions: string[], optIndex: number) => {
-        onUpdate(questionId, { options: currentOptions.filter((_, i) => i !== optIndex) })
-    }
-
-    const needsOptions = (type: CustomQuestionType) => 
-        ["select", "multiselect", "radio"].includes(type)
-
-    return (
-        <div className="space-y-4">
-            {
-                questions.length > 0 ? (
-                    <div className="space-y-3">
-                        {
-                            questions.map((question, index) => {
-                                const isExpanded = expandedId === question.id
-                                const TypeIcon = QUESTION_TYPES.find(t => t.value === question.type)?.icon || Type
-
-                                return (
-                                    <div
-                                        key={question.id}
-                                        className="border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden"
-                                    >
-                                        {/* Question Header */}
-                                        <div 
-                                            className="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/50 cursor-pointer"
-                                            onClick={() => setExpandedId(isExpanded ? null : question.id)}
-                                        >
-                                            <GripVertical className="h-4 w-4 text-neutral-400 cursor-move" />
-                                            <div className="p-1.5 bg-white dark:bg-neutral-900 rounded border border-neutral-200 dark:border-neutral-700">
-                                                <TypeIcon className="h-3.5 w-3.5 text-neutral-600 dark:text-neutral-400" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">
-                                                    {question.question || "Untitled Question"}
-                                                </p>
-                                                <p className="text-xs text-neutral-500">
-                                                    {QUESTION_TYPES.find(t => t.value === question.type)?.label}
-                                                    {question.required && " • Required"}
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={(e) => { e.stopPropagation(); moveQuestion(index, "up") }}
-                                                    disabled={index === 0}
-                                                    className="h-7 w-7 p-0"
-                                                >
-                                                    <ChevronUp className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={(e) => { e.stopPropagation(); moveQuestion(index, "down") }}
-                                                    disabled={index === questions.length - 1}
-                                                    className="h-7 w-7 p-0"
-                                                >
-                                                    <ChevronDown className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={(e) => { e.stopPropagation(); onRemove(question.id) }}
-                                                    className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        {/* Expanded Content */}
-                                        {
-                                            isExpanded && (
-                                                <div className="p-4 space-y-4 border-t border-neutral-200 dark:border-neutral-700">
-                                                    <div>
-                                                        <Label className="text-sm font-medium">Question *</Label>
-                                                        <Input
-                                                            value={question.question}
-                                                            onChange={(e) => onUpdate(question.id, { question: e.target.value })}
-                                                            placeholder="Enter your question"
-                                                            className="mt-1"
-                                                        />
-                                                    </div>
-
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div>
-                                                            <Label className="text-sm font-medium">Question Type</Label>
-                                                            <Select
-                                                                value={question.type}
-                                                                onValueChange={(v) => onUpdate(question.id, { type: v as CustomQuestionType })}
-                                                            >
-                                                                <SelectTrigger className="mt-1">
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {
-                                                                        QUESTION_TYPES.map((type) => (
-                                                                            <SelectItem key={type.value} value={type.value}>
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <type.icon className="h-4 w-4" />
-                                                                                    <span>{type.label}</span>
-                                                                                </div>
-                                                                            </SelectItem>
-                                                                        ))
-                                                                    }
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-                                                        <div className="flex items-end">
-                                                            <div className="flex items-center gap-2">
-                                                                <Switch
-                                                                    checked={question.required}
-                                                                    onCheckedChange={(v) => onUpdate(question.id, { required: v })}
-                                                                />
-                                                                <Label className="text-sm text-neutral-500">Required</Label>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Options for select/multiselect/radio */}
-                                                    {
-                                                        needsOptions(question.type) && (
-                                                            <div>
-                                                                <Label className="text-sm font-medium">Options</Label>
-                                                                <div className="mt-2 space-y-2">
-                                                                    {
-                                                                        (question.options || []).map((opt, optIndex) => (
-                                                                            <div key={optIndex} className="flex items-center gap-2">
-                                                                                <Input
-                                                                                    value={opt}
-                                                                                    onChange={(e) => {
-                                                                                        const newOpts = [...(question.options || [])]
-                                                                                        newOpts[optIndex] = e.target.value
-                                                                                        onUpdate(question.id, { options: newOpts })
-                                                                                    }}
-                                                                                    className="h-9"
-                                                                                />
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    variant="ghost"
-                                                                                    size="sm"
-                                                                                    onClick={() => removeOption(question.id, question.options || [], optIndex)}
-                                                                                    className="h-9 w-9 p-0 text-neutral-400 hover:text-red-500"
-                                                                                >
-                                                                                    <X className="h-4 w-4" />
-                                                                                </Button>
-                                                                            </div>
-                                                                        ))
-                                                                    }
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Input
-                                                                            value={newOption}
-                                                                            onChange={(e) => setNewOption(e.target.value)}
-                                                                            placeholder="Add new option"
-                                                                            className="h-9"
-                                                                            onKeyDown={(e) => {
-                                                                                if (e.key === "Enter") {
-                                                                                    e.preventDefault()
-                                                                                    addOption(question.id, question.options)
-                                                                                }
-                                                                            }}
-                                                                        />
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            onClick={() => addOption(question.id, question.options)}
-                                                                            className="h-9"
-                                                                        >
-                                                                            <Plus className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    }
-
-                                                    {/* Additional Settings */}
-                                                    <div>
-                                                        <Label className="text-sm font-medium">Helper Text (Optional)</Label>
-                                                        <Input
-                                                            value={question.helperText || ""}
-                                                            onChange={(e) => onUpdate(question.id, { helperText: e.target.value })}
-                                                            placeholder="Additional context for candidates"
-                                                            className="mt-1"
-                                                        />
-                                                    </div>
-
-                                                    {/* Text constraints */}
-                                                    {
-                                                        ["text", "textarea"].includes(question.type) && (
-                                                            <div className="grid grid-cols-2 gap-4">
-                                                                <div>
-                                                                    <Label className="text-sm font-medium">Min Length</Label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        value={question.minLength || ""}
-                                                                        onChange={(e) => onUpdate(question.id, { minLength: e.target.value ? parseInt(e.target.value) : undefined })}
-                                                                        placeholder="0"
-                                                                        className="mt-1"
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <Label className="text-sm font-medium">Max Length</Label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        value={question.maxLength || ""}
-                                                                        onChange={(e) => onUpdate(question.id, { maxLength: e.target.value ? parseInt(e.target.value) : undefined })}
-                                                                        placeholder="500"
-                                                                        className="mt-1"
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    }
-
-                                                    {/* Number constraints */}
-                                                    {
-                                                        question.type === "number" && (
-                                                            <div className="grid grid-cols-2 gap-4">
-                                                                <div>
-                                                                    <Label className="text-sm font-medium">Min Value</Label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        value={question.min || ""}
-                                                                        onChange={(e) => onUpdate(question.id, { min: e.target.value ? parseInt(e.target.value) : undefined })}
-                                                                        placeholder="0"
-                                                                        className="mt-1"
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <Label className="text-sm font-medium">Max Value</Label>
-                                                                    <Input
-                                                                        type="number"
-                                                                        value={question.max || ""}
-                                                                        onChange={(e) => onUpdate(question.id, { max: e.target.value ? parseInt(e.target.value) : undefined })}
-                                                                        placeholder="100"
-                                                                        className="mt-1"
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    }
-
-                                                    <div>
-                                                        <Label className="text-sm font-medium">Placeholder (Optional)</Label>
-                                                        <Input
-                                                            value={question.placeholder || ""}
-                                                            onChange={(e) => onUpdate(question.id, { placeholder: e.target.value })}
-                                                            placeholder="e.g., Enter your answer here..."
-                                                            className="mt-1"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )
-                                        }
-                                    </div>
-                                )
-                            })
-                        }
-                    </div>
-                ) : (
-                    <div className="text-center py-8 bg-neutral-50 dark:bg-neutral-800/30 rounded-lg border-2 border-dashed border-neutral-200 dark:border-neutral-700">
-                        <HelpCircle className="h-8 w-8 mx-auto text-neutral-400 mb-2" />
-                        <p className="text-neutral-500 dark:text-neutral-400 text-sm">No custom questions yet</p>
-                        <p className="text-neutral-400 dark:text-neutral-500 text-xs mt-1">
-                            Add questions to gather specific information from candidates
-                        </p>
-                    </div>
-                )
-            }
-            <Button
-                type="button"
-                variant="outline"
-                onClick={onAdd}
-                className="w-full"
-            >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Question
-            </Button>
-        </div>
-    )
-}
-
-// ============================================
-// MAIN COMPONENT
-// ============================================
-
-export default function JobFormContent({ interviewProcesses }: JobFormContentProps) {
+export default function JobFormContent({ pipelineChoices, job, jobPipeline }: JobFormContentProps) {
+    const editing = Boolean(job)
+    // The pipeline follows the title's closest ShipItHQ template until the company picks one.
+    const [pipelineTouched, setPipelineTouched] = useState(false)
     const router = useRouter()
     const [isPending, startTransition] = useTransition()
     const [errors, setErrors] = useState<Record<string, string>>({})
 
-    const [formData, setFormData] = useState<FormData>({
+    const [formData, setFormData] = useState<FormData>(() => job ? {
+        title: job.title,
+        description: job.description,
+        department: "",
+        location: job.location ?? "",
+        locationType: job.locationType,
+        employmentType: job.employmentType,
+        experienceMin: job.experienceMin?.toString() ?? "",
+        experienceMax: job.experienceMax?.toString() ?? "",
+        salaryMin: job.salaryMin?.toString() ?? "",
+        salaryMax: job.salaryMax?.toString() ?? "",
+        salaryCurrency: job.salaryCurrency || "INR",
+        salaryDisclosed: job.salaryDisclosed,
+        skillsRequired: job.skillsRequired,
+        skillsPreferred: job.skillsPreferred,
+        requirements: job.requirements,
+        responsibilities: job.responsibilities,
+        benefits: job.benefits,
+        hasAssignment: job.hasAssignment,
+        assignmentAddLater: job.hasAssignment && !job.assignmentDetails,
+        assignmentTitle: job.assignmentDetails?.title ?? "",
+        assignmentDescription: job.assignmentDetails?.description ?? "",
+        assignmentDeadlineDays: job.assignmentDeadlineDays?.toString() ?? "7",
+        interviewProcessId: "",
+        customQuestions: job.customQuestions ?? [],
+    } : {
         title: "",
         description: "",
         department: "",
@@ -680,56 +401,16 @@ export default function JobFormContent({ interviewProcesses }: JobFormContentPro
         assignmentTitle: "",
         assignmentDescription: "",
         assignmentDeadlineDays: "7",
-        interviewProcessId: "",
+        interviewProcessId: suggestTemplate("", pipelineChoices),
         customQuestions: [],
     })
 
-    // Custom Questions Handlers
-    const addCustomQuestion = () => {
-        const newQuestion: CustomQuestion = {
-            id: crypto.randomUUID(),
-            question: "",
-            type: "text",
-            required: false,
-            order: formData.customQuestions.length,
-        }
-        setFormData(prev => ({
-            ...prev,
-            customQuestions: [...prev.customQuestions, newQuestion]
-        }))
-    }
-
-    const updateCustomQuestion = (id: string, updates: Partial<CustomQuestion>) => {
-        setFormData(prev => ({
-            ...prev,
-            customQuestions: prev.customQuestions.map(q =>
-                q.id === id ? { ...q, ...updates } : q
-            )
-        }))
-    }
-
-    const removeCustomQuestion = (id: string) => {
-        setFormData(prev => ({
-            ...prev,
-            customQuestions: prev.customQuestions
-                .filter(q => q.id !== id)
-                .map((q, i) => ({ ...q, order: i }))
-        }))
-    }
-
-    const reorderCustomQuestions = (fromIndex: number, toIndex: number) => {
-        setFormData(prev => {
-            const newQuestions = [...prev.customQuestions]
-            const removed = newQuestions.splice(fromIndex, 1)[0]
-            if (removed) {
-                newQuestions.splice(toIndex, 0, removed)
-            }
-            return {
-                ...prev,
-                customQuestions: newQuestions.map((q, i) => ({ ...q, order: i }))
-            }
-        })
-    }
+    // A new job's pipeline suggestion follows the title until the company chooses.
+    useEffect(() => {
+        if (editing || pipelineTouched) return
+        const next = suggestTemplate(formData.title, pipelineChoices)
+        setFormData((prev) => (prev.interviewProcessId === next ? prev : { ...prev, interviewProcessId: next }))
+    }, [formData.title, editing, pipelineTouched, pipelineChoices])
 
     const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
         setFormData((prev) => ({ ...prev, [field]: value }))
@@ -796,9 +477,55 @@ export default function JobFormContent({ interviewProcesses }: JobFormContentPro
         return true
     }
 
-    const handleSubmit = async (status: "DRAFT" | "ACTIVE") => {
+    /**
+     * Create: save as a draft or publish. Edit (`status` undefined): save the
+     * fields; with "ACTIVE", also publish a draft. The pipeline is never sent
+     * from here in edit mode: it changes through its own section (HR-12).
+     */
+    const handleSubmit = async (status?: "DRAFT" | "ACTIVE") => {
         if (!validateForm()) {
             toast.error("Please fix the errors before submitting")
+            return
+        }
+
+        if (job) {
+            startTransition(async () => {
+                const result = await updateJob(job.id, {
+                    title: formData.title,
+                    description: formData.description,
+                    locationType: formData.locationType,
+                    employmentType: formData.employmentType,
+                    location: formData.location || undefined,
+                    experienceMin: formData.experienceMin ? parseInt(formData.experienceMin) : undefined,
+                    experienceMax: formData.experienceMax ? parseInt(formData.experienceMax) : undefined,
+                    salaryMin: formData.salaryMin ? parseInt(formData.salaryMin) : undefined,
+                    salaryMax: formData.salaryMax ? parseInt(formData.salaryMax) : undefined,
+                    salaryCurrency: formData.salaryCurrency,
+                    salaryDisclosed: formData.salaryDisclosed,
+                    skillsRequired: formData.skillsRequired,
+                    skillsPreferred: formData.skillsPreferred,
+                    requirements: formData.requirements,
+                    responsibilities: formData.responsibilities,
+                    benefits: formData.benefits,
+                    hasAssignment: formData.hasAssignment,
+                    assignmentDetails: formData.hasAssignment && !formData.assignmentAddLater ? {
+                        title: formData.assignmentTitle,
+                        description: formData.assignmentDescription,
+                        requirements: [],
+                        resources: [],
+                        deliverables: [],
+                    } : undefined,
+                    assignmentDeadlineDays: formData.hasAssignment && !formData.assignmentAddLater ? parseInt(formData.assignmentDeadlineDays) : undefined,
+                    customQuestions: formData.customQuestions,
+                    ...(status ? { status } : {}),
+                })
+                if (result.success) {
+                    toast.success(status === "ACTIVE" ? "Job published" : "Changes saved")
+                    router.refresh()
+                } else {
+                    toast.error(result.error || "Failed to save the job")
+                }
+            })
             return
         }
 
@@ -853,26 +580,28 @@ export default function JobFormContent({ interviewProcesses }: JobFormContentPro
                 Back to Jobs
             </Link>
             <PageHeader
-                title="Create New Job"
-                subtitle="Fill in the details to post a new job opening"
+                title={job ? job.title : "Create New Job"}
+                subtitle={job ? (job.status === "ACTIVE" ? "Live: changes show to candidates once saved" : "Draft: not visible to candidates yet") : "Fill in the details to post a new job opening"}
                 actions={
                     <>
                         <Button
                             variant="outline"
-                            onClick={() => handleSubmit("DRAFT")}
+                            onClick={() => handleSubmit(job ? undefined : "DRAFT")}
                             disabled={isPending}
                         >
                             <Save className="h-4 w-4 mr-2" />
-                            Save Draft
+                            {job ? "Save changes" : "Save Draft"}
                         </Button>
-                        <Button
-                            onClick={() => handleSubmit("ACTIVE")}
-                            disabled={isPending}
-                            className="bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black"
-                        >
-                            <Send className="h-4 w-4 mr-2" />
-                            Publish Job
-                        </Button>
+                        {(!job || job.status !== "ACTIVE") && (
+                            <Button
+                                onClick={() => handleSubmit("ACTIVE")}
+                                disabled={isPending}
+                                className="bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black"
+                            >
+                                <Send className="h-4 w-4 mr-2" />
+                                Publish Job
+                            </Button>
+                        )}
                     </>
                 }
             />
@@ -1212,224 +941,40 @@ export default function JobFormContent({ interviewProcesses }: JobFormContentPro
                             <Users className="h-5 w-5 text-neutral-900 dark:text-white" />
                         </div>
                         <div>
-                            <h2 className="font-semibold text-neutral-900 dark:text-white">Interview Process</h2>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400">Select an interview process for this job</p>
+                            <h2 className="font-semibold text-neutral-900 dark:text-white">Pipeline</h2>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">The rounds candidates take for this job, in order.</p>
                         </div>
                     </div>
-
-                    {
-                        interviewProcesses.length > 0 ? (
-                            <Select
-                                value={formData.interviewProcessId}
-                                onValueChange={(v) => updateField("interviewProcessId", v)}
-                            >
-                                <SelectTrigger className="h-11">
-                                    <SelectValue placeholder="Select an interview process" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {
-                                        interviewProcesses.map((process) => (
-                                            <SelectItem key={process.id} value={process.id}>
-                                                <div className="flex items-center gap-2">
-                                                    {process.name}
-                                                    {
-                                                        process.isDefault && (
-                                                            <Badge variant="secondary" className="text-xs">Default</Badge>
-                                                        )
-                                                    }
-                                                </div>
-                                            </SelectItem>
-                                        ))
-                                    }
-                                </SelectContent>
-                            </Select>
-                        ) : (
-                            <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg text-center">
-                                <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-2">No interview processes configured yet</p>
-                                <Link href="/interview-config">
-                                    <Button variant="outline" size="sm">
-                                        Configure Interview Process
-                                    </Button>
-                                </Link>
-                            </div>
-                        )
-                    }
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
-                >
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                                <Building2 className="h-5 w-5 text-neutral-900 dark:text-white" />
-                            </div>
-                            <div>
-                                <h2 className="font-semibold text-neutral-900 dark:text-white">Take-Home Assignment</h2>
-                                <p className="text-sm text-neutral-500 dark:text-neutral-400">Optional coding assignment for candidates</p>
-                            </div>
-                        </div>
-                        <Switch
-                            checked={formData.hasAssignment}
-                            onCheckedChange={(v) => {
-                                updateField("hasAssignment", v)
-                                if (!v) {
-                                    updateField("assignmentAddLater", false)
-                                }
-                            }}
+                    {job ? (
+                        <ExistingJobPipeline jobId={job.id} jobSlug={job.slug} jobStatus={job.status} pipeline={jobPipeline ?? null} choices={pipelineChoices} />
+                    ) : (
+                        <NewJobPipeline
+                            choices={pipelineChoices}
+                            value={formData.interviewProcessId}
+                            onChange={(id) => { setPipelineTouched(true); updateField("interviewProcessId", id) }}
                         />
-                    </div>
-
-                    {
-                        formData.hasAssignment && (
-                            <div className="space-y-4">
-                                {/* Add Now or Later Toggle */}
-                                <div className="flex items-center gap-2 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-neutral-200 dark:border-neutral-700">
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-neutral-900 dark:text-white">When would you like to add assignment details?</p>
-                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">You can always edit this later from the job settings</p>
-                                    </div>
-                                    <div className="flex items-center gap-2 bg-white dark:bg-neutral-900 rounded-lg p-1 border border-neutral-200 dark:border-neutral-700">
-                                        <button
-                                            type="button"
-                                            onClick={() => updateField("assignmentAddLater", false)}
-                                            className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-                                                !formData.assignmentAddLater
-                                                    ? "bg-neutral-900 dark:bg-white text-white dark:text-black"
-                                                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-                                            }`}
-                                        >
-                                            Add Now
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => updateField("assignmentAddLater", true)}
-                                            className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-                                                formData.assignmentAddLater
-                                                    ? "bg-neutral-900 dark:bg-white text-white dark:text-black"
-                                                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-                                            }`}
-                                        >
-                                            Add Later
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Assignment Details - Only show if not adding later */}
-                                {
-                                    !formData.assignmentAddLater ? (
-                                        <>
-                                            <div>
-                                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Assignment Title *</Label>
-                                                <Input
-                                                    value={formData.assignmentTitle}
-                                                    onChange={(e) => updateField("assignmentTitle", e.target.value)}
-                                                    placeholder="e.g., Build a REST API"
-                                                    className="h-11 mt-1"
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Assignment Description *</Label>
-                                                <Textarea
-                                                    value={formData.assignmentDescription}
-                                                    onChange={(e) => updateField("assignmentDescription", e.target.value)}
-                                                    placeholder="Describe what candidates need to build..."
-                                                    rows={4}
-                                                    className="mt-1"
-                                                />
-                                            </div>
-                                            <div className="w-48">
-                                                <Label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Deadline (days)</Label>
-                                                <Input
-                                                    type="number"
-                                                    min="1"
-                                                    max="30"
-                                                    value={formData.assignmentDeadlineDays}
-                                                    onChange={(e) => updateField("assignmentDeadlineDays", e.target.value)}
-                                                    className="h-11 mt-1"
-                                                />
-                                            </div>
-                                            {
-                                                errors.assignmentDeadlineDays && (
-                                                    <p className="text-red-500 text-sm">{errors.assignmentDeadlineDays}</p>
-                                                )
-                                            }
-                                        </>
-                                    ) : (
-                                        <div className="p-4 bg-neutral-50 dark:bg-neutral-900/30 rounded-lg border border-neutral-200 dark:border-neutral-800/50">
-                                            <p className="text-sm text-neutral-800 dark:text-neutral-100">
-                                                <span className="font-medium">Assignment details will be added later.</span>{" "}
-                                                You can configure the assignment from the job settings after publishing. 
-                                                Candidates won&apos;t see the assignment until you complete it.
-                                            </p>
-                                        </div>
-                                    )
-                                }
-                            </div>
-                        )
-                    }
-                </motion.div>
-                {/* Custom Questions Section */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.45 }}
-                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-6"
-                >
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                            <HelpCircle className="h-5 w-5 text-neutral-900 dark:text-white" />
-                        </div>
-                        <div>
-                            <h2 className="font-semibold text-neutral-900 dark:text-white">Custom Questions</h2>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                                Add specific questions for candidates to answer during application
-                            </p>
-                        </div>
-                    </div>
-                    <div className="mb-4 p-3 bg-neutral-50 dark:bg-neutral-900/30 rounded-lg border border-neutral-200 dark:border-neutral-800/50">
-                        <p className="text-sm text-neutral-800 dark:text-neutral-100">
-                            <span className="font-medium">Tip:</span> Use custom questions to gather information not covered in the standard application form.
-                            Examples: availability date, portfolio links, specific experience questions.
-                        </p>
-                    </div>
-                    <CustomQuestionsBuilder
-                        questions={formData.customQuestions}
-                        onAdd={addCustomQuestion}
-                        onUpdate={updateCustomQuestion}
-                        onRemove={removeCustomQuestion}
-                        onReorder={reorderCustomQuestions}
-                    />
-                    {
-                        formData.customQuestions.length > 0 && (
-                            <div className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
-                                {formData.customQuestions.length} question{formData.customQuestions.length > 1 ? "s" : ""} added
-                                {" • "}
-                                {formData.customQuestions.filter(q => q.required).length} required
-                            </div>
-                        )
-                    }
+                    )}
                 </motion.div>
                 <div className="flex items-center gap-3 lg:hidden">
                     <Button
                         variant="outline"
                         className="flex-1"
-                        onClick={() => handleSubmit("DRAFT")}
+                        onClick={() => handleSubmit(job ? undefined : "DRAFT")}
                         disabled={isPending}
                     >
                         <Save className="h-4 w-4 mr-2" />
-                        Save Draft
+                        {job ? "Save changes" : "Save Draft"}
                     </Button>
-                    <Button
-                        className="flex-1 bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black"
-                        onClick={() => handleSubmit("ACTIVE")}
-                        disabled={isPending}
-                    >
-                        <Send className="h-4 w-4 mr-2" />
-                        Publish
-                    </Button>
+                    {(!job || job.status !== "ACTIVE") && (
+                        <Button
+                            className="flex-1 bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black"
+                            onClick={() => handleSubmit("ACTIVE")}
+                            disabled={isPending}
+                        >
+                            <Send className="h-4 w-4 mr-2" />
+                            Publish
+                        </Button>
+                    )}
                 </div>
             </div>
         </div>

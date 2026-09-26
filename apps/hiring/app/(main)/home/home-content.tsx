@@ -1,291 +1,152 @@
 "use client"
 
-import { motion } from "framer-motion"
-import {
-    Users, FileText, Plus, ArrowRight, TrendingUp, Clock,
-    CheckCircle2, AlertCircle, Eye, GitBranch, Zap
-} from "lucide-react"
-import { Button } from "@repo/ui/components/ui/button"
-import { StatBand, type StatBandItem } from "@repo/ui/components/ui/stat-band"
-import { PageHeader } from "@repo/ui/components/ui/page-header"
+import { useState } from "react"
 import Link from "next/link"
+import { ArrowRight, CircleAlert, Plus } from "lucide-react"
+import { Button } from "@repo/ui/components/ui/button"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
+import { cn } from "@repo/ui/lib/utils"
+import type { HomeData, HomeRole } from "@/lib/home"
 
-interface CandidateStats {
-    total: number
-    new: number
-    screening: number
-    interviewing: number
-    offered: number
-    hired: number
-    rejected: number
-    thisWeek: number
-}
+/*
+ * Home (plan/hiring-app HA-15): the roles table, the funnel for the role picked
+ * in it, and what needs attention. No headline numbers or trend chart: each
+ * part answers "what should I do next".
+ */
 
-interface HomeContentProps {
-    userName: string
-    candidateStats: CandidateStats | null
-    interviewProcessCount: number
-}
+const TYPE: Record<string, string> = { APTITUDE: "Aptitude", DSA: "Coding", SYSTEM_DESIGN: "System design", VOICE_BEHAVIOURAL: "Behavioural", VOICE_CULTURE: "Culture" }
+const STATUS: Record<string, string> = { ACTIVE: "Live", DRAFT: "Draft", PAUSED: "Paused", FILLED: "Filled", HIDDEN: "Hidden by ShipItHQ" }
+const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "-")
 
-interface _ActivityItemProps {
-    type: "application" | "review" | "interview" | "offer"
-    title: string
-    subtitle: string
-    time: string
-}
+export default function HomeContent({ data, canCreateJob, canSeeCandidates }: { data: HomeData; canCreateJob: boolean; canSeeCandidates: boolean }) {
+    const [picked, setPicked] = useState<string | null>(data.roles.find((r) => r.rounds.length)?.id ?? data.roles[0]?.id ?? null)
+    const role = data.roles.find((r) => r.id === picked) ?? null
 
- 
-const _ActivityItem = ({ type, title, subtitle, time }: _ActivityItemProps) => {
-    const icons = {
-        application: <FileText className="w-4 h-4" />,
-        review: <Eye className="w-4 h-4" />,
-        interview: <Users className="w-4 h-4" />,
-        offer: <CheckCircle2 className="w-4 h-4" />,
-    }
-
-    const colors = {
-        application: "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100",
-        review: "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100",
-        interview: "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100",
-        offer: "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100",
+    if (!data.roles.length) {
+        return (
+            <div className="page-frame space-y-6 px-page py-6">
+                <PageHeader title="Home" />
+                <div className="rounded-2xl border border-dashed border-neutral-300 p-8 text-center dark:border-neutral-700">
+                    <p className="font-medium text-neutral-900 dark:text-white">Create your first role</p>
+                    <p className="mx-auto mt-1 max-w-md text-sm text-neutral-600 dark:text-neutral-400">A role comes with its rounds. Candidates take them on ShipItHQ, and the ones who clear them send you their results.</p>
+                    {canCreateJob
+                        ? <Button asChild size="sm" className="mt-4 gap-1.5"><Link href="/jobs/new"><Plus className="h-4 w-4" /> Create a role</Link></Button>
+                        : <p className="mt-3 text-xs text-neutral-500">Ask someone who manages jobs to create one.</p>}
+                </div>
+                <Attention items={data.attention} />
+            </div>
+        )
     }
 
     return (
-        <div className="flex items-start gap-4 py-4 border-b border-neutral-100 dark:border-neutral-800 last:border-0">
-            <div className={`p-2 rounded-lg ${colors[type]}`}>
-                {icons[type]}
-            </div>
-            <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">{title}</p>
-                <p className="text-xs text-neutral-500 mt-0.5">{subtitle}</p>
-            </div>
-            <span className="text-xs text-neutral-400 whitespace-nowrap">{time}</span>
+        <div className="page-frame space-y-6 px-page py-6">
+            <PageHeader title="Home" actions={canCreateJob ? <Button asChild size="sm" variant="outline" className="gap-1.5"><Link href="/jobs/new"><Plus className="h-4 w-4" /> New role</Link></Button> : null} />
+
+            <Attention items={data.attention} />
+
+            <section aria-label="Roles" className="space-y-2">
+                <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Roles</h2>
+                <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+                    <table className="w-full min-w-[640px] text-sm">
+                        <thead className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                            <tr>
+                                <th className="px-4 py-2.5 font-medium">Role</th>
+                                <th className="px-4 py-2.5 font-medium">Pipeline</th>
+                                {canSeeCandidates && <th className="px-4 py-2.5 text-right font-medium">To review</th>}
+                                <th className="px-4 py-2.5 font-medium">Pass rate per round</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                            {data.roles.map((r) => (
+                                <tr key={r.id} onClick={() => setPicked(r.id)} aria-selected={r.id === picked}
+                                    className={cn("cursor-pointer", r.id === picked ? "bg-neutral-50 dark:bg-neutral-800/60" : "hover:bg-neutral-50 dark:hover:bg-neutral-800/40")}>
+                                    <td className="px-4 py-3">
+                                        <button type="button" onClick={() => setPicked(r.id)} className="text-left font-medium text-neutral-900 dark:text-white">{r.title}</button>
+                                        <p className="text-xs text-neutral-500 dark:text-neutral-400">{STATUS[r.status] ?? r.status}</p>
+                                    </td>
+                                    <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300">{r.pipeline ? `${r.pipeline.name} · ${r.rounds.length} rounds` : <span className="text-neutral-500">No rounds yet</span>}</td>
+                                    {canSeeCandidates && (
+                                        <td className="px-4 py-3 text-right">
+                                            {r.waiting ? <Link href={`/applications/${r.slug}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-neutral-900 underline-offset-2 hover:underline dark:text-white">{r.waiting}</Link> : <span className="text-neutral-500">0</span>}
+                                        </td>
+                                    )}
+                                    <td className="px-4 py-3">
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {r.rounds.map((x) => (
+                                                <span key={x.id} title={`${x.title}: ${x.passed} of ${x.scored} scored reached ${x.passMark}`} className="rounded-md border border-neutral-200 px-1.5 py-0.5 text-xs text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
+                                                    {TYPE[x.type] ?? x.title} <span className="font-medium text-neutral-900 dark:text-white">{pct(x.passed, x.scored)}</span>
+                                                </span>
+                                            ))}
+                                            {!r.rounds.length && <span className="text-xs text-neutral-500">-</span>}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            {role && <Funnel role={role} />}
         </div>
     )
 }
 
-export default function HomeContent({ userName, candidateStats, interviewProcessCount }: HomeContentProps) {
-    const stats: StatBandItem[] = [
-        {
-            label: "Total Candidates",
-            value: candidateStats?.total || 0,
-            hint: candidateStats?.thisWeek ? `+${candidateStats.thisWeek} this week` : "No candidates yet",
-            icon: Users,
-            href: "/candidates"
-        },
-        {
-            label: "In Screening",
-            value: candidateStats?.screening || 0,
-            hint: "Candidates under review",
-            icon: Eye,
-            href: "/candidates?status=UNDER_REVIEW,SHORTLISTED"
-        },
-        {
-            label: "Interviewing",
-            value: candidateStats?.interviewing || 0,
-            hint: "Active interviews",
-            icon: Clock,
-            href: "/candidates?status=INTERVIEW_SCHEDULED,INTERVIEWED"
-        },
-        {
-            label: "Interview Processes",
-            value: interviewProcessCount,
-            hint: interviewProcessCount > 0 ? "Configured pipelines" : "Set up your first process",
-            icon: GitBranch,
-            href: "/interview-config"
-        },
-    ]
-
-    const pipelineStats = [
-        { label: "New Applications", value: candidateStats?.new || 0, color: "bg-neutral-900" },
-        { label: "Screening", value: candidateStats?.screening || 0, color: "bg-neutral-900" },
-        { label: "Interviewing", value: candidateStats?.interviewing || 0, color: "bg-neutral-900" },
-        { label: "Offer Extended", value: candidateStats?.offered || 0, color: "bg-neutral-900" },
-        { label: "Hired", value: candidateStats?.hired || 0, color: "bg-neutral-800" },
-    ]
-
-    const totalInPipeline = pipelineStats.reduce((acc, curr) => acc + curr.value, 0)
-
+function Attention({ items }: { items: HomeData["attention"] }) {
+    if (!items.length) return null
     return (
-        <div className="page-frame space-y-5 px-page py-6">
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-            >
-                <PageHeader
-                    title={<>Welcome back, {userName}! 👋</>}
-                    subtitle="Here's what's happening with your hiring pipeline today."
-                    actions={
-                        <>
-                            <Link href="/interview-config/new">
-                                <Button variant="outline" className="rounded-xl">
-                                    <GitBranch className="w-4 h-4 mr-2" />
-                                    Create Process
-                                </Button>
-                            </Link>
-                            <Link href="/jobs/new">
-                                <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Post New Job
-                                </Button>
-                            </Link>
-                        </>
-                    }
-                />
-            </motion.div>
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-            >
-                <StatBand cols={4} items={stats} />
-            </motion.div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="lg:col-span-2 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                >
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-bold text-neutral-900 dark:text-white">Hiring Pipeline</h2>
-                        <Link href="/analytics">
-                            <Button variant="ghost" size="sm" className="text-xs">
-                                View Analytics <ArrowRight className="w-3 h-3 ml-1" />
-                            </Button>
+        <section aria-label="Needs attention" className="space-y-2">
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Needs attention</h2>
+            <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+                {items.map((i) => (
+                    <li key={i.key}>
+                        <Link href={i.href} className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
+                            <CircleAlert className="h-4 w-4 shrink-0 text-neutral-500" />
+                            <span className="min-w-0 flex-1 text-neutral-800 dark:text-neutral-200">{i.text}</span>
+                            <ArrowRight className="h-4 w-4 shrink-0 text-neutral-400" />
                         </Link>
-                    </div>
+                    </li>
+                ))}
+            </ul>
+        </section>
+    )
+}
 
-                    {
-                        totalInPipeline > 0 ? (
-                            <div className="space-y-4">
-                                <div className="h-4 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden flex">
-                                    {
-                                        pipelineStats.map((stage, i) => {
-                                            const width = totalInPipeline > 0 ? (stage.value / totalInPipeline) * 100 : 0
-                                            return width > 0 ? (
-                                                <div
-                                                    key={i}
-                                                    className={`${stage.color} h-full transition-all`}
-                                                    style={{ width: `${width}%` }}
-                                                />
-                                            ) : null
-                                        })
-                                    }
+/** Per round: how many students started it and how many reached its pass mark. Counts, never names. */
+function Funnel({ role }: { role: HomeRole }) {
+    const max = Math.max(1, ...role.rounds.map((r) => r.practising))
+    return (
+        <section aria-label={`Funnel for ${role.title}`} className="space-y-2">
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Funnel: {role.title}</h2>
+            <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                {!role.rounds.length ? (
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">This role has no rounds yet, so there&apos;s nothing to count.</p>
+                ) : (
+                    <ol className="space-y-3">
+                        {role.rounds.map((r) => (
+                            <li key={r.id} className="grid grid-cols-1 gap-1 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center sm:gap-4">
+                                <p className="text-sm text-neutral-800 dark:text-neutral-200"><span className="text-neutral-500">{r.number}.</span> {r.title}</p>
+                                <div className="space-y-1">
+                                    <Bar value={r.practising} max={max} label={`${r.practising} started`} tone="light" />
+                                    <Bar value={r.passed} max={max} label={`${r.passed} passed (${pct(r.passed, r.scored)} of ${r.scored} scored)`} tone="dark" />
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                                    {
-                                        pipelineStats.map((stage, i) => (
-                                            <div key={i} className="flex items-center gap-2">
-                                                <div className={`w-3 h-3 rounded-full ${stage.color}`} />
-                                                <div>
-                                                    <p className="text-xs text-neutral-500">{stage.label}</p>
-                                                    <p className="text-lg font-bold text-neutral-900 dark:text-white">{stage.value}</p>
-                                                </div>
-                                            </div>
-                                        ))
-                                    }
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-center py-12">
-                                <div className="w-16 h-16 rounded-2xl bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mx-auto mb-4">
-                                    <AlertCircle className="w-8 h-8 text-neutral-400" />
-                                </div>
-                                <h3 className="font-semibold text-neutral-900 dark:text-white mb-2">No candidates in pipeline</h3>
-                                <p className="text-sm text-neutral-500 mb-4 max-w-sm mx-auto">
-                                    Post your first job to start receiving applications and track them here.
-                                </p>
-                                <Link href="/jobs/new">
-                                    <Button variant="outline" size="sm" className="rounded-xl">
-                                        <Plus className="w-4 h-4 mr-2" />
-                                        Post Your First Job
-                                    </Button>
-                                </Link>
-                            </div>
-                        )
-                    }
-                </motion.div>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="space-y-4"
-                >
-                    <div className="bg-gradient-to-br from-neutral-800 to-neutral-800 rounded-2xl p-6 text-white">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Zap className="w-5 h-5" />
-                            <span className="text-xs font-medium bg-white/20 px-2 py-0.5 rounded-full">New Feature</span>
-                        </div>
-                        <h3 className="font-bold text-lg mb-2">Interview Processes</h3>
-                        <p className="text-neutral-100 text-sm mb-4">
-                            Define transparent interview pipelines. Students can prepare for each round before applying!
-                        </p>
-                        <Link href="/interview-config">
-                            <Button className="w-full bg-white text-neutral-800 hover:bg-neutral-50 rounded-xl">
-                                Configure Processes
-                                <ArrowRight className="w-4 h-4 ml-2" />
-                            </Button>
-                        </Link>
-                    </div>
-                    <div className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6">
-                        <h3 className="font-bold text-lg mb-4 text-neutral-900 dark:text-white">Getting Started</h3>
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-3 text-sm">
-                                <CheckCircle2 className="w-4 h-4 text-neutral-900" />
-                                <span className="text-neutral-700 dark:text-neutral-300">Create your company profile</span>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm">
-                                {
-                                    interviewProcessCount > 0 ? (
-                                        <CheckCircle2 className="w-4 h-4 text-neutral-900" />
-                                    ) : (
-                                        <div className="w-4 h-4 rounded-full border-2 border-neutral-300 dark:border-neutral-600" />
-                                    )
-                                }
-                                <span className={interviewProcessCount > 0 ? "text-neutral-700 dark:text-neutral-300" : "text-neutral-500"}>
-                                    Set up interview process
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm text-neutral-400">
-                                <div className="w-4 h-4 rounded-full border-2 border-neutral-300 dark:border-neutral-600" />
-                                <span>Post your first job</span>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm text-neutral-400">
-                                <div className="w-4 h-4 rounded-full border-2 border-neutral-300 dark:border-neutral-600" />
-                                <span>Invite team members</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 rounded-lg bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800">
-                                <TrendingUp className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
-                            </div>
-                            <h3 className="font-bold text-neutral-900 dark:text-white">Pipeline Health</h3>
-                        </div>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-neutral-500">Rejection Rate</span>
-                                <span className="font-medium text-neutral-900 dark:text-white">
-                                    {candidateStats?.total ? Math.round((candidateStats.rejected / candidateStats.total) * 100) : 0}%
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-neutral-500">Hire Rate</span>
-                                <span className="font-medium text-neutral-900 dark:text-white">
-                                    {candidateStats?.total ? Math.round((candidateStats.hired / candidateStats.total) * 100) : 0}%
-                                </span>
-                            </div>
-                        </div>
-                        <Link href="/analytics">
-                            <Button variant="outline" size="sm" className="w-full rounded-xl mt-4">
-                                View Full Analytics
-                            </Button>
-                        </Link>
-                    </div>
-                </motion.div>
+                            </li>
+                        ))}
+                    </ol>
+                )}
+                <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">Everyone taking this role&apos;s rounds, including students who haven&apos;t sent you results. Counts only; you never see who.</p>
             </div>
+        </section>
+    )
+}
+
+function Bar({ value, max, label, tone }: { value: number; max: number; label: string; tone: "light" | "dark" }) {
+    return (
+        <div className="flex items-center gap-2">
+            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800" aria-hidden>
+                <div className={cn("h-full rounded-full", tone === "dark" ? "bg-neutral-900 dark:bg-white" : "bg-neutral-400 dark:bg-neutral-500")} style={{ width: `${(value / max) * 100}%` }} />
+            </div>
+            <span className="w-48 shrink-0 text-xs text-neutral-700 dark:text-neutral-300">{label}</span>
         </div>
     )
 }
