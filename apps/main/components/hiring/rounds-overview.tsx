@@ -25,12 +25,14 @@ const AI_ASSESSED = new Set(["SYSTEM_DESIGN", "VOICE_BEHAVIOURAL", "VOICE_CULTUR
 
 const when = (d: Date | string) => new Date(d).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
 
-export function RoundsOverviewView({ data, signedIn }: { data: RoundsOverview; signedIn: boolean }) {
+/** `extra`: shown under the rounds (an imported job's rounds we can't run yet). */
+export function RoundsOverviewView({ data, signedIn, extra }: { data: RoundsOverview; signedIn: boolean; extra?: React.ReactNode }) {
     const router = useRouter()
     const [busy, setBusy] = useState<string | null>(null)
     const ctx = data.context
-    const input = ctx.kind === "job" ? { jobSlug: ctx.jobSlug } : { companySlug: ctx.companySlug, processId: ctx.processId }
-    const backHref = ctx.kind === "job" ? `/jobs/${ctx.jobSlug}` : `/companies/${ctx.companySlug}`
+    const input = ctx.kind === "job" ? { jobSlug: ctx.jobSlug } : ctx.kind === "import" ? { importId: ctx.importId } : { companySlug: ctx.companySlug, processId: ctx.processId }
+    const backHref = ctx.kind === "job" ? `/jobs/${ctx.jobSlug}` : ctx.kind === "import" ? (ctx.companyHref ?? "/jobs") : `/companies/${ctx.companySlug}`
+    const selfHref = ctx.kind === "job" ? `/jobs/${ctx.jobSlug}/rounds` : ctx.kind === "import" ? `/jobs/import/${ctx.importId}` : `/companies/${ctx.companySlug}/rounds/${ctx.processId}`
     const cleared = data.states.filter((s) => s.isCleared).length
 
     const start = async (round: OverviewRound) => {
@@ -43,16 +45,27 @@ export function RoundsOverviewView({ data, signedIn }: { data: RoundsOverview; s
     return (
         <div className="page-frame space-y-5 px-page py-6">
             <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200">
-                <ArrowLeft className="h-4 w-4" /> {ctx.kind === "job" ? ctx.jobTitle : ctx.companyName}
+                <ArrowLeft className="h-4 w-4" /> {ctx.kind === "job" ? ctx.jobTitle : ctx.kind === "import" ? (ctx.companyHref ? ctx.companyName : "Jobs") : ctx.companyName}
             </Link>
             <PageHeader
-                title={ctx.kind === "job" ? `Rounds for ${ctx.jobTitle}` : `Practise: ${data.pipelineName}`}
+                title={ctx.kind === "job" ? `Rounds for ${ctx.jobTitle}` : ctx.kind === "import" ? `Practise: ${ctx.jobTitle}` : `Practise: ${data.pipelineName}`}
                 subtitle={ctx.kind === "job"
                     ? `${ctx.companyName} · ${data.rounds.length} rounds, taken in order. ${cleared} of ${data.rounds.length} cleared.`
-                    : `ShipItHQ's rounds for this kind of role, not ${ctx.companyName}'s own process. Practice only.`}
+                    : ctx.kind === "import"
+                        ? `${ctx.companyName}${ctx.pending ? " (under review by ShipItHQ)" : ""} · ${data.rounds.length} rounds, taken in order. ${cleared} of ${data.rounds.length} cleared.`
+                        : `ShipItHQ's rounds for this kind of role, not ${ctx.companyName}'s own process. Practice only.`}
             />
 
-            {data.byShipItHQ && (
+            {ctx.kind === "import" && (
+                <p className="flex items-start gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />
+                    {ctx.companyVersion
+                        ? <>{ctx.companyName}&apos;s own rounds for this role, set up by {ctx.companyName} from a student&apos;s import. Practice only: results aren&apos;t sent.</>
+                        : <>Built by ShipItHQ from the posting: our best reading of how {ctx.companyName} interviews for this role, not its confirmed process. Practice only.</>}
+                </p>
+            )}
+
+            {data.byShipItHQ && ctx.kind !== "import" && (
                 <p className="flex items-start gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                     <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />
                     By ShipItHQ. These rounds are for practice: results from them can&apos;t be sent to {ctx.companyName} until it claims its page and sets up its own.
@@ -61,7 +74,7 @@ export function RoundsOverviewView({ data, signedIn }: { data: RoundsOverview; s
 
             {!signedIn && (
                 <p className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-                    <Link href={`/signin?callbackUrl=${encodeURIComponent(ctx.kind === "job" ? `/jobs/${ctx.jobSlug}/rounds` : `/companies/${ctx.companySlug}/rounds/${ctx.processId}`)}`} className="font-medium underline underline-offset-2">Sign in</Link> to take the rounds.
+                    <Link href={`/signin?callbackUrl=${encodeURIComponent(selfHref)}`} className="font-medium underline underline-offset-2">Sign in</Link> to take the rounds.
                 </p>
             )}
 
@@ -72,6 +85,8 @@ export function RoundsOverviewView({ data, signedIn }: { data: RoundsOverview; s
                     <RoundRow key={r.id} round={r} state={data.states[i]!} busy={busy === r.id} disabled={!signedIn || busy !== null} onStart={() => void start(r)} />
                 ))}
             </ol>
+
+            {extra}
 
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
                 Each attempt draws a new set of questions and runs on a timer; credits are held when it starts and refunded if it can&apos;t be scored. AI assistants are off while a round is running.
@@ -98,6 +113,7 @@ function RoundRow({ round: r, state: s, busy, disabled, onStart }: { round: Over
                             {r.gateMode === "HARD" ? `Pass ${r.passMark} to go on` : `Advisory · ${r.passMark}`}
                         </span>
                         {AI_ASSESSED.has(r.type) && <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">AI-assessed</span>}
+                        {r.aiWritten && <span title="Some of this round's questions were written by AI for this job and haven't been reviewed by ShipItHQ yet." className="rounded-md border border-dashed border-neutral-300 px-1.5 py-0.5 text-[11px] text-neutral-600 dark:border-neutral-600 dark:text-neutral-300">AI-written, not yet reviewed</span>}
                     </div>
                     <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">
                         {TYPE_LABEL[r.type] ?? r.type} · {r.timeLimitMinutes} min{r.type === "APTITUDE" ? ` · ${r.drawCount} questions` : ""} · {r.price > 0 ? `${r.price} credits` : "free"}

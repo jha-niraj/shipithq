@@ -37,6 +37,9 @@ import { and, eq, sql } from "drizzle-orm";
 // which has no transaction support and throws at runtime.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** The hold key for a background job. Derived, so the poller does not have to carry it. */
+export const jobHoldId = (jobId: string) => `job-${jobId}`
+
 export type HoldFailureCode = "INSUFFICIENT_CREDITS" | "USER_NOT_FOUND" | "HOLD_FAILED";
 
 export type ReserveResult =

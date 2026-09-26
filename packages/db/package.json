@@ -21,6 +21,7 @@
         "./hiring-retention": "./src/hiring-retention.ts",
         "./hiring-purge": "./src/hiring-purge.ts",
         "./moderation": "./src/moderation.ts",
+        "./job-import-url": "./src/job-import-url.ts",
         "./assistant-store": "./src/assistant-store.ts",
         "./hiring-stats": "./src/hiring-stats.ts",
         "./report-reasons": "./src/report-reasons.ts",

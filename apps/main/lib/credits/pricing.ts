@@ -91,6 +91,14 @@ export const CREDIT_PRICES = {
     hiring_round_dsa: 5,
     hiring_round_system_design: 15,
     hiring_round_voice: 30,
+
+    /**
+     * Importing a job privately (plan/job-import JI-6), the price of an
+     * interview-prep goal; a public import is free, 3 a day. Decided by Niraj on
+     * 2026-09-26, `plan/job-import/overview.md` (Visibility and cost). Held on
+     * dispatch, settled at READY, refunded if the import fails.
+     */
+    job_import_private: 15,
 } as const
 
 export type PricedOperation = keyof typeof CREDIT_PRICES

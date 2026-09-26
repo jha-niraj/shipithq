@@ -1,0 +1,2 @@
+ALTER TABLE "imported_job" ADD COLUMN "company_process_id" text;--> statement-breakpoint
+ALTER TABLE "imported_job" ADD CONSTRAINT "imported_job_company_process_id_interview_process_id_fk" FOREIGN KEY ("company_process_id") REFERENCES "public"."interview_process"("id") ON DELETE set null ON UPDATE no action;

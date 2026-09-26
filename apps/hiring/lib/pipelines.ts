@@ -18,7 +18,8 @@ export async function copyRounds(tx: TxClient, fromId: string, toId: string): Pr
     for (const r of rounds) {
         const { id: _id, processId: _p, createdAt: _c, updatedAt: _u, ...rest } = r
         const [copy] = await tx.insert(interviewRounds).values({ ...rest, processId: toId, updatedAt: new Date() }).returning({ id: interviewRounds.id })
-        const items = await tx.select({ kind: hiringRoundPoolItems.kind, refId: hiringRoundPoolItems.refId, weight: hiringRoundPoolItems.weight })
+        // `status` too: an AI-written item from an imported job stays labelled in a copy (plan/job-import JI-9).
+        const items = await tx.select({ kind: hiringRoundPoolItems.kind, refId: hiringRoundPoolItems.refId, weight: hiringRoundPoolItems.weight, status: hiringRoundPoolItems.status })
             .from(hiringRoundPoolItems).where(eq(hiringRoundPoolItems.roundId, r.id))
         for (let i = 0; i < items.length; i += 200) {
             await tx.insert(hiringRoundPoolItems).values(items.slice(i, i + 200).map((it) => ({ ...it, roundId: copy!.id }))).onConflictDoNothing()

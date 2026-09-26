@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import {
-    Sparkles, UserCheck, Bookmark, FileText, LayoutList,
+    Sparkles, UserCheck, Bookmark, FileText, LayoutList, ClipboardPaste,
 } from "lucide-react"
 import { TabsNav } from "@repo/ui/components/ui/tabs"
 
@@ -24,7 +24,8 @@ interface TabConfig {
     label: string
     href: string
     icon: React.ComponentType<{ className?: string }>
-    countKey: keyof TabCounts
+    /** Null: a tab with no count (Practise any job). */
+    countKey: keyof TabCounts | null
     requiresAuth: boolean
 }
 
@@ -84,6 +85,15 @@ const tabs: TabConfig[] = [
         icon: LayoutList,
         countKey: "browse",
         requiresAuth: false
+    },
+    // plan/job-import JI-8 (Niraj, 2026-09-26): paste a job from anywhere and practise its rounds.
+    {
+        id: "import",
+        label: "Practise any job",
+        href: "/jobs/import",
+        icon: ClipboardPaste,
+        countKey: null,
+        requiresAuth: false
     }
 ]
 
@@ -97,6 +107,9 @@ export function JobsTabs({ counts, isAuthenticated }: JobsTabsProps) {
         if (pathname.startsWith("/jobs/saved")) return "saved"
         if (pathname.startsWith("/jobs/rounds")) return "rounds"
         if (pathname.startsWith("/jobs/browse")) return "browse"
+        if (pathname.startsWith("/jobs/import")) return "import"
+        // Referrals live in the sidebar, not the strip: no tab is theirs.
+        if (pathname.startsWith("/jobs/referrals")) return "none"
         return "spark"
     }
 
@@ -112,7 +125,7 @@ export function JobsTabs({ counts, isAuthenticated }: JobsTabsProps) {
             aria-label="Jobs sections"
             items={tabs.map((tab) => {
                 const Icon = tab.icon
-                const count = counts[tab.countKey]
+                const count = tab.countKey ? counts[tab.countKey] : 0
                 const showCount = count > 0 && (isAuthenticated || !tab.requiresAuth)
                 return {
                     href: tab.href,

@@ -1,6 +1,6 @@
 import "server-only"
-import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm"
-import { db, companies, hiringAttempts, hiringRuns, hiringSends, interviewProcesses, interviewRounds, jobs, messageThreads, notifications, users } from "@repo/db"
+import { and, asc, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm"
+import { db, companies, hiringAttempts, hiringRuns, hiringSends, importedJobs, interviewProcesses, interviewRounds, jobs, messageThreads, notifications, users } from "@repo/db"
 import { companyTrust } from "@/lib/company-trust"
 import { roundStates, type RoundState } from "@/lib/hiring/round-state"
 import { RUNNABLE_TYPES, closeIfExpired } from "@/lib/hiring/runs"
@@ -81,11 +81,13 @@ function nextStep(rounds: { id: string; roundNumber: number; title: string; roun
 
 export async function loadMyRounds(userId: string): Promise<MyRounds> {
     const [runRows, sendRows] = await Promise.all([
-        db.select({ run: hiringRuns, jobTitle: jobs.title, jobSlug: jobs.slug, jobStatus: jobs.status, company: { name: companies.name, slug: companies.slug, claimStatus: companies.claimStatus, verificationStatus: companies.verificationStatus }, processName: interviewProcesses.name })
+        db.select({ run: hiringRuns, jobTitle: jobs.title, jobSlug: jobs.slug, jobStatus: jobs.status, company: { name: companies.name, slug: companies.slug, claimStatus: companies.claimStatus, verificationStatus: companies.verificationStatus }, processName: interviewProcesses.name, imported: { id: importedJobs.id, extracted: importedJobs.extracted, hint: importedJobs.companyNameHint } })
             .from(hiringRuns)
             .leftJoin(jobs, eq(jobs.id, hiringRuns.jobId))
             .leftJoin(companies, eq(companies.id, hiringRuns.companyId))
             .leftJoin(interviewProcesses, eq(interviewProcesses.id, hiringRuns.processId))
+            // A job a student imported (plan/job-import): its company may still be under review.
+            .leftJoin(importedJobs, eq(importedJobs.id, interviewProcesses.importedJobId))
             .where(and(eq(hiringRuns.userId, userId), inArray(hiringRuns.status, ["IN_PROGRESS", "COMPLETE"]), isNotNull(hiringRuns.processId)))
             .orderBy(desc(hiringRuns.updatedAt)),
         db.select({ send: hiringSends, jobTitle: jobs.title, jobSlug: jobs.slug, companyName: companies.name, companySlug: companies.slug })
@@ -101,6 +103,14 @@ export async function loadMyRounds(userId: string): Promise<MyRounds> {
     const runs = runRows.filter((r) => !(r.run.jobId && sentJobs.has(r.run.jobId)))
 
     const processIds = [...new Set(runs.map((r) => r.run.processId!))]
+    // A company's own pipeline practised through an import it adopted or replaced (JI-9).
+    const viaCompany = processIds.length
+        // Only imports this student can see, their own first (a company pipeline can stand in for several).
+        ? await db.select({ id: importedJobs.id, extracted: importedJobs.extracted, hint: importedJobs.companyNameHint, companyProcessId: importedJobs.companyProcessId })
+            .from(importedJobs)
+            .where(and(inArray(importedJobs.companyProcessId, processIds), or(eq(importedJobs.visibility, "PUBLIC"), eq(importedJobs.ownerId, userId))))
+            .orderBy(desc(sql`${importedJobs.ownerId} = ${userId}`), desc(importedJobs.createdAt))
+        : []
     const runIds = runs.map((r) => r.run.id)
     const [roundRows, attemptRows] = await Promise.all([
         processIds.length ? db.select().from(interviewRounds).where(inArray(interviewRounds.processId, processIds)).orderBy(asc(interviewRounds.roundNumber)) : [],
@@ -111,7 +121,9 @@ export async function loadMyRounds(userId: string): Promise<MyRounds> {
     const practice: MyRun[] = []
     for (const r of runs) {
         const rounds = roundRows.filter((x) => x.processId === r.run.processId)
-        if (!rounds.length || !r.company) continue
+        const adopted = !r.run.jobId ? viaCompany.find((v) => v.companyProcessId === r.run.processId) : undefined
+        const imported = r.imported?.id ? r.imported : adopted ? { id: adopted.id, extracted: adopted.extracted, hint: adopted.hint } : null
+        if (!rounds.length || (!r.company && !imported)) continue
         const attempts = attemptRows.filter((a) => a.runId === r.run.id)
         // An attempt past its end is closed on read, so the step shown is current.
         for (const a of attempts) {
@@ -122,7 +134,7 @@ export async function loadMyRounds(userId: string): Promise<MyRounds> {
             }
         }
         const states = roundStates(rounds.map((x) => ({ id: x.id, gateMode: x.gateMode, passMark: x.passMark, cooldownHours: x.cooldownHours })), attempts)
-        const trust = companyTrust(r.company.claimStatus, r.company.verificationStatus)
+        const trust = r.company ? companyTrust(r.company.claimStatus, r.company.verificationStatus) : null
         const isJob = Boolean(r.run.jobId && r.jobSlug)
 
         let next = nextStep(rounds, states)
@@ -136,19 +148,22 @@ export async function loadMyRounds(userId: string): Promise<MyRounds> {
             }
         }
 
-        const practiceOnly = !isJob
-            ? "Practice only: ShipItHQ's rounds, not the company's process."
-            : !trust.canReceiveResults
-                ? (trust.kind === "unclaimed" ? `Practice only until ${r.company.name} joins ShipItHQ.` : `Practice only until ${r.company.name} is verified.`)
-                : r.jobStatus !== "ACTIVE" ? "Practice only: this role is closed." : null
+        const companyName = r.company?.name ?? imported?.extracted?.company.name ?? imported?.hint ?? "The company"
+        const practiceOnly = imported
+            ? "Practice only: built by ShipItHQ from the posting you imported."
+            : !isJob
+                ? "Practice only: ShipItHQ's rounds, not the company's process."
+                : !trust!.canReceiveResults
+                    ? (trust!.kind === "unclaimed" ? `Practice only until ${companyName} joins ShipItHQ.` : `Practice only until ${companyName} is verified.`)
+                    : r.jobStatus !== "ACTIVE" ? "Practice only: this role is closed." : null
 
         const item: MyRun = {
             runId: r.run.id,
             kind: isJob ? "job" : "practice",
-            title: isJob ? r.jobTitle! : (r.processName ?? "Practice rounds"),
-            companyName: r.company.name,
-            companySlug: r.company.slug,
-            href: isJob ? `/jobs/${r.jobSlug}/rounds` : `/companies/${r.company.slug}/rounds/${r.run.processId}`,
+            title: isJob ? r.jobTitle! : imported ? (imported.extracted?.title ?? "Imported job") : (r.processName ?? "Practice rounds"),
+            companyName,
+            companySlug: r.company?.slug ?? "",
+            href: isJob ? `/jobs/${r.jobSlug}/rounds` : imported ? `/jobs/import/${imported.id}` : `/companies/${r.company!.slug}/rounds/${r.run.processId}`,
             roundsTotal: rounds.length,
             roundsCleared: states.filter((s) => s.isCleared).length,
             next,

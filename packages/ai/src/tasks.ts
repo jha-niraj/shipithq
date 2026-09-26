@@ -62,6 +62,12 @@ export const AI_TASKS = {
     hiringAi: DEFAULT_CHAT_MODEL,
     /** The company AI panel's conversation titles (HA-11). Inline. */
     hiringAiTitle: DEFAULT_CHAT_MODEL,
+    /** Job import: a pasted posting read into a strict schema (plan/job-import JI-3). Worker step. */
+    jobImportExtract: DEFAULT_CHAT_MODEL,
+    /** Job import: the posting's interview planned as rounds of our five types (JI-5). Worker step. */
+    jobImportPlan: DEFAULT_CHAT_MODEL,
+    /** Job import: one round built from our banks, or drafted where a bank is thin (JI-5). Worker step, one per round. */
+    jobImportRound: DEFAULT_CHAT_MODEL,
 } as const satisfies Record<string, ModelId>
 
 export type AiTask = keyof typeof AI_TASKS

@@ -330,3 +330,29 @@ export function socialPlatformOf(url: string): string | null {
     if (d.endsWith('youtube.com')) return 'YouTube'
     return null
 }
+
+// ─── contents ────────────────────────────────────────────────────────────────────
+
+/**
+ * One page's text from Exa's `/contents`, live-crawled, or null. Best-effort: any
+ * failure is null, never a throw, because a caller uses this as a fallback after
+ * another reader and has its own "we couldn't read it" path (plan/job-import JI-3).
+ */
+export async function exaContents(apiKey: string, url: string, opts?: { livecrawlTimeoutMs?: number; timeoutMs?: number }): Promise<{ text: string; title: string } | null> {
+    if (!apiKey) return null
+    try {
+        const res = await fetch('https://api.exa.ai/contents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+            body: JSON.stringify({ urls: [url], text: true, livecrawlTimeout: opts?.livecrawlTimeoutMs ?? 10_000 }),
+            signal: AbortSignal.timeout(opts?.timeoutMs ?? 20_000),
+        })
+        if (!res.ok) return null
+        const data = (await res.json()) as { results?: Array<{ text?: string; title?: string }> }
+        const first = data.results?.[0]
+        const text = first?.text?.trim() ?? ''
+        return text ? { text, title: first?.title ?? '' } : null
+    } catch {
+        return null
+    }
+}

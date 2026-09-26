@@ -17,7 +17,7 @@
 
 import Link from "next/link"
 import {
-	Activity, ArrowRight, CalendarDays, Flame, FolderKanban, GraduationCap, Mic, Plus,
+	Activity, ArrowRight, CalendarDays, ClipboardPaste, Flame, FolderKanban, GraduationCap, Mic, Plus,
 	Sparkles, Target, Zap,
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
@@ -93,6 +93,7 @@ export default function HomeDashboard({ user, stats, trends, pickUp }: HomeDashb
 				</div>
 				<div className="flex items-center gap-2">
 					<Button asChild variant="outline" size="sm"><Link href="/practice"><Zap className="mr-1.5 size-3.5" /> Practice</Link></Button>
+					<Button asChild variant="outline" size="sm"><Link href="/jobs/import"><ClipboardPaste className="mr-1.5 size-3.5" /> Practise a job</Link></Button>
 					<Button asChild size="sm"><Link href="/projects"><Plus className="mr-1.5 size-3.5" /> New project</Link></Button>
 				</div>
 			</header>

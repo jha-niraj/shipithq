@@ -39,7 +39,10 @@ export const interviewRoundTypeEnum = pgEnum("interview_round_type", [
 ]);
 
 /** Who owns a pipeline: a company, or ShipItHQ's generic role pipelines (HR-4). */
-export const pipelineOwnerKindEnum = pgEnum("pipeline_owner_kind", ["COMPANY", "PLATFORM"]);
+/** COMPANY: a company's own. PLATFORM: ShipItHQ's generic role pipelines. IMPORTED: built from a job a student pasted (plan/job-import). */
+export const pipelineOwnerKindEnum = pgEnum("pipeline_owner_kind", ["COMPANY", "PLATFORM", "IMPORTED"]);
+/** DRAFT: written by AI for an imported job and not yet reviewed; drawn anyway, and labelled (plan/job-import). */
+export const poolItemStatusEnum = pgEnum("pool_item_status", ["LIVE", "DRAFT"]);
 /** HARD: below the pass mark, the next round stays locked. ADVISORY: scored and shown, never blocks. */
 export const roundGateModeEnum = pgEnum("round_gate_mode", ["HARD", "ADVISORY"]);
 /** How a voice round may be answered (HR-16). */
@@ -93,6 +96,8 @@ export const interviewProcesses = pgTable(
         sourceTemplateId: text("source_template_id"),
         /** Set on a job's own copy. Plain column: jobs.ts owns the FK the other way. */
         jobId: text("job_id"),
+        /** Set on an IMPORTED pipeline: the imported job it was built for. Plain column: job-import.ts owns the FK the other way. */
+        importedJobId: text("imported_job_id"),
         name: text("name").notNull(),
         description: text("description"),
         isDefault: boolean("is_default").notNull().default(false),
@@ -111,7 +116,9 @@ export const interviewProcesses = pgTable(
         index("idx_interview_process_company_id").on(table.companyId),
         index("idx_interview_process_is_default").on(table.isDefault),
         index("idx_interview_process_job_id").on(table.jobId),
-        check("chk_interview_process_owner", sql`(${table.ownerKind} = 'PLATFORM') or (${table.companyId} is not null)`),
+        // A company pipeline has its company; ShipItHQ's and imported ones may have none (an import's company can still be under review).
+        check("chk_interview_process_owner", sql`(${table.ownerKind}::text in ('PLATFORM', 'IMPORTED')) or (${table.companyId} is not null)`),
+        index("idx_interview_process_imported_job_id").on(table.importedJobId),
     ],
 );
 
@@ -181,6 +188,7 @@ export const hiringRoundPoolItems = pgTable(
         /** The practice problem, aptitude question or design prompt's id. */
         refId: text("ref_id").notNull(),
         weight: integer("weight").notNull().default(1),
+        status: poolItemStatusEnum("status").notNull().default("LIVE"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
     },
     (table) => [

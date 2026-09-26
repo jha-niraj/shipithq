@@ -4,10 +4,10 @@ import { getSession } from "@repo/auth"
 import { headers } from "next/headers"
 import { db, backgroundJobs, isTerminalJobStatus, type JobType } from "@repo/db"
 import { and, eq, inArray, sql } from "drizzle-orm"
-import crypto from "crypto"
-import { reserveCredits, releaseCredits, settleCredits } from "@/lib/credits/hold"
+import { jobHoldId as holdIdFor, reserveCredits, releaseCredits, settleCredits } from "@/lib/credits/hold"
 import { toErrorMessage } from "@/lib/errors"
 import { callWorker } from "@/lib/workers/client"
+import { issueWorkerToken } from "@/lib/workers/token"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Starting and polling background jobs.
@@ -31,19 +31,6 @@ import { callWorker } from "@/lib/workers/client"
 // the worker, so every credit decision in the product stays in one place
 // (`lib/credits/hold.ts`).
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** The hold key for a job. Derived, so the poller does not have to carry it. */
-const holdIdFor = (jobId: string) => `job-${jobId}`
-
-/** Signed HMAC token the worker verifies with Web Crypto. Scoped to one job. */
-function issueJobToken(userId: string, jobId: string): string {
-    const secret = process.env.WORKER_SECRET
-    if (!secret) throw new Error("Worker secret not configured")
-    const now = Math.floor(Date.now() / 1000)
-    const payload = JSON.stringify({ userId, action: "start_job", jobId, iat: now, exp: now + 300 })
-    const signature = crypto.createHmac("sha256", secret).update(payload).digest("base64url")
-    return `${Buffer.from(payload).toString("base64url")}.${signature}`
-}
 
 export interface StartJobOptions {
     /** Credits to hold for the duration of the job. Omit for free jobs. */
@@ -152,7 +139,7 @@ export async function startBackgroundJob(
 
         try {
             const res = await callWorker("/api/v1/jobs", {
-                token: issueJobToken(userId, jobId),
+                token: issueWorkerToken(userId, jobId, "start_job"),
                 body: { type, jobId, input },
             })
             if (!res.ok) throw new Error(`Worker rejected the job (${res.status})`)

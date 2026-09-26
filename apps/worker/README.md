@@ -101,6 +101,26 @@ which is a much worse error to explain than a failed job.
 - **Best-effort status writes.** A failed progress write never aborts a run the
   user has paid for.
 
+## Stepped jobs (one alarm per step)
+
+For a job that makes several slow calls in a row (`job_import`, plan/job-import),
+extend `SteppedJob` (`src/jobs/stepped-job.ts`) instead of `JobDurableObject` and
+implement `firstStep`, `initialState`, `runStep` and `labelFor`. Each alarm runs
+one step, saves the job's state (the checkpoint), writes a status the app shows,
+and schedules the next step. The rules live in `src/jobs/stepped-core.ts`, which
+has no Workers imports, and are checked by `npx tsx scripts/stepped-core.check.ts`.
+
+- A step returns `{ next, state }`, `{ next: null, state }` (done) or
+  `{ wait: "label", state }` to pause until the app posts `/resume` with the step
+  to continue from (e.g. after the student pastes a job's text).
+- `RetryableError` retries **that step only**, twice with backoff; anything else
+  fails the job at once.
+- An eviction mid-step re-runs only that step once it has gone stale (3 minutes),
+  at most twice, then fails the job; an eviction between steps just resumes.
+- Steps must be safe to re-run: upserts or guarded updates, never blind inserts.
+
+The five edits in "Adding a job type" apply unchanged.
+
 ## Routes
 
 | | |

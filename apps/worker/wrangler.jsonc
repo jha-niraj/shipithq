@@ -40,7 +40,8 @@
 			{ "name": "SPRINT_QUIZ", "class_name": "SprintQuiz" },
 			{ "name": "COMPANY_SCRAPE", "class_name": "CompanyScrape" },
 			{ "name": "APTITUDE_GENERATE", "class_name": "AptitudeGenerate" },
-			{ "name": "VOICE_INTERVIEW_SCORE", "class_name": "VoiceInterviewScore" }
+			{ "name": "VOICE_INTERVIEW_SCORE", "class_name": "VoiceInterviewScore" },
+			{ "name": "JOB_IMPORT", "class_name": "JobImport" }
 		]
 	},
 
@@ -142,6 +143,11 @@
 			// (plan/project-workspace WS-24), so its class is deleted. A NEW tag.
 			"tag": "v17",
 			"deleted_classes": ["SprintMock"]
+		},
+		{
+			// A pasted job becomes a practisable pipeline, one alarm per step (plan/job-import JI-3).
+			"tag": "v18",
+			"new_sqlite_classes": ["JobImport"]
 		}
 	],
 

@@ -1,12 +1,12 @@
 "use server"
 
 import crypto from "crypto"
-import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm"
+import { and, asc, count, eq, inArray, isNull, or, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { getSession } from "@repo/auth"
 import {
-    db, aptitudeQuestions, companies, designPrompts, hiringAttempts, hiringRuns, hiringSends, interviewProcesses, interviewRounds, jobs, users,
+    db, aptitudeQuestions, companies, designPrompts, hiringAttempts, hiringRoundPoolItems, hiringRuns, hiringSends, importedJobs, interviewProcesses, interviewRounds, jobs, users,
     type HiringAttemptIntegrity, type VoiceTurn,
     jobPractisable,
 } from "@repo/db"
@@ -27,7 +27,8 @@ import type { PracticeJudgeResult } from "@/types/practice"
 /*
  * Taking a pipeline's rounds (plan/hiring-rounds HR-13). A run is one student's
  * pass through one pipeline: a job's, or, from a company page, one of
- * ShipItHQ's for practice. Each attempt draws its questions, holds its credits
+ * ShipItHQ's for practice, or one built from a job a student imported
+ * (plan/job-import JI-7). Each attempt draws its questions, holds its credits
  * and runs on the server's clock.
  */
 
@@ -54,11 +55,16 @@ export interface OverviewRound {
     price: number
     /** The round type's runner is built; the rest show "coming soon". */
     runnable: boolean
+    /** Its pool holds an item written by AI for an imported job and not reviewed yet (plan/job-import). */
+    aiWritten: boolean
 }
 
 export interface RoundsOverview {
     context: { kind: "job"; jobSlug: string; jobTitle: string; companyName: string; companySlug: string }
         | { kind: "practice"; companySlug: string; companyName: string; processId: string }
+        /** An imported job's pipeline. `companyHref`: its company page, or the holding page while it's under review. */
+        /** `companyVersion`: the company adopted it or put its own pipeline in its place (JI-9). */
+        | { kind: "import"; importId: string; jobTitle: string; companyName: string; companyHref: string | null; pending: boolean; companyVersion: boolean }
     pipelineName: string
     byShipItHQ: boolean
     rounds: OverviewRound[]
@@ -78,6 +84,10 @@ export type SendSummary =
 
 async function roundsOf(processId: string): Promise<OverviewRound[]> {
     const rows = await db.select().from(interviewRounds).where(eq(interviewRounds.processId, processId)).orderBy(asc(interviewRounds.roundNumber))
+    const drafts = rows.length
+        ? await db.selectDistinct({ roundId: hiringRoundPoolItems.roundId }).from(hiringRoundPoolItems)
+            .where(and(inArray(hiringRoundPoolItems.roundId, rows.map((r) => r.id)), eq(hiringRoundPoolItems.status, "DRAFT")))
+        : []
     return rows.map((r) => ({
         id: r.id,
         number: r.roundNumber,
@@ -91,6 +101,7 @@ async function roundsOf(processId: string): Promise<OverviewRound[]> {
         cooldownHours: r.cooldownHours,
         price: PRICE_FOR[r.roundType] ? priceOf(PRICE_FOR[r.roundType]!) : 0,
         runnable: RUNNABLE_TYPES.has(r.roundType),
+        aiWritten: drafts.some((d) => d.roundId === r.id),
     }))
 }
 
@@ -177,18 +188,69 @@ export async function getPracticeRounds(companySlug: string, processId: string):
 }
 
 /**
+ * An imported job this viewer may practise (public, or their own private one,
+ * built) and the pipeline to practise: the company's own once it adopted or
+ * replaced it (JI-9), else the one built from the posting.
+ */
+async function practisableImport(importId: string, uid: string | null) {
+    const row = await db.query.importedJobs.findFirst({ where: eq(importedJobs.id, importId) })
+    if (!row || row.status !== "READY" || !row.processId) return null
+    if (row.visibility === "PRIVATE" && row.ownerId !== uid) return null
+    return { ...row, practiceProcessId: row.companyProcessId ?? row.processId }
+}
+
+/** An imported job's rounds (plan/job-import JI-7), and where the signed-in student stands on them. */
+export async function getImportRounds(importId: string): Promise<Result<RoundsOverview>> {
+    try {
+        const uid = await userId()
+        const row = await practisableImport(importId, uid)
+        if (!row) return { success: false, error: "That job isn't ready to practise." }
+        const [company, process] = await Promise.all([
+            row.companyId ? db.query.companies.findFirst({ where: and(eq(companies.id, row.companyId), isNull(companies.suspendedAt)), columns: { name: true, slug: true } }) : null,
+            db.query.interviewProcesses.findFirst({ where: eq(interviewProcesses.id, row.practiceProcessId), columns: { name: true } }),
+        ])
+        const o = await overviewFor(uid, row.practiceProcessId, { practice: true })
+        return {
+            success: true,
+            data: {
+                context: {
+                    kind: "import",
+                    importId: row.id,
+                    jobTitle: row.extracted?.title ?? "Imported job",
+                    companyName: company?.name ?? row.extracted?.company.name ?? row.companyNameHint ?? "the company",
+                    companyHref: company ? `/companies/${company.slug}` : row.companyRequestId ? `/companies/pending/${row.companyRequestId}` : null,
+                    pending: !company,
+                    companyVersion: Boolean(row.companyProcessId),
+                },
+                pipelineName: process?.name ?? "Rounds",
+                byShipItHQ: true,
+                ...o,
+            },
+        }
+    } catch (error: unknown) {
+        console.error("getImportRounds:", error instanceof Error ? error.message : error)
+        return { success: false, error: "Could not load the rounds" }
+    }
+}
+
+/**
  * Start (or return) the student's run, then an attempt at `roundId`. Returns
  * the attempt to open in the runner.
  */
-export async function startRound(input: { jobSlug: string } | { companySlug: string; processId: string }, roundId: string): Promise<Result<{ attemptId: string }>> {
+export async function startRound(input: { jobSlug: string } | { companySlug: string; processId: string } | { importId: string }, roundId: string): Promise<Result<{ attemptId: string }>> {
     const uid = await userId()
     if (!uid) return { success: false, error: "Sign in to take the rounds.", code: "UNAUTHORIZED" }
     try {
         // Resolve the pipeline this run is for.
         let processId: string
         let jobId: string | null = null
-        let companyId: string
-        if ("jobSlug" in input) {
+        let companyId: string | null
+        if ("importId" in input) {
+            const row = await practisableImport(input.importId, uid)
+            if (!row) return { success: false, error: "That job isn't ready to practise." }
+            processId = row.practiceProcessId
+            companyId = row.companyId
+        } else if ("jobSlug" in input) {
             const job = await db.query.jobs.findFirst({ where: and(eq(jobs.slug, input.jobSlug), jobPractisable), columns: { id: true, companyId: true, interviewProcessId: true } })
             if (!job?.interviewProcessId) return { success: false, error: "That job isn't open." }
             processId = job.interviewProcessId
@@ -332,8 +394,24 @@ export async function getRunnerAttempt(attemptId: string): Promise<Result<Runner
             run.jobId ? db.query.jobs.findFirst({ where: eq(jobs.id, run.jobId), columns: { slug: true, title: true } }) : null,
             run.companyId ? db.query.companies.findFirst({ where: eq(companies.id, run.companyId), columns: { slug: true, name: true } }) : null,
         ])
-        const backHref = job ? `/jobs/${job.slug}/rounds` : company && run.processId ? `/companies/${company.slug}/rounds/${run.processId}` : "/jobs"
-        const contextLabel = job ? `${job.title}${company ? ` · ${company.name}` : ""}` : `${company?.name ?? "Practice"} · practice`
+        const imported = !job && run.processId
+            // One company pipeline can stand in for several imports (JI-9 Replace): only one this
+            // student can see, their own first, so another's private import never shows.
+            ? await db.query.importedJobs.findFirst({
+                where: and(
+                    or(eq(importedJobs.processId, run.processId), eq(importedJobs.companyProcessId, run.processId)),
+                    or(eq(importedJobs.visibility, "PUBLIC"), eq(importedJobs.ownerId, uid)),
+                ),
+                orderBy: (t, { desc: d }) => [d(sql`${t.ownerId} = ${uid}`), d(t.createdAt)],
+                columns: { id: true, extracted: true, companyNameHint: true },
+            })
+            : null
+        const backHref = job ? `/jobs/${job.slug}/rounds` : imported ? `/jobs/import/${imported.id}` : company && run.processId ? `/companies/${company.slug}/rounds/${run.processId}` : "/jobs"
+        const contextLabel = job
+            ? `${job.title}${company ? ` · ${company.name}` : ""}`
+            : imported
+                ? `${imported.extracted?.title ?? "Imported job"} · ${company?.name ?? imported.extracted?.company.name ?? imported.companyNameHint ?? "practice"}`
+                : `${company?.name ?? "Practice"} · practice`
 
         const drawn = attempt.drawnItems as DrawnItem[]
         let design: RunnerAttempt["design"] = null

@@ -84,6 +84,7 @@ export function HomeDashboardSkeleton() {
                 </div>
                 <div className="flex gap-2">
                     <Shimmer className="h-8 w-24 rounded-lg" delay={0.08} />
+                    <Shimmer className="h-8 w-32 rounded-lg" delay={0.09} />
                     <Shimmer className="h-8 w-32 rounded-lg" delay={0.1} />
                 </div>
             </div>

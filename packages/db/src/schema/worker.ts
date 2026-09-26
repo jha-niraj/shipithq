@@ -82,6 +82,8 @@ export const JOB_TYPES = [
     // (plan/hiring-rounds HR-11): a batch of up to 30 can outlast 30 seconds.
     "aptitude_generate",
     "voice_interview_score",
+    // A pasted job turned into a practisable pipeline, one alarm per step (plan/job-import).
+    "job_import",
 ] as const;
 
 export type JobType = (typeof JOB_TYPES)[number];

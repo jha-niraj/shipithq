@@ -40,6 +40,7 @@ export {
 	CompanyScrape,
 	AptitudeGenerate,
 	VoiceInterviewScore,
+	JobImport,
 } from "./jobs"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -177,6 +178,19 @@ export default {
 			const res = await jobStub(env, type, jobMatch[1]!).fetch("https://do/status")
 			const data = (await res.json()) as object
 			return json({ success: true, ...data })
+		}
+
+		// ── Resume a stepped job paused on "wait" (plan/job-import: the student pasted the text) ──
+		const resumeMatch = url.pathname.match(/^\/api\/v1\/jobs\/([^/]+)\/resume$/)
+		if (request.method === "POST" && resumeMatch) {
+			const token = bearer(request)
+			const payload = token ? await verifyWorkerToken(token, env.WORKER_SECRET) : null
+			// Scoped like a start: this action, this one job.
+			if (!payload || payload.action !== "resume_job" || payload.jobId !== resumeMatch[1]) return unauthorized()
+			const body = (await request.json().catch(() => ({}))) as { type?: string; step?: string }
+			if (!isRunnableJobType(body.type)) return json({ success: false, error: "A known type is required" }, 400)
+			const res = await jobStub(env, body.type, resumeMatch[1]!).fetch("https://do/resume", { method: "POST", body: JSON.stringify({ step: body.step }) })
+			return json({ success: res.ok }, res.ok ? 200 : 409)
 		}
 
 		return new Response("Not found", { status: 404, headers: cors })

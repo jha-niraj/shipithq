@@ -24,21 +24,12 @@ export type ProgressFn = (progress: number, phaseLabel: string) => Promise<void>
 
 type Phase = "pending" | "running" | "done" | "failed"
 
-/**
- * A run that fails with one of these is worth another attempt: the request never
- * reached a decision, so retrying cannot duplicate anything the first attempt
- * did. Anything else (bad model output, a missing row, insufficient input) will
- * fail identically on a retry and is failed immediately instead.
- */
-export class RetryableError extends Error {
-	constructor(message: string) {
-		super(message)
-		this.name = "RetryableError"
-	}
-}
+// RetryableError lives in ./retryable (no Workers imports), so pure step logic can use it too.
+import { RetryableError } from "./retryable"
+export { RetryableError }
 
 /** Retry schedule for `RetryableError`, in ms. Length = max extra attempts. */
-const RETRY_DELAYS_MS = [5_000, 20_000]
+export const RETRY_DELAYS_MS = [5_000, 20_000]
 
 /**
  * A run still marked `running` this long after it started has lost its worker -
@@ -178,7 +169,7 @@ export abstract class JobDurableObject<TInput = unknown> extends DurableObject<E
 		}
 	}
 
-	private async fail(jobId: string, message: string): Promise<void> {
+	protected async fail(jobId: string, message: string): Promise<void> {
 		await this.ctx.storage.put("phase", "failed" satisfies Phase)
 		await this.ctx.storage.put("error", message)
 		await this.writeStatus(jobId, "failed", 0, { error: message })
@@ -213,7 +204,7 @@ export abstract class JobDurableObject<TInput = unknown> extends DurableObject<E
 	 * user has already been charged for. The worst case is a stale progress bar
 	 * that the next tick corrects.
 	 */
-	private async writeStatus(
+	protected async writeStatus(
 		jobId: string,
 		status: JobStatus,
 		progress: number,
