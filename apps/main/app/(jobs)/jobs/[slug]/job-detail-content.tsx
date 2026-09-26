@@ -19,6 +19,8 @@ import {
 } from "@/actions/jobs"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { AskReferral } from "@/components/referrals/ask-referral"
+import type { ReferralAvailability } from "@/actions/(main)/referrer"
 
 interface Job {
     id: string
@@ -77,6 +79,8 @@ interface Job {
 
 interface JobDetailContentProps {
     job: Job
+    /** Verified referrals (plan/competition/skillmeet CMP-4): null when signed out or none. */
+    referral?: ReferralAvailability | null
 }
 
 const locationTypeLabels: Record<string, string> = {
@@ -128,7 +132,7 @@ const formatLabels: Record<string, string> = {
     PRESENTATION: "Presentation"
 }
 
-export function JobDetailContent({ job }: JobDetailContentProps) {
+export function JobDetailContent({ job, referral = null }: JobDetailContentProps) {
     const router = useRouter()
     const [isSaved, setIsSaved] = useState(job.isSaved)
     const [isSaving, setIsSaving] = useState(false)
@@ -654,6 +658,7 @@ export function JobDetailContent({ job }: JobDetailContentProps) {
                                 </p>
                             )}
                         </motion.div>
+                        <AskReferral target={{ jobSlug: job.slug }} availability={referral} companyName={job.company.name} />
                         <motion.div
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}

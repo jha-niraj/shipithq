@@ -43,6 +43,9 @@ export type InboxKind =
     | "REPORT_REVIEWED"
     /** An interview report was approved or rejected (plan/competition/skillmeet CMP-1). */
     | "INTERVIEW_REPORT_REVIEWED"
+    /** A student asked a verified employee for a referral; and the answer (CMP-4). */
+    | "REFERRAL_REQUEST"
+    | "REFERRAL_ANSWERED"
     | "COMPANY_SUSPENDED"
     | "GENERAL"
 
@@ -58,6 +61,8 @@ export const STUDENT_KIND_TAB: Partial<Record<InboxKind, Exclude<StudentTab, "al
     PRACTICE_REMINDER: "updates",
     REPORT_REVIEWED: "updates",
     INTERVIEW_REPORT_REVIEWED: "updates",
+    REFERRAL_REQUEST: "updates",
+    REFERRAL_ANSWERED: "companies",
     GENERAL: "updates",
 }
 

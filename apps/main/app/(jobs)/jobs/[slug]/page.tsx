@@ -1,6 +1,7 @@
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import { getJobBySlug } from "@/actions/jobs"
+import { getReferralAvailability } from "@/actions/(main)/referrer"
 import { JobDetailContent } from "./job-detail-content"
 import Loading from "./loading"
 
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: JobDetailPageProps) {
 
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
     const { slug } = await params
-    const result = await getJobBySlug(slug)
+    const [result, referral] = await Promise.all([getJobBySlug(slug), getReferralAvailability({ jobSlug: slug })])
 
     if (!result.success || !result.data) {
         notFound()
@@ -34,7 +35,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
         <Suspense 
             fallback={<Loading />}
         >
-            <JobDetailContent job={result.data} />
+            <JobDetailContent job={result.data} referral={referral.success ? referral.data : null} />
         </Suspense>
     )
 }

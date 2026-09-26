@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "uq_imported_job_private_owner_url" ON "imported_job" USING btree ("owner_id","url_hash") WHERE visibility = 'PRIVATE' and url_hash is not null and status <> 'FAILED';

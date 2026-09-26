@@ -4,7 +4,7 @@ import {
     Home, FileText, Code2,
     Network, Globe, Server, Compass, Telescope, IdCard, BarChart3,
     Upload, History, Wallet,
-    ArrowLeft, Search, Send, Bookmark, Bell, Building2, Zap, Inbox, Lightbulb, Siren,
+    ArrowLeft, Search, Send, Bookmark, Bell, Building2, Zap, Inbox, Lightbulb, Siren, UserCheck,
 } from "lucide-react"
 
 // The types and pin logic are shared with apps/hiring (plan/hiring-app HA-1).
@@ -216,6 +216,8 @@ export const jobsNavigation: NavigationItem[] = [
     { name: "Discover", path: "jobs", icon: Zap, status: "active" },
     { name: "Browse All", path: "jobs/browse", icon: Search, status: "active" },
     { name: "My rounds", path: "jobs/rounds", icon: Send, status: "active" },
+    // Verified referrals (plan/competition/skillmeet CMP-4).
+    { name: "Referrals", path: "jobs/referrals", icon: UserCheck, status: "active" },
     { name: "Saved", path: "jobs/saved", icon: Bookmark, status: "active" },
     { name: "Following", path: "jobs/following", icon: Bell, status: "active" },
     { name: "Companies", path: "companies", icon: Building2, status: "active" },
