@@ -9,6 +9,7 @@ import { headers } from "next/headers";
 import type {
     PracticeAssessPayload, PracticeAssessResult, PracticeProblemDetail
 } from "@/types/practice";
+import { modelFor } from '@repo/ai';
 
 
 // ─────────────────────────────────────────────
@@ -315,7 +316,7 @@ export async function assessPracticeWork(
         const userPrompt = buildAssessPrompt(problemDetail, payload);
 
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: modelFor("practiceAssess"),
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },
@@ -481,7 +482,7 @@ Rules:
         ];
 
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: modelFor("practiceAssessMentor"),
             messages,
             temperature: 0.7,
             max_tokens: 1000,

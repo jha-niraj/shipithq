@@ -1,4 +1,5 @@
 import "server-only"
+import type { ModelId } from "@repo/ai"
 
 /*
  * One inline JSON completion for the hiring app (CLAUDE.md "Long-running work":
@@ -10,7 +11,7 @@ const TIMEOUT_MS = 25_000
 
 export class AiUnavailableError extends Error {}
 
-export async function chatJSON(opts: { model: string; system: string; user: string; maxTokens?: number; temperature?: number }): Promise<unknown> {
+export async function chatJSON(opts: { model: ModelId; system: string; user: string; maxTokens?: number; temperature?: number }): Promise<unknown> {
     const key = process.env.OPENAI_API_KEY
     if (!key) throw new AiUnavailableError("AI is not configured (OPENAI_API_KEY is not set).")
     let res: Response

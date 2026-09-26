@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm"
+import { modelFor } from "@repo/ai"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
 import { chatJSON } from "../openai"
@@ -144,7 +145,7 @@ Return a JSON object with this exact structure:
 
 		const raw = await chatJSON({
 			apiKey: this.env.OPENAI_API_KEY,
-			model: "gpt-4o-mini",
+			model: modelFor("sprintGeneration"),
 			system: systemPrompt,
 			user: userPrompt,
 			temperature: 0.7,

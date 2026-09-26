@@ -14,10 +14,11 @@ import type {
 	VectorSearchResult, ChatMessageSource
 } from "@/types/knowme";
 import { openai } from "@/lib/openai-client";
+import { modelFor } from "@repo/ai";
 
 // Configuration
 export const AI_CONFIG = {
-	model: "gpt-4o-mini", // Cost-effective, good quality
+	model: modelFor("knowmeReply"), // Cost-effective, good quality
 	maxTokens: 800,
 	temperature: 0.7,
 	maxContextChunks: 5,

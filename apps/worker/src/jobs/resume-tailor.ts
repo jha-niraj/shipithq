@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm"
+import { modelFor } from "@repo/ai"
 import { renderResumeText, coerceResumeDraftContent, isResumeDraftContent, type ResumeDraftContent } from "@repo/db/resume"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
@@ -74,7 +75,7 @@ export class ResumeTailor extends JobDurableObject<ResumeTailorInput> {
 
         const raw = await chatJSON({
             apiKey: this.env.OPENAI_API_KEY,
-            model: "gpt-4o",
+            model: modelFor("resumeTailor"),
             system: `You are an expert resume coach. Given a resume and a job description, do these things:
 1. Rewrite the experience bullet points to better match the JD language and keywords. Keep all facts accurate - only rephrase and reframe.
 2. Reorder skills so the ones the JD asks for come first. Do not invent skills the resume does not claim.

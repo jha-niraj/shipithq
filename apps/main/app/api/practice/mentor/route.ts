@@ -224,7 +224,7 @@ Rules:
     ];
 
     const stream = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: modelFor("practiceChatMentor"),
         messages,
         temperature: 0.7,
         max_tokens: 1000,

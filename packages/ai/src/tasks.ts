@@ -10,6 +10,8 @@ import { DEFAULT_CHAT_MODEL, type ModelId } from "./models"
  * task's recorded check.
  */
 export const AI_TASKS = {
+    /** Incidents: feedback on a talk-it-through conversation (plan/incidents INC-15). */
+    incidentMockFeedback: DEFAULT_CHAT_MODEL,
     /** Adaptive onboarding: the next question, or the finished profile. */
     onboardingQuestion: DEFAULT_CHAT_MODEL,
     /** Guided DSA mentor: the streamed reply. */
@@ -68,6 +70,69 @@ export const AI_TASKS = {
     jobImportPlan: DEFAULT_CHAT_MODEL,
     /** Job import: one round built from our banks, or drafted where a bank is thin (JI-5). Worker step, one per round. */
     jobImportRound: DEFAULT_CHAT_MODEL,
+
+    // ── Moved here from call sites (plan/ai-models AM-1, 2026-09-26). Each keeps the ──
+    // ── model it used before; changing one is a decision with its own re-check.     ──
+
+    /** Resume: a pasted or uploaded resume structured into the builder's sections. Worker job. */
+    resumeStructure: "gpt-4o",
+    /** Resume: an imported resume read into the builder (RES-9). Worker job. */
+    resumeImport: "gpt-4o",
+    /** Resume: tailored to a job description. Worker job. */
+    resumeTailor: "gpt-4o",
+    /** Resume: the ATS score against a job. Worker job. */
+    resumeAtsScore: "gpt-4o-mini",
+    /** Cover letter: the letter itself. Worker job. */
+    coverLetter: "gpt-4o",
+    /** Cover letter: the questions asked before writing it. Worker job. */
+    coverLetterQuestions: "gpt-4o",
+    /** Projects: the project quiz. Worker job. Still on gpt-4-turbo-preview, as it was. */
+    projectQuiz: "gpt-4-turbo-preview",
+    /** Projects: a generated project's blueprint (the worker's pipeline; it relied on the helper's mini fallback). Worker job. */
+    projectBlueprint: "gpt-4o-mini",
+    /** Projects: a project's sprints generated. Worker job. */
+    sprintGeneration: "gpt-4o-mini",
+    /** Pathfinder: a goal's first sub-goals. Worker job. */
+    pathfinderGoalCreation: "gpt-4o-mini",
+    /** Pathfinder: a sub-goal's explanation. Worker job. */
+    pathfinderSubgoalExplain: "gpt-4o-mini",
+    /** Pathfinder: a sub-goal's practice problems. Worker job. */
+    pathfinderSubgoalPractice: "gpt-4o-mini",
+    /** Pathfinder: a goal's quiz and coding problems. Inline. */
+    pathfinderQuizAndCoding: "gpt-4o-mini",
+    /** Pathfinder: a sub-goal's submitted code reviewed. Inline. */
+    pathfinderCodingReview: "gpt-4o-mini",
+    /** Interview prep: the questions a posting implies (plan/interview-prep). Worker job. */
+    interviewPrepQuestions: "gpt-4o-mini",
+    /** Study spaces: an explanation, videos, documents, a quiz, flashcards and note help. Inline. */
+    studioExplanation: "gpt-4o-mini",
+    studioVideos: "gpt-4o-mini",
+    studioDocuments: "gpt-4o-mini",
+    studioQuiz: "gpt-4o-mini",
+    studioFlashcards: "gpt-4o-mini",
+    studioNoteEnhance: "gpt-4o-mini",
+    /** Mock voice: a custom mock's knowledge base, from a syllabus or from a title. Inline. */
+    mockKnowledgeFromSyllabus: "gpt-4o-mini",
+    mockKnowledgeFromTitle: "gpt-4o-mini",
+    /** A mock interview scored from its transcript (the older mock voice flow). Inline route. */
+    mockInterviewScore: "gpt-4o",
+    /** Practice (web and system design): a problem generated from a URL or a name. Inline. */
+    practiceProblemFromUrl: "gpt-4o",
+    practiceProblemFromName: "gpt-4o",
+    /** Practice (web and system design): work assessed, and the mentor's reply. Inline. */
+    practiceAssess: "gpt-4o",
+    practiceAssessMentor: "gpt-4o",
+    /** Practice chat mentor route (web and system design), streamed. */
+    practiceChatMentor: "gpt-4o",
+    /** KnowMe: the persona's reply, and its embeddings. */
+    knowmeReply: "gpt-4o-mini",
+    knowmeEmbedding: "text-embedding-3-small",
+    /** Voice notes transcribed. */
+    transcription: "whisper-1",
+    /** The admin console's AI panel (was OPENAI_CHAT_MODEL, empty on dev: mini). */
+    adminAssistant: "gpt-4o-mini",
+    /** The mentor check script's grader (plan/practice-dsa mentor-adversarial). */
+    practiceCheckGrader: "gpt-4o",
 } as const satisfies Record<string, ModelId>
 
 export type AiTask = keyof typeof AI_TASKS

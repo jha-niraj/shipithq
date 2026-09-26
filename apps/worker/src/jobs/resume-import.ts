@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm"
+import { modelFor } from "@repo/ai"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
 import { chatJSON } from "../openai"
@@ -330,7 +331,7 @@ export class ResumeImport extends JobDurableObject<ResumeImportInput> {
 		try {
 			rawJson = await chatJSON({
 				apiKey: this.env.OPENAI_API_KEY,
-				model: "gpt-4o",
+				model: modelFor("resumeImport"),
 				maxTokens: 8000,
 				system: `You are a resume parser. Extract structured resume data from ${sourceHint} content.
 Use cuid-style IDs (random 8-char strings) for array items.

@@ -1,7 +1,9 @@
 import { and, eq, sql } from "drizzle-orm"
+import { modelFor } from "@repo/ai"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
 import { chatJSON } from "../openai"
+import { companyLoops, pickLoop } from "@repo/db/company-loop"
 import { JobDurableObject, RetryableError, type ProgressFn, type StoredJob } from "./base"
 
 const { pathfinderGoals, pathfinderDailySessions, pathfinderSubGoals } = schema
@@ -27,7 +29,26 @@ interface InterviewPrepInput {
     /** Pointer only - the goal, its job description and its company info are re-read here. */
     goalId: string
     counts?: { technical?: number; behavioral?: number; coding?: number }
+    /**
+     * The company and role group the posting matched (plan/competition/skillmeet
+     * CMP-2e): its reported questions go first. Absent: generated only.
+     */
+    reported?: { companyId: string; companyName: string; roleFamily: string; level: string }
 }
+
+/** At most this many reported questions lead a goal. */
+const MAX_REPORTED = 10
+const REPORT_ROUND_LABEL: Record<string, string> = {
+    ONLINE_ASSESSMENT: "online assessment", APTITUDE: "aptitude test", DSA: "coding round", LLD: "low-level design round",
+    SYSTEM_DESIGN: "system design round", TAKE_HOME: "take-home", TECHNICAL: "technical interview", BEHAVIOURAL: "behavioural round",
+    HIRING_MANAGER: "hiring manager round", HR: "HR round", OTHER: "interview",
+}
+const FAMILY_LABEL: Record<string, string> = {
+    SOFTWARE: "Software engineer", FRONTEND: "Frontend", BACKEND: "Backend", FULL_STACK: "Full stack", MOBILE: "Mobile", DATA_ML: "Data / ML",
+    DEVOPS_SRE: "DevOps / SRE", QA: "QA", PRODUCT: "Product", DESIGN: "Design", OTHER: "Other",
+}
+const LEVEL_LABEL: Record<string, string> = { INTERN: "Intern", ENTRY: "Entry", MID: "Mid", SENIOR: "Senior" }
+const BEHAVIOURAL_ROUNDS = new Set(["BEHAVIOURAL", "HR", "HIRING_MANAGER"])
 
 interface GeneratedQuestion {
     title: string
@@ -141,10 +162,15 @@ export class InterviewPrepGeneration extends JobDurableObject<InterviewPrepInput
             }))
         if (!dailySession) throw new Error("Could not open a session for these questions")
 
+        // Reported questions first (CMP-2e): what students were actually asked at
+        // this company, in the usual round order, each saying how often.
+        const reported = await this.reportedQuestions(db, job.input.reported)
+
         // Ordered technical, then behavioral, then coding: that is the shape of a
         // real interview loop, and `order` is what the UI sorts by.
         let order = 0
         const rows = [
+            ...reported,
             ...generated.technical.map((q) => ({
                 title: asTitle(q.title),
                 description: q.description,
@@ -181,8 +207,8 @@ export class InterviewPrepGeneration extends JobDurableObject<InterviewPrepInput
         ].map((r) => ({
             goalId,
             sessionId: dailySession.id,
-            source: "text" as const,
-            isAIGenerated: true,
+            source: "source" in r ? r.source : "text",
+            isAIGenerated: !("source" in r),
             // No explanation is written for these - the question IS the content -
             // so they are complete on arrival rather than showing a "Generate
             // Content" button that would rewrite the question as a lesson.
@@ -223,6 +249,33 @@ export class InterviewPrepGeneration extends JobDurableObject<InterviewPrepInput
             coding: codingCount,
             skipped: false,
         }
+    }
+
+    /**
+     * Up to 10 questions students reported for the matched company and role
+     * group, as sub-goal rows that say how often each was asked. Only a loop
+     * that meets the threshold is used; otherwise none (never invent frequency).
+     */
+    private async reportedQuestions(db: ReturnType<typeof this.db>, match: InterviewPrepInput["reported"]) {
+        if (!match) return []
+        const group = pickLoop(await companyLoops(db, match.companyId), { roleFamily: match.roleFamily, level: match.level })
+        if (!group) return []
+        const who = `${FAMILY_LABEL[group.roleFamily] ?? group.roleFamily}, ${LEVEL_LABEL[group.level] ?? group.level}`
+        const out: { title: string; description: string; kind: "TECHNICAL" | "BEHAVIORAL"; hasCoding: false; aiCodingProblem: null; source: "interview_report" }[] = []
+        for (const round of group.rounds) {
+            for (const q of round.questions) {
+                if (out.length >= MAX_REPORTED) break
+                out.push({
+                    title: asTitle(q.text),
+                    description: `Reported ${q.reported} ${q.reported === 1 ? "time" : "times"} by students (${who}) in the ${REPORT_ROUND_LABEL[round.type] ?? "interview"} at ${match.companyName}.`,
+                    kind: BEHAVIOURAL_ROUNDS.has(round.type) ? "BEHAVIORAL" : "TECHNICAL",
+                    hasCoding: false,
+                    aiCodingProblem: null,
+                    source: "interview_report",
+                })
+            }
+        }
+        return out
     }
 
     private async generate(
@@ -281,7 +334,7 @@ Return ONLY valid JSON, no markdown.`
         try {
             raw = await chatJSON({
                 apiKey: this.env.OPENAI_API_KEY,
-                model: "gpt-4o-mini",
+                model: modelFor("interviewPrepQuestions"),
                 temperature: 0.7,
                 // Higher than goal-creation's 2000: this returns three lists, and
                 // the coding entries carry starter code. A truncated response is

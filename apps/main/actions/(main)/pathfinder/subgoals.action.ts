@@ -18,6 +18,7 @@ import {
 } from '@/actions/(main)/studios/ai-generation.actions'
 import { canRunPathfinderAI, getGoalUsageSummary } from './usage.action'
 import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
+import { modelFor } from '@repo/ai'
 
 
 // ================================================================================
@@ -530,7 +531,7 @@ Be lenient - if the logic is mostly correct, pass it. Focus on:
 Return ONLY valid JSON.`
 
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: modelFor("pathfinderCodingReview"),
             messages: [{ role: 'user', content: evaluationPrompt }],
             temperature: 0.3,
             max_tokens: 1000,

@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm"
+import { modelFor } from "@repo/ai"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
 import { chatJSON, chatText } from "../openai"
@@ -161,7 +162,7 @@ export class SubGoalGeneration extends JobDurableObject<SubGoalGenerationInput> 
         try {
             return await chatText({
                 apiKey: this.env.OPENAI_API_KEY,
-                model: "gpt-4o-mini",
+                model: modelFor("pathfinderSubgoalExplain"),
                 system: "",
                 user: `Provide a detailed explanation of "${title}". Include key concepts, practical examples, code snippets where relevant, and best practices. Use clear markdown formatting.`,
             })
@@ -224,7 +225,7 @@ Return ONLY valid JSON, no markdown or code blocks.`
         try {
             raw = await chatJSON({
                 apiKey: this.env.OPENAI_API_KEY,
-                model: "gpt-4o-mini",
+                model: modelFor("pathfinderSubgoalPractice"),
                 temperature: 0.7,
                 maxTokens: 2000,
                 system: "",

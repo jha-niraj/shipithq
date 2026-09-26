@@ -2,6 +2,7 @@
 
 import { getSession } from "@repo/auth"
 import { headers } from "next/headers"
+import { modelFor } from "@repo/ai"
 
 /**
  * Transcribe audio using OpenAI Whisper.
@@ -25,7 +26,7 @@ export async function whisperTranscribe(
 
         const formData = new FormData()
         formData.append("file", blob, "audio.webm")
-        formData.append("model", "whisper-1")
+        formData.append("model", modelFor("transcription"))
 
         const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
             method: "POST",

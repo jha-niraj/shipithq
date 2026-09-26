@@ -4,6 +4,7 @@ import { db } from "@repo/db";
 import { studioSteps, studioQuizzes } from "@repo/db";
 import { eq } from "drizzle-orm";
 import { openai } from "@/lib/openai-client";
+import { modelFor } from "@repo/ai";
 
 // ─── Explanation ──────────────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ export async function generateExplanation(
         });
 
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: modelFor("studioExplanation"),
             messages: [{ role: "user", content: prompt }],
         });
         const content = completion.choices[0]?.message?.content ?? "";
@@ -53,7 +54,7 @@ export async function generateVideos(
     try {
         const prompt = `List 3 YouTube video recommendations for learning "${topic}". Return as JSON array: [{ "title": "...", "channel": "...", "url": "https://youtube.com/..." }]`;
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: modelFor("studioVideos"),
             messages: [{ role: "user", content: prompt }],
             response_format: { type: "json_object" },
         });
@@ -99,7 +100,7 @@ export async function generateDocuments(
     try {
         const prompt = `List 3 documentation / article references for "${topic}". Return JSON: [{ "title": "...", "source": "...", "url": "https://..." }]`;
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: modelFor("studioDocuments"),
             messages: [{ role: "user", content: prompt }],
             response_format: { type: "json_object" },
         });
@@ -145,7 +146,7 @@ export async function generateQuiz(
     try {
         const prompt = `Create a 5-question multiple-choice quiz about "${topic}". Return JSON: { "questions": [{ "question": "...", "options": ["A","B","C","D"], "correct": 0, "explanation": "..." }] }`;
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: modelFor("studioQuiz"),
             messages: [{ role: "user", content: prompt }],
             response_format: { type: "json_object" },
         });
@@ -187,7 +188,7 @@ export async function generateFlashcards(
     try {
         const prompt = `Create 10 flashcards for "${topic}". Return JSON: { "cards": [{ "front": "...", "back": "..." }] }`;
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: modelFor("studioFlashcards"),
             messages: [{ role: "user", content: prompt }],
             response_format: { type: "json_object" },
         });
@@ -235,7 +236,7 @@ export async function enhanceNoteWithAI(
 ): Promise<{ success: boolean; enhanced?: string; error?: string }> {
     try {
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: modelFor("studioNoteEnhance"),
             messages: [
                 {
                     role: "system",

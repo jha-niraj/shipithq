@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import type { DB } from "./db"
 import { schema } from "./db"
+import { modelFor } from "@repo/ai"
 import { chatJSON } from "./openai"
 import { BLUEPRINT_SYSTEM } from "./pipeline-prompt"
 import { validateSetup } from "./pipeline-setup"
@@ -99,7 +100,7 @@ Tech stack: ${stackSummary}
 Extra technologies: ${(input.technologies ?? []).join(", ") || "none"}
 Make it buildable, sprint-based, and portfolio-worthy. Return the JSON blueprint only.`
 
-	const raw = await chatJSON({ apiKey: openaiKey, system: SYSTEM, user: userPrompt, maxTokens: 8000 })
+	const raw = await chatJSON({ apiKey: openaiKey, model: modelFor("projectBlueprint"), system: SYSTEM, user: userPrompt, maxTokens: 8000 })
 
 	let blueprint: Blueprint
 	try {

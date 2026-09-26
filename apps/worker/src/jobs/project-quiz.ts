@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm"
+import { modelFor } from "@repo/ai"
 import type { RunnableJobType } from "../env"
 import { schema, withTransaction } from "../db"
 import { chatJSON } from "../openai"
@@ -102,7 +103,7 @@ Return ONLY a valid JSON array with 20 questions following this exact structure:
 
 		const content = await chatJSON({
 			apiKey: this.env.OPENAI_API_KEY,
-			model: "gpt-4-turbo-preview",
+			model: modelFor("projectQuiz"),
 			system:
 				"You are an expert technical interviewer who creates high-quality quiz questions. Always return valid JSON arrays.",
 			user: prompt,

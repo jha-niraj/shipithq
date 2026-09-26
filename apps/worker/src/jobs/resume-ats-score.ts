@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm"
+import { modelFor } from "@repo/ai"
 import { coerceResumeDraftContent, renderResumeText } from "@repo/db/resume"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
@@ -74,7 +75,7 @@ export class ResumeAtsScore extends JobDurableObject<ResumeAtsScoreInput> {
 
 		const rawJson = await chatJSON({
 			apiKey: this.env.OPENAI_API_KEY,
-			model: "gpt-4o-mini",
+			model: modelFor("resumeAtsScore"),
 			system: SYSTEM,
 			user: `Job Description:\n${jobDescription}\n\nResume:\n${resumeText}`,
 		})

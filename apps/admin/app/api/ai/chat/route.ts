@@ -6,11 +6,13 @@ import { openai } from "@/lib/openai-client"
 import { TOOL_SPECS, runTool, type ToolCaller } from "@/lib/ai/tools"
 import { encodeFrame, type ChatFrame } from "@/lib/ai/protocol"
 import type { AdminPermissions } from "@/lib/navigation"
+import { modelFor } from "@repo/ai"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-const MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini"
+// The admin panel's model is its task line in @repo/ai (plan/ai-models AM-3); no env override.
+const MODEL = modelFor("adminAssistant")
 
 const MAX_HISTORY_MESSAGES = 20
 const MAX_MESSAGE_CHARS = 8000

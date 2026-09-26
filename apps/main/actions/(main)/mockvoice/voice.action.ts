@@ -6,6 +6,7 @@ import { db, users, mockInterviewVoice, mockVoiceSession, creditTransactions } f
 import { eq, and, or, ilike, desc, count, avg, type SQL } from "drizzle-orm"
 import { revalidatePath } from 'next/cache'
 import { openai } from '@/lib/openai-client'
+import { modelFor } from '@repo/ai'
 
 // ==========================================
 // TYPES
@@ -212,7 +213,7 @@ export async function createCustomMockVoice(input: CreateCustomMockInput) {
         if (input.knowledgeBase && input.knowledgeBase.trim().length > 50) {
             try {
                 const completion = await openai.chat.completions.create({
-                    model: 'gpt-4o-mini',
+                    model: modelFor("mockKnowledgeFromSyllabus"),
                     messages: [
                         {
                             role: 'system',
@@ -265,7 +266,7 @@ export async function createCustomMockVoice(input: CreateCustomMockInput) {
         } else {
             try {
                 const completion = await openai.chat.completions.create({
-                    model: 'gpt-4o-mini',
+                    model: modelFor("mockKnowledgeFromTitle"),
                     messages: [
                         {
                             role: 'system',

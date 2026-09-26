@@ -50,6 +50,7 @@ import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
 // Nothing needed the re-export anyway: every consumer already imports these
 // three from `@repo/db` directly, which is where they belong.
 import type { PathfinderCategory, PathfinderLevel, PathfinderStatus } from '@repo/db'
+import { modelFor } from '@repo/ai'
 
 export interface CreateGoalInput {
     title: string
@@ -555,7 +556,7 @@ Return JSON in this exact format:
 Rules: Vary difficulty. Return ONLY valid JSON, no markdown.`
 
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: modelFor("pathfinderQuizAndCoding"),
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.7,
             max_tokens: 2000,

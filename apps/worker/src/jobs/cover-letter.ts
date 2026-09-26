@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm"
+import { modelFor } from "@repo/ai"
 import { renderResumeText } from "@repo/db/resume"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
@@ -106,7 +107,7 @@ export class CoverLetter extends JobDurableObject<CoverLetterInput> {
 
         const generatedContent = await chatText({
             apiKey: this.env.OPENAI_API_KEY,
-            model: "gpt-4o",
+            model: modelFor("coverLetter"),
             system: "You are an expert copywriter and career coach.",
             user: prompt,
             temperature: 0.7,

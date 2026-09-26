@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm"
+import { modelFor } from "@repo/ai"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
 import { chatJSON } from "../openai"
@@ -198,7 +199,7 @@ export class ResumeStructure extends JobDurableObject<ResumeStructureInput> {
 		try {
 			rawJson = await chatJSON({
 				apiKey: this.env.OPENAI_API_KEY,
-				model: "gpt-4o",
+				model: modelFor("resumeStructure"),
 				temperature: 0.1,
 				maxTokens: 8000,
 				system: SYSTEM,

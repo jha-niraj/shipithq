@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import { db, practiceProblem, users } from "@repo/db";
 import { eq, and, desc } from "drizzle-orm";
 import { startBackgroundJob } from "@/actions/(main)/workers/jobs.action";
+import { modelFor } from '@repo/ai';
 
 type PracticeModule = 'DSA' | 'SYSTEM_DESIGN' | 'WEB_FRONTEND' | 'WEB_BACKEND'
 type PracticeDifficulty = 'EASY' | 'MEDIUM' | 'HARD'
@@ -162,7 +163,7 @@ export async function generateProblemFromURL(
 		const truncated = pageContent.substring(0, 8000);
 
 		const completion = await openai.chat.completions.create({
-			model: "gpt-4o",
+			model: modelFor("practiceProblemFromUrl"),
 			messages: [
 				{ role: "system", content: buildSystemPrompt(module) },
 				{
@@ -213,7 +214,7 @@ export async function generateProblemFromName(
 		const difficultyHint = difficulty ? `\nTarget difficulty: ${difficulty}` : "";
 
 		const completion = await openai.chat.completions.create({
-			model: "gpt-4o",
+			model: modelFor("practiceProblemFromName"),
 			messages: [
 				{ role: "system", content: buildSystemPrompt(module) },
 				{

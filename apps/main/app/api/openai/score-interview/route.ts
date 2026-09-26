@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openai } from '@/lib/openai-client';
+import { modelFor } from '@repo/ai';
 
 export async function POST(request: NextRequest) {
 	try {
@@ -60,7 +61,7 @@ Format your response as JSON:
 `;
 
 		const completion = await openai.chat.completions.create({
-			model: "gpt-4o",
+			model: modelFor("mockInterviewScore"),
 			messages: [
 				{
 					role: "system",

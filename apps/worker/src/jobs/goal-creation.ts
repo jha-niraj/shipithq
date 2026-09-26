@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm"
+import { modelFor } from "@repo/ai"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
 import { chatJSON } from "../openai"
@@ -183,7 +184,7 @@ Return ONLY valid JSON, no markdown.`
         try {
             raw = await chatJSON({
                 apiKey: this.env.OPENAI_API_KEY,
-                model: "gpt-4o-mini",
+                model: modelFor("pathfinderGoalCreation"),
                 temperature: 0.7,
                 maxTokens: 2000,
                 system: "",

@@ -9,10 +9,11 @@ import { openai } from "@/lib/openai-client";
 import type {
 	EmbeddingChunk
 } from "@/types/knowme";
+import { modelFor } from "@repo/ai";
 
 // Configuration
 export const EMBEDDING_CONFIG = {
-	model: "text-embedding-3-small", // Cost-effective, good quality
+	model: modelFor("knowmeEmbedding"), // Cost-effective, good quality
 	// Must match the Vectorize index exactly:
 	//   npx wrangler vectorize create shipithq-knowme --dimensions=1024 --metric=cosine
 	// A mismatch is rejected at upsert time, not at startup.

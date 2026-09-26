@@ -19,6 +19,7 @@
 		"release:no-secrets": "NODE_OPTIONS='--max-old-space-size=8192' opennextjs-cloudflare build && wrangler deploy"
 	},
 	"dependencies": {
+		"@repo/ai": "workspace:*",
 		"@repo/auth": "workspace:*",
 		"@repo/db": "workspace:*",
 		"@repo/email": "workspace:*",

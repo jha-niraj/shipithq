@@ -1,4 +1,5 @@
 import type { RunnableJobType } from "../env"
+import { modelFor } from "@repo/ai"
 import { chatJSON } from "../openai"
 import { JobDurableObject, type ProgressFn, type StoredJob } from "./base"
 
@@ -59,7 +60,7 @@ export class CoverLetterQuestions extends JobDurableObject<CoverLetterQuestionsI
 
 		const rawJson = await chatJSON({
 			apiKey: this.env.OPENAI_API_KEY,
-			model: "gpt-4o",
+			model: modelFor("coverLetterQuestions"),
 			system: SYSTEM,
 			user: `Job Description:\n\n${jobDescription}`,
 		})
