@@ -48,8 +48,12 @@ export const AI_TASKS = {
     sprintQuiz: DEFAULT_CHAT_MODEL,
     /** A sprint mock interview: questions, follow-ups and the feedback (plan/project-workspace WS-13). */
     sprintMock: DEFAULT_CHAT_MODEL,
-    /** A company's draft profile, drafted from its own site's pages (plan/hiring-rounds HR-5). */
-    companyProfileDraft: DEFAULT_CHAT_MODEL,
+    /**
+     * A company's draft profile, drafted from its own site's pages (plan/hiring-rounds HR-5).
+     * gpt-4o by decision (Niraj, 2026-09-28, plan/hiring-ui HU-14): it runs once per
+     * company, at onboarding, and has to be really good.
+     */
+    companyProfileDraft: "gpt-4o",
     /** Hiring: a pipeline's rounds drafted from a role description (plan/hiring-rounds HR-10). Inline, 25s. */
     pipelineDraft: DEFAULT_CHAT_MODEL,
     /** Hiring: a company's aptitude questions on its own topics, as drafts it approves (HR-11). Worker job. */

@@ -13,5 +13,4 @@ export {
     getCompanyDetails,
     updateUserProfile,
     changePassword,
-    updateCompanyDetails,
 } from "./profile.action"

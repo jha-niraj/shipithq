@@ -104,7 +104,7 @@ export async function createCompanyRole(input: { name: string; fromRoleId?: stri
             companyId: ctx.companyId, name, permissions, isOwner: false, presetKey: null, updatedAt: new Date(),
         }).onConflictDoNothing().returning({ id: companyRoles.id })
         if (!row) return { success: false, error: `A role called "${name}" already exists.` }
-        revalidatePath("/team/roles")
+        revalidatePath("/team/access")
         return { success: true, data: { id: row.id } }
     } catch (error: unknown) {
         console.error("createCompanyRole:", error instanceof Error ? error.message : error)
@@ -133,7 +133,7 @@ export async function updateCompanyRole(roleId: string, input: { name: string; p
         await db.update(companyRoles)
             .set({ name, permissions: sanitizePermissions(input.permissions, false), updatedAt: new Date() })
             .where(eq(companyRoles.id, roleId))
-        revalidatePath("/team/roles")
+        revalidatePath("/team/access")
         return { success: true, data: null }
     } catch (error: unknown) {
         console.error("updateCompanyRole:", error instanceof Error ? error.message : error)
@@ -163,7 +163,7 @@ export async function deleteCompanyRole(roleId: string): Promise<Result<{ movedM
             await tx.delete(companyRoles).where(eq(companyRoles.id, roleId))
             return rows.length
         })
-        revalidatePath("/team/roles")
+        revalidatePath("/team/access")
         revalidatePath("/team")
         return { success: true, data: { movedMembers: moved } }
     } catch (error: unknown) {
@@ -197,7 +197,7 @@ export async function assignMemberRole(memberId: string, roleId: string): Promis
             if (owners <= 1) return { success: false, error: "A company must keep at least one Owner." }
         }
         await db.update(companyMembers).set({ roleId: role.id }).where(eq(companyMembers.id, member.id))
-        revalidatePath("/team/roles")
+        revalidatePath("/team/access")
         revalidatePath("/team")
         return { success: true, data: null }
     } catch (error: unknown) {

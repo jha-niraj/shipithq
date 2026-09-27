@@ -2,12 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Lock, Plus, ShieldCheck, Trash2, Users } from "lucide-react"
+import { Lock, Plus, Save, ShieldCheck, Trash2, Undo2, Users } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Switch } from "@repo/ui/components/ui/switch"
 import { PageHeader } from "@repo/ui/components/ui/page-header"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { StickyAside } from "@repo/ui/components/ui/sticky-action-bar"
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@repo/ui/components/ui/dialog"
@@ -76,7 +77,7 @@ export function RolesEditor({ data }: { data: Data }) {
         startTransition(async () => {
             const r = await updateCompanyRole(selected.id, draft)
             if (!r.success) { toast.error(r.error); return }
-            toast.success("Role saved")
+            toast.success("Access level saved")
             setDraft(null)
             router.refresh()
         })
@@ -88,7 +89,7 @@ export function RolesEditor({ data }: { data: Data }) {
             const r = await deleteCompanyRole(selected.id)
             setConfirmDelete(false)
             if (!r.success) { toast.error(r.error); return }
-            toast.success(r.data.movedMembers ? `Role deleted; ${r.data.movedMembers} member(s) moved to Interviewer` : "Role deleted")
+            toast.success(r.data.movedMembers ? `Access level deleted; ${r.data.movedMembers} member(s) moved to Interviewer` : "Access level deleted")
             setSelectedId(data.roles[0]?.id ?? null)
             setDraft(null)
             router.refresh()
@@ -99,7 +100,7 @@ export function RolesEditor({ data }: { data: Data }) {
         startTransition(async () => {
             const r = await assignMemberRole(memberId, roleId)
             if (!r.success) { toast.error(r.error); return }
-            toast.success("Role changed")
+            toast.success("Access changed")
             router.refresh()
         })
     }
@@ -107,18 +108,18 @@ export function RolesEditor({ data }: { data: Data }) {
     return (
         <div className="page-frame space-y-5 px-page py-6">
             <PageHeader
-                title="Roles"
-                subtitle="What each role in your company can do. The Owner role always has everything."
+                title="Access"
+                subtitle="What each access level in your company can do. The Owner always has everything."
                 actions={data.canManageRoles ? (
                     <Button size="sm" className="gap-1.5" onClick={() => setCreating(true)}>
-                        <Plus className="h-4 w-4" /> New role
+                        <Plus className="h-4 w-4" /> New access level
                     </Button>
                 ) : undefined}
             />
 
             <div className="grid gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
-                {/* The roles */}
-                <nav aria-label="Roles" className="h-fit rounded-2xl border border-neutral-200 bg-white p-1.5 dark:border-neutral-800 dark:bg-neutral-900">
+                {/* The access levels: stay in view while the permissions scroll (plan/hiring-ui HU-9) */}
+                <StickyAside as="nav" className="h-fit rounded-2xl border border-neutral-200 bg-white p-1.5 dark:border-neutral-800 dark:bg-neutral-900">
                     {data.roles.map((role) => (
                         <button
                             key={role.id}
@@ -146,7 +147,7 @@ export function RolesEditor({ data }: { data: Data }) {
                             </span>
                         </button>
                     ))}
-                </nav>
+                </StickyAside>
 
                 {/* The selected role */}
                 {selected && current && (
@@ -157,7 +158,7 @@ export function RolesEditor({ data }: { data: Data }) {
                                 disabled={!editable}
                                 maxLength={40}
                                 onChange={(e) => setDraft({ name: e.target.value, permissions: current.permissions })}
-                                aria-label="Role name"
+                                aria-label="Access level name"
                                 className="h-9 max-w-xs font-medium"
                             />
                             {selected.isOwner && (
@@ -167,13 +168,13 @@ export function RolesEditor({ data }: { data: Data }) {
                                 <span className="text-xs text-neutral-500 dark:text-neutral-400">You can view roles; changing them needs &quot;Manage roles&quot;.</span>
                             )}
                             {editable && !selected.presetKey && (
-                                <Button variant="ghost" size="sm" className="ml-auto gap-1.5 text-red-600 hover:text-red-700 dark:text-red-400" onClick={() => setConfirmDelete(true)}>
-                                    <Trash2 className="h-4 w-4" /> Delete role
+                                <Button variant="ghost" size="sm" className="ml-auto gap-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400" onClick={() => setConfirmDelete(true)}>
+                                    <Trash2 className="h-4 w-4" /> Delete
                                 </Button>
                             )}
                         </div>
 
-                        <div className="grid gap-x-8 gap-y-5 p-4 sm:grid-cols-2">
+                        <div className="grid gap-x-8 gap-y-5 p-4 sm:grid-cols-2 2xl:grid-cols-3">
                             {GROUPS.map((group) => (
                                 <fieldset key={group.title} className="space-y-2.5">
                                     <legend className="mb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">{group.title}</legend>
@@ -236,11 +237,19 @@ export function RolesEditor({ data }: { data: Data }) {
                         </div>
 
                         {editable && (
-                            <div className="flex items-center justify-end gap-2 border-t border-neutral-200 p-4 dark:border-neutral-800">
-                                <Button variant="ghost" size="sm" disabled={!dirty || pending} onClick={() => setDraft(null)}>Discard</Button>
-                                <Button size="sm" disabled={!dirty || pending} onClick={save} className="gap-1.5">
-                                    {pending && <InlineLoader size="sm" />} Save changes
-                                </Button>
+                            // Stuck to the bottom of the screen while this level is open, so Save is always in reach.
+                            <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 rounded-b-2xl border-t border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/95">
+                                <span className={cn("text-xs font-medium", dirty ? "text-neutral-900 dark:text-white" : "text-neutral-500 dark:text-neutral-400")}>
+                                    {pending ? "Saving" : dirty ? "Unsaved changes" : "No changes"}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="outline" size="sm" disabled={!dirty || pending} onClick={() => setDraft(null)} className="gap-1.5">
+                                        <Undo2 className="h-4 w-4" /> Discard
+                                    </Button>
+                                    <Button size="sm" disabled={!dirty || pending} onClick={save} className="gap-1.5">
+                                        {pending ? <InlineLoader size="sm" /> : <Save className="h-4 w-4" />} Save changes
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </section>
@@ -267,7 +276,7 @@ export function RolesEditor({ data }: { data: Data }) {
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
                         <AlertDialogAction disabled={pending} onClick={(e) => { e.preventDefault(); remove() }}>
-                            {pending && <InlineLoader size="sm" className="mr-1.5" />} Delete role
+                            {pending && <InlineLoader size="sm" className="mr-1.5" />} Delete access level
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -291,7 +300,7 @@ function NewRoleDialog({ open, onOpenChange, roles, onCreated }: {
         startTransition(async () => {
             const r = await createCompanyRole({ name, fromRoleId: from === "blank" ? null : from })
             if (!r.success) { toast.error(r.error); return }
-            toast.success("Role created")
+            toast.success("Access level created")
             setName("")
             setFrom("blank")
             onCreated(r.data.id)
@@ -302,11 +311,11 @@ function NewRoleDialog({ open, onOpenChange, roles, onCreated }: {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>New role</DialogTitle>
-                    <DialogDescription>Name it, start from an existing role or from nothing, then choose its permissions.</DialogDescription>
+                    <DialogTitle>New access level</DialogTitle>
+                    <DialogDescription>Name it, start from an existing access level or from nothing, then choose its permissions.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-3">
-                    <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="e.g. Campus recruiter" aria-label="Role name" autoFocus />
+                    <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="e.g. Campus recruiter" aria-label="Access level name" autoFocus />
                     <Select value={from} onValueChange={setFrom}>
                         <SelectTrigger aria-label="Start from">
                             <SelectValue>{from === "blank" ? "Start from nothing" : `Copy ${fromName}`}</SelectValue>

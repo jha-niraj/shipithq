@@ -28,7 +28,7 @@ export default function Loading() {
                 </div>
                 <div className="rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
                     <div className="border-b border-neutral-200 p-4 dark:border-neutral-800"><Shimmer className="h-9 w-72 rounded-lg" /></div>
-                    <div className="grid gap-x-8 gap-y-5 p-4 sm:grid-cols-2">
+                    <div className="grid gap-x-8 gap-y-5 p-4 sm:grid-cols-2 2xl:grid-cols-3">
                         {Array.from({ length: 5 }).map((_, g) => (
                             <div key={g} className="space-y-3">
                                 <Shimmer className="h-3 w-24" delay={g * 0.04} />
@@ -50,6 +50,10 @@ export default function Loading() {
                             <Shimmer className="h-8 w-8 rounded-full" />
                             <div className="flex-1 space-y-1.5"><Shimmer className="h-4 w-32" /><Shimmer className="h-3 w-44" /></div>
                         </div>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
+                        <Shimmer className="h-3 w-20" />
+                        <div className="flex gap-2"><Shimmer className="h-8 w-24 rounded-md" /><Shimmer className="h-8 w-32 rounded-md" /></div>
                     </div>
                 </div>
             </div>

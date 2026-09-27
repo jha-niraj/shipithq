@@ -68,7 +68,7 @@ function InviteContent() {
         if (!r.success) { toast.error(r.error); return }
         toast.success(`Welcome to ${invitation.companyName}`)
         // A full navigation, so the layout reads the new membership.
-        window.location.href = "/home"
+        window.location.href = "/welcome"
     })
 
     return (

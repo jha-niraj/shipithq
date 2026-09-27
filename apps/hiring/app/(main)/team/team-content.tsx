@@ -7,6 +7,7 @@ import {
     Clock, X, RefreshCw, UserMinus, Crown
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
@@ -112,9 +113,9 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
             if (result.success) {
                 const role = roles.find((r) => r.id === roleId)
                 setMembers(prev => prev.map(m => m.id === memberId ? { ...m, roleId, roleName: role?.name ?? m.roleName, isOwner: Boolean(role?.isOwner) } : m))
-                toast.success("Role updated successfully")
+                toast.success("Access updated")
             } else {
-                toast.error(result.error || "Failed to update role")
+                toast.error(result.error || "Could not change their access")
             }
         })
     }
@@ -147,20 +148,19 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
     return (
         <div className="page-frame space-y-5 px-page py-6">
             <PageHeader
-                title="Team Members"
-                subtitle="Manage your hiring team and permissions"
+                title="Team"
+                subtitle="Who hires with you, and the access each person has."
                 actions={
                     isHead ? (
                         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
                             <DialogTrigger asChild>
-                                <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
-                                    <UserPlus className="w-4 h-4 mr-2" />
-                                    Invite Member
+                                <Button size="sm" className="gap-1.5">
+                                    <UserPlus className="h-4 w-4" /> Invite a member
                                 </Button>
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-md">
                                 <DialogHeader>
-                                    <DialogTitle>Invite Team Member</DialogTitle>
+                                    <DialogTitle>Invite a team member</DialogTitle>
                                     <DialogDescription>
                                         Send an invitation to join your hiring team
                                     </DialogDescription>
@@ -177,9 +177,9 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium">Role</label>
+                                        <label className="text-sm font-medium">Access</label>
                                         <Select value={inviteRoleId} onValueChange={setInviteRoleId}>
-                                            <SelectTrigger className="rounded-xl" aria-label="Role">
+                                            <SelectTrigger className="rounded-xl" aria-label="Access">
                                                 <SelectValue>{invitableRoles.find((role) => role.id === inviteRoleId)?.name ?? "Choose a role"}</SelectValue>
                                             </SelectTrigger>
                                             <SelectContent>
@@ -199,16 +199,16 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
                                     </div>
                                 </div>
                                 <DialogFooter>
-                                    <Button variant="outline" onClick={() => setInviteDialogOpen(false)} className="rounded-xl">
+                                    <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
                                         Cancel
                                     </Button>
                                     <Button
                                         onClick={handleInvite}
                                         disabled={isPending || !inviteEmail.trim()}
-                                        className="rounded-xl"
+                                        className="gap-1.5"
                                     >
-                                        <Mail className="w-4 h-4 mr-2" />
-                                        Send Invitation
+                                        {isPending ? <InlineLoader size="sm" /> : <Mail className="h-4 w-4" />}
+                                        Send invitation
                                     </Button>
                                 </DialogFooter>
                             </DialogContent>
@@ -223,9 +223,9 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
                         <StatBand
                             cols={4}
                             items={[
-                                { icon: Users, label: "Team Size", value: stats.totalMembers },
+                                { icon: Users, label: "Team size", value: stats.totalMembers },
                                 { icon: Clock, label: "Pending", value: stats.pendingInvites },
-                                { icon: Briefcase, label: "Jobs Posted", value: stats.jobsPosted },
+                                { icon: Briefcase, label: "Jobs posted", value: stats.jobsPosted },
                                 { icon: CheckCircle, label: "Processed", value: stats.candidatesProcessed },
                             ]}
                         />
@@ -237,7 +237,7 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
                     <div>
                         <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
                             <Clock className="w-5 h-5 text-neutral-900 dark:text-white" />
-                            Pending Invitations
+                            Pending invitations
                         </h2>
                         <div className="space-y-3">
                             <AnimatePresence>
@@ -269,9 +269,9 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
                                                         size="sm"
                                                         onClick={() => handleResendInvite(invite.id)}
                                                         disabled={isPending}
-                                                        className="text-neutral-800 hover:text-neutral-700 dark:text-neutral-200 dark:hover:text-white"
+                                                        className="gap-1.5"
                                                     >
-                                                        <RefreshCw className="w-4 h-4 mr-1" />
+                                                        <RefreshCw className="h-4 w-4" />
                                                         Resend
                                                     </Button>
                                                     <Button
@@ -279,7 +279,7 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
                                                         size="sm"
                                                         onClick={() => handleCancelInvite(invite.id)}
                                                         disabled={isPending}
-                                                        className="text-red-600 hover:text-red-700"
+                                                        aria-label={`Cancel the invite to ${invite.email}`}
                                                     >
                                                         <X className="w-4 h-4" />
                                                     </Button>
@@ -374,7 +374,7 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem
                                                                     onClick={() => handleRemoveMember(member.id)}
-                                                                    className="text-red-600 focus:text-red-600"
+                                                                    className="text-rose-600 focus:text-rose-600"
                                                                 >
                                                                     <UserMinus className="w-4 h-4 mr-2" />
                                                                     Remove from Team
@@ -404,7 +404,7 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
                             <Users className="w-10 h-10 text-neutral-400" />
                         </div>
                         <h3 className="font-bold text-xl text-neutral-900 dark:text-white mb-2">
-                            Build Your Team
+                            Build your team
                         </h3>
                         <p className="text-neutral-500 mb-6 max-w-md mx-auto">
                             Invite colleagues to collaborate on hiring and manage candidates together.
@@ -413,10 +413,11 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
                             isHead && (
                                 <Button
                                     onClick={() => setInviteDialogOpen(true)}
-                                    className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+                                    size="sm"
+                                    className="gap-1.5"
                                 >
-                                    <Mail className="w-4 h-4 mr-2" />
-                                    Send Your First Invite
+                                    <Mail className="h-4 w-4" />
+                                    Send your first invite
                                 </Button>
                             )
                         }

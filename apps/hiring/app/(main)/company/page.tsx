@@ -1,34 +1,11 @@
-import { Suspense } from "react"
-import Loading from "./loading"
-import { 
-    getCompanyProfile, getCompanyPublicStats 
-} from "@/actions/company"
-import { CompanyProfileContent } from "./company-content"
+import { redirect } from "next/navigation"
+import { getCompanyContext } from "@/lib/permissions"
 
 export const dynamic = "force-dynamic"
 
-export const metadata = {
-    title: "Company Profile | ShipItHQ Hiring",
-    description: "Manage your company information and branding"
-}
-
-export default async function CompanyPage() {
-    const [profileResult, statsResult] = await Promise.all([
-        getCompanyProfile(),
-        getCompanyPublicStats()
-    ])
-
-    const profile = profileResult.success && profileResult.data ? profileResult.data : null
-    const stats = statsResult.success && statsResult.data ? statsResult.data : null
-
-    return (
-        <Suspense 
-            fallback={<Loading />}
-        >
-            <CompanyProfileContent 
-                profile={profile}
-                stats={stats}
-            />
-        </Suspense>
-    )
+/** The company's page lives at /c/<slug> (plan/hiring-ui HU-11); the nav's "Company profile" lands here. */
+export default async function CompanyRedirect() {
+    const ctx = await getCompanyContext()
+    if (!ctx) redirect("/onboarding")
+    redirect(`/c/${ctx.member.company.slug}`)
 }

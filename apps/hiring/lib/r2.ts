@@ -36,3 +36,18 @@ export async function deleteObject(key: string): Promise<void> {
 export async function signedUrl(key: string, expiresIn = 600): Promise<string> {
     return getSignedUrl(client(), new GetObjectCommand({ Bucket: BUCKET(), Key: key }), { expiresIn })
 }
+
+/**
+ * Public objects (plan/hiring-ui HU-11): company covers, logos and Life photos, under
+ * the one prefix apps/main's /api/media will serve (the same bucket holds resumes, so
+ * nothing outside it is ever public).
+ */
+export const PUBLIC_PREFIX = "avatars/"
+
+/** A stable URL for a public object: the bucket domain when set, else apps/main's /api/media. */
+export function publicUrl(key: string): string {
+    const base = process.env.R2_PUBLIC_BASE_URL?.replace(/\/$/, "")
+    if (base) return `${base}/${key}`
+    const main = (process.env.NEXT_PUBLIC_MAIN_URL || "https://app.shipithq.com").replace(/\/$/, "")
+    return `${main}/api/media/${key}`
+}

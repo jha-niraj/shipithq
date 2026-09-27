@@ -130,6 +130,10 @@ export const companies = pgTable(
         name: text("name").notNull(),
         slug: text("slug").notNull().unique(),
         logoUrl: text("logo_url"),
+        /** The wide banner on the company page and members' profiles (plan/hiring-ui HU-10, HU-11); R2 public prefix. */
+        coverUrl: text("cover_url"),
+        /** One line under the name on the company page ("AI-built enterprise software"). */
+        tagline: text("tagline"),
         website: text("website"),
         /**
          * The company's email domain ("acme.io"), unique (plan/hiring-app HA-5).
@@ -263,6 +267,11 @@ export const companyMembers = pgTable(
         jobTitle: companyMemberJobTitleEnum("job_title").notNull().default("OTHER"),
         jobTitleCustom: text("job_title_custom"),
         displayName: text("display_name"),
+        /** From the member's first-run step (plan/hiring-ui HU-14); shown on the company's People tab. */
+        linkedinUrl: text("linkedin_url"),
+        portfolioUrl: text("portfolio_url"),
+        /** On the company's People tab for everyone in the hiring app; on by default (Niraj, 2026-09-28). The team always sees each other. */
+        showOnPeople: boolean("show_on_people").notNull().default(true),
         email: text("email").notNull(),
         phone: text("phone"),
         permissions: jsonb("permissions")

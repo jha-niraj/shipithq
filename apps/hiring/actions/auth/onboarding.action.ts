@@ -1,6 +1,8 @@
 "use server"
 
-import { db, users, companies, companyClaims, companyMembers, companyRoles, withTransaction, ROLE_PRESETS, type RolePresetKey } from "@repo/db"
+import { db, users, companies, companyClaims, companyMembers, companyProfileDrafts, companyRoles, withTransaction, ROLE_PRESETS, type RolePresetKey } from "@repo/db"
+import { recordOptions } from "@repo/db/options"
+import { titleToEnum } from "@/lib/member-titles"
 import { and, desc, eq, inArray } from "drizzle-orm"
 import { getSession } from "@repo/auth"
 import { checkWorkEmail } from "@repo/auth/work-email"
@@ -65,7 +67,15 @@ interface OnboardingData {
     state?: string
     country?: string
     inviteBy?: string // University slug for referral tracking
+    /** Kept from the website read (plan/hiring-ui HU-14). */
+    techStack?: string[]
+    benefits?: string[]
+    culture?: string
+    /** The read these came from, marked PUBLISHED with the new company so the admin queue skips it. */
+    draftId?: string
 }
+
+const cleanList = (v: string[] | undefined) => [...new Set((v ?? []).map((x) => x.replace(/\s+/g, " ").trim().slice(0, 60)).filter(Boolean))].slice(0, 30)
 
 export async function checkSlugAvailability(slug: string): Promise<{ available: boolean; suggestions?: string[] }> {
     // Only someone signing up asks this (HA-14 sweep: it answered anyone).
@@ -266,6 +276,9 @@ export async function completeOnboarding(data: OnboardingData) {
                 city: data.city || null,
                 state: data.state || null,
                 country: data.country || null,
+                techStack: cleanList(data.techStack),
+                benefits: cleanList(data.benefits),
+                culture: data.culture?.trim().slice(0, 2000) || null,
                 createdByUserId: userId,
                 verificationStatus: "PENDING"
             }).returning({ id: companies.id })
@@ -293,7 +306,8 @@ export async function completeOnboarding(data: OnboardingData) {
                 displayName: user.name,
                 role: "FOUNDER",
                 roleId: ownerRoleId,
-                jobTitle: data.userRole as "CEO" | "CTO" | "COFOUNDER" | "VP_ENGINEERING" | "HR_HEAD" | "HR_MANAGER" | "RECRUITER" | "HIRING_MANAGER" | "OTHER",
+                // Picked or typed (plan/hiring-ui HU-21): a known title maps to the enum, anything else keeps its words.
+                ...titleToEnum(data.userRole),
                 inviteStatus: "ACCEPTED",
                 acceptedAt: new Date(),
                 permissions: ["view_jobs", "post_jobs", "view_applications", "review_candidates", "manage_members", "manage_company", "manage_billing"],
@@ -303,6 +317,19 @@ export async function completeOnboarding(data: OnboardingData) {
             // student onboarding. Here, a membership is what "onboarded" means.
             return created
         })
+
+        // Best effort, after the company exists: the read is used, and the values join the dataset (HU-2).
+        await Promise.all([
+            data.draftId
+                ? db.update(companyProfileDrafts).set({ status: "PUBLISHED", companyId: company.id })
+                    .where(and(eq(companyProfileDrafts.id, data.draftId), eq(companyProfileDrafts.domain, workEmail.domain), inArray(companyProfileDrafts.status, ["READY"])))
+                : null,
+            data.industry ? recordOptions("industry", [data.industry], `company:${company.id}`) : null,
+            data.userRole ? recordOptions("member_title", [data.userRole], `company:${company.id}`) : null,
+            data.city ? recordOptions("city", [data.city], `company:${company.id}`) : null,
+            data.techStack?.length ? recordOptions("tech", cleanList(data.techStack), `company:${company.id}`) : null,
+            data.benefits?.length ? recordOptions("benefit", cleanList(data.benefits), `company:${company.id}`) : null,
+        ]).catch((error: unknown) => console.error("completeOnboarding extras:", error instanceof Error ? error.message : error))
 
         return { success: true, companyId: company.id }
     } catch (error: unknown) {

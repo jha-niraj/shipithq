@@ -5,8 +5,7 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import {
     User, Building2, Shield, Mail, Phone, Calendar, MapPin, Globe,
-    Briefcase, Crown, Edit2, Save, X, Eye, EyeOff, Check, AlertCircle,
-    Link as LinkIcon, Lock, Key
+    Briefcase, Crown, Edit2, Save, X, Check, AlertCircle,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -15,6 +14,8 @@ import { Input } from "@repo/ui/components/ui/input"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { PageHeader } from "@repo/ui/components/ui/page-header"
 import Loading from "./loading"
+import { MemberPublicCard } from "./member-public-card"
+import { HIRING_PERMISSION_LABELS, type HiringPermission } from "@repo/db/hiring-permissions"
 import { Label } from "@repo/ui/components/ui/label"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import {
@@ -23,11 +24,11 @@ import {
 import { useSession } from "@repo/auth/client"
 import {
     getUserProfile, getCompanyDetails, getCurrentMember,
-    updateUserProfile, changePassword, updateCompanyDetails
+    updateUserProfile
 } from "@/actions/profile"
 import type {
     UserProfile, CompanyDetails, CompanyMemberRole, CompanyMemberJobTitle,
-    Permission, UpdateCompanyPayload,
+    Permission,
 } from "@/types"
 
 // Job title display mapping
@@ -58,17 +59,15 @@ export default function ProfilePage() {
     const [memberJobTitleCustom, setMemberJobTitleCustom] = useState<string | null>(null)
     const [memberDisplayName, setMemberDisplayName] = useState<string | null>(null)
     const [memberPermissions, setMemberPermissions] = useState<Permission[]>([])
+    const [accessLevel, setAccessLevel] = useState<string | null>(null)
     const [isHead, setIsHead] = useState(false)
 
     // Loading states
     const [loading, setLoading] = useState(true)
     const [savingProfile, setSavingProfile] = useState(false)
-    const [savingPassword, setSavingPassword] = useState(false)
-    const [savingCompany, setSavingCompany] = useState(false)
 
     // Edit modes
     const [editingProfile, setEditingProfile] = useState(false)
-    const [editingCompany, setEditingCompany] = useState(false)
 
     // Form data
     const [profileForm, setProfileForm] = useState({
@@ -77,22 +76,8 @@ export default function ProfilePage() {
         bio: "",
         displayName: "",
     })
-    const [passwordForm, setPasswordForm] = useState({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-    })
-    const [companyForm, setCompanyForm] = useState<UpdateCompanyPayload>({})
-
-    // Password visibility
-    const [showCurrentPassword, setShowCurrentPassword] = useState(false)
-    const [showNewPassword, setShowNewPassword] = useState(false)
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-
     // Messages
     const [profileMessage, setProfileMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-    const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-    const [companyMessage, setCompanyMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
     // Fetch profile data
     useEffect(() => {
@@ -118,19 +103,6 @@ export default function ProfilePage() {
                 if (companyRes.success && companyRes.data) {
                     setCompanyDetails(companyRes.data)
                     setIsHead(companyRes.isHead ?? false)
-                    setCompanyForm({
-                        name: companyRes.data.name,
-                        website: companyRes.data.website || "",
-                        description: companyRes.data.description || "",
-                        industry: companyRes.data.industry || "",
-                        companySize: companyRes.data.companySize || "",
-                        headquarters: companyRes.data.headquarters || "",
-                        address: companyRes.data.address || "",
-                        city: companyRes.data.city || "",
-                        state: companyRes.data.state || "",
-                        country: companyRes.data.country || "",
-                        pincode: companyRes.data.pincode || "",
-                    })
                 }
 
                 if (memberRes.success && memberRes.data) {
@@ -139,6 +111,7 @@ export default function ProfilePage() {
                     setMemberJobTitleCustom(memberRes.data.jobTitleCustom)
                     setMemberDisplayName(memberRes.data.displayName)
                     setMemberPermissions(memberRes.data.permissions)
+                    setAccessLevel(memberRes.data.accessLevel)
                     setProfileForm(prev => ({
                         ...prev,
                         displayName: memberRes.data.displayName || "",
@@ -192,73 +165,6 @@ export default function ProfilePage() {
         }
     }
 
-    // Handle password change
-    const handlePasswordChange = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setSavingPassword(true)
-        setPasswordMessage(null)
-
-        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            setPasswordMessage({ type: "error", text: "New passwords do not match" })
-            setSavingPassword(false)
-            return
-        }
-
-        if (passwordForm.newPassword.length < 8) {
-            setPasswordMessage({ type: "error", text: "Password must be at least 8 characters" })
-            setSavingPassword(false)
-            return
-        }
-
-        try {
-            const result = await changePassword({
-                currentPassword: passwordForm.currentPassword,
-                newPassword: passwordForm.newPassword,
-                confirmPassword: passwordForm.confirmPassword,
-            })
-
-            if (result.success) {
-                setPasswordMessage({ type: "success", text: "Password changed successfully" })
-                setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
-            } else {
-                setPasswordMessage({ type: "error", text: result.error || "Failed to change password" })
-            }
-        } catch (error: unknown) {
-            console.error("Password change error:", error)
-            setPasswordMessage({ type: "error", text: "An unexpected error occurred" })
-        } finally {
-            setSavingPassword(false)
-        }
-    }
-
-    // Handle company update
-    const handleCompanySave = async () => {
-        setSavingCompany(true)
-        setCompanyMessage(null)
-
-        try {
-            const result = await updateCompanyDetails(companyForm)
-
-            if (result.success) {
-                setCompanyMessage({ type: "success", text: "Company details updated successfully" })
-                setEditingCompany(false)
-                if (companyDetails) {
-                    setCompanyDetails({
-                        ...companyDetails,
-                        ...companyForm,
-                    } as CompanyDetails)
-                }
-            } else {
-                setCompanyMessage({ type: "error", text: result.error || "Failed to update company" })
-            }
-        } catch (error: unknown) {
-            console.error("Company update error:", error)
-            setCompanyMessage({ type: "error", text: "An unexpected error occurred" })
-        } finally {
-            setSavingCompany(false)
-        }
-    }
-
     if (loading) {
         return <Loading />
     }
@@ -267,16 +173,31 @@ export default function ProfilePage() {
         <div className="page-frame space-y-5 px-page py-6">
             <PageHeader
                 title="Profile"
-                subtitle="Manage your personal and company information"
+                subtitle="Your details, your company and what you can do here."
             />
-            <div className="max-w-4xl space-y-5">
+            <div className="space-y-5">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden"
                 >
-                    <div className="relative bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-900 h-32">
-                        <div className="absolute inset-0 bg-black/10" />
+                    {/* The company's cover and logo (HU-10); a neutral band with its name when there's no cover. */}
+                    <div className="relative h-36 bg-neutral-100 sm:h-44 dark:bg-neutral-900">
+                        {companyDetails?.coverUrl ? (
+                            <img src={companyDetails.coverUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                            <div className="flex h-full items-center justify-end px-6">
+                                <span className="text-3xl font-semibold tracking-tight text-neutral-300 sm:text-5xl dark:text-neutral-700">{companyDetails?.name}</span>
+                            </div>
+                        )}
+                        {companyDetails && (
+                            <Link href="/company" className="absolute bottom-3 right-3 flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-xs font-medium text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white">
+                                <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800">
+                                    {companyDetails.logoUrl ? <img src={companyDetails.logoUrl} alt="" className="h-full w-full object-contain" /> : <Building2 className="h-3.5 w-3.5" />}
+                                </span>
+                                {companyDetails.name}
+                            </Link>
+                        )}
                     </div>
                     <div className="relative px-6 pb-6 -mt-12">
                         <div className="flex flex-col sm:flex-row sm:items-end gap-4">
@@ -306,7 +227,7 @@ export default function ProfilePage() {
                             </div>
                             <div className="flex-1 min-w-0 pt-4 sm:pt-0">
                                 <h2 className="text-xl font-bold text-neutral-900 dark:text-white truncate">
-                                    {memberDisplayName || userProfile?.name || "Unknown User"}
+                                    {memberDisplayName || userProfile?.name || "Unknown user"}
                                 </h2>
                                 <p className="text-neutral-500 truncate">{userProfile?.email}</p>
                                 <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -317,7 +238,7 @@ export default function ProfilePage() {
                                                 ? memberJobTitleCustom
                                                 : memberJobTitle
                                                     ? JOB_TITLE_LABELS[memberJobTitle]
-                                                    : "Team Member"
+                                                    : "Team member"
                                         }
                                     </span>
                                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${memberRole === "FOUNDER"
@@ -325,7 +246,7 @@ export default function ProfilePage() {
                                         : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
                                         }`}>
                                         <Shield className="w-3 h-3" />
-                                        {memberRole || "Member"}
+                                        {accessLevel || "Member"}
                                     </span>
                                 </div>
                             </div>
@@ -339,7 +260,7 @@ export default function ProfilePage() {
                             className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-sm cursor-pointer"
                         >
                             <User className="w-4 h-4 mr-2" />
-                            Personal Info
+                            Personal info
                         </TabsTrigger>
                         <TabsTrigger
                             value="company"
@@ -347,13 +268,6 @@ export default function ProfilePage() {
                         >
                             <Building2 className="w-4 h-4 mr-2" />
                             Company
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="security"
-                            className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-sm cursor-pointer"
-                        >
-                            <Key className="w-4 h-4 mr-2" />
-                            Security
                         </TabsTrigger>
                         <TabsTrigger
                             value="permissions"
@@ -372,25 +286,15 @@ export default function ProfilePage() {
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="font-bold text-lg text-neutral-900 dark:text-white flex items-center gap-2">
                                     <User className="w-5 h-5" />
-                                    Personal Information
+                                    Personal information
                                 </h3>
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setEditingProfile(!editingProfile)}
-                                    className="rounded-xl cursor-pointer"
+                                    className="gap-1.5"
                                 >
-                                    {
-                                        editingProfile ? (
-                                            <>
-                                                <X className="w-4 h-4 mr-2" /> Cancel
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Edit2 className="w-4 h-4 mr-2" /> Edit
-                                            </>
-                                        )
-                                    }
+                                    {editingProfile ? <><X className="h-4 w-4" /> Cancel</> : <><Edit2 className="h-4 w-4" /> Edit</>}
                                 </Button>
                             </div>
                             {
@@ -398,30 +302,30 @@ export default function ProfilePage() {
                                     <div className="space-y-4">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <Label className="text-sm font-medium">Full Name</Label>
+                                                <Label className="text-sm font-medium">Full name</Label>
                                                 <Input
                                                     value={profileForm.name}
                                                     onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
                                                     placeholder="Your full name"
-                                                    className="mt-2 rounded-xl"
+                                                    className="mt-2"
                                                 />
                                             </div>
                                             <div>
-                                                <Label className="text-sm font-medium">Display Name</Label>
+                                                <Label className="text-sm font-medium">Display name</Label>
                                                 <Input
                                                     value={profileForm.displayName}
                                                     onChange={(e) => setProfileForm(prev => ({ ...prev, displayName: e.target.value }))}
                                                     placeholder="How you appear to team members"
-                                                    className="mt-2 rounded-xl"
+                                                    className="mt-2"
                                                 />
                                             </div>
                                             <div>
-                                                <Label className="text-sm font-medium">Phone Number</Label>
+                                                <Label className="text-sm font-medium">Phone number</Label>
                                                 <Input
                                                     value={profileForm.phone}
                                                     onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
                                                     placeholder="+1 (555) 123-4567"
-                                                    className="mt-2 rounded-xl"
+                                                    className="mt-2"
                                                 />
                                             </div>
                                             <div className="md:col-span-2">
@@ -429,8 +333,8 @@ export default function ProfilePage() {
                                                 <Textarea
                                                     value={profileForm.bio}
                                                     onChange={(e) => setProfileForm(prev => ({ ...prev, bio: e.target.value }))}
-                                                    placeholder="Tell us about yourself..."
-                                                    className="mt-2 rounded-xl resize-none"
+                                                    placeholder="A line or two about you"
+                                                    className="mt-2 resize-none"
                                                     rows={3}
                                                 />
                                             </div>
@@ -439,25 +343,13 @@ export default function ProfilePage() {
                                             <Button
                                                 onClick={handleProfileSave}
                                                 disabled={savingProfile}
-                                                className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 cursor-pointer"
+                                                className="gap-1.5"
                                             >
-                                                {
-                                                    savingProfile ? (
-                                                        <>
-                                                            <InlineLoader size="sm" className="mr-2" />
-                                                            Saving...
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Save className="w-4 h-4 mr-2" />
-                                                            Save Changes
-                                                        </>
-                                                    )
-                                                }
+                                                {savingProfile ? <InlineLoader size="sm" /> : <Save className="h-4 w-4" />} Save changes
                                             </Button>
                                             {
                                                 profileMessage && (
-                                                    <span className={`text-sm flex items-center gap-1 ${profileMessage.type === "success" ? "text-neutral-900" : "text-red-500"
+                                                    <span className={`text-sm flex items-center gap-1 ${profileMessage.type === "success" ? "text-neutral-900 dark:text-white" : "text-rose-700 dark:text-rose-400"
                                                         }`}>
                                                         {
                                                             profileMessage.type === "success" ? (
@@ -495,7 +387,7 @@ export default function ProfilePage() {
                                         <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/50">
                                             <User className="w-5 h-5 text-neutral-400" />
                                             <div className="min-w-0">
-                                                <p className="text-xs text-neutral-500">Display Name</p>
+                                                <p className="text-xs text-neutral-500">Display name</p>
                                                 <p className="text-sm font-medium text-neutral-900 dark:text-white">
                                                     {memberDisplayName || userProfile?.name || "Not set"}
                                                 </p>
@@ -504,7 +396,7 @@ export default function ProfilePage() {
                                         <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/50">
                                             <Calendar className="w-5 h-5 text-neutral-400" />
                                             <div className="min-w-0">
-                                                <p className="text-xs text-neutral-500">Member Since</p>
+                                                <p className="text-xs text-neutral-500">Member since</p>
                                                 <p className="text-sm font-medium text-neutral-900 dark:text-white">
                                                     {
                                                         userProfile?.createdAt
@@ -532,448 +424,46 @@ export default function ProfilePage() {
                                 )
                             }
                         </motion.div>
+                        <MemberPublicCard />
                     </TabsContent>
                     <TabsContent value="company">
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                        >
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="font-bold text-lg text-neutral-900 dark:text-white flex items-center gap-2">
-                                    <Building2 className="w-5 h-5" />
-                                    Company Details
-                                    {
-                                        isHead && (
-                                            <span className="ml-2 text-xs font-normal text-neutral-900 flex items-center gap-1">
-                                                <Crown className="w-3 h-3" /> Admin
-                                            </span>
-                                        )
-                                    }
-                                </h3>
-                                {
-                                    isHead && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setEditingCompany(!editingCompany)}
-                                            className="rounded-xl cursor-pointer"
-                                        >
-                                            {
-                                                editingCompany ? (
-                                                    <>
-                                                        <X className="w-4 h-4 mr-2" /> Cancel
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Edit2 className="w-4 h-4 mr-2" /> Edit
-                                                    </>
-                                                )
-                                            }
+                        {/* Read-only (plan/hiring-ui HU-10): the company is edited on its own page, not here. */}
+                        <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">
+                            {companyDetails ? (
+                                <>
+                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">{companyDetails.name}</h3>
+                                            {companyDetails.tagline && <p className="text-sm text-neutral-600 dark:text-neutral-400">{companyDetails.tagline}</p>}
+                                        </div>
+                                        <Button asChild variant="outline" size="sm" className="gap-1.5">
+                                            <Link href="/company"><Building2 className="h-4 w-4" /> {isHead ? "Edit the company page" : "Open the company page"}</Link>
                                         </Button>
-                                    )
-                                }
-                            </div>
-
-                            {
-                                editingCompany && isHead ? (
-                                    <div className="space-y-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <Label className="text-sm font-medium">Company Name</Label>
-                                                <Input
-                                                    value={companyForm.name || ""}
-                                                    onChange={(e) => setCompanyForm(prev => ({ ...prev, name: e.target.value }))}
-                                                    className="mt-2 rounded-xl"
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label className="text-sm font-medium">Website</Label>
-                                                <Input
-                                                    value={companyForm.website || ""}
-                                                    onChange={(e) => setCompanyForm(prev => ({ ...prev, website: e.target.value }))}
-                                                    placeholder="https://example.com"
-                                                    className="mt-2 rounded-xl"
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label className="text-sm font-medium">Industry</Label>
-                                                <Input
-                                                    value={companyForm.industry || ""}
-                                                    onChange={(e) => setCompanyForm(prev => ({ ...prev, industry: e.target.value }))}
-                                                    placeholder="Technology, Healthcare, etc."
-                                                    className="mt-2 rounded-xl"
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label className="text-sm font-medium">Company Size</Label>
-                                                <Input
-                                                    value={companyForm.companySize || ""}
-                                                    onChange={(e) => setCompanyForm(prev => ({ ...prev, companySize: e.target.value }))}
-                                                    placeholder="1-10, 11-50, etc."
-                                                    className="mt-2 rounded-xl"
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label className="text-sm font-medium">Headquarters</Label>
-                                                <Input
-                                                    value={companyForm.headquarters || ""}
-                                                    onChange={(e) => setCompanyForm(prev => ({ ...prev, headquarters: e.target.value }))}
-                                                    placeholder="San Francisco, CA"
-                                                    className="mt-2 rounded-xl"
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label className="text-sm font-medium">Address</Label>
-                                                <Input
-                                                    value={companyForm.address || ""}
-                                                    onChange={(e) => setCompanyForm(prev => ({ ...prev, address: e.target.value }))}
-                                                    placeholder="123 Main Street"
-                                                    className="mt-2 rounded-xl"
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label className="text-sm font-medium">City</Label>
-                                                <Input
-                                                    value={companyForm.city || ""}
-                                                    onChange={(e) => setCompanyForm(prev => ({ ...prev, city: e.target.value }))}
-                                                    className="mt-2 rounded-xl"
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label className="text-sm font-medium">State</Label>
-                                                <Input
-                                                    value={companyForm.state || ""}
-                                                    onChange={(e) => setCompanyForm(prev => ({ ...prev, state: e.target.value }))}
-                                                    className="mt-2 rounded-xl"
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label className="text-sm font-medium">Country</Label>
-                                                <Input
-                                                    value={companyForm.country || ""}
-                                                    onChange={(e) => setCompanyForm(prev => ({ ...prev, country: e.target.value }))}
-                                                    className="mt-2 rounded-xl"
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label className="text-sm font-medium">Pincode</Label>
-                                                <Input
-                                                    value={companyForm.pincode || ""}
-                                                    onChange={(e) => setCompanyForm(prev => ({ ...prev, pincode: e.target.value }))}
-                                                    className="mt-2 rounded-xl"
-                                                />
-                                            </div>
-                                            <div className="md:col-span-2">
-                                                <Label className="text-sm font-medium">Description</Label>
-                                                <Textarea
-                                                    value={companyForm.description || ""}
-                                                    onChange={(e) => setCompanyForm(prev => ({ ...prev, description: e.target.value }))}
-                                                    placeholder="Brief description of your company..."
-                                                    className="mt-2 rounded-xl resize-none"
-                                                    rows={3}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3 pt-2">
-                                            <Button
-                                                onClick={handleCompanySave}
-                                                disabled={savingCompany}
-                                                className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 cursor-pointer"
-                                            >
-                                                {
-                                                    savingCompany ? (
-                                                        <>
-                                                            <InlineLoader size="sm" className="mr-2" />
-                                                            Saving...
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Save className="w-4 h-4 mr-2" />
-                                                            Save Company Details
-                                                        </>
-                                                    )
-                                                }
-                                            </Button>
-                                            {
-                                                companyMessage && (
-                                                    <span className={`text-sm flex items-center gap-1 ${companyMessage.type === "success" ? "text-neutral-900" : "text-red-500"
-                                                        }`}>
-                                                        {
-                                                            companyMessage.type === "success" ? (
-                                                                <Check className="w-4 h-4" />
-                                                            ) : (
-                                                                <AlertCircle className="w-4 h-4" />
-                                                            )
-                                                        }
-                                                        {companyMessage.text}
-                                                    </span>
-                                                )
-                                            }
-                                        </div>
                                     </div>
-                                ) : (
-                                    <div className="space-y-6">
-                                        <div>
-                                            <h4 className="text-sm font-medium text-neutral-500 mb-3 flex items-center gap-2">
-                                                <Globe className="w-4 h-4" />
-                                                Public Information
-                                            </h4>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/50">
-                                                    <Building2 className="w-5 h-5 text-neutral-400" />
-                                                    <div className="min-w-0">
-                                                        <p className="text-xs text-neutral-500">Company Name</p>
-                                                        <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                                                            {companyDetails?.name || "Not set"}
-                                                        </p>
-                                                    </div>
+                                    {companyDetails.description && <p className="mt-4 whitespace-pre-line text-sm text-neutral-700 dark:text-neutral-300">{companyDetails.description}</p>}
+                                    <dl className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+                                        {[
+                                            { icon: Briefcase, label: "Industry", value: companyDetails.industry },
+                                            { icon: User, label: "Size", value: companyDetails.companySize ? `${companyDetails.companySize} people` : null },
+                                            { icon: MapPin, label: "Headquarters", value: companyDetails.headquarters },
+                                            { icon: Calendar, label: "Founded", value: companyDetails.foundedYear ? String(companyDetails.foundedYear) : null },
+                                            { icon: Globe, label: "Website", value: companyDetails.website },
+                                            { icon: Shield, label: "Verification", value: companyDetails.verificationStatus === "VERIFIED" ? "Verified" : "Not verified yet" },
+                                        ].map((row) => (
+                                            <div key={row.label} className="flex items-start gap-3">
+                                                <row.icon className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+                                                <div className="min-w-0">
+                                                    <dt className="text-xs text-neutral-500 dark:text-neutral-400">{row.label}</dt>
+                                                    <dd className="truncate text-sm text-neutral-900 dark:text-white">{row.value || "-"}</dd>
                                                 </div>
-                                                {
-                                                    companyDetails?.website && (
-                                                        <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/50">
-                                                            <LinkIcon className="w-5 h-5 text-neutral-400" />
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs text-neutral-500">Website</p>
-                                                                <Link
-                                                                    href={companyDetails.website}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-sm font-medium text-neutral-800 dark:text-neutral-100 hover:underline truncate block"
-                                                                >
-                                                                    {companyDetails.website}
-                                                                </Link>
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                }
-                                                {
-                                                    companyDetails?.industry && (
-                                                        <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/50">
-                                                            <Briefcase className="w-5 h-5 text-neutral-400" />
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs text-neutral-500">Industry</p>
-                                                                <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                                                                    {companyDetails.industry}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                }
-                                                {
-                                                    companyDetails?.companySize && (
-                                                        <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/50">
-                                                            <User className="w-5 h-5 text-neutral-400" />
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs text-neutral-500">Company Size</p>
-                                                                <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                                                                    {companyDetails.companySize} employees
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                }
                                             </div>
-                                            {
-                                                companyDetails?.description && (
-                                                    <div className="mt-4 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/50">
-                                                        <p className="text-xs text-neutral-500 mb-1">About</p>
-                                                        <p className="text-sm text-neutral-700 dark:text-neutral-300">
-                                                            {companyDetails.description}
-                                                        </p>
-                                                    </div>
-                                                )
-                                            }
-                                        </div>
-                                        {
-                                            isHead && (
-                                                <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800">
-                                                    <h4 className="text-sm font-medium text-neutral-500 mb-3 flex items-center gap-2">
-                                                        <Lock className="w-4 h-4" />
-                                                        Private Information (HEAD Only)
-                                                    </h4>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        {
-                                                            companyDetails?.address && (
-                                                                <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/10 border border-neutral-200 dark:border-neutral-800/30">
-                                                                    <MapPin className="w-5 h-5 text-neutral-900" />
-                                                                    <div className="min-w-0">
-                                                                        <p className="text-xs text-neutral-800 dark:text-neutral-100">Address</p>
-                                                                        <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                                                                            {companyDetails.address}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            )
-                                                        }
-                                                        {
-                                                            (companyDetails?.city || companyDetails?.state) && (
-                                                                <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/10 border border-neutral-200 dark:border-neutral-800/30">
-                                                                    <MapPin className="w-5 h-5 text-neutral-900" />
-                                                                    <div className="min-w-0">
-                                                                        <p className="text-xs text-neutral-800 dark:text-neutral-100">City, State</p>
-                                                                        <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                                                                            {[companyDetails?.city, companyDetails?.state].filter(Boolean).join(", ") || "Not set"}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            )
-                                                        }
-                                                        {
-                                                            companyDetails?.country && (
-                                                                <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/10 border border-neutral-200 dark:border-neutral-800/30">
-                                                                    <Globe className="w-5 h-5 text-neutral-900" />
-                                                                    <div className="min-w-0">
-                                                                        <p className="text-xs text-neutral-800 dark:text-neutral-100">Country</p>
-                                                                        <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                                                                            {companyDetails.country}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            )
-                                                        }
-                                                        {
-                                                            companyDetails?.pincode && (
-                                                                <div className="flex items-center gap-3 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/10 border border-neutral-200 dark:border-neutral-800/30">
-                                                                    <MapPin className="w-5 h-5 text-neutral-900" />
-                                                                    <div className="min-w-0">
-                                                                        <p className="text-xs text-neutral-800 dark:text-neutral-100">Pincode</p>
-                                                                        <p className="text-sm font-medium text-neutral-900 dark:text-white">
-                                                                            {companyDetails.pincode}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            )
-                                                        }
-                                                    </div>
-                                                    <StatBand
-                                                        className="mt-4"
-                                                        size="sm"
-                                                        cols={2}
-                                                        items={[
-                                                            { icon: User, label: "Team Members", value: companyDetails?.memberCount || 0 },
-                                                            { icon: Briefcase, label: "Active Jobs", value: companyDetails?.jobCount || 0 },
-                                                        ]}
-                                                    />
-                                                </div>
-                                            )
-                                        }
-                                    </div>
-                                )
-                            }
-                        </motion.div>
-                    </TabsContent>
-                    <TabsContent value="security">
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6"
-                        >
-                            <h3 className="font-bold text-lg text-neutral-900 dark:text-white mb-6 flex items-center gap-2">
-                                <Key className="w-5 h-5" />
-                                Change Password
-                            </h3>
-                            <form onSubmit={handlePasswordChange} className="space-y-4">
-                                <p className="text-sm text-neutral-500">
-                                    Change your password to keep your account secure. Password must be at least 8 characters.
-                                </p>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="relative">
-                                        <Label className="text-sm font-medium">Current Password</Label>
-                                        <div className="relative mt-2">
-                                            <Input
-                                                type={showCurrentPassword ? "text" : "password"}
-                                                value={passwordForm.currentPassword}
-                                                onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                                                placeholder="••••••••"
-                                                className="rounded-xl pr-10"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
-                                            >
-                                                {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="relative">
-                                        <Label className="text-sm font-medium">New Password</Label>
-                                        <div className="relative mt-2">
-                                            <Input
-                                                type={showNewPassword ? "text" : "password"}
-                                                value={passwordForm.newPassword}
-                                                onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                                                placeholder="••••••••"
-                                                className="rounded-xl pr-10"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowNewPassword(!showNewPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
-                                            >
-                                                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="relative">
-                                        <Label className="text-sm font-medium">Confirm Password</Label>
-                                        <div className="relative mt-2">
-                                            <Input
-                                                type={showConfirmPassword ? "text" : "password"}
-                                                value={passwordForm.confirmPassword}
-                                                onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                                                placeholder="••••••••"
-                                                className="rounded-xl pr-10"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
-                                            >
-                                                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 pt-2">
-                                    <Button
-                                        type="submit"
-                                        disabled={savingPassword || !passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}
-                                        className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 cursor-pointer"
-                                    >
-                                        {
-                                            savingPassword ? (
-                                                <>
-                                                    <InlineLoader size="sm" className="mr-2" />
-                                                    Changing Password...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Lock className="w-4 h-4 mr-2" />
-                                                    Change Password
-                                                </>
-                                            )
-                                        }
-                                    </Button>
-                                    {
-                                        passwordMessage && (
-                                            <span className={`text-sm flex items-center gap-1 ${passwordMessage.type === "success" ? "text-neutral-900" : "text-red-500"
-                                                }`}>
-                                                {
-                                                    passwordMessage.type === "success" ? (
-                                                        <Check className="w-4 h-4" />
-                                                    ) : (
-                                                        <AlertCircle className="w-4 h-4" />
-                                                    )
-                                                }
-                                                {passwordMessage.text}
-                                            </span>
-                                        )
-                                    }
-                                </div>
-                            </form>
-                        </motion.div>
+                                        ))}
+                                    </dl>
+                                </>
+                            ) : (
+                                <p className="text-sm text-neutral-600 dark:text-neutral-400">Your company&apos;s details could not be loaded.</p>
+                            )}
+                        </div>
                     </TabsContent>
                     <TabsContent value="permissions">
                         <motion.div
@@ -983,10 +473,10 @@ export default function ProfilePage() {
                         >
                             <h3 className="font-bold text-lg text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
                                 <Shield className="w-5 h-5" />
-                                Your Permissions
+                                Your permissions
                             </h3>
                             <p className="text-sm text-neutral-500 mb-6">
-                                These are the actions you can perform in this workspace. Contact your admin to request additional permissions.
+                                What your access level{accessLevel ? ` (${accessLevel})` : ""} lets you do. To change it, ask someone who manages access.
                             </p>
                             {
                                 memberPermissions.length > 0 ? (
@@ -998,7 +488,7 @@ export default function ProfilePage() {
                                                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100"
                                                 >
                                                     <Check className="w-3 h-3" />
-                                                    {permission.replace(/_/g, " ")}
+                                                    {HIRING_PERMISSION_LABELS[permission as unknown as HiringPermission]?.label ?? permission.replace(/_/g, " ")}
                                                 </span>
                                             ))
                                         }
@@ -1010,12 +500,9 @@ export default function ProfilePage() {
                             {
                                 isHead && (
                                     <div className="mt-6 pt-6 border-t border-neutral-200 dark:border-neutral-800">
-                                        <Link href="/team/roles">
-                                            <Button className="rounded-xl cursor-pointer">
-                                                <Shield className="w-4 h-4 mr-2" />
-                                                Manage Team Permissions
-                                            </Button>
-                                        </Link>
+                                        <Button asChild variant="outline" className="gap-1.5">
+                                            <Link href="/team/access"><Shield className="h-4 w-4" /> Manage access</Link>
+                                        </Button>
                                     </div>
                                 )
                             }

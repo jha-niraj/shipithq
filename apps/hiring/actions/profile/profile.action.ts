@@ -7,7 +7,7 @@ import { headers } from "next/headers"
 import { requirePermission } from "@/lib/permissions"
 import type {
     UserProfile, CompanyDetails, UpdateProfilePayload,
-    ChangePasswordPayload, UpdateCompanyPayload, Permission,
+    ChangePasswordPayload, Permission,
     CompanySocialLinks, CompanyVerificationStatus
 } from "../../types"
 
@@ -79,7 +79,6 @@ export async function getCurrentMember() {
                 displayName: true,
                 email: true,
                 phone: true,
-                permissions: true,
                 isActive: true,
                 lastActiveAt: true,
                 createdAt: true,
@@ -91,26 +90,14 @@ export async function getCurrentMember() {
             return { success: false, error: "Member not found" }
         }
 
-        // Parse permissions from JSON
-        let permissions: Permission[] = []
-        if (member.permissions) {
-            try {
-                const parsed = typeof member.permissions === "string"
-                    ? JSON.parse(member.permissions)
-                    : member.permissions
-                if (Array.isArray(parsed)) {
-                    permissions = parsed as Permission[]
-                }
-            } catch {
-                permissions = []
-            }
-        }
-
+        // What this member can actually do comes from their access level (plan/hiring-app HA-6);
+        // the member row's own `permissions` list is legacy and checked by nothing (HU-20).
         return {
             success: true,
             data: {
                 ...member,
-                permissions
+                permissions: [...ctx.permissions] as unknown as Permission[],
+                accessLevel: ctx.roleName,
             }
         }
     } catch (error: unknown) {
@@ -165,6 +152,8 @@ export async function getCompanyDetails() {
             name: company.name,
             slug: company.slug,
             logoUrl: company.logoUrl ?? null,
+            coverUrl: company.coverUrl ?? null,
+            tagline: company.tagline ?? null,
             website: company.website ?? null,
             description: company.description ?? null,
             industry: company.industry ?? null,
@@ -300,42 +289,3 @@ export async function changePassword(payload: ChangePasswordPayload) {
     }
 }
 
-/**
- * Update company details (edit_company)
- */
-export async function updateCompanyDetails(payload: UpdateCompanyPayload) {
-    const access = await requirePermission("edit_company")
-    if (!access.ok) return { success: false, error: access.error }
-    const { ctx } = access
-
-    try {
-        const member = ctx.member
-
-        // Build update data
-        const updateData: Record<string, unknown> = {}
-        if (payload.name !== undefined) updateData.name = payload.name
-        if (payload.website !== undefined) updateData.website = payload.website
-        if (payload.description !== undefined) updateData.description = payload.description
-        if (payload.industry !== undefined) updateData.industry = payload.industry
-        if (payload.companySize !== undefined) updateData.companySize = payload.companySize
-        if (payload.foundedYear !== undefined) updateData.foundedYear = payload.foundedYear
-        if (payload.headquarters !== undefined) updateData.headquarters = payload.headquarters
-        if (payload.address !== undefined) updateData.address = payload.address
-        if (payload.city !== undefined) updateData.city = payload.city
-        if (payload.state !== undefined) updateData.state = payload.state
-        if (payload.country !== undefined) updateData.country = payload.country
-        if (payload.pincode !== undefined) updateData.pincode = payload.pincode
-        if (payload.socialLinks !== undefined) updateData.socialLinks = payload.socialLinks
-
-        if (Object.keys(updateData).length > 0) {
-            await db.update(companies)
-                .set(updateData)
-                .where(eq(companies.id, member.companyId))
-        }
-
-        return { success: true, message: "Company details updated successfully" }
-    } catch (error: unknown) {
-        console.error("Update company error:", error)
-        return { success: false, error: "Failed to update company details" }
-    }
-}

@@ -43,6 +43,8 @@ export interface CompanyDetails {
     name: string
     slug: string
     logoUrl: string | null
+    coverUrl: string | null
+    tagline: string | null
     website: string | null
     description: string | null
     industry: string | null

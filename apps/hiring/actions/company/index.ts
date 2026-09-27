@@ -1,55 +1,18 @@
 // Company Actions - Server actions for company management
 "use server"
 
-import { db, companies, companyMembers, hiringSends, jobs } from "@repo/db"
+import { db, companies } from "@repo/db"
+import { recordOptions } from "@repo/db/options"
 import { requirePermission } from "@/lib/permissions"
-import { eq, and, count } from "drizzle-orm"
+import { PUBLIC_PREFIX, publicUrl, putObject, r2Configured } from "@/lib/r2"
+import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
-import type {
-    CompanySocialLinks, MediaItem, AddMediaInput
-} from "@/types"
-
-// Note: CompanyProfile is imported from @/types
-
-// Get company profile
-export async function getCompanyProfile() {
-    try {
-        const auth = await requirePermission()
-        if (!auth.ok) return { success: false, error: auth.error }
-        const member = auth.ctx.member
-
-        const company = await db.query.companies.findFirst({
-            where: eq(companies.id, member.companyId),
-            with: {
-                members: { columns: { id: true } }
-            }
-        })
-
-        if (!company) return { success: false, error: "Company not found" }
-
-        // Get jobs count separately since jobs relation is not defined on companies
-        const jobsRows = await db
-            .select({ id: jobs.id })
-            .from(jobs)
-            .where(eq(jobs.companyId, member.companyId))
-
-        return {
-            success: true,
-            data: {
-                ...company,
-                jobsCount: jobsRows.length,
-                membersCount: company.members.length
-            }
-        }
-    } catch (error: unknown) {
-        console.error("Error fetching company profile:", error)
-        return { success: false, error: "Failed to fetch company profile" }
-    }
-}
+import type { CompanySocialLinks, MediaItem } from "@/types"
 
 // Update company profile
 export async function updateCompanyProfile(data: {
     name?: string
+    tagline?: string
     description?: string
     website?: string
     industry?: string
@@ -69,6 +32,7 @@ export async function updateCompanyProfile(data: {
         const updatedRows = await db.update(companies)
             .set({
                 name: data.name,
+                tagline: data.tagline === undefined ? undefined : data.tagline.trim().slice(0, 120) || null,
                 description: data.description,
                 website: data.website,
                 industry: data.industry,
@@ -86,8 +50,16 @@ export async function updateCompanyProfile(data: {
         const updated = updatedRows[0]
         if (!updated) return { success: false, error: "Failed to update profile" }
 
-        revalidatePath("/company")
-        revalidatePath(`/companies/${updated.slug}`)
+        // New values join the shared option dataset (plan/hiring-ui HU-2), best effort.
+        const org = `company:${member.companyId}`
+        await Promise.all([
+            data.industry ? recordOptions("industry", [data.industry], org) : null,
+            data.headquarters ? recordOptions("city", [data.headquarters], org) : null,
+            data.techStack?.length ? recordOptions("tech", data.techStack, org) : null,
+            data.benefits?.length ? recordOptions("benefit", data.benefits, org) : null,
+        ]).catch((error: unknown) => console.error("updateCompanyProfile options:", error instanceof Error ? error.message : error))
+
+        revalidatePath(`/c/${updated.slug}`)
         return { success: true, data: updated }
     } catch (error: unknown) {
         console.error("Error updating company profile:", error)
@@ -95,84 +67,65 @@ export async function updateCompanyProfile(data: {
     }
 }
 
-// Update company logo
-export async function updateCompanyLogo(logoUrl: string) {
+// Update company cover image (plan/hiring-ui HU-11: its own column, no longer a gallery item)
+export async function updateCompanyCover(coverUrl: string | null) {
     try {
         const auth = await requirePermission("edit_company")
         if (!auth.ok) return { success: false, error: auth.error }
-        const member = auth.ctx.member
-
         const [updated] = await db.update(companies)
-            .set({ logoUrl })
-            .where(eq(companies.id, member.companyId))
-            .returning()
-
-        revalidatePath("/company")
-        return { success: true, data: updated }
-    } catch (error: unknown) {
-        console.error("Error updating logo:", error)
-        return { success: false, error: "Failed to update logo" }
-    }
-}
-
-// Update company cover image - stores in mediaGallery with type "cover"
-export async function updateCompanyCover(coverUrl: string) {
-    try {
-        const auth = await requirePermission("edit_company")
-        if (!auth.ok) return { success: false, error: auth.error }
-        const member = auth.ctx.member
-
-        // Get existing media gallery and update/add cover image
-        const company = await db.query.companies.findFirst({
-            where: eq(companies.id, member.companyId)
-        })
-        if (!company) return { success: false, error: "Company not found" }
-
-        const existingGallery = (company.mediaGallery as MediaItem[] | null) ?? []
-
-        // Filter out existing cover and add new one
-        const updatedGallery = existingGallery.filter((item: MediaItem) => item.type !== "cover")
-        updatedGallery.unshift({ url: coverUrl, type: "cover", caption: "Company cover image" })
-
-        const [updated] = await db.update(companies)
-            .set({ mediaGallery: updatedGallery })
-            .where(eq(companies.id, member.companyId))
-            .returning()
-
-        revalidatePath("/company")
-        return { success: true, data: updated }
+            .set({ coverUrl })
+            .where(eq(companies.id, auth.ctx.companyId))
+            .returning({ slug: companies.slug })
+        if (updated) revalidatePath(`/c/${updated.slug}`)
+        return { success: true }
     } catch (error: unknown) {
         console.error("Error updating cover:", error)
         return { success: false, error: "Failed to update cover" }
     }
 }
 
-// Add media to gallery
-export async function addMediaToGallery(media: AddMediaInput) {
+const IMAGE_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }
+const IMAGE_MAX_BYTES = 5 * 1024 * 1024
+
+/**
+ * Upload the company's cover, logo or a Life photo to R2 under the public prefix
+ * (plan/hiring-ui HU-11) and put it on the company. Keys carry a timestamp, so a
+ * new cover never overwrites a cached old one.
+ */
+export async function uploadCompanyImage(formData: FormData): Promise<{ success: true; url: string } | { success: false; error: string }> {
     try {
         const auth = await requirePermission("edit_company")
         if (!auth.ok) return { success: false, error: auth.error }
-        const member = auth.ctx.member
+        const kind = formData.get("kind")
+        const file = formData.get("file")
+        if (kind !== "cover" && kind !== "logo" && kind !== "life") return { success: false, error: "Unknown image kind" }
+        if (!(file instanceof File)) return { success: false, error: "Pick an image" }
+        const ext = IMAGE_TYPES[file.type]
+        if (!ext) return { success: false, error: "Use a JPG, PNG or WebP image" }
+        if (file.size > IMAGE_MAX_BYTES) return { success: false, error: "Images up to 5 MB" }
+        if (!r2Configured()) return { success: false, error: "Image storage isn't set up" }
 
-        const company = await db.query.companies.findFirst({
-            where: eq(companies.id, member.companyId)
-        })
-        if (!company) return { success: false, error: "Company not found" }
+        const companyId = auth.ctx.companyId
+        // Checked before the upload, so a refused photo leaves nothing behind in R2.
+        const gallery = kind === "life"
+            ? (((await db.query.companies.findFirst({ where: eq(companies.id, companyId), columns: { mediaGallery: true } }))?.mediaGallery as MediaItem[] | null) ?? []).filter((m) => m.type !== "cover")
+            : []
+        if (gallery.length >= 24) return { success: false, error: "Life holds up to 24 photos; remove one first" }
 
-        const currentGallery = (company.mediaGallery as MediaItem[]) || []
-        const newItem: MediaItem = { ...media, id: Date.now().toString() }
-        const newGallery = [...currentGallery, newItem]
+        const key = `${PUBLIC_PREFIX}companies/${companyId}/${kind}-${Date.now()}.${ext}`
+        await putObject(key, new Uint8Array(await file.arrayBuffer()), file.type)
+        const url = publicUrl(key)
 
-        const [updated] = await db.update(companies)
-            .set({ mediaGallery: newGallery })
-            .where(eq(companies.id, member.companyId))
-            .returning()
-
-        revalidatePath("/company")
-        return { success: true, data: updated }
+        if (kind === "life") {
+            await db.update(companies).set({ mediaGallery: [...gallery, { id: `${Date.now()}`, type: "image", url }] }).where(eq(companies.id, companyId))
+        } else {
+            await db.update(companies).set(kind === "cover" ? { coverUrl: url } : { logoUrl: url }).where(eq(companies.id, companyId))
+        }
+        revalidatePath(`/c/${auth.ctx.member.company.slug}`)
+        return { success: true, url }
     } catch (error: unknown) {
-        console.error("Error adding media:", error)
-        return { success: false, error: "Failed to add media" }
+        console.error("uploadCompanyImage:", error instanceof Error ? error.message : error)
+        return { success: false, error: "Could not upload the image" }
     }
 }
 
@@ -196,7 +149,7 @@ export async function removeMediaFromGallery(mediaId: string) {
             .where(eq(companies.id, member.companyId))
             .returning()
 
-        revalidatePath("/company")
+        revalidatePath(`/c/${auth.ctx.member.company.slug}`)
         return { success: true, data: updated }
     } catch (error: unknown) {
         console.error("Error removing media:", error)
@@ -204,40 +157,3 @@ export async function removeMediaFromGallery(mediaId: string) {
     }
 }
 
-// Get company public stats
-export async function getCompanyPublicStats() {
-    try {
-        const auth = await requirePermission()
-        if (!auth.ok) return { success: false, error: auth.error }
-        const member = auth.ctx.member
-
-        const activeJobsRows = await db
-            .select({ count: count() })
-            .from(jobs)
-            .where(and(eq(jobs.companyId, member.companyId), eq(jobs.status, "ACTIVE")))
-
-        // Candidates the company marked Hired after an invite (plan/hiring-app HA-23).
-        const hiresRows = await db
-            .select({ count: count() })
-            .from(hiringSends)
-            .where(and(eq(hiringSends.companyId, member.companyId), eq(hiringSends.companyOutcome, "HIRED")))
-        const totalHires = hiresRows[0]?.count ?? 0
-
-        const company = await db.query.companies.findFirst({
-            where: eq(companies.id, member.companyId),
-            columns: { avgTimeToHireDays: true }
-        })
-
-        return {
-            success: true,
-            data: {
-                activeJobs: activeJobsRows[0]?.count ?? 0,
-                totalHires,
-                avgTimeToHireDays: company?.avgTimeToHireDays || 0
-            }
-        }
-    } catch (error: unknown) {
-        console.error("Error fetching stats:", error)
-        return { success: false, error: "Failed to fetch stats" }
-    }
-}

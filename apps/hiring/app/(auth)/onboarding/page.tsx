@@ -26,6 +26,11 @@ import { acceptInvitation } from "@/actions/team/invite.action"
 import { ShipItHQLoader } from "@repo/ui/components/ui/shipithq-loader"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import toast from "@repo/ui/components/ui/sonner"
+import { OptionSelect } from "@repo/ui/components/ui/option-select"
+import { TagInput } from "@repo/ui/components/ui/tag-input"
+import { OPTION_BUILTINS } from "@repo/db/option-builtins"
+import { WebsiteStep, type WebsiteResult } from "./website-step"
+import { COUNTRIES, INDIAN_STATES } from "@/lib/places"
 
 // Hiring Goal Options
 const hiringGoals = [
@@ -37,11 +42,6 @@ const hiringGoals = [
     { id: "operations", label: "Operations", icon: Users, description: "HR, operations, admin" },
 ]
 
-// Industry Options
-const industries = [
-    "Technology", "Finance", "Healthcare", "E-commerce", "Education",
-    "Media", "Consulting", "Manufacturing", "Real Estate", "Other"
-]
 
 // Company Size Options
 const companySizes = [
@@ -52,18 +52,6 @@ const companySizes = [
     { value: "500+", label: "500+ employees" },
 ]
 
-// Role Options
-const roleOptions = [
-    { value: "CEO", label: "CEO / Founder" },
-    { value: "CTO", label: "CTO / Co-Founder" },
-    { value: "COFOUNDER", label: "Co-Founder" },
-    { value: "VP_ENGINEERING", label: "VP of Engineering" },
-    { value: "HR_HEAD", label: "HR Head" },
-    { value: "HR_MANAGER", label: "HR Manager" },
-    { value: "RECRUITER", label: "Recruiter" },
-    { value: "HIRING_MANAGER", label: "Hiring Manager" },
-    { value: "OTHER", label: "Other" },
-]
 
 // Loading fallback component
 function OnboardingLoading() {
@@ -87,7 +75,7 @@ function OnboardingInvited({ code, companyName, roleName }: { code: string; comp
                     onClick={() => startTransition(async () => {
                         const r = await acceptInvitation(code)
                         if (!r.success) { toast.error(r.error); return }
-                        window.location.href = "/home"
+                        window.location.href = "/welcome"
                     })}
                 >
                     {pending && <InlineLoader size="sm" />} Accept and join
@@ -175,7 +163,7 @@ function OnboardingClaim({ companyName, website, lastRejection, onClaimed }: {
                 <div className="mt-5 space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="claim-title">Your job title</Label>
-                        <Input id="claim-title" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="Head of Talent" maxLength={80} required />
+                        <OptionSelect id="claim-title" value={jobTitle} onChange={setJobTitle} options={[...OPTION_BUILTINS.member_title]} placeholder="Pick one or type your own" />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="claim-linkedin">LinkedIn profile <span className="font-normal text-neutral-500">(optional)</span></Label>
@@ -274,8 +262,29 @@ function OnboardingContent() {
     const [state, setState] = useState("")
     const [country, setCountry] = useState("")
     const [selectedGoals, setSelectedGoals] = useState<string[]>([])
+    // From the website read (plan/hiring-ui HU-14), all editable on the details step.
+    const [techStack, setTechStack] = useState<string[]>([])
+    const [benefits, setBenefits] = useState<string[]>([])
+    const [culture, setCulture] = useState("")
+    const [draftId, setDraftId] = useState<string | undefined>()
 
-    const totalSteps = 2
+    // 1 the website (optional), 2 the details, 3 what you hire for.
+    const totalSteps = 3
+
+    const applyWebsite = (r: WebsiteResult) => {
+        setWebsite(r.website.trim() && !/^https?:\/\//i.test(r.website.trim()) ? `https://${r.website.trim()}` : r.website.trim())
+        setDraftId(r.draftId)
+        if (r.name && !companyName) setCompanyName(r.name)
+        if (r.description) setDescription(r.description)
+        if (r.industry) setIndustry(r.industry)
+        // The site states size in its own words: used only when it is one of ours.
+        if (r.size && companySizes.some((s) => s.value === r.size!.trim())) setCompanySize(r.size.trim())
+        if (r.city) setCity(r.city)
+        if (r.techStack) setTechStack(r.techStack)
+        if (r.benefits) setBenefits(r.benefits)
+        if (r.culture) setCulture(r.culture)
+        setCurrentStep(2)
+    }
 
     // Fetch pending company info from registration
     useEffect(() => {
@@ -346,8 +355,8 @@ function OnboardingContent() {
         )
     }
 
-    const canProceedStep1 = companyName.trim() && slug.trim() && slugStatus === "available" && userRole
-    const canProceedStep2 = selectedGoals.length > 0
+    const canProceedDetails = companyName.trim() && slug.trim() && slugStatus === "available" && userRole
+    const canProceedGoals = selectedGoals.length > 0
 
     const handleNext = () => {
         if (currentStep < totalSteps) {
@@ -376,16 +385,20 @@ function OnboardingContent() {
                 state: state || undefined,
                 country: country || undefined,
                 inviteBy: inviteBy || undefined, // University referral
+                techStack,
+                benefits,
+                culture: culture || undefined,
+                draftId,
             })
 
             if (result.success) {
-                toast.success("Workspace created successfully!")
+                toast.success("Your workspace is ready")
                 router.push("/home")
             } else if ("code" in result && result.code === "COMPANY_EXISTS") {
                 // Someone from the same domain created it a moment ago.
                 setEligibility({ status: "company_exists", companyName: "", message: result.error ?? "" })
             } else {
-                toast.error(result.error || "Failed to create workspace")
+                toast.error(result.error || "Could not create the workspace")
             }
         })
     }
@@ -452,6 +465,19 @@ function OnboardingContent() {
                                     exit={{ opacity: 0, x: -20 }}
                                     transition={{ duration: 0.3 }}
                                 >
+                                    <WebsiteStep initialWebsite={website} onDone={applyWebsite} />
+                                </motion.div>
+                            )
+                        }
+                        {
+                            currentStep === 2 && (
+                                <motion.div
+                                    key="step2"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                >
                                     <div className="text-center mb-8">
                                         <div className="w-16 h-16 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto mb-4">
                                             <Building2 className="w-8 h-8 text-neutral-600 dark:text-neutral-400" />
@@ -473,7 +499,7 @@ function OnboardingContent() {
                                     <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-6">
                                         <div className="space-y-4 pb-4 border-b border-neutral-100 dark:border-neutral-800">
                                             <div>
-                                                <Label htmlFor="companyName">Company Name *</Label>
+                                                <Label htmlFor="companyName">Company name *</Label>
                                                 <div className="relative mt-1.5">
                                                     <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                                                     <Input
@@ -481,12 +507,12 @@ function OnboardingContent() {
                                                         value={companyName}
                                                         onChange={(e) => setCompanyName(e.target.value)}
                                                         placeholder="Acme Corporation"
-                                                        className="pl-10 rounded-xl"
+                                                        className="pl-10"
                                                     />
                                                 </div>
                                             </div>
                                             <div>
-                                                <Label htmlFor="slug">Company URL *</Label>
+                                                <Label htmlFor="slug">Company page address *</Label>
                                                 <div className="relative mt-1.5">
                                                     <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                                                     <Input
@@ -497,7 +523,7 @@ function OnboardingContent() {
                                                         className={cn(
                                                             "pl-10 pr-10 rounded-xl",
                                                             slugStatus === "available" && "border-neutral-900 focus-visible:ring-neutral-900",
-                                                            slugStatus === "taken" && "border-red-500 focus-visible:ring-red-500"
+                                                            slugStatus === "taken" && "border-rose-500 focus-visible:ring-rose-500"
                                                         )}
                                                     />
                                                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -515,13 +541,13 @@ function OnboardingContent() {
                                                         }
                                                         {
                                                         slugStatus === "taken" && (
-                                                            <XCircle className="w-4 h-4 text-red-500" />
+                                                            <XCircle className="w-4 h-4 text-rose-500" />
                                                         )
                                                         }
                                                     </div>
                                                 </div>
                                                 <p className="mt-1.5 text-xs text-neutral-500">
-                                                    Your company page: hire.shipit.me/<span className="font-medium">{slug || "your-company"}</span>
+                                                    Your company page: hire.shipithq.com/c/<span className="font-medium">{slug || "your-company"}</span>
                                                 </p>
                                                 {
                                                 slugStatus === "taken" && slugSuggestions.length > 0 && (
@@ -554,30 +580,19 @@ function OnboardingContent() {
                                                         value={website}
                                                         onChange={(e) => setWebsite(e.target.value)}
                                                         placeholder="https://acme.com"
-                                                        className="pl-10 rounded-xl"
+                                                        className="pl-10"
                                                     />
                                                 </div>
                                             </div>
                                             <div>
                                                 <Label htmlFor="industry">Industry</Label>
-                                                <Select value={industry} onValueChange={setIndustry}>
-                                                    <SelectTrigger className="mt-1.5 rounded-xl">
-                                                        <SelectValue placeholder="Select industry" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {
-                                                            industries.map(ind => (
-                                                                <SelectItem key={ind} value={ind}>{ind}</SelectItem>
-                                                            ))
-                                                        }
-                                                    </SelectContent>
-                                                </Select>
+                                                <OptionSelect value={industry} onChange={setIndustry} options={[...OPTION_BUILTINS.industry]} placeholder="Pick an industry" className="mt-1.5" />
                                             </div>
                                             <div>
-                                                <Label htmlFor="companySize">Company Size</Label>
+                                                <Label htmlFor="companySize">Company size</Label>
                                                 <Select value={companySize} onValueChange={setCompanySize}>
-                                                    <SelectTrigger className="mt-1.5 rounded-xl">
-                                                        <SelectValue placeholder="Select size" />
+                                                    <SelectTrigger className="mt-1.5">
+                                                        <SelectValue placeholder="How many people" />
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         {
@@ -591,91 +606,75 @@ function OnboardingContent() {
                                                 </Select>
                                             </div>
                                             <div>
-                                                <Label htmlFor="userRole">Your Role *</Label>
-                                                <Select value={userRole} onValueChange={setUserRole}>
-                                                    <SelectTrigger className="mt-1.5 rounded-xl">
-                                                        <SelectValue placeholder="Select your role" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {
-                                                            roleOptions.map(role => (
-                                                                <SelectItem key={role.value} value={role.value}>
-                                                                    {role.label}
-                                                                </SelectItem>
-                                                            ))
-                                                        }
-                                                    </SelectContent>
-                                                </Select>
+                                                <Label htmlFor="userRole">Your job title *</Label>
+                                                <OptionSelect id="userRole" value={userRole} onChange={setUserRole} options={[...OPTION_BUILTINS.member_title]} placeholder="Pick one or type your own" className="mt-1.5" />
                                             </div>
                                             <div className="md:col-span-2">
-                                                <Label htmlFor="description">About Company</Label>
+                                                <Label htmlFor="description">About the company</Label>
                                                 <Textarea
                                                     id="description"
                                                     value={description}
                                                     onChange={(e) => setDescription(e.target.value)}
-                                                    placeholder="Brief description of your company..."
-                                                    className="mt-1.5 rounded-xl min-h-[80px]"
+                                                    placeholder="What the company does, and for whom."
+                                                    className="mt-1.5 min-h-[80px]"
                                                 />
                                             </div>
                                             <div className="md:col-span-2 pt-4 border-t border-neutral-100 dark:border-neutral-800">
                                                 <div className="flex items-center gap-2 mb-4">
                                                     <MapPin className="w-4 h-4 text-neutral-500" />
                                                     <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                                        Company Location
+                                                        Where the company is
                                                     </span>
                                                 </div>
                                                 <div className="grid grid-cols-3 gap-4">
                                                     <div>
                                                         <Label htmlFor="city">City</Label>
-                                                        <Input
-                                                            id="city"
-                                                            value={city}
-                                                            onChange={(e) => setCity(e.target.value)}
-                                                            placeholder="San Francisco"
-                                                            className="mt-1.5 rounded-xl"
-                                                        />
+                                                        <OptionSelect id="city" value={city} onChange={setCity} options={[...OPTION_BUILTINS.city]} placeholder="Pick a city" className="mt-1.5" />
                                                     </div>
                                                     <div>
                                                         <Label htmlFor="state">State</Label>
-                                                        <Input
-                                                            id="state"
-                                                            value={state}
-                                                            onChange={(e) => setState(e.target.value)}
-                                                            placeholder="California"
-                                                            className="mt-1.5 rounded-xl"
-                                                        />
+                                                        <OptionSelect id="state" value={state} onChange={setState} options={country === "India" || !country ? [...INDIAN_STATES] : []} placeholder={country === "India" || !country ? "Pick a state" : "Type the state"} className="mt-1.5" />
                                                     </div>
                                                     <div>
                                                         <Label htmlFor="country">Country</Label>
-                                                        <Input
-                                                            id="country"
-                                                            value={country}
-                                                            onChange={(e) => setCountry(e.target.value)}
-                                                            placeholder="USA"
-                                                            className="mt-1.5 rounded-xl"
-                                                        />
+                                                        <OptionSelect id="country" value={country} onChange={(v) => { if (v !== country) setState(""); setCountry(v) }} options={[...COUNTRIES]} placeholder="Pick a country" className="mt-1.5" />
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex justify-end mt-6">
-                                        <Button
-                                            onClick={handleNext}
-                                            disabled={!canProceedStep1}
-                                            className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200"
-                                        >
-                                            Continue
-                                            <ArrowRight className="w-4 h-4 ml-2" />
+                                    <div className="mt-6 space-y-4 rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+                                        <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">For your company page <span className="font-normal text-neutral-500">(optional)</span></p>
+                                        <div>
+                                            <Label>Tech stack</Label>
+                                            <TagInput values={techStack} onChange={setTechStack} suggestions={[...OPTION_BUILTINS.tech]} placeholder="e.g. TypeScript" className="mt-1.5" />
+                                        </div>
+                                        <div>
+                                            <Label>Benefits</Label>
+                                            <TagInput values={benefits} onChange={setBenefits} suggestions={[...OPTION_BUILTINS.benefit]} placeholder="e.g. Health insurance" className="mt-1.5" />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="culture">How you work</Label>
+                                            <Textarea id="culture" value={culture} onChange={(e) => setCulture(e.target.value)} rows={3} maxLength={2000} placeholder="How the team works, what it values." className="mt-1.5" />
+                                        </div>
+                                    </div>
+                                    {/* Stays in reach on a long step (plan/hiring-ui HU-21). */}
+                                    <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
+                                        <Button variant="outline" onClick={handleBack} className="gap-1.5">
+                                            <ArrowLeft className="h-4 w-4" /> Back
+                                        </Button>
+                                        {!canProceedDetails && <span className="hidden text-xs text-neutral-500 sm:inline">Name, page address and your job title are needed</span>}
+                                        <Button onClick={handleNext} disabled={!canProceedDetails} className="gap-1.5">
+                                            Continue <ArrowRight className="h-4 w-4" />
                                         </Button>
                                     </div>
                                 </motion.div>
                             )
                         }
                         {
-                            currentStep === 2 && (
+                            currentStep === 3 && (
                                 <motion.div
-                                    key="step2"
+                                    key="step3"
                                     initial={{ opacity: 0, x: 20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: -20 }}
@@ -689,7 +688,7 @@ function OnboardingContent() {
                                             What roles are you hiring for?
                                         </h1>
                                         <p className="text-neutral-500">
-                                            Select all that apply to customize your dashboard
+                                            Pick every kind you hire for. It shapes the templates you see first.
                                         </p>
                                     </div>
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -703,7 +702,7 @@ function OnboardingContent() {
                                                         key={goal.id}
                                                         onClick={() => toggleGoal(goal.id)}
                                                         className={cn(
-                                                            "cursor-pointer p-4 rounded-2xl border-2 transition-all text-left",
+                                                            "relative cursor-pointer p-4 rounded-2xl border-2 transition-all text-left",
                                                             isSelected
                                                                 ? "border-neutral-900 dark:border-white bg-neutral-900 dark:bg-white"
                                                                 : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700"
@@ -750,30 +749,23 @@ function OnboardingContent() {
                                             })
                                         }
                                     </div>
-                                    <div className="flex justify-between mt-8">
-                                        <Button
-                                            variant="outline"
-                                            onClick={handleBack}
-                                            className="rounded-xl"
-                                        >
-                                            <ArrowLeft className="w-4 h-4 mr-2" />
-                                            Back
+                                    <div className="sticky bottom-0 z-20 -mx-4 mt-8 flex items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
+                                        <Button variant="outline" onClick={handleBack} className="gap-1.5">
+                                            <ArrowLeft className="h-4 w-4" /> Back
                                         </Button>
                                         <Button
                                             onClick={handleComplete}
-                                            disabled={!canProceedStep2 || isPending}
-                                            className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+                                            disabled={!canProceedGoals || isPending}
+                                            className="gap-1.5"
                                         >
                                             {
                                                 isPending ? (
                                                     <>
-                                                        <InlineLoader size="sm" className="mr-2" />
-                                                        Creating...
+                                                        <InlineLoader size="sm" /> Creating your workspace
                                                     </>
                                                 ) : (
                                                     <>
-                                                        Complete Setup
-                                                        <Check className="w-4 h-4 ml-2" />
+                                                        Finish setup <Check className="h-4 w-4" />
                                                     </>
                                                 )
                                             }

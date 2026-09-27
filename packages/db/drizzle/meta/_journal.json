@@ -498,6 +498,20 @@
       "when": 1790536715920,
       "tag": "0070_job_department",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1790537519396,
+      "tag": "0071_company_cover",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1790538592957,
+      "tag": "0072_member_profile",
+      "breakpoints": true
     }
   ]
 }
