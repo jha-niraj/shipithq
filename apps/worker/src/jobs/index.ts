@@ -39,3 +39,4 @@ export function jobStub(env: Env, type: RunnableJobType, jobId: string): Durable
 	return namespace.get(namespace.idFromName(jobId))
 }
 export { JobImport } from "./job-import"
+export { IncidentReport } from "./incident-report"

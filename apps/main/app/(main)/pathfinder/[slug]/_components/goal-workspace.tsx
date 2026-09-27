@@ -78,17 +78,19 @@ function useIsDesktop() {
     return desktop
 }
 
-export function GoalWorkspace({ goal, tab, sessions: initialSessions, verification }: {
+export function GoalWorkspace({ goal, tab, sessions: initialSessions, verification, initialTopic = null }: {
     goal: Goal
     tab: WorkspaceTab
     sessions: DailySession[]
     verification: PathfinderVerification | null
+    /** `?topic=`: opens with that topic selected, e.g. from an incident report's next steps. */
+    initialTopic?: string | null
 }) {
     const router = useRouter()
     const desktop = useIsDesktop()
     const setGoalUsage = usePathfinderStore((s) => s.setGoalUsage)
     const [sessions, setSessions] = useState(initialSessions)
-    const [selectedId, setSelectedId] = useState<string | null>(null)
+    const [selectedId, setSelectedId] = useState<string | null>(initialTopic)
     const [addOpen, setAddOpen] = useState(false)
     const [mockOpen, setMockOpen] = useState(false)
 

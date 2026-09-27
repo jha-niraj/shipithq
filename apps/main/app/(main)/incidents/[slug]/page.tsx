@@ -6,6 +6,7 @@ import { getIncidentCase } from "@/content/incidents/cases"
 import { CasePlayer } from "@/components/incidents/player/case-player"
 import { loadCaseForPlayer } from "@/lib/incidents/catalog"
 import { loadIncidentProgress } from "@/lib/incidents/progress"
+import { runStateFor, withRun } from "@/lib/incidents/run"
 import { incidentUrl } from "@/lib/urls"
 
 /**
@@ -40,6 +41,8 @@ export default async function IncidentPage({ params, searchParams }: PageProps) 
     const incident = getIncidentCase(slug)
     if (!data || !incident) notFound()
     const userId = session?.user?.id
-    const initial = userId ? await loadIncidentProgress(userId, slug) : undefined
-    return <CasePlayer data={data} initial={initial} signedIn={!!userId} initialStep={step} />
+    // A recorded run (INC-33, INC-34) replaces the answers with this attempt's own.
+    const [base, run] = userId ? await Promise.all([loadIncidentProgress(userId, slug), runStateFor(userId, slug)]) : [undefined, null]
+    const initial = base && run ? withRun(base, run) : base
+    return <CasePlayer data={data} initial={initial} signedIn={!!userId} initialStep={step} run={run} />
 }

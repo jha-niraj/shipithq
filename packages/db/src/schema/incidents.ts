@@ -1,5 +1,6 @@
 import { pgTable, text, integer, boolean, timestamp, index, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
+import { sql } from "drizzle-orm";
 import { users } from "./schema";
 import type { VoiceMode, VoiceTurn } from "./mock";
 
@@ -126,4 +127,67 @@ export const incidentMockSessions = pgTable(
         createdAt: timestamp("created_at").notNull().defaultNow(),
     },
     (t) => [index("idx_incident_mock_user_day").on(t.userId, t.createdAt), index("idx_incident_mock_case").on(t.userId, t.caseSlug)],
+);
+
+/** The report a run ends with (plan/incidents INC-36, INC-38). Written by the worker job. */
+export type IncidentBand = "STRONG" | "SOLID" | "DEVELOPING" | "NOT_SHOWN"
+export interface IncidentRunReport {
+    summary: string
+    bands: { skill: "diagnosis" | "reasoning" | "questions" | "explaining"; band: IncidentBand; evidence: string; previous?: IncidentBand | null }[]
+    highlights: { quote: string; why: string; source: { eventId?: string; sessionId?: string } }[]
+    questions: { eventId: string; question: string; mark: "sharp" | "clarifying" | "off_track"; why: string }[]
+    bestQuestionEventId: string | null
+    checks: { chapter: string; firstTry: number; total: number; missed: string[] }[]
+    nextSteps: { title: string; why: string; pathTopic: string | null }[]
+    model: string
+    generatedAt: string
+}
+
+/**
+ * One attempt at a case that the reader agreed to have recorded (plan/incidents INC-33).
+ * Consent is stored verbatim. At most one ACTIVE run per reader and case; a retake ends
+ * it and opens another, so every past report stays. `incident_progress` is not touched
+ * by runs: it stays the once-ever XP and unlock ledger.
+ */
+export const incidentRuns = pgTable(
+    "incident_run",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+        caseSlug: text("case_slug").notNull(),
+        status: text("status").$type<"ACTIVE" | "REPORTING" | "REPORTED" | "FAILED" | "ENDED">().notNull().default("ACTIVE"),
+        consentText: text("consent_text").notNull(),
+        consentedAt: timestamp("consented_at").notNull().defaultNow(),
+        startedAt: timestamp("started_at").notNull().defaultNow(),
+        endedAt: timestamp("ended_at"),
+        reportJobId: text("report_job_id"),
+        report: jsonb("report").$type<IncidentRunReport | null>(),
+        reportedAt: timestamp("reported_at"),
+        /** Set while the reader shares the report; cleared to stop sharing (INC-39). */
+        shareToken: text("share_token").unique(),
+        sharedAt: timestamp("shared_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (t) => [
+        index("idx_incident_run_user_case").on(t.userId, t.caseSlug),
+        uniqueIndex("uq_incident_run_active").on(t.userId, t.caseSlug).where(sql`${t.status} = 'ACTIVE'`),
+    ],
+);
+
+/**
+ * What happened in a run, in order (INC-33): a graded check or quiz answer, a question
+ * to the lead with its answer, a talk (the transcript stays on its session), a step
+ * marked done. Written by the server from graded results, never from client grades.
+ */
+export const incidentRunEvents = pgTable(
+    "incident_run_event",
+    {
+        id: text("id").primaryKey().$defaultFn(() => createId()),
+        runId: text("run_id").notNull().references(() => incidentRuns.id, { onDelete: "cascade" }),
+        kind: text("kind").$type<"check" | "quiz" | "ask" | "talk" | "step">().notNull(),
+        itemId: text("item_id").notNull(),
+        payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (t) => [index("idx_incident_run_event_run").on(t.runId, t.createdAt)],
 );

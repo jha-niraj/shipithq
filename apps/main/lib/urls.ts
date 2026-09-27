@@ -43,6 +43,11 @@ export function incidentUrl(slug?: string): string {
     return absoluteUrl(slug ? `/incidents/${encodeURIComponent(slug)}` : "/incidents");
 }
 
+/** A shared incident run report, by its share token (plan/incidents INC-39). */
+export function incidentReportShareUrl(token: string): string {
+    return absoluteUrl(`/incidents/report/${encodeURIComponent(token)}`);
+}
+
 /** A user's public profile - app/(main)/profile/[username]. */
 export function publicProfileUrl(username: string): string {
     return absoluteUrl(`/profile/${encodeURIComponent(username)}`);

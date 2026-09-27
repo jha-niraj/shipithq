@@ -101,6 +101,53 @@ const SCENES: Record<IncidentTopicId, () => React.ReactElement> = {
             {[0, 1, 2].map((i) => <rect key={i} className="ts-fade" x={200} y={44 + i * 14} width={50} height={6} rx={3} fill="currentColor" style={d(i * 0.4)} />)}
         </>
     ),
+    caching: () => (
+        <>
+            <rect x={30} y={36} width={60} height={48} rx={8} fill="none" stroke="currentColor" strokeWidth={1.5} opacity={0.5} />
+            <rect x={190} y={36} width={60} height={48} rx={8} fill="none" stroke="currentColor" strokeWidth={1.5} />
+            <rect className="ts-pop" x={120} y={46} width={40} height={28} rx={6} fill="currentColor" />
+            <line x1={90} y1={60} x2={120} y2={60} stroke="currentColor" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.5} />
+            <line x1={160} y1={60} x2={190} y2={60} stroke="currentColor" strokeWidth={1.5} strokeDasharray="4 4" opacity={0.5} />
+            <text x={112} y={100} fontSize={9} fill="currentColor" opacity={0.6} style={{ fontFamily: "var(--font-geist-mono), monospace" }}>HIT age 86400</text>
+        </>
+    ),
+    payments: () => (
+        <>
+            <rect x={80} y={30} width={120} height={70} rx={10} fill="none" stroke="currentColor" strokeWidth={1.5} />
+            <rect x={80} y={46} width={120} height={10} fill="currentColor" opacity={0.25} />
+            <text className="ts-count" x={98} y={86} fontSize={14} fill="currentColor" style={{ fontFamily: "var(--font-geist-mono), monospace" }}>$19.99</text>
+            <text className="ts-count2" x={98} y={86} fontSize={14} fill="currentColor" style={{ fontFamily: "var(--font-geist-mono), monospace" }}>$39.98</text>
+            {[0, 1].map((i) => <circle key={i} className="ts-fade" cx={228 + i * 18} cy={40} r={6} fill="currentColor" style={d(i * 0.5)} />)}
+        </>
+    ),
+    observability: () => (
+        <>
+            <polyline points="20,90 60,80 100,86 140,70 180,76 220,40 260,52" fill="none" stroke="currentColor" strokeWidth={1.5} />
+            <line x1={20} y1={56} x2={260} y2={56} stroke="currentColor" strokeWidth={1} strokeDasharray="4 5" opacity={0.4} />
+            <circle className="ts-fade" cx={220} cy={40} r={6} fill="currentColor" />
+            <text x={20} y={112} fontSize={9} fill="currentColor" opacity={0.6} style={{ fontFamily: "var(--font-geist-mono), monospace" }}>p99 4.2 s  alert: silent</text>
+        </>
+    ),
+    networking: () => (
+        <>
+            {[[40, 60], [140, 30], [140, 90], [240, 60]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={10} fill="none" stroke="currentColor" strokeWidth={1.5} />)}
+            <line x1={50} y1={56} x2={130} y2={34} stroke="currentColor" strokeWidth={1.2} opacity={0.5} />
+            <line x1={50} y1={64} x2={130} y2={86} stroke="currentColor" strokeWidth={1.2} opacity={0.5} />
+            <line x1={150} y1={34} x2={230} y2={56} stroke="currentColor" strokeWidth={1.2} strokeDasharray="3 4" opacity={0.5} />
+            {[0, 1.2].map((t) => <circle key={t} className="ts-slide" cx={52} cy={57} r={3.5} fill="currentColor" style={{ ...d(t), ["--d" as string]: "80px" }} />)}
+            <text x={180} y={112} fontSize={9} fill="currentColor" opacity={0.6} style={{ fontFamily: "var(--font-geist-mono), monospace" }}>TTL 86400</text>
+        </>
+    ),
+    mobile: () => (
+        <>
+            <rect x={116} y={14} width={48} height={92} rx={10} fill="none" stroke="currentColor" strokeWidth={1.5} />
+            <line x1={132} y1={24} x2={148} y2={24} stroke="currentColor" strokeWidth={2} strokeLinecap="round" opacity={0.5} />
+            <rect className="ts-fade" x={124} y={40} width={32} height={6} rx={3} fill="currentColor" />
+            <rect x={124} y={52} width={24} height={6} rx={3} fill="currentColor" opacity={0.3} />
+            <text x={190} y={50} fontSize={9} fill="currentColor" opacity={0.6} style={{ fontFamily: "var(--font-geist-mono), monospace" }}>v2.1.0</text>
+            <text className="ts-count" x={190} y={66} fontSize={9} fill="currentColor" style={{ fontFamily: "var(--font-geist-mono), monospace" }}>v1.4.3</text>
+        </>
+    ),
 }
 
 export function TopicScene({ topic, className }: { topic: IncidentTopicId; className?: string }) {

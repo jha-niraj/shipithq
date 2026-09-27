@@ -86,7 +86,7 @@ export function Round() {
     return (
         <div className="max-w-[44rem]">
             <Reveal>
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">Spot the failure</p>
+                <p className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">Spot the failure</p>
                 <h3 className="mt-2 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">Name the cause from the symptom</h3>
                 <p className="mt-2 text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">
                     {c.round.length} real signatures. Get every one right first time for +{INCIDENT_XP.perfectRound} XP.
@@ -112,7 +112,7 @@ export function Round() {
                             transition={{ duration: 0.3, ease: EASE }}
                             className="rounded-3xl bg-neutral-950 p-6 text-white ring-1 ring-white/10 sm:p-7"
                         >
-                            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-neutral-400">Symptom {index + 1} of {c.round.length}</p>
+                            <p className="font-mono text-[11px] text-neutral-400">Symptom {index + 1} of {c.round.length}</p>
                             <p className="mt-3 font-mono text-[16px] leading-7 text-neutral-100 sm:text-[17px]">&ldquo;<Inline text={item.symptom} />&rdquo;</p>
                             <div className="mt-6 grid gap-2">
                                 {item.options.map((o) => {

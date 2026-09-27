@@ -181,3 +181,65 @@ tied together and turned into a one-page review when they finish.
 8. A reader who chose "Just read" leaves no run rows, no transcripts and no ask rows.
 9. A second run makes a second report; the first is unchanged and both are listed.
 10. The share link opens signed out; turned off, it returns not found.
+
+## The lead in the rail (Niraj, 2026-09-27)
+
+**Decisions**
+
+- **The incident lead lives in the right rail on a case, open by default.** It has a tab
+  switch, Lead | ShipItHQ AI. It can be closed. Other pages keep the normal AI rail, closed.
+  The narrator and its controls move out of the chapter into the rail.
+- **Ask by typing or voice; one thread per case.** The lead answers in text and speaks it,
+  in a scrolling thread. It is the run's ask events, so it is kept and goes into the report.
+  Answers may run longer than a one-liner when the question needs it.
+- **Follow along, paragraph to visual part.** Each narrated paragraph names the part of a
+  visual it is about (a flow box, a table row, a note). While it is read, that part lights,
+  the rest of that visual dims, and the page scrolls to it.
+- **Terms.** Glossary terms are underlined where they appear. Clicking one makes the lead
+  explain it properly (spoken, 4 to 6 sentences, with an example from this case) in the
+  thread, with "Learn it properly" underneath. That opens the matching Pathfinder topic in
+  a NEW TAB (the reader is mid-chapter): their adopted path's topic, or the path preview.
+- **Content rewrite:** written for the ear (short spoken sentences, one idea per paragraph,
+  each tied to one visual part), each chapter opening on a hook the reader can guess at
+  before the reveal, and diagrams that build as the lead speaks. Nine chapters stay.
+
+**Done when**
+
+11. On a case, the rail opens on the lead; the chapter body has no narrator bar.
+12. While paragraph N is read, exactly its visual part is lit, and the page follows it.
+13. A typed and a spoken question both appear in the thread with a spoken answer, and are
+    still there after a reload (in a run).
+14. Clicking "wall-clock time" gets a spoken explanation in the thread and a link that opens
+    Pathfinder in a new tab.
+
+## Case 2 and the shared simulator (Niraj, 2026-09-28)
+
+**Decisions**
+
+- **Case 2: "The login that said yes to guessing"** (Security, also Auth and sessions), from a
+  reel Niraj described: rate limiting a login, from a per-email counter to combined signals.
+  9 chapters, about 25 minutes, the same player as case 1. General on any stack, with
+  one Cloudflare chapter (Durable Object per key, the rate limiting binding). No code.
+  Outline for review: `case-login.md`.
+- **URLs stay** `/incidents/<slug>`, with the topic as `?topic=` on the index. A readable
+  slug, not a database id: stable, shareable and indexable.
+- **The case sidebar is an accordion:** one row per chapter (number, title, done count),
+  only the current chapter open with its steps, act names as quiet labels.
+- **One simulator engine, driven by data.** A scenario declares controls, actors, rules
+  (declarative, never code) and a view: `lanes` (a timeline, like case 1) or `traffic`
+  (requests through rules, like case 2). This round builds the engine, both views, the
+  login scenario, and moves case 1's simulator onto it.
+- **AI drafts scenarios at authoring time, never live per reader.** Next round: an
+  authoring page in apps/admin where the AI drafts a scenario from a case outline, a
+  schema check rejects malformed ones, and a person plays, adjusts and approves it
+  before it is saved with the case.
+
+**Done when**
+
+15. The login case plays end to end like case 1: chapters, checks, talks, the lead, the
+    final quiz and the report.
+16. The attack simulator shows, for each attack and defence, what got through, what was
+    blocked, and which real users were locked out, from a scenario file, not
+    hand-written code.
+17. Case 1's simulator runs on the same engine and still shows what it shows today.
+18. The case sidebar shows one row per chapter, with only the current one open.

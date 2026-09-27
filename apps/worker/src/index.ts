@@ -41,6 +41,7 @@ export {
 	AptitudeGenerate,
 	VoiceInterviewScore,
 	JobImport,
+	IncidentReport,
 } from "./jobs"
 
 // ─────────────────────────────────────────────────────────────────────────────

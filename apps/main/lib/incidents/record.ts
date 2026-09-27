@@ -1,4 +1,5 @@
 import "server-only"
+import { addRunEvent } from "./run"
 import { and, eq, inArray } from "drizzle-orm"
 import { db, incidentBadges, incidentProgress } from "@repo/db"
 import { INCIDENT_BADGES } from "@/content/incidents/badges"
@@ -101,6 +102,16 @@ export async function recordProgressFor(userId: string, input: ProgressInput): P
         }
 
         const inserted = await insertOnce(userId, c.slug, row)
+        // The run keeps every graded answer of this attempt, even ones the ledger already
+        // has from an earlier attempt (INC-33). Graded here, never taken from the client.
+        if (row.kind === "check" || row.kind === "prediction" || row.kind === "round" || row.kind === "step") {
+            await addRunEvent(userId, c.slug, row.kind === "check" ? "check" : row.kind === "step" ? "step" : "quiz", row.itemId, {
+                ledger: row.kind,
+                value: row.value ?? null,
+                response: row.value != null ? safeParse(row.value) : null,
+                correct: row.correct ?? null,
+            })
+        }
         let xpEarned = 0
         const levelUps: { level: number; title: string }[] = []
         const award = async (id: string, amount: number, why: string) => {
@@ -169,4 +180,8 @@ async function awardBadges(userId: string): Promise<{ key: string; title: string
         .onConflictDoNothing()
         .returning({ key: incidentBadges.badgeKey })
     return created.map((c) => ({ key: c.key, title: INCIDENT_BADGES.find((b) => b.key === c.key)!.title }))
+}
+
+function safeParse(v: string): unknown {
+    try { return JSON.parse(v) } catch { return v }
 }

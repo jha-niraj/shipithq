@@ -10,9 +10,9 @@ const TABS: WorkspaceTab[] = ['today', 'plan', 'notes', 'verify']
 
 export default async function GoalPage({ params, searchParams }: {
     params: Promise<{ slug: string }>
-    searchParams: Promise<{ tab?: string }>
+    searchParams: Promise<{ tab?: string; topic?: string }>
 }) {
-    const [{ slug }, { tab }] = await Promise.all([params, searchParams])
+    const [{ slug }, { tab, topic }] = await Promise.all([params, searchParams])
     // Verify reads the mock's and the project's live state: a scored interview or a
     // completed project completes its section here.
     if (tab === 'verify') {
@@ -32,6 +32,7 @@ export default async function GoalPage({ params, searchParams }: {
             tab={TABS.includes(tab as WorkspaceTab) ? (tab as WorkspaceTab) : 'today'}
             sessions={sessions as unknown as DailySession[]}
             verification={(goal.verification ?? null) as PathfinderVerification | null}
+            initialTopic={topic ?? null}
         />
     )
 }

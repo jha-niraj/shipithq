@@ -13,7 +13,7 @@ import { INCIDENT_XP } from "./index"
  * the app. `key` is stable: a reader's answers and ticks are saved against it.
  */
 
-export type StepKind = "chapter" | "check" | "talk" | "final-quiz" | "round" | "closing-talk" | "closing"
+export type StepKind = "start" | "chapter" | "check" | "talk" | "final-quiz" | "round" | "closing-talk" | "closing" | "learn"
 
 export type AuthoredStep = {
     key: string
@@ -39,11 +39,24 @@ export function finalQuiz(c: IncidentCase): QuizQuestion[] {
 export function stepsFor(c: IncidentCase): AuthoredStep[] {
     const steps: AuthoredStep[] = []
     const chapters = c.chapters ?? []
+    // The case's front page (Niraj, 2026-09-28): what it is, what you'll do, and Start.
+    steps.push({
+        key: "start", part: "Start", kind: "start", title: "Start the case",
+        content: {
+            act: "Start",
+            summary: c.summary,
+            minutes: c.minutes,
+            chapters: chapters.length,
+            checks: chapters.filter((ch) => ch.check?.length).length,
+            talks: chapters.filter((ch) => ch.talk).length + (c.mock ? 1 : 0),
+        },
+        xp: 0,
+    })
     chapters.forEach((ch, i) => {
         const part = `${String(i + 1).padStart(2, "0")} · ${ch.title}`
         steps.push({
             key: `ch-${ch.id}`, part, kind: "chapter", title: ch.title,
-            content: { ...ch, check: undefined, talk: undefined, glossary: (ch.terms ?? []).map((t) => c.glossary?.[t]).filter(Boolean) },
+            content: { ...ch, check: undefined, talk: undefined, glossary: (ch.terms ?? []).map((t) => (c.glossary?.[t] ? { key: t, ...c.glossary[t] } : null)).filter(Boolean) },
             xp: 0,
         })
         if (ch.check?.length) {
@@ -58,5 +71,7 @@ export function stepsFor(c: IncidentCase): AuthoredStep[] {
     steps.push({ key: "round", part: end, kind: "round", title: "Spot the failure", content: { items: c.round }, xp: INCIDENT_XP.perfectRound })
     if (c.mock) steps.push({ key: "closing-talk", part: end, kind: "closing-talk", title: "You're the incident lead", content: { ...c.mock }, xp: 0 })
     steps.push({ key: "closing", part: end, kind: "closing", title: "What to remember", content: { lines: c.closing, checklist: c.checklist }, xp: INCIDENT_XP.completion })
+    // What the case teaches, and its Pathfinder path (moved out of the sidebar, 2026-09-28).
+    if (c.learn?.length) steps.push({ key: "learn", part: "Keep learning", kind: "learn", title: "What you'll learn", content: { act: "Keep learning", learn: c.learn }, xp: 0 })
     return steps
 }

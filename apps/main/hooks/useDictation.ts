@@ -28,7 +28,7 @@ const join = (a: string, b: string) => [a.trim(), b.trim()].filter(Boolean).join
 
 export type DictationStatus = "idle" | "starting" | "listening" | "transcribing"
 
-export function useDictation({ onText }: { onText: (text: string) => void }) {
+export function useDictation({ onText, endpoint = "/api/practice/voice/transcribe" }: { onText: (text: string) => void; endpoint?: string }) {
     const [status, setStatus] = useState<DictationStatus>("idle")
     const [error, setError] = useState<string | null>(null)
     const [unavailable, setUnavailable] = useState(false)
@@ -57,7 +57,7 @@ export function useDictation({ onText }: { onText: (text: string) => void }) {
         const form = new FormData()
         form.append("audio", clip, `speech.${type.includes("mp4") ? "mp4" : "webm"}`)
         try {
-            const res = await fetch("/api/practice/voice/transcribe", { method: "POST", body: form })
+            const res = await fetch(endpoint, { method: "POST", body: form })
             const data = (await res.json()) as { text?: string; error?: string; unavailable?: boolean }
             if (!res.ok) {
                 if (data.unavailable) setUnavailable(true)
@@ -74,7 +74,7 @@ export function useDictation({ onText }: { onText: (text: string) => void }) {
         } catch {
             if (final) setError("Could not reach the transcriber.")
         }
-    }, [])
+    }, [endpoint])
 
     const cleanup = useCallback(() => {
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }

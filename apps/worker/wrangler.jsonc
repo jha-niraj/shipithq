@@ -41,7 +41,8 @@
 			{ "name": "COMPANY_SCRAPE", "class_name": "CompanyScrape" },
 			{ "name": "APTITUDE_GENERATE", "class_name": "AptitudeGenerate" },
 			{ "name": "VOICE_INTERVIEW_SCORE", "class_name": "VoiceInterviewScore" },
-			{ "name": "JOB_IMPORT", "class_name": "JobImport" }
+			{ "name": "JOB_IMPORT", "class_name": "JobImport" },
+			{ "name": "INCIDENT_REPORT", "class_name": "IncidentReport" }
 		]
 	},
 
@@ -148,6 +149,11 @@
 			// A pasted job becomes a practisable pipeline, one alarm per step (plan/job-import JI-3).
 			"tag": "v18",
 			"new_sqlite_classes": ["JobImport"]
+		},
+		{
+			// The review a recorded incident run ends with (plan/incidents INC-36).
+			"tag": "v19",
+			"new_sqlite_classes": ["IncidentReport"]
 		}
 	],
 

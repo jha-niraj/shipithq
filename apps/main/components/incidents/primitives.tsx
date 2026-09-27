@@ -80,7 +80,10 @@ export function Reveal({ children, className, delay = 0, id }: { children: React
 // ── Text ────────────────────────────────────────────────────────────────────
 
 /** Case text with `backticks` rendered as inline code. */
-export function Inline({ text }: { text: string }) {
+/** A glossary term the reader can tap for the lead's explanation (INC-50). */
+export type InlineTerm = { key: string; term: string }
+
+export function Inline({ text, terms, onTerm }: { text: string; terms?: InlineTerm[]; onTerm?: (t: InlineTerm) => void }) {
     return (
         <>
             {text.split(/(`[^`]+`)/g).map((part, i) =>
@@ -88,6 +91,8 @@ export function Inline({ text }: { text: string }) {
                     <code key={i} className="rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[0.86em] text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100">
                         {part.slice(1, -1)}
                     </code>
+                ) : terms?.length && onTerm ? (
+                    <TermText key={i} text={part} terms={terms} onTerm={onTerm} />
                 ) : (
                     part
                 ),
@@ -96,13 +101,36 @@ export function Inline({ text }: { text: string }) {
     )
 }
 
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+/** Underlines each glossary term where it appears (whole words, any case); a tap asks the lead. */
+function TermText({ text, terms, onTerm }: { text: string; terms: InlineTerm[]; onTerm: (t: InlineTerm) => void }) {
+    const sorted = [...terms].sort((a, b) => b.term.length - a.term.length)
+    const re = new RegExp(`\\b(${sorted.map((t) => escape(t.term)).join("|")})\\b`, "gi")
+    const out: React.ReactNode[] = []
+    let last = 0
+    for (const m of text.matchAll(re)) {
+        const hit = sorted.find((t) => t.term.toLowerCase() === m[0].toLowerCase())!
+        if (m.index! > last) out.push(text.slice(last, m.index))
+        out.push(
+            <button key={m.index} type="button" onClick={() => onTerm(hit)} title={`Ask the lead: what is ${hit.term}?`}
+                className="cursor-help underline decoration-neutral-400 decoration-dotted underline-offset-4 hover:decoration-neutral-900 dark:decoration-neutral-600 dark:hover:decoration-white">
+                {m[0]}
+            </button>,
+        )
+        last = m.index! + m[0].length
+    }
+    if (last < text.length) out.push(text.slice(last))
+    return <>{out}</>
+}
+
 /** The sections a claim comes from, as small mono chips; the full title on hover. */
 export function Sources({ refs, dark = false, className }: { refs: SourceRef[]; dark?: boolean; className?: string }) {
     const c = useCase()
     if (!refs.length) return null
     return (
         <p className={cn("flex flex-wrap items-center gap-1.5", className)}>
-            <span className={cn("font-mono text-[10px] uppercase tracking-[0.14em]", dark ? "text-neutral-400" : "text-neutral-500 dark:text-neutral-400")}>Source</span>
+            <span className={cn("font-mono text-[10px]", dark ? "text-neutral-400" : "text-neutral-500 dark:text-neutral-400")}>Source</span>
             {refs.map((r) => (
                 <span
                     key={`${r.source}-${r.section}`}

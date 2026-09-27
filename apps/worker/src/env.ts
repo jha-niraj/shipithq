@@ -35,6 +35,7 @@ export const JOB_BINDINGS = {
 	aptitude_generate: "APTITUDE_GENERATE",
 	voice_interview_score: "VOICE_INTERVIEW_SCORE",
 	job_import: "JOB_IMPORT",
+	incident_report: "INCIDENT_REPORT",
 } as const satisfies Partial<Record<JobType, string>>
 
 export type RunnableJobType = keyof typeof JOB_BINDINGS

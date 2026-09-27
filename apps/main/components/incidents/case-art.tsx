@@ -22,7 +22,7 @@ const MOTION = `
 function Lane({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div className="flex items-center gap-3">
-            <span className="w-14 shrink-0 font-mono text-[9.5px] uppercase tracking-[0.12em] text-neutral-400">{label}</span>
+            <span className="w-14 shrink-0 font-mono text-[9.5px] text-neutral-400">{label}</span>
             <div className="relative h-8 flex-1 overflow-hidden rounded-lg bg-white/[0.05]">{children}</div>
         </div>
     )

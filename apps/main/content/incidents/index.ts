@@ -18,6 +18,11 @@ export const INCIDENT_TOPICS = [
     { id: "ai", label: "AI and LLMs", blurb: "Model bills, caches, prompts and answers that go stale." },
     { id: "frontend", label: "Frontend", blurb: "What the user sees before the server has answered, and why it lies." },
     { id: "security", label: "Security", blurb: "The check that was in the wrong layer, and the one nobody wrote." },
+    { id: "caching", label: "Caching and CDNs", blurb: "The page that was fast, fresh and wrong, and the purge that took the site down." },
+    { id: "payments", label: "Payments and billing", blurb: "Webhooks that arrive twice, refunds that don't, and money counted in floats." },
+    { id: "observability", label: "Observability", blurb: "The alert that never fired, and the dashboard that said everything was fine." },
+    { id: "networking", label: "Networking and DNS", blurb: "Timeouts, retries and the record that took a day to change." },
+    { id: "mobile", label: "Mobile apps", blurb: "Old versions in the wild, flaky networks and the update nobody installs." },
 ] as const
 
 export type IncidentTopicId = (typeof INCIDENT_TOPICS)[number]["id"]
@@ -28,6 +33,8 @@ export type IncidentMeta = {
     /** One sentence: what happened, in plain words. */
     summary: string
     topic: IncidentTopicId
+    /** Other topics it also shows under on the index (INC-54). `topic` stays the main one: its tag and cover. */
+    alsoIn?: IncidentTopicId[]
     minutes: number
 }
 
@@ -38,6 +45,14 @@ export const INCIDENTS: IncidentMeta[] = [
         summary: "A two-minute job, a client on the call, and a Worker that stopped halfway without a single error.",
         topic: "serverless",
         minutes: 18,
+    },
+    {
+        slug: "the-login-that-said-yes-to-guessing",
+        title: "The login that said yes to guessing",
+        summary: "Three thousand correct answers to a password guess, then one account gone. Then the fix that locked out the wrong person.",
+        topic: "security",
+        alsoIn: ["auth"],
+        minutes: 25,
     },
 ]
 
@@ -52,6 +67,8 @@ export const INCIDENT_XP = {
     completion: 50,
     /** A spot-the-failure round with every answer right first time. */
     perfectRound: 25,
+    /** The first report on a case (INC-42): once per case, never per run. A default; Niraj can change it. */
+    report: 30,
 } as const
 
 /**

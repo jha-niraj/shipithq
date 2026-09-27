@@ -36,18 +36,34 @@ Build in order. Browser checks are Niraj's.
 | INC-30 | Transcript: visuals first, a remembered toggle, a live caption, auto-scroll while reading | built 2026-09-27 |
 | INC-31 | Voice: auto-play (remembered), playback speed, ask the lead by voice, read the check aloud (opt-in) | built 2026-09-27, browser check Niraj (mic) |
 | INC-32 | The learning path: one hand-written Pathfinder goal per incident, adopt from the case | done 2026-09-27 as plan/pathfinder PF-13 |
-| INC-33 | Runs: `incident_run` + `incident_run_event`, consent, and every action writes to the active run | not started |
-| INC-34 | The start screen: consent, "Just read", and the mic gated on a recorded run | not started |
-| INC-35 | Ask keeps the lead's answer | not started |
-| INC-36 | The `incident_report` worker job (Durable Object, gpt-4o) | not started |
-| INC-37 | Trigger and follow: the report starts after the closing talk; 2 a day | not started |
-| INC-38 | The report page | not started |
-| INC-39 | Share link and the public report page | not started |
-| INC-40 | Runs list and "Start a new run" | not started |
-| INC-41 | Compare with the last run: each band shows its change | not started |
-| INC-42 | Report XP: once per case, the first report | not started |
-| INC-43 | Next steps mark topics in the reader's adopted path | not started |
-| INC-44 | Delete a run and its transcripts | not started |
+| INC-33 | Runs: `incident_run` + `incident_run_event`, consent, and every action writes to the active run | done 2026-09-27 |
+| INC-34 | The start screen: consent, "Just read", and the mic gated on a recorded run | built 2026-09-27, browser check Niraj |
+| INC-35 | Ask keeps the lead's answer | done 2026-09-27 |
+| INC-36 | The `incident_report` worker job (Durable Object, gpt-4o) | built 2026-09-27; live model run blocked (dev OpenAI account out of credits) |
+| INC-37 | Trigger and follow: the report starts after the closing talk; 2 a day | built 2026-09-27; needs the worker deployed or local |
+| INC-38 | The report page | done 2026-09-27 |
+| INC-39 | Share link and the public report page | done 2026-09-27 |
+| INC-40 | Runs list and "Start a new run" | built 2026-09-27, browser check Niraj |
+| INC-41 | Compare with the last run: each band shows its change | built 2026-09-27 (in the job) |
+| INC-42 | Report XP: once per case, the first report | done 2026-09-27 |
+| INC-43 | Next steps mark topics in the reader's adopted path | built 2026-09-27 |
+| INC-44 | Delete a run and its transcripts | done 2026-09-27 |
+| INC-45 | Player fixes: audio played twice, auto-play off, narrower steps panel, sticky "speaking" bar, sentence case, AI rail open on cases | built 2026-09-27, browser check Niraj |
+| INC-46 | Flow chart: edge labels no longer drawn over the arrows | built 2026-09-27, browser check Niraj |
+| INC-47 | The lead store: one audio controller the rail and the chapter share | done 2026-09-27 |
+| INC-48 | The lead in the rail: Lead / AI tabs, a conversation (type, speak, justify); listening stays on the page | built 2026-09-27, browser check Niraj |
+| INC-49 | Follow along: paragraph to visual part, lit and scrolled to | built 2026-09-27, browser check Niraj |
+| INC-50 | Terms: underlined, explained by the lead, Pathfinder in a new tab | built 2026-09-27; model call blocked by dev OpenAI credits |
+| INC-51 | Rewrite the case: for the ear, hook then reveal, visuals that build | done 2026-09-27, listen-through Niraj |
+| INC-52 | Put the sign-in barrier back on asking the lead (removed for testing, 2026-09-27) | not started, before launch |
+| INC-53 | Case sidebar: an accordion, one row per chapter, the current one open | built 2026-09-28, browser check Niraj |
+| INC-54 | Index: topic filter in the URL, easy to find a case by topic | built 2026-09-28 (a case shows under `topic` + `alsoIn`) |
+| INC-55 | Simulator engine: scenario schema, rules, `lanes` and `traffic` views | done 2026-09-28 |
+| INC-56 | Move case 1's simulator onto the engine (wrapped, code kept: Niraj 2026-09-28) | done 2026-09-28 |
+| INC-57 | Case 2 content: "The login that said yes to guessing", 9 chapters, sourced | built and seeded 2026-09-28, listen-through Niraj |
+| INC-58 | Case 2's attack-vs-defence scenario | done 2026-09-28 (all 15 combinations checked) |
+| INC-59 | Case 2's Pathfinder path, "Protecting logins", and its seed | done 2026-09-28 |
+| INC-60 | AI-drafted scenarios, reviewed in apps/admin | next round |
 
 ## INC-1 - Routes and the sign-in dialog
 **Files** `apps/main/app/(public)/incidents/{page,layout,loading}.tsx`,
@@ -446,7 +462,12 @@ understand than reading a text." Decisions:
 Decisions and "done when" (7 to 10) are in `overview.md`, "Runs and the run report".
 
 ### INC-33 Runs: tables, consent, and recording into the active run
-- [ ] Status: not started
+- [x] Status: done (2026-09-27).
+  - Migration `0068_incident_runs` adds the two tables, their foreign keys and indexes, including the partial unique ACTIVE index. It is applied on dev.
+  - `lib/incidents/run.ts` has `activeRun`, `addRunEvent` (a no-op without a run; never throws), `startRunFor` (returns the open run, and is race-safe on the index), `endRunFor`, `runStateFor` and `withRun`.
+  - `recordProgressFor` writes check, prediction, round and step events from the server's own grading, including answers the ledger already had from an earlier attempt.
+  - `askLead` and `startIncidentMock` refuse without a run (code `RUN`) and write ask and talk events. `actions/(main)/incidents/run.action.ts` adds startRun, endRun and getRunState.
+  - Checked on dev as a throwaway user: with no run, a check answer saved but no run or event was created. With a run, starting twice returned the same run; the same check again, an ask and a talk gave 3 events of kinds check, ask and talk. The user was deleted.
 - **Why:** the report needs everything one attempt did, tied together. `incident_progress`
   is the XP and unlock ledger, unique per (user, case, kind, item), so a retake cannot
   record a second answer there; it stays as it is.
@@ -472,7 +493,12 @@ Decisions and "done when" (7 to 10) are in `overview.md`, "Runs and the run repo
   tables and the index.
 
 ### INC-34 The start screen and the gated mic
-- [ ] Status: not started
+- [ ] Status: built (2026-09-27), waiting on Niraj's browser check.
+  - `run-context.tsx` has the modes recording, reading ("Just read", remembered per case) and deciding, plus `requireRun()`. `start-screen.tsx` has the screen and a header badge ("Recording", which stops the run, or "Start recording").
+  - The page overlays the run's own answers on the progress (`withRun`), and the progress provider is keyed by run id, so starting a run begins it blank.
+  - The narrator's Ask and the talk step call `requireRun()` first, and handle the server's `RUN` code the same way.
+  - Signed out, the start screen does not cover the public page; the badge offers the run through sign-in.
+  - Rendered on dev: no run shows "Start recording"; with a run, "Recording"; signed out, the page renders with the badge. The dev log had no errors.
 - **Why:** consent comes before anything is kept (decision: at the start, optional).
 - **Files:** `components/incidents/player/start-screen.tsx` (new), `case-player.tsx`,
   `narrator.tsx`, `mock-step.tsx`.
@@ -487,14 +513,18 @@ Decisions and "done when" (7 to 10) are in `overview.md`, "Runs and the run repo
   run row; the mic buttons open the start screen until a run exists.
 
 ### INC-35 Ask keeps the answer
-- [ ] Status: not started
+- [x] Status: done (2026-09-27). The ask event stores `{ question, answer, stepTitle }` (see INC-33). The live model path needs a signed-in browser.
 - **Why:** the report judges whether they understood the answer and followed up.
 - **Files:** `actions/(main)/incidents/narration.action.ts`.
 - **Steps:** the `ask` run event stores `{ question, answer, stepTitle }`.
 - **Done when:** an ask in a run shows both in its event row.
 
 ### INC-36 The `incident_report` job
-- [ ] Status: not started
+- [ ] Status: built (2026-09-27). The live gpt-4o run is not done yet: the dev OpenAI account is out of credits ("You have no credits remaining").
+  - `apps/worker/src/jobs/incident-report-core.ts` (`buildIncidentReport`) reads the run, the case's steps from the DB, talk transcripts and the ShipItHQ path topics. Check accuracy is counted in code; gpt-4o writes the rest.
+  - Validation: known skills and bands only; questions NOT_SHOWN when nothing was asked; highlights kept only if the quote is found verbatim in the reader's own words at the cited source (never the lead's); marks default to clarifying; path topics must match exactly.
+  - `incident-report.ts` is the DO wrapper that saves it. The five edits are done: `JOB_TYPES`, `JOB_BINDINGS`, `jobs/index`, wrangler binding plus the NEW tag `v19`, and the `src/index.ts` export. The `incidentRunReport: "gpt-4o"` task line is added.
+  - Checked with a canned model reply against a seeded run: the invented quote, the lead's quote and the bad event id were dropped; the bogus band became NOT_SHOWN; the checks were counted per chapter; an unknown path topic was nulled. tsc is clean in worker and main.
 - **Why:** reading a whole run and writing a careful review can take more than 30
   seconds (CLAUDE.md: worker).
 - **Files:** `packages/db/src/schema/worker.ts` (`JOB_TYPES`), `apps/worker/src/jobs/
@@ -513,7 +543,9 @@ Decisions and "done when" (7 to 10) are in `overview.md`, "Runs and the run repo
   found verbatim in the run's rows.
 
 ### INC-37 Trigger, follow, cap
-- [ ] Status: not started
+- [ ] Status: built (2026-09-27); the end-to-end run needs the worker (`pnpm release`, or local) and model credits.
+  - Actions: `requestRunReport` (needs a COMPLETED closing-talk session in the run; 2 a day; singleFlight on the run; sets REPORTING and endedAt), `retryRunReport` and `followRunReport` (a failed job marks the run FAILED).
+  - `report-card.tsx` on the closing-talk and closing steps: requests when the closing talk is handed in, follows the job with `awaitBackgroundJob`, then links, retries or shows the cap message.
 - **Files:** `mock.action.ts` (`finishIncidentMock`), `actions/(main)/incidents/run.action.ts`
   (new), `case-player.tsx`.
 - **Steps:** when the closing talk finishes inside a run, dispatch the job
@@ -524,7 +556,8 @@ Decisions and "done when" (7 to 10) are in `overview.md`, "Runs and the run repo
   report when it lands; a third that day is refused.
 
 ### INC-38 The report page
-- [ ] Status: not started
+- [x] Status: done (2026-09-27). `components/incidents/report/report-view.tsx` has the four band cards with evidence and the last-run change, best moments (quoted, with where each was said), questions with verdicts and the best one marked, checks per chapter linking back to the check step, and next steps. It is printable.
+  - Rendered on dev with a seeded report: every section showed for the owner; another signed-in user saw none of it (not found). The skeleton matches.
 - **Files:** `app/(main)/incidents/[slug]/report/[runId]/{page,loading}.tsx`,
   `components/incidents/report/*`.
 - **Steps:** one page: header (case, date, time taken), the four bands with evidence,
@@ -534,7 +567,7 @@ Decisions and "done when" (7 to 10) are in `overview.md`, "Runs and the run repo
   matches; no horizontal scroll at 375px (Niraj).
 
 ### INC-39 Share link
-- [ ] Status: not started
+- [x] Status: done (2026-09-27). `setRunShared` sets a random token or clears it; the page is `/incidents/report/[token]` (public by the `/incidents/` prefix, noindex); `incidentReportShareUrl`. Rendered signed out: the report showed without the owner's controls. After turning it off, the same link showed nothing.
 - **Files:** `run.action.ts` (`setRunShared`), `app/(public)/incidents/report/[token]/page.tsx`,
   `middleware.ts` (public prefix), `lib/urls.ts`.
 - **Steps:** a random token; the public page is the same report without the reader's
@@ -542,7 +575,7 @@ Decisions and "done when" (7 to 10) are in `overview.md`, "Runs and the run repo
 - **Done when:** the link opens signed out; after turning it off it 404s.
 
 ### INC-40 Runs list and a new run
-- [ ] Status: not started
+- [ ] Status: built (2026-09-27). "Your runs" in the sidebar lists each run (date, status, band counts), links reported ones, and has "Start a new run" (ends the open one) or "Start a recorded run". Rendered on dev: "Your runs", "Report ready". The click-through is Niraj's.
 - **Files:** `case-player.tsx` (sidebar "Your runs"), `run.action.ts`.
 - **Steps:** each past run with its date and bands, linking to its report; "Start a new
   run" ends the active one (status `ENDED` if unreported) and opens the start screen.
@@ -550,25 +583,234 @@ Decisions and "done when" (7 to 10) are in `overview.md`, "Runs and the run repo
   unchanged.
 
 ### INC-41 Compare with the last run
-- [ ] Status: not started
+- [ ] Status: built (2026-09-27). The job sets each band's `previous` from the reader's last REPORTED run on the case; the view shows "Last run: X -> Y". Not yet seen with two real reports.
 - **Files:** the report job (reads the previous REPORTED run's bands), `components/incidents/report/*`.
 - **Steps:** from the second report on, each band carries `previous` and shows "Developing -> Solid".
 - **Done when:** a second seeded report shows the change for each band.
 
 ### INC-42 Report XP
-- [ ] Status: not started
+- [x] Status: done (2026-09-27). `INCIDENT_XP.report = 30` (a default). `awardReportXp` runs on the owner's report page, and the ledger key makes it once. Checked: two page loads gave one row with 30 XP.
 - **Files:** the report job's settle step in main (`run.action.ts`), `INCIDENT_XP` in `content/incidents/index.ts` (the amount is a decision in the overview).
 - **Steps:** an `incident_progress` row `kind: "report"`, itemId `report`, so the unique key makes it once per case.
 - **Done when:** the first report awards XP once; a second run awards none.
 
 ### INC-43 Next steps into the adopted path
-- [ ] Status: not started
+- [ ] Status: built (2026-09-27). The report links each next step to `/pathfinder/<copy>?tab=plan&topic=<id>` when the reader has adopted the path; the workspace opens with `?topic=` selected. Without the path, "Adopt the learning path to follow these" appears (seen on dev).
 - **Files:** the report page, `lib/pathfinder/copy.ts` callers, the report's next steps (each names a path topic title).
 - **Steps:** if the reader has adopted the path, "Next steps" links straight to those topics (`/pathfinder/<slug>?tab=plan`, topic selected) and lists them first in Today; if not, it offers Adopt.
 - **Done when:** with an adopted path, each next step opens its topic.
 
 ### INC-44 Delete a run
-- [ ] Status: not started
+- [x] Status: done (2026-09-27). `deleteRun` deletes the run's talk sessions and the run in one batch (events cascade), behind a confirm on the report. Checked: 0 runs and 0 events left.
 - **Files:** `run.action.ts` (`deleteRun`), the report page.
 - **Steps:** a confirm naming what goes (the run, its events, its talk transcripts, its share link); XP already earned stays.
 - **Done when:** after deleting, the run's rows and its sessions are gone and the share link 404s.
+
+### INC-45 Player fixes (Niraj, 2026-09-27)
+- [ ] Status: built (2026-09-27), waiting on Niraj's browser check.
+  - **Audio twice:** the player rendered the step body in both layouts (desktop panes plus a CSS-hidden mobile copy), so two narrators auto-played every clip, and every talk and start screen was mounted twice. The body now mounts once (`useIsDesktop`). Checked: a rendered chapter has one narrator.
+  - **Auto-play off by default:** nothing speaks when a page opens; the Auto switch still turns it on (remembered).
+  - **Steps panel narrower:** 18% by default (13 to 32%), was 24%.
+  - **"The voice is on":** while the lead speaks or listens, the narrator bar sticks to the top of the step with moving bars beside the name, so it follows the reader down the page.
+  - **Sentence case:** every all-caps label in the player and the shared case components is normal case.
+  - **AI rail:** opens by default on a case, desktop and signed in only. It closes again on leaving if the case opened it (its open state is never persisted, so no other page changes). Closing it on a case is remembered for the browser session.
+
+### INC-46 Flow chart labels
+- [ ] Status: not started
+- **Why:** "no" and "yes or no" sat on top of the arrow lines (Niraj's screenshot).
+- **Files:** `components/incidents/flow-chart.tsx`.
+- **Done when:** edge labels sit beside their line, on a background, never crossed by it.
+
+### INC-47 The lead store
+- [ ] Status: not started
+- **Why:** the rail (in the shell) and the chapter (in the player) must share one voice: its
+  paragraph, its state and its thread. Two narrators were the double-audio bug.
+- **Files:** `components/incidents/lead/store.ts` (new zustand store + one Audio element),
+  `narrator.tsx` (retired into it).
+- **Steps:** the player registers `{ slug, chapterId, paragraphs, stepTitle }` on each chapter and
+  clears it on leave; the store plays, pauses, sets speed, tracks the paragraph, holds the
+  thread; leaving the case stops audio.
+- **Done when:** only one Audio element exists; the chapter reads the index from the store.
+
+### INC-48 The lead in the rail
+- [ ] Status: not started
+- **Files:** `components/ai/ai-rail.tsx`, `components/incidents/lead/lead-panel.tsx` (new),
+  `actions/(main)/incidents/narration.action.ts` (`askLead` accepts typed text, longer answers).
+- **Steps:** when a case is registered the rail shows tabs Lead | ShipItHQ AI (Lead first) and
+  opens by default (INC-45's rule: closes on leaving if the case opened it); the Lead tab has
+  the orb, Listen / Pause, speed, Auto, the current paragraph, the thread (loaded from the
+  run's ask events), and a composer with a text box and a mic. Signed out or without a run,
+  the composer offers the start screen.
+- **Edge cases:** the rail closed: a small "Listen" stays in the chapter header so the voice
+  is never out of reach; mobile (no rail): the lead opens as a bottom sheet.
+- **Done when:** DoD 11 and 13.
+
+### INC-49 Follow along
+- [ ] Status: not started
+- **Files:** `content/incidents/types.ts` (`say.focus`: `"<blockId>"` or `"<blockId>:<part>"`,
+  and ids on flow/compare/note blocks), `case-player.tsx` (ChapterView), `flow-chart.tsx`
+  (`lit` node, the rest dimmed), the compare table (lit row).
+- **Done when:** DoD 12; with nothing playing, nothing is dimmed.
+
+### INC-50 Terms
+- [ ] Status: not started
+- **Files:** glossary entries gain `pathTopic`; `narration.action.ts` (`explainTerm`),
+  ChapterView (term underline), `lead-panel.tsx` (the explanation and its link).
+- **Steps:** the link is the reader's adopted-path topic (`/pathfinder/<copy>?tab=plan&topic=`)
+  or the ShipItHQ path preview (`/pathfinder/explore/<id>`), `target="_blank"`
+  (memory: new-tab rule). Explanations are cached per term (they are about the case, not
+  the reader) so a second reader does not pay again.
+- **Done when:** DoD 14.
+
+### INC-51 Rewrite the case
+- [ ] Status: not started
+- **Files:** `content/incidents/the-demo-chapters.ts`, then `pnpm script incidents-seed --apply`.
+- **Steps:** per chapter: a hook question first; narration in short spoken sentences, one idea per
+  paragraph, each with a `focus`; flow nodes get an order so the diagram builds as the lead
+  reaches them; notes stay one line. Facts unchanged (sources as today).
+- **Done when:** every `say` has a `focus` that exists; the seed applies and a second run is
+  "Nothing to do"; Niraj listens through.
+
+**INC-46 to INC-51 as built (2026-09-27).**
+- **INC-46:** each edge label sits beside the middle stretch of its line, to the right of a vertical stretch or above a horizontal one, with a halo in the chart's background colour.
+- **INC-47:** `components/incidents/lead/store.ts` holds the one Audio element, the chapter, the paragraph index, speed, Auto and the thread. `narrator.tsx` is deleted.
+- **INC-48 (changed mid-build by Niraj: "keep the listen thing on the current page ... the AI panel side, there the user can talk and ask and justify"):**
+  - The rail opens on every case (desktop, signed in) on the lead, and closes on leaving if the case opened it. There is no session memory of a close.
+  - The rail is a conversation only: the orb, the thread (the run's asks, kept across reloads), and a composer with a text box and mic ("Ask, or explain your thinking").
+  - `askLead` answers longer when needed, and pushes back on a justification: what is right, what is missing, one follow-up question. The ShipItHQ AI tab keeps the case as context through the page's auto-tag.
+  - Listening is the page's ListenBar: play, speed, Auto, transcript and the line being read. It is sticky while speaking, with the moving bars.
+- **INC-49:** `say.focus` plus ids on blocks. The part being read lights (a flow node ringed, a compare row, a see line), the rest of the chapter dims, and the page scrolls to it. With nothing playing, nothing dims.
+- **INC-50:**
+  - Glossary terms are underlined in the transcript, notes and tables; the "Words in this chapter" chips can "Ask the lead to explain".
+  - `explainTerm` gives 4 to 6 spoken sentences with an example from the case (cached in R2 per term; without the model it falls back to the glossary line), written to the run.
+  - "Learn it properly" goes to the adopted path's topic, or else the path preview, in a new tab.
+- **INC-51:**
+  - All 9 chapters rewritten: a hook question first, short spoken sentences, and 72 paragraphs each with a `focus`. The flows build by node `order`. Facts, checks, talks and sources are unchanged.
+  - A script checked that all 72 focuses resolve. The seed applied 9 steps, and a second run was "Nothing to change". Every chapter renders 200.
+- **INC-48 follow-up (Niraj, 2026-09-27, signed out, from screenshots):**
+  - The sidebar closed the rail for any signed-out visitor, so "Ask the lead" opened it and it shut at once. On a case it now stays open.
+  - The case opens the rail signed in or out. Signed out, both tabs show "Talk to the incident lead" / "ShipItHQ AI" with "Sign in to ask" (the shared sign-in dialog). The header's "Ask the lead" also opens the dialog when signed out.
+  - Listening moved into the player's bottom bar (play, the moving bars, the line being read on xl, speed, Auto, Transcript), in place of the "Arrow keys" hint on chapter steps. Nothing floats over the text any more. The transcript switch lives in the lead store (remembered).
+
+- **INC-48 second follow-up (Niraj, 2026-09-27, screenshot of the tab bar):**
+  - On a case the rail is the lead only: the Lead / ShipItHQ AI tab bar is gone.
+  - The panel header is h-14, like the player's, so the two lines up. It has "Turn off" (remembered in `incidents:rail-off`; the rail stops opening by itself on cases, and "Ask the lead" still opens it) and close.
+  - Answers play in the thread as audio with a small waveform; each has a "Transcript" toggle (shown when there is no audio). There is no uploader.
+  - The page transcript is hidden by default under a new key (`incidents:transcript-shown`).
+  - TEMPORARY: `askLead` and `explainTerm` work signed out and without a run, not kept and not capped, so Niraj can test by typing. Signed in, the cap and the run still apply. See INC-52.
+
+### INC-52 Sign-in barrier back on asking
+- [ ] Status: not started. Removed on purpose for testing (2026-09-27).
+- **Why:** signed out, asking is uncapped, so anyone can spend model calls.
+- **Files:** `actions/(main)/incidents/narration.action.ts` (`askLead`, `explainTerm`), `lead-panel.tsx` (the signed-out composer: a "Sign in to ask" card).
+- **Done when:** signed out, a direct `askLead` call returns code AUTH, and the panel shows the sign-in card.
+- **INC-48 third follow-up (Niraj, 2026-09-27):**
+  - **Mic fixed.** The lead used `/api/practice/voice/transcribe`, which needs a session; signed out, the middleware redirected the POST to /signin (the "Failed to find Server Action" 500s).
+    - New `app/api/incidents/transcribe` (listed in the middleware's API pass-through; no session for now, see INC-52), and `useDictation` takes an `endpoint`.
+    - The panel now waits for the final transcription (no guessed delay) and shows it happening: a loader on the mic, "Transcribing..." in the thread and the header, and the orb thinking. Errors are toasted ("I didn't catch that").
+    - Checked: POSTs to the new route return 200 or 400, never a redirect.
+  - **Bottom bar: two controls.** Listen (with the moving bars inside it), and one menu with speed (1x, 1.25x, 1.5x), "Play when a chapter opens" and "Show the transcript".
+- **Footer (Niraj, 2026-09-27):** "Done with this step? / Got it, continue" left the content. On a hand-marked step not yet done (and not locked), the footer's Next is the filled "Got it, continue" ("Got it, finish" on the last step), with the next step's chapter as its small line. Once the step is done, it is the plain Next.
+- **Skeleton (Niraj, 2026-09-27):** `[slug]/loading.tsx` now has the right panel (380px, lg and up: an h-14 header with the orb, title, Turn off and close; the thread; the composer) beside the page column. The page column has the new top bar, an 18% steps list and the bottom bar (Previous, Listen with its settings, Next).
+
+### INC-53 Case sidebar accordion
+- [ ] Status: not started
+- **Why:** nine chapters times two or three rows is about 30 rows of noise (Niraj, 2026-09-28).
+- **Files:** `components/incidents/player/case-player.tsx` (the `list`).
+- **Steps:** one row per chapter (number, title, done count); the chapter holding the current
+  step is open with its steps; opening another closes the open one; act names stay as labels.
+- **Done when:** on load only the current chapter shows step rows; moving to a step in another
+  chapter opens that one.
+
+### INC-54 Index filters
+- **Files:** `app/(main)/incidents/page.tsx`, `components/incidents/index-tabs.tsx`.
+- **Steps:** topics as the filter, in the URL (`?topic=`); a case with two topics shows under
+  both (a case gains `topics: string[]`, first is primary).
+- **Done when:** `/incidents?topic=security` lists case 2 and the link is shareable.
+
+### INC-55 Simulator engine
+- **Files:** `components/incidents/sim/` (new: `schema.ts`, `engine.ts`, `lanes-view.tsx`,
+  `traffic-view.tsx`), `content/incidents/types.ts` (`simulator: Scenario`).
+- **Steps:** a zod schema for a scenario (controls, actors, rules, view); a pure, tick-based
+  engine (same inputs, same result, so it is testable); two views. Rules are a closed set
+  (counter per key in a window, token bucket, score threshold, dies-on-event), never eval.
+- **Done when:** the engine is pure and a script runs both scenarios to their expected
+  outcomes without a browser.
+
+### INC-56 Case 1 on the engine
+- **Done when:** case 1's "What survives what" shows the same survivals for every choice as the
+  hand-written simulator does today; the old `simulator.tsx` is deleted.
+
+### INC-57 Case 2 content
+- **Files:** `content/incidents/the-login-*.ts`, `cases.ts`, then `pnpm script incidents-seed --apply`.
+- **Steps:** write from `case-login.md` once Niraj approves it: hooks first, for the ear, a
+  `focus` on every paragraph, flows that build, glossary with `pathTopic`, checks, talks,
+  final quiz, round, closing. Every fact checked against the sources listed there.
+- **Done when:** the seed applies; every focus resolves (the focus check script); Niraj listens through.
+
+### INC-58 Case 2's scenario
+- **Done when:** for each attack (one email, spray, botnet) and defence (per email, per IP,
+  combined), the simulator shows attempts let through, blocked, and real users locked out.
+
+### INC-59 "Protecting logins" path
+- **Files:** `content/incidents/paths.ts`, `path-cases.ts`; `pnpm script incident-paths --apply`.
+
+### INC-60 AI-drafted scenarios (next round)
+- apps/admin authoring page: outline in, AI drafts a scenario, schema check, play, adjust, approve.
+
+**INC-53 to INC-58 as built (2026-09-28).**
+- **INC-53:** each chapter is one row (chevron, number, title, done count). Only the chapter holding the current step is open; opening another closes it. The act names are quiet labels. Rendered on dev: on "What survives what" 1 row open and 15 closed, no errors.
+- **INC-54:** `IncidentMeta.alsoIn` holds extra topics. `CaseSummary.topics` is the main topic plus `alsoIn` (from the content file), and the index counts and filters on it. `?topic=` was already in the URL.
+- **INC-55:** `components/incidents/sim/`:
+  - `schema.ts` (zod `TrafficScenario`: controls, actors, a closed set of rules, which are a counter per email and/or IP with block or lock, and a score from email, IP, service and new-device signals graded into slow, challenge or block, plus verdicts)
+  - `traffic-engine.ts`: pure and deterministic
+  - `traffic-view.tsx`: four numbers, a minute-by-minute chart, the verdict, behind the sign-in gate like the timeline
+  - `case-simulator.tsx`: picks the view
+  - A simulator block can take a `preset`.
+- **INC-56:** case 1 keeps its reviewed `simulate` code and runs through `CaseSimulator` (Niraj: "wrap it, keep its code"). `IncidentCase.simulator` is `SimulatorSpec | TrafficScenario`. Case 1 renders as before.
+- **INC-58:** `content/incidents/sims/login-traffic.ts` has 3 attacks, 5 defences, Sam, 30 office staff and 8 verdicts. `apps/main/scripts/check-incident-sims.ts` runs all 15 combinations against the outcomes the chapters rely on: bad 0, and the 30 office staff get in every time.
+  - Engine semantics settled by the check: a failed challenge counts against the address and the service, not the account. The service-wide spike weighs only on new devices. A slow-down holds back one machine, not a botnet. A group of users keeps going after one of them gets in.
+
+**INC-57 and INC-59 as built (2026-09-28).**
+- **INC-57:** `content/incidents/the-login-chapters.ts` holds 9 chapters (acts: What happened, How it was fixed, Running it), each opening on a hook, with 59 narrated paragraphs each with a `focus`. There are four simulator blocks with presets (chapters 4 to 7), 12 checks, talks at chapters 3, 5 and 8, a 17-term glossary with path topics, and the composite-incident line in chapter 1.
+  - `the-login-that-said-yes-to-guessing.ts` holds the sources, the model steps and fix for the lead's brief, 4 predictions (the final quiz, with simulator scenarios), a 4-item "Spot the hole" round, a 7-item checklist, the closing and the closing talk.
+  - Its index meta is topic `security` with `alsoIn: ["auth"]`, about 25 min.
+  - Facts checked 2026-09-28:
+    - RFC 6585 section 4 (429; SHOULD explain; MAY carry Retry-After; MUST NOT be cached; counting is left to the server)
+    - NIST 800-63B 3.2.2 (at most 100 consecutive failures; bot challenge, growing waits, risk signals)
+    - OWASP credential stuffing (the attack types; IP limits easy to get round; fingerprints can be spoofed)
+    - OWASP authentication (the same message and timing; a lockout can become a denial of service)
+    - Cloudflare's rate limiting binding (per location, eventually consistent, not an accounting system, 10 or 60 s windows)
+  - `apps/main/scripts/check-incident-focus.ts` (new): every focus in both cases resolves and every term is in its glossary (131 paragraphs, bad 0).
+  - Seeded as a new case, 22 steps; the second run was "Nothing to change". Every step renders 200 on dev, the simulator shows on chapters 4 to 7, and there were no server errors.
+- **INC-59:** "Protecting logins" has 5 topics, each with hand-written notes, owned by the ShipItHQ account. `pnpm script incident-paths --apply` created it and the next check matched. "Adopt this path" and the terms' "Learn it properly" now cover case 2.
+- **INC-48 fourth follow-up (Niraj, 2026-09-28):**
+  - **Mic stayed red:** sending (Enter or the arrow) while recording sent the text but never stopped the recorder. `send` now stops dictation first and uses the final transcription. Send is disabled while transcribing.
+  - **Text box:** grows with its text up to about six lines (168px), then scrolls.
+  - **Answers:**
+    - a "The incident lead" label
+    - a round play/pause button
+    - a waveform that fills as the answer plays (the store tracks `elapsed` / `duration`), with the time "0:08 / 0:21"
+    - "Transcript" / "Hide transcript"
+    - "Learn it properly" as a link chip
+  - While waiting, a bubble says "The lead is thinking...". The "Transcribing..." bubble is a `div`, no longer a `<p>`.
+  - **The "<p> cannot contain a nested <div>" error:** `InlineLoader` is a `<span>`, but its dots (`DotMatrixBase` in `packages/ui/src/lib/dotmatrix-core.tsx`) are `<div>`s. So any loader inside a `<p>` is invalid. The server HTML of the case pages was clean, which pointed at browser-only UI.
+    - Fixed app-wide, 6 paragraphs that held an `InlineLoader` are now `div`s. On the case page these were `live-interview.tsx` (the talk steps) and `report-card.tsx`, plus the lead panel's "Transcribing..." bubble.
+    - Elsewhere: `settings/account/delete-account.tsx`, `ideas/ideas-client.tsx`, and in apps/hiring `results/decide-panel.tsx` and `onboarding/website-step.tsx`.
+    - tsc is clean in main and hiring.
+
+### INC-61 Start page, the learn step, and the last UI sweep (Niraj, 2026-09-28)
+- [ ] Status: built 2026-09-28, waiting on Niraj's test pass.
+- **Start step (the front page):** `stepsFor` puts a `start` step first (summary, minutes, counts of chapters, checks and talks).
+  - `StartScreen variant="step"` shows the case at a glance, how it works (listen or read, check yourself, talk it through), what a recorded run keeps, "Start the case" (signed out: "Sign in to start", which opens the sign-in dialog) and "Just read, no review".
+  - When recording, it says so and offers "Go to chapter 1".
+  - The automatic start overlay is gone. The short prompt appears only when asking or a talk needs a run.
+- **The learn step:** "What you'll learn" is the last step (`learn`, part "Keep learning"): the topics as cards and "Adopt this path". It is no longer in the sidebar. Start and learn are never locked; learn gets "Got it, finish".
+- **The chat box** sits in the styled ScrollArea (`viewportClassName="max-h-[168px]"`), not the browser's scrollbar. It grows, then the ScrollArea scrolls.
+- **Sweep:**
+  - The last all-caps labels are now normal case (the report page, the Incidents index, one case illustration).
+  - The index's topic tabs use the horizontal ScrollArea instead of `overflow-x-auto`.
+  - At phone width, the header's back link, "Ask the lead" and the recording badge shrink to icons, and the bottom bar's listen controls take only their width (the settings button hides) beside the step picker.
+  - No off-palette colours, no dashes.
+- **Seed:** both cases gained `start` and `learn` (existing keys unchanged). Applied; the next check was "Nothing to change".
+- **Checked on dev:** both cases open on Start ("Sign in to start" signed out), `?step=learn` shows "Adopt this path", chapters and the index return 200, and tsc is clean.

@@ -280,8 +280,167 @@ Then do it again with a deploy in the middle, and once more with a forced error,
     ],
 }
 
+const LOGIN: IncidentPath = {
+    slug: "incident-the-login-that-said-yes-to-guessing",
+    title: "Protecting logins",
+    overview: "The learning path behind \"The login that said yes to guessing\": why a login needs something counting the guesses, the ways to count, the attacks that slip past one counter, and how to answer in grades instead of a hard lock.",
+    category: "BACKEND",
+    level: "INTERMEDIATE",
+    learningObjectives: [
+        "Explain why a correct login still needs rate limiting",
+        "Choose between a fixed window, a sliding window and a token bucket",
+        "Recognise brute force, credential stuffing and password spraying",
+        "Design graded answers from several signals without locking real users out",
+        "Keep counts correct across many servers, and decide fail open or fail closed",
+    ],
+    prerequisites: ["You know what an HTTP status code is", "You have built or used a login form"],
+    days: [
+        [
+            {
+                title: "How logins fail under guessing",
+                summary: "What a login does, and why nothing in it counts.",
+                notes: `## A login judges each attempt alone
+
+A login does three things: look up the account, check the password against the stored hash, and answer \`200\` or \`401\`. Each attempt is judged on its own. Nothing in those steps remembers the attempt before.
+
+## The hash is slow on purpose
+
+Services store a slow, one-way hash of your password, not the password. Slow is the point: if the database leaks, each guess against it costs real time. But slow hashing is **not** a rate limit. A script can still send as many guesses as it likes, and each one makes your server do that slow work.
+
+## The arithmetic
+
+Ten guesses a second is 36,000 an hour, or 864,000 a day, against one account. A weak password falls long before that.
+
+## What to take away
+
+- A \`401\` is the right answer to one wrong guess. It is not a defence.
+- The missing piece is something that **counts** attempts and changes the answer when there are too many.
+
+## Try it
+
+Open the case's simulator, pick "One email" and "None", and watch the account fall at guess 3,000.`,
+            },
+        ],
+        [
+            {
+                title: "Rate limits: windows and buckets",
+                summary: "429, Retry-After, and three ways to count.",
+                notes: `## 429 Too Many Requests
+
+The status code for "you've sent too many requests in a given amount of time". The response should explain the condition, and it may carry a **\`Retry-After\`** header: a number of seconds, or a date to come back. A 429 must **not** be stored by a cache.
+
+The standard deliberately does not say *how* to count or *per what*. That design is yours.
+
+## Refuse before the expensive part
+
+Put the check before the password hash. A refused guess teaches the attacker nothing and costs your server almost nothing.
+
+## Three ways to count
+
+| | Counts | The catch |
+|---|---|---|
+| Fixed window | since the minute began on the clock | 5 at 12:00:59 and 5 at 12:01:00 all pass |
+| Sliding window | the last 60 seconds, from now | store when each attempt happened |
+| Token bucket | tokens left, refilling steadily | allows a burst up to the bucket's size |
+
+A sliding window or a token bucket closes the fixed window's edge. A bucket is the natural fit when you *want* to allow a small burst (a person retyping quickly) but not a stream.
+
+## Try it
+
+"One email" against "Counter per email": the attacker drops from 120 guesses a minute to about 5.`,
+            },
+        ],
+        [
+            {
+                title: "Spraying, stuffing and lockouts",
+                summary: "The attacks that slip past one counter, and the fix that locks people out.",
+                notes: `## Three shapes of the same attack
+
+- **Brute force:** many passwords against one account.
+- **Credential stuffing:** email and password pairs leaked from other sites, tried here.
+- **Password spraying:** one common password against many accounts, one guess each.
+
+A counter per email stops brute force and is blind to spraying: each email sees one failure.
+
+## The lockout trap
+
+Tightening the fix to "lock the account after 5 failures" stops guessing, and lets anyone lock a real person out by typing their email wrong five times. Guidance on logins warns about exactly this: a lockout must not become a denial of service. If you lock at all, keep it short, grow it gradually, and never block password recovery.
+
+## The botnet
+
+Counting per IP address catches a spray from one machine. A botnet sends each guess from a different address, so no address fails twice. Blocking addresses stops simple attacks; it should never be the only defence. And the reverse problem: an office or a mobile network puts many real people behind one address.
+
+## Try it
+
+"Password spray" against "Counter per email" (40 accounts), then "One email" against "Lock the email" (Sam is locked out), then "Botnet spray" against "Counter per address".`,
+            },
+        ],
+        [
+            {
+                title: "Signals and graded responses",
+                summary: "Many signals, one score, and answers between yes and no.",
+                notes: `## No single counter is enough, so they vote
+
+Signals that are useful together:
+- failures on this **email** recently
+- failures from this **address** recently
+- whether this is a **device** seen before (a browser with a sign-in cookie)
+- whether the whole service is failing far more logins than usual (a **spike**)
+
+They add up to one score.
+
+## Graded answers
+
+| Score | Answer | Costs a person | Costs a script |
+|---|---|---|---|
+| low | allow | nothing | nothing |
+| rising | slow down (a growing delay) | a second | its whole rate |
+| high | ask for proof (a code, a bot check) | a moment | the attack |
+| certain | refuse | (should be nobody) | everything |
+
+Standards guidance lists the same tools: waits that grow as failures pile up, a bot check, and risk-based signals like the address, location, timing and browser.
+
+## Close the enumeration leak
+
+"No account for that email" and "wrong password" must look the same: the same message and the same work done, so the timing matches too. Otherwise the login tells anyone who has an account.
+
+## Try it
+
+"Combined score" against every attack: the attackers are stopped, and the 30 office staff and Sam still get in.`,
+            },
+        ],
+        [
+            {
+                title: "Running limiters at scale",
+                summary: "Shared counters, Cloudflare's options, and failing open or closed.",
+                notes: `## One count, many servers
+
+A count kept in each server's memory sees only the requests that server got. Spread an attack across ten servers and each sees a tenth: nobody trips the limit. The count must live in **one shared place**, and adding one must be a single step so two requests can't both read 4 and both write 5.
+
+## On Cloudflare
+
+- **A Durable Object per key:** every request for a given email reaches the same object, which holds that count exactly. The right tool for an exact per-account count.
+- **The rate limiting binding:** simple and fast, but it counts **per Cloudflare location**, catches up a moment late, and its window is 10 or 60 seconds. It is deliberately permissive, not an accounting system: good for a coarse endpoint limit, not an exact count per account.
+
+## Decide the failure mode first
+
+If the counter store is unreachable:
+- **Fail open:** logins proceed unlimited. Real users are fine; guessing is possible until it's back.
+- **Fail closed:** nobody can log in. Safe from guessing; an outage for everyone.
+
+Many teams fail open for a short time with alerting, and closed for the most sensitive actions. Whatever you choose, write it down before the outage.
+
+## The same shape everywhere
+
+One-time codes (a million six-digit codes), password reset, sign-up, invite links, API keys: anything that answers yes or no to a guess needs something counting the guesses.`,
+            },
+        ],
+    ],
+}
+
 export const INCIDENT_PATHS: Record<string, IncidentPath> = {
     "the-demo-that-died-at-30-seconds": DEMO,
+    "the-login-that-said-yes-to-guessing": LOGIN,
 }
 
 /** The ShipItHQ account that owns every official path (plan/pathfinder decision, 2026-09-27). */

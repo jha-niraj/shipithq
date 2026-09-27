@@ -15,23 +15,23 @@ import type { Chapter, SourceRef } from "./types"
 const SW = (section: string): SourceRef => ({ source: "SW", section })
 const WFP = (section: string): SourceRef => ({ source: "WFP", section })
 
-export const DEMO_GLOSSARY: Record<string, { term: string; definition: string }> = {
-    worker: { term: "Worker", definition: "Your code running on Cloudflare's servers, close to the user. It starts when a request arrives and is meant to answer it." },
-    isolate: { term: "Isolate", definition: "The small, sandboxed box a Worker runs in. It is created or reused for a request and can be paused while your code waits." },
-    namespace: { term: "Dispatch namespace", definition: "Workers for Platforms: many customers' Workers deployed into one namespace by a platform. It removes some settings a normal Worker has." },
-    cpu: { term: "CPU time", definition: "Time your code is actually executing. Waiting for a network reply does not count." },
-    wallclock: { term: "Wall clock time", definition: "Real time, as on a clock on the wall. Waiting counts." },
-    waituntil: { term: "waitUntil", definition: "A way to keep working after the response is sent. On Workers it gets at most 30 seconds of wall clock time." },
-    durableobject: { term: "Durable Object", definition: "A small, long-lived piece of state on Cloudflare with its own storage. It can set an alarm to run code later." },
-    alarm: { term: "Alarm", definition: "A Durable Object's timer. When it fires, your code runs as a fresh invocation, with no browser attached." },
-    invocation: { term: "Invocation", definition: "One run of your code, started by a request, an alarm or a schedule." },
-    cancelled: { term: "Cancelled invocation", definition: "A run that is stopped from outside. Its catch and finally blocks never get to run." },
-    cron: { term: "Cron trigger", definition: "Code that runs on a schedule, like every night at 3. Dropped silently in a dispatch namespace." },
-    opennext: { term: "OpenNext", definition: "The adapter that runs a Next.js app on Cloudflare Workers. Its request handler is what loads your .env into process.env." },
-    envvar: { term: "Environment variable", definition: "A setting like DATABASE_URL that your code reads at runtime instead of hard-coding it." },
-    reaper: { term: "Reaper", definition: "A scheduled check that finds jobs stuck in a working state and marks them failed, or restarts them." },
-    idempotent: { term: "Idempotent", definition: "Safe to run twice: the second run changes nothing. Retries need this." },
-    polling: { term: "Polling", definition: "The page asking the server every few seconds whether the job is done yet." },
+export const DEMO_GLOSSARY: Record<string, { term: string; definition: string; pathTopic?: string }> = {
+    worker: { term: "Worker", definition: "Your code running on Cloudflare's servers, close to the user. It starts when a request arrives and is meant to answer it.", pathTopic: "Long-running work on Cloudflare Workers" },
+    isolate: { term: "Isolate", definition: "The small, sandboxed box a Worker runs in. It is created or reused for a request and can be paused while your code waits.", pathTopic: "Long-running work on Cloudflare Workers" },
+    namespace: { term: "Dispatch namespace", definition: "Workers for Platforms: many customers' Workers deployed into one namespace by a platform. It removes some settings a normal Worker has.", pathTopic: "Long-running work on Cloudflare Workers" },
+    cpu: { term: "CPU time", definition: "Time your code is actually executing. Waiting for a network reply does not count.", pathTopic: "Long-running work on Cloudflare Workers" },
+    wallclock: { term: "Wall clock time", definition: "Real time, as on a clock on the wall. Waiting counts.", pathTopic: "Long-running work on Cloudflare Workers" },
+    waituntil: { term: "waitUntil", definition: "A way to keep working after the response is sent. On Workers it gets at most 30 seconds of wall clock time.", pathTopic: "Durable Objects and alarms" },
+    durableobject: { term: "Durable Object", definition: "A small, long-lived piece of state on Cloudflare with its own storage. It can set an alarm to run code later.", pathTopic: "Durable Objects and alarms" },
+    alarm: { term: "Alarm", definition: "A Durable Object's timer. When it fires, your code runs as a fresh invocation, with no browser attached.", pathTopic: "Durable Objects and alarms" },
+    invocation: { term: "Invocation", definition: "One run of your code, started by a request, an alarm or a schedule.", pathTopic: "Failures that leave no trace" },
+    cancelled: { term: "Cancelled invocation", definition: "A run that is stopped from outside. Its catch and finally blocks never get to run.", pathTopic: "Failures that leave no trace" },
+    cron: { term: "Cron trigger", definition: "Code that runs on a schedule, like every night at 3. Dropped silently in a dispatch namespace.", pathTopic: "Durable Objects and alarms" },
+    opennext: { term: "OpenNext", definition: "The adapter that runs a Next.js app on Cloudflare Workers. Its request handler is what loads your .env into process.env.", pathTopic: "Failures that leave no trace" },
+    envvar: { term: "Environment variable", definition: "A setting like DATABASE_URL that your code reads at runtime instead of hard-coding it.", pathTopic: "Failures that leave no trace" },
+    reaper: { term: "Reaper", definition: "A scheduled check that finds jobs stuck in a working state and marks them failed, or restarts them.", pathTopic: "Operating it: retries, reapers, timeouts" },
+    idempotent: { term: "Idempotent", definition: "Safe to run twice: the second run changes nothing. Retries need this.", pathTopic: "Operating it: retries, reapers, timeouts" },
+    polling: { term: "Polling", definition: "The page asking the server every few seconds whether the job is done yet.", pathTopic: "Background jobs with a status row" },
 }
 
 export const DEMO_CHAPTERS: Chapter[] = [
@@ -43,10 +43,11 @@ export const DEMO_CHAPTERS: Chapter[] = [
         lead: "A two-minute job, a client on the call, and a refresh at 30 seconds.",
         terms: ["worker", "namespace"],
         blocks: [
-            { kind: "say", text: "Here's what happened. The feature was simple to describe: paste a brief, get a full report back. Under the hood it made four calls to an AI model, one after another, each waiting for the last. On the developer's laptop it took a little over two minutes, and it never failed." },
-            { kind: "say", text: "It shipped the way most features ship. The button sends a request, the server does the work, the page waits for the answer. The app ran on Cloudflare Workers, deployed into a Workers for Platforms dispatch namespace. Nobody asked where those two minutes would actually live." },
+            { kind: "say", focus: "row", text: "Hold one question while you listen. A job that worked every time on a laptop died on a live call, and nothing threw an error. So what ended it?" },
+            { kind: "say", focus: "chat:0", text: "The feature was simple. Paste a brief, get a full report back. Behind the button were four calls to an AI model, each one waiting for the last. On the developer's laptop the whole thing took just over two minutes." },
+            { kind: "say", focus: "chat:1", text: "It shipped the usual way. The button sends a request, the server does the work, the page waits. A teammate saw the risk that afternoon. The developer's reply is the whole mistake: the connection stays open, so it just waits." },
             {
-                kind: "see", title: "#eng, Thursday 3:45 pm",
+                kind: "see", id: "chat", title: "#eng, Thursday 3:45 pm",
                 lines: [
                     { t: "3:45", who: "Teammate", text: "That generate step runs over two minutes, right? On Workers that's going to get cut off." },
                     { t: "3:46", who: "Developer", text: "It's a normal request. The connection stays open, so it just waits." },
@@ -54,9 +55,11 @@ export const DEMO_CHAPTERS: Chapter[] = [
                     { t: "3:47", who: "Developer", text: "Worked every time locally. We're fine." },
                 ],
             },
-            { kind: "say", text: "Fifteen minutes later, on the call, the developer clicked Generate. The page showed a spinner. Twenty seconds in, the client asked if it was doing anything. At thirty seconds, with nothing on screen, the developer refreshed the page to nudge it." },
+            { kind: "say", focus: "timeline:0", text: "Fifteen minutes later, on the call, they clicked Generate. A spinner. At twenty seconds the client asked if it was doing anything." },
+            { kind: "say", focus: "timeline:2", text: "At thirty seconds, with nothing on screen, the developer refreshed the page to nudge it along." },
+            { kind: "say", focus: "timeline:4", text: "The page came back and read the job. Generating. Three minutes later, still generating. Nothing was running, so nothing would ever finish." },
             {
-                kind: "see", title: "The call, second by second",
+                kind: "see", id: "timeline", title: "The call, second by second",
                 lines: [
                     { t: "0:00", text: "Generate clicked. The request goes out and the page waits." },
                     { t: "0:05", text: "On the server, model call 1 of 4 starts.", tone: "muted" },
@@ -65,8 +68,9 @@ export const DEMO_CHAPTERS: Chapter[] = [
                     { t: "3:00", text: "Still Generating. Nothing is running, so nothing will finish.", tone: "bad" },
                 ],
             },
+            { kind: "say", focus: "row:2", text: "Here is the job's row the next morning. Status, generating. Error, empty. Last touched at the moment of the refresh, and never again." },
             {
-                kind: "see", title: "The job's row, the next morning",
+                kind: "see", id: "row", title: "The job's row, the next morning",
                 lines: [
                     { who: "status", text: "generating" },
                     { who: "events", text: "started (no 'ok', no 'failed')" },
@@ -74,8 +78,8 @@ export const DEMO_CHAPTERS: Chapter[] = [
                     { who: "updated", text: "16:00:05, and never again" },
                 ],
             },
-            { kind: "note", text: "Nothing failed. Something stopped. Keep that difference in mind: it is the whole case." },
-            { kind: "say", text: "The next morning the diagnosis was quick: Cloudflare kills requests at 30 seconds. It sounds right. It is wrong, and the rest of this case is how you would know." },
+            { kind: "say", focus: "stopped", text: "The diagnosis came fast. Cloudflare kills requests at 30 seconds. It sounds right. It's wrong, and the rest of this case is how you'd know." },
+            { kind: "note", id: "stopped", text: "Nothing failed. Something stopped. Keep that difference in mind: it is the whole case." },
         ],
         check: [
             { id: "row", kind: "single", prompt: "The next morning, what did the job's database row say?", options: [
@@ -96,16 +100,20 @@ export const DEMO_CHAPTERS: Chapter[] = [
         lead: "Where 'inside the request' actually is, and why waiting is almost free.",
         terms: ["isolate", "invocation", "cpu", "wallclock"],
         blocks: [
-            { kind: "say", text: "Let's follow the button click. The browser opens a connection and sends the request. Cloudflare starts your Worker in an isolate, a small sandboxed box, and runs your handler. Your handler calls the AI model and waits for the answer, four times. When it finally returns, the response goes back down the same connection and the connection closes." },
+            { kind: "say", focus: "life:browser", text: "A question before we follow the click. If your code sits waiting on an API for two minutes, how much of Cloudflare's CPU budget does that use? Keep your guess." },
+            { kind: "say", focus: "life:browser", text: "The browser opens a connection and sends the request. Then it waits on that connection." },
+            { kind: "say", focus: "life:worker", text: "Cloudflare starts your Worker in an isolate. That's a small sandboxed box, and it runs your handler." },
+            { kind: "say", focus: "life:model", text: "Your handler calls the AI model and waits for the answer. Then it does that three more times." },
+            { kind: "say", focus: "life:response", text: "When it finally returns, the response goes back down the same connection. Then the connection closes." },
             {
-                kind: "flow", flow: {
+                kind: "flow", id: "life", flow: {
                     width: 760, height: 250,
                     caption: "Everything between the request arriving and the response leaving is 'inside the request'.",
                     nodes: [
-                        { id: "browser", label: "Browser", sub: "waits on the connection", x: 10, y: 90 },
-                        { id: "worker", label: "Your handler", sub: "in a Worker isolate", x: 250, y: 90, tone: "strong" },
-                        { id: "model", label: "AI model API", sub: "about 30 s per call", x: 520, y: 20 },
-                        { id: "response", label: "Response", sub: "after about 2 minutes", x: 520, y: 170 },
+                        { id: "browser", label: "Browser", sub: "waits on the connection", x: 10, y: 90, order: 1 },
+                        { id: "worker", label: "Your handler", sub: "in a Worker isolate", x: 250, y: 90, tone: "strong", order: 2 },
+                        { id: "model", label: "AI model API", sub: "about 30 s per call", x: 520, y: 20, order: 3 },
+                        { id: "response", label: "Response", sub: "after about 2 minutes", x: 520, y: 170, order: 4 },
                     ],
                     edges: [
                         { from: "browser", to: "worker", label: "request", flowing: true },
@@ -115,9 +123,11 @@ export const DEMO_CHAPTERS: Chapter[] = [
                     ],
                 },
             },
-            { kind: "say", text: "Now the important part. While your handler awaits the model, the isolate is parked. It isn't executing anything, so it uses almost no CPU time. Two minutes on the wall clock can be a fraction of a second of CPU. That is why the demo never came close to a CPU limit." },
-            { kind: "note", text: "Two clocks run during a request. Wall clock time counts everything, waiting included. CPU time counts only the moments your code is actually executing." },
-            { kind: "say", text: "But there is a catch. The work only exists while the request exists. If the connection goes away, the handler goes with it, halfway through the second model call or wherever it happened to be." },
+            { kind: "say", focus: "clocks", text: "Now your guess. While the handler waits, the isolate is parked. It isn't running anything, so it uses almost no CPU at all." },
+            { kind: "say", focus: "clocks", text: "Two minutes on the wall clock can be a fraction of a second of CPU. That's why the demo never came near a CPU limit." },
+            { kind: "note", id: "clocks", text: "Two clocks run during a request. Wall clock time counts everything, waiting included. CPU time counts only the moments your code is actually executing." },
+            { kind: "say", focus: "catch", text: "But here's the catch. The work only exists while the request exists. If the connection goes away, the handler goes with it, halfway through a model call or wherever it happened to be." },
+            { kind: "note", id: "catch", text: "Work inside a request lives exactly as long as its connection." },
         ],
         check: [
             { id: "order", kind: "order", prompt: "Put a request's life in order.", items: [
@@ -145,22 +155,26 @@ export const DEMO_CHAPTERS: Chapter[] = [
         lead: "CPU time, the waitUntil clock and the connection. They fail differently.",
         terms: ["cpu", "waituntil", "namespace"],
         blocks: [
-            { kind: "say", text: "When someone says 'Workers kill requests at 30 seconds', they are mixing up three different things that happen to share a number. Let's pull them apart." },
-            { kind: "compare", columns: ["What it counts", "Default", "Can you raise it?"], rows: [
+            { kind: "say", focus: "limits", text: "Everyone agreed Cloudflare killed the request at 30 seconds. Here's the problem: three different limits on Workers use that same number. Which one was it? Keep your guess." },
+            { kind: "say", focus: "limits:CPU time", text: "The first is CPU time. It counts only the moments your code is executing. The default is 30 seconds. On a standalone Worker you can raise it, up to five minutes. In a dispatch namespace, you can't." },
+            { kind: "say", focus: "limits:waitUntil", text: "The second is waitUntil, for work after the response is sent. It gets 30 seconds of real time, on every plan, and you can't raise it." },
+            { kind: "say", focus: "limits:The connection", text: "The third is the connection itself. Cloudflare puts no limit on it at all. It ends when the browser goes away: a closed tab, or a refresh." },
+            { kind: "compare", id: "limits", columns: ["What it counts", "Default", "Can you raise it?"], rows: [
                 { label: "CPU time", cells: ["Only time your code is executing", "30 seconds", "Standalone Worker: yes, up to 300,000 ms with limits.cpu_ms. Dispatch namespace: no."] },
                 { label: "waitUntil", cells: ["Real time after the response is sent", "30 seconds", "No. Every plan, no exceptions."] },
                 { label: "The connection", cells: ["Until the browser goes away", "No limit from Cloudflare", "It is the browser's to end: a closed tab or a refresh."] },
             ] },
-            { kind: "say", text: "CPU time is only a problem when your code is busy. And one common thing makes it busy while looking idle: streaming. If you stream the model's answer, your code parses every chunk, stitches tokens together and fires callbacks the whole way through. That is real CPU work, proportional to the length of the answer. A 30-second streamed reply can spend a 30-second CPU budget." },
+            { kind: "say", focus: "stream:one", text: "Waiting doesn't burn CPU. But one common thing does, while looking idle. One JSON reply is parsed once, at the end. That costs almost nothing." },
+            { kind: "say", focus: "stream:bad", text: "A streamed reply is parsed chunk by chunk, the whole way through. That's real work. A 30 second stream can spend a 30 second CPU budget on its own." },
             {
-                kind: "flow", flow: {
+                kind: "flow", id: "stream", flow: {
                     width: 760, height: 210,
                     caption: "Same wait, different CPU: one reply parsed at the end, or every chunk parsed as it arrives.",
                     nodes: [
-                        { id: "one", label: "One JSON reply", sub: "parsed once: tiny CPU", x: 10, y: 20 },
-                        { id: "ok", label: "Well under 30 s CPU", x: 290, y: 20, tone: "strong" },
-                        { id: "stream", label: "Streamed reply", sub: "every chunk parsed", x: 10, y: 130 },
-                        { id: "bad", label: "Can hit 30 s CPU", x: 290, y: 130, tone: "bad" },
+                        { id: "one", label: "One JSON reply", sub: "parsed once: tiny CPU", x: 10, y: 20, order: 1 },
+                        { id: "ok", label: "Well under 30 s CPU", x: 290, y: 20, tone: "strong", order: 1 },
+                        { id: "stream", label: "Streamed reply", sub: "every chunk parsed", x: 10, y: 130, order: 2 },
+                        { id: "bad", label: "Can hit 30 s CPU", x: 290, y: 130, tone: "bad", order: 2 },
                     ],
                     edges: [
                         { from: "one", to: "ok" },
@@ -168,8 +182,9 @@ export const DEMO_CHAPTERS: Chapter[] = [
                     ],
                 },
             },
-            { kind: "say", text: "The demo did not stream, and it never got near 30 seconds of CPU. It was not waitUntil either: nothing ran after the response. What ended it was the third thing, the one with no limit at all. The developer refreshed, the browser dropped the connection, and the work went with it." },
-            { kind: "note", text: "So it was not Cloudflare's 30-second limit. It was a refresh at 30 seconds. The number was a coincidence, and it sent everyone looking in the wrong place." },
+            { kind: "say", focus: "limits:The connection", text: "So, your guess. The demo didn't stream, and nothing ran after the response. It was the third one. The developer refreshed, the connection closed, and the work went with it." },
+            { kind: "say", focus: "coincidence", text: "The 30 seconds was a coincidence, and it sent everyone looking in the wrong place." },
+            { kind: "note", id: "coincidence", text: "So it was not Cloudflare's 30-second limit. It was a refresh at 30 seconds." },
         ],
         talk: {
             opening: "Everyone said Cloudflare killed it at 30 seconds. Which limit do you think it actually was, and what tells you?",
@@ -186,15 +201,22 @@ export const DEMO_CHAPTERS: Chapter[] = [
         lead: "Four places work can run, and three things that can happen to it.",
         terms: ["alarm", "cron"],
         blocks: [
-            { kind: "say", text: "There are four places your work can run on Workers: inside the request, in waitUntil after the response, in a Durable Object alarm, or on a cron schedule. Each one survives different events. Try it in the simulator: pick where the work runs and what the user does, and watch which lane survives." },
-            { kind: "simulator" },
-            { kind: "compare", columns: ["Tab switched away", "Tab closed or refreshed", "A deploy"], rows: [
+            { kind: "say", focus: "switch", text: "Here's one to guess. If your work keeps going when you switch to another tab, is it running in the background?" },
+            { kind: "say", focus: "table", text: "There are four places work can run on Workers. Inside the request. In waitUntil, after the response. In a Durable Object alarm. Or on a cron schedule." },
+            { kind: "say", focus: "sim", text: "Each survives different things. Try the simulator: pick where the work runs and what the user does, and watch which lane survives." },
+            { kind: "simulator", id: "sim" },
+            { kind: "say", focus: "table:Inside the request", text: "Inside the request, the work lives and dies with the connection. Switching tabs keeps it. Closing or refreshing ends it." },
+            { kind: "say", focus: "table:waitUntil", text: "waitUntil survives a closed tab. Then its own 30 second clock ends it." },
+            { kind: "say", focus: "table:Durable Object alarm", text: "A Durable Object alarm doesn't care about the browser at all. That's why it's the one that fits a long job." },
+            { kind: "say", focus: "table:Cron trigger", text: "Cron runs on a schedule, not per click. And in a dispatch namespace, it never runs at all." },
+            { kind: "compare", id: "table", columns: ["Tab switched away", "Tab closed or refreshed", "A deploy"], rows: [
                 { label: "Inside the request", cells: ["Survives", "Dies", "Dies"] },
                 { label: "waitUntil", cells: ["Survives", "Survives, but only for 30 s", "Dies"] },
                 { label: "Durable Object alarm", cells: ["Survives", "Survives", "Survives if it has not started; one running can be evicted"] },
                 { label: "Cron trigger", cells: ["No browser involved", "No browser involved", "Survives on a standalone Worker; never runs in a dispatch namespace"] },
             ] },
-            { kind: "note", text: "Switching tabs keeps the connection open. So 'it kept working when I switched tabs' only proves the connection never broke. It is not a background job." },
+            { kind: "say", focus: "switch", text: "So, the answer is no. Switching tabs keeps the connection open. It only proves the connection never broke." },
+            { kind: "note", id: "switch", text: "\"It kept working when I switched tabs\" only proves the connection never broke. It is not a background job." },
         ],
         check: [
             { id: "buckets", kind: "buckets", prompt: "The work runs inside the request. What happens to it?", buckets: [
@@ -224,17 +246,22 @@ export const DEMO_CHAPTERS: Chapter[] = [
         lead: "A run that is stopped from outside cannot write down that it stopped.",
         terms: ["cancelled"],
         blocks: [
-            { kind: "say", text: "The job's code was careful. It set the status to 'generating', did the work, then set 'done'. If anything threw, a catch block set 'failed' with the error. So why did the row say 'generating' forever, with no error?" },
+            { kind: "say", focus: "cancel:start", text: "The job's code was careful. A catch block wrote 'failed' on any error. So why was the error column empty? Think about it before you listen on." },
+            { kind: "say", focus: "cancel:start", text: "Here's the code's path. First it sets the status to generating." },
+            { kind: "say", focus: "cancel:work", text: "Then it awaits the model. Call two of four." },
+            { kind: "say", focus: "cancel:done", text: "If it finished, it would set done. It never got there." },
+            { kind: "say", focus: "cancel:cut", text: "Instead the connection closed, and the run was cancelled, right in the middle of that await." },
+            { kind: "say", focus: "cancel:catch", text: "And the catch block? It only runs if the code is still running. There was nothing left to run it." },
             {
-                kind: "flow", flow: {
+                kind: "flow", id: "cancel", flow: {
                     width: 760, height: 250,
                     caption: "The catch block only runs if the code is still running. A cancelled run never reaches it.",
                     nodes: [
-                        { id: "start", label: "status = generating", x: 10, y: 20 },
-                        { id: "work", label: "await the model", sub: "call 2 of 4", x: 270, y: 20, tone: "strong" },
-                        { id: "done", label: "status = done", x: 540, y: 20, tone: "muted" },
-                        { id: "cut", label: "Connection closed", sub: "the run is cancelled", x: 270, y: 150, tone: "bad" },
-                        { id: "catch", label: "catch: status = failed", sub: "never runs", x: 540, y: 150, tone: "muted" },
+                        { id: "start", label: "status = generating", x: 10, y: 20, order: 1 },
+                        { id: "work", label: "await the model", sub: "call 2 of 4", x: 270, y: 20, tone: "strong", order: 2 },
+                        { id: "done", label: "status = done", x: 540, y: 20, tone: "muted", order: 3 },
+                        { id: "cut", label: "Connection closed", sub: "the run is cancelled", x: 270, y: 150, tone: "bad", order: 4 },
+                        { id: "catch", label: "catch: status = failed", sub: "never runs", x: 540, y: 150, tone: "muted", order: 5 },
                     ],
                     edges: [
                         { from: "start", to: "work", flowing: true },
@@ -244,9 +271,9 @@ export const DEMO_CHAPTERS: Chapter[] = [
                     ],
                 },
             },
-            { kind: "say", text: "Error handling protects you from errors your code throws. It cannot protect you from your code being switched off. When the connection closed, the isolate stopped running this request's code, mid-await. There was no one left to run the catch block." },
-            { kind: "note", text: "A cancelled process cannot report that it was cancelled. Any design that waits for 'failed' to be written will wait forever on exactly the failure that matters most." },
-            { kind: "say", text: "So something else has to notice. The fix will need a status row that someone outside the job can check, and a rule like 'working for more than ten minutes with no progress means it died'." },
+            { kind: "say", focus: "cannot", text: "Error handling protects you from errors your code throws. It can't protect you from your code being switched off." },
+            { kind: "say", focus: "cannot", text: "So something else has to notice. A status row anyone can check, and a rule like this: working for ten minutes with no progress means it died." },
+            { kind: "note", id: "cannot", text: "A cancelled process cannot report that it was cancelled. Any design that waits for 'failed' to be written will wait forever on exactly the failure that matters most." },
         ],
         check: [
             { id: "why-empty", kind: "single", prompt: "Why was the error column empty?", options: [
@@ -267,18 +294,21 @@ export const DEMO_CHAPTERS: Chapter[] = [
         lead: "Move the work off the request, into something no browser can reach.",
         terms: ["durableobject", "alarm", "polling", "reaper"],
         blocks: [
-            { kind: "say", text: "The question to ask for any long job is a short one: must it survive the tab closing? If yes, the work cannot live inside the request. Here is how you choose where it goes." },
+            { kind: "say", focus: "decide:q1", text: "One question decides where any long job belongs. Before you listen on, what would you ask first?" },
+            { kind: "say", focus: "decide:stay", text: "Here it is. Must it survive a closed tab? If not, keep it in the request, and raise the CPU limit if it streams." },
+            { kind: "say", focus: "decide:wu", text: "If it must, is it longer than 30 seconds? If not, waitUntil is enough." },
+            { kind: "say", focus: "decide:do", text: "Longer than that, and it needs a Durable Object alarm, with a reaper for deploys. The demo was this one." },
             {
-                kind: "flow", flow: {
+                kind: "flow", id: "decide", flow: {
                     width: 760, height: 300,
                     caption: "The decision, for any long piece of work.",
                     nodes: [
-                        { id: "q1", label: "Must it survive a closed tab?", x: 10, y: 20, w: 220, decision: true },
-                        { id: "stay", label: "Keep it in the request", sub: "raise cpu_ms if it streams", x: 10, y: 170, w: 220, tone: "muted" },
-                        { id: "q2", label: "Longer than 30 seconds?", x: 280, y: 20, w: 200, decision: true },
-                        { id: "wu", label: "waitUntil", sub: "30 s of wall clock", x: 280, y: 170, w: 200, tone: "muted" },
-                        { id: "q3", label: "Must it survive a deploy?", x: 530, y: 20, w: 220, decision: true },
-                        { id: "do", label: "Durable Object alarm", sub: "+ a reaper for deploys", x: 530, y: 170, w: 220, tone: "strong" },
+                        { id: "q1", label: "Must it survive a closed tab?", x: 10, y: 20, w: 220, decision: true, order: 1 },
+                        { id: "stay", label: "Keep it in the request", sub: "raise cpu_ms if it streams", x: 10, y: 170, w: 220, tone: "muted", order: 2 },
+                        { id: "q2", label: "Longer than 30 seconds?", x: 280, y: 20, w: 200, decision: true, order: 3 },
+                        { id: "wu", label: "waitUntil", sub: "30 s of wall clock", x: 280, y: 170, w: 200, tone: "muted", order: 3 },
+                        { id: "q3", label: "Must it survive a deploy?", x: 530, y: 20, w: 220, decision: true, order: 4 },
+                        { id: "do", label: "Durable Object alarm", sub: "+ a reaper for deploys", x: 530, y: 170, w: 220, tone: "strong", order: 4 },
                     ],
                     edges: [
                         { from: "q1", to: "stay", label: "no" },
@@ -289,17 +319,21 @@ export const DEMO_CHAPTERS: Chapter[] = [
                     ],
                 },
             },
-            { kind: "say", text: "The demo needed the right-hand answer. Here is the shape. The button's request only starts the job: it hands the work to a Durable Object, which sets an alarm and replies at once. The alarm fires a fresh run with no browser attached, does the four model calls, and writes the job's status to the database. The page never waits on the work. It polls the status row every few seconds." },
+            { kind: "say", focus: "shape:start", text: "Here's the shape of the fix. The click sends a start request." },
+            { kind: "say", focus: "shape:do", text: "That request hands the job to a Durable Object. It sets an alarm and replies at once." },
+            { kind: "say", focus: "shape:alarm", text: "The alarm fires a fresh run, with no browser attached, and does the four model calls." },
+            { kind: "say", focus: "shape:row", text: "As it goes, it writes its status to a row. Working, then done." },
+            { kind: "say", focus: "shape:page", text: "And the page never waits on the work. It reads that row every few seconds." },
             {
-                kind: "flow", flow: {
+                kind: "flow", id: "shape", flow: {
                     width: 760, height: 270,
                     caption: "The request starts the work and returns. The alarm does the work. The page reads the row.",
                     nodes: [
-                        { id: "page", label: "Page", sub: "polls every few seconds", x: 10, y: 100 },
-                        { id: "start", label: "Start request", sub: "returns 202 at once", x: 250, y: 20 },
-                        { id: "do", label: "Durable Object", sub: "sets an alarm", x: 520, y: 20, tone: "strong" },
-                        { id: "alarm", label: "alarm() runs the job", sub: "no browser attached", x: 520, y: 180, tone: "strong" },
-                        { id: "row", label: "Status row", sub: "working, then done", x: 250, y: 180 },
+                        { id: "page", label: "Page", sub: "polls every few seconds", x: 10, y: 100, order: 1 },
+                        { id: "start", label: "Start request", sub: "returns 202 at once", x: 250, y: 20, order: 1 },
+                        { id: "do", label: "Durable Object", sub: "sets an alarm", x: 520, y: 20, tone: "strong", order: 2 },
+                        { id: "alarm", label: "alarm() runs the job", sub: "no browser attached", x: 520, y: 180, tone: "strong", order: 3 },
+                        { id: "row", label: "Status row", sub: "working, then done", x: 250, y: 180, order: 4 },
                     ],
                     edges: [
                         { from: "page", to: "start", label: "click" },
@@ -310,8 +344,9 @@ export const DEMO_CHAPTERS: Chapter[] = [
                     ],
                 },
             },
-            { kind: "say", text: "Now closing the tab changes nothing: the alarm never had a browser to lose. Refreshing just starts polling again. Coming back tomorrow reads 'done'. And for deploys, a reaper checks for jobs stuck in 'working' with no progress and marks them failed, so nothing polls forever." },
-            { kind: "note", text: "Make the job's id decide which Durable Object runs it (idFromName). Then a second click, or a second tab, lands on the same object, and it can refuse to start twice." },
+            { kind: "say", focus: "shape:alarm", text: "Now closing the tab changes nothing. Refreshing just starts reading again. And if a deploy ends a run, the reaper marks it failed, so nothing waits forever." },
+            { kind: "say", focus: "once", text: "One more thing. Let the job's id pick the Durable Object. Then a second click lands on the same one, and it can refuse to start twice." },
+            { kind: "note", id: "once", text: "Make the job's id decide which Durable Object runs it (idFromName). A second click, or a second tab, lands on the same object." },
         ],
         check: [
             { id: "fix-order", kind: "order", prompt: "Put the fixed flow in order.", items: [
@@ -338,17 +373,22 @@ export const DEMO_CHAPTERS: Chapter[] = [
         lead: "The alarm could not see the database URL, so it died before its first write.",
         terms: ["opennext", "envvar"],
         blocks: [
-            { kind: "say", text: "Moving work into an alarm is where the second incident usually happens. The job starts, sits at 'generating' with zero events and no error, and the page polls forever. It looks exactly like the first incident, but the cause is different." },
+            { kind: "say", focus: "sees", text: "The fix shipped. The next job sat at generating, with zero events and no error. Same symptoms as the first incident. Is it the same cause? Guess before you listen on." },
+            { kind: "say", focus: "env:req", text: "It isn't. Here's the difference. A normal request comes in." },
+            { kind: "say", focus: "env:handler", text: "It passes through OpenNext's request handler, and that handler copies your .env values into process.env." },
+            { kind: "say", focus: "env:ok", text: "So your code finds its database URL." },
+            { kind: "say", focus: "env:alarm", text: "An alarm doesn't come in through that handler." },
+            { kind: "say", focus: "env:bad", text: "So when the alarm loads your database code, the URL is missing. It throws on import, before it can write anything. The database is exactly what it couldn't reach." },
             {
-                kind: "flow", flow: {
+                kind: "flow", id: "env", flow: {
                     width: 760, height: 260,
                     caption: "Only the request path loads your .env. The alarm path skips it.",
                     nodes: [
-                        { id: "req", label: "A request", x: 10, y: 20 },
-                        { id: "handler", label: "OpenNext request handler", sub: "loads .env into process.env", x: 250, y: 20, w: 230, tone: "strong" },
-                        { id: "ok", label: "Your code", sub: "DATABASE_URL is there", x: 540, y: 20 },
-                        { id: "alarm", label: "An alarm", x: 10, y: 170 },
-                        { id: "bad", label: "Your code", sub: "DATABASE_URL is missing", x: 540, y: 170, tone: "bad" },
+                        { id: "req", label: "A request", x: 10, y: 20, order: 1 },
+                        { id: "handler", label: "OpenNext request handler", sub: "loads .env into process.env", x: 250, y: 20, w: 230, tone: "strong", order: 2 },
+                        { id: "ok", label: "Your code", sub: "DATABASE_URL is there", x: 540, y: 20, order: 3 },
+                        { id: "alarm", label: "An alarm", x: 10, y: 170, order: 4 },
+                        { id: "bad", label: "Your code", sub: "DATABASE_URL is missing", x: 540, y: 170, tone: "bad", order: 5 },
                     ],
                     edges: [
                         { from: "req", to: "handler", flowing: true },
@@ -357,16 +397,17 @@ export const DEMO_CHAPTERS: Chapter[] = [
                     ],
                 },
             },
-            { kind: "say", text: "On OpenNext, your app's secrets usually come from your .env file, baked into the bundle at build time. Only OpenNext's request handler copies them into process.env. An alarm never passes through that handler. So when the alarm imports your database module, it finds no DATABASE_URL, throws on import, and never writes a thing: the database is exactly what it could not reach." },
+            { kind: "say", focus: "sees:1", text: "That's why the row looks exactly like the first incident. Generating, no events, no error." },
             {
-                kind: "see", title: "What you see",
+                kind: "see", id: "sees", title: "What you see",
                 lines: [
                     { who: "status", text: "generating" },
                     { who: "events", text: "none at all", tone: "bad" },
                     { who: "error", text: "(empty)", tone: "bad" },
                 ],
             },
-            { kind: "say", text: "The fix is to do what the request handler does, before anything else: at the very start of the alarm, copy the real bindings and the baked .env values into process.env, and only then load your app's code. Keep the app code behind a dynamic import, so it is loaded after that step, not before." },
+            { kind: "say", focus: "fixenv", text: "The fix is to do what the handler does, first. At the very start of the alarm, copy the bindings and the .env values into process.env. Then load your app, behind a dynamic import." },
+            { kind: "note", id: "fixenv", text: "An alarm must set up its own environment before it loads the app: copy the bindings and the baked .env values into process.env, then dynamically import the code." },
         ],
         talk: {
             opening: "The fixed job now sits at 'generating' with zero events and no error. What do you check first, and why?",
@@ -383,14 +424,19 @@ export const DEMO_CHAPTERS: Chapter[] = [
         lead: "Four things that bite after the fix ships, and how to prove it works.",
         terms: ["idempotent"],
         blocks: [
-            { kind: "say", text: "The alarm works. Before you call it done, four things are invisible until real traffic hits them." },
-            { kind: "compare", columns: ["What happens", "What to do"], rows: [
+            { kind: "say", focus: "bites", text: "The alarm works in testing. What could still go wrong once real users arrive? Guess one before you listen on." },
+            { kind: "say", focus: "bites:Alarms retry", text: "First, alarms retry. If the alarm throws, Cloudflare runs it again. Anything that charges a card or sends an email does it twice. So make the work idempotent." },
+            { kind: "say", focus: "bites:Two tabs, two runs", text: "Second, two tabs can start two runs. Let the job's id pick the Durable Object, and refuse a second start." },
+            { kind: "say", focus: "bites:Stuck rows stay stuck", text: "Third, shipping the fix doesn't rescue jobs already stuck. Fail them once, on purpose." },
+            { kind: "say", focus: "bites:No timeout, no end", text: "Fourth, with no connection to end it, a call that never answers hangs forever. Give every outbound call a timeout." },
+            { kind: "compare", id: "bites", columns: ["What happens", "What to do"], rows: [
                 { label: "Alarms retry", cells: ["If the alarm throws, Cloudflare runs it again. Anything that charges or emails does it twice.", "Make the work idempotent, or catch inside the alarm and write a final status."] },
                 { label: "Two tabs, two runs", cells: ["A fresh object per click means two clicks run the job twice.", "Derive the object from the job id (idFromName) and refuse a second start."] },
                 { label: "Stuck rows stay stuck", cells: ["Shipping the fix does nothing for jobs already frozen at 'generating'.", "Fail them once, on purpose, and decide whether to retry."] },
                 { label: "No timeout, no end", cells: ["Without the connection, a call that never answers hangs forever.", "Give every outbound call a timeout shorter than the CPU budget."] },
             ] },
-            { kind: "say", text: "Then prove it, the physical way. Start the longest run, wait until it has written its first progress, close the browser entirely, wait the run's length plus a minute, and read the row. Do it in production: neither the local dev server nor the local preview enforces these limits, so 'it works on my machine' proves nothing here." },
+            { kind: "say", focus: "prove", text: "Then prove it the physical way, in production. Start the longest run. Wait for its first progress. Close the browser. Wait the run's length plus a minute. Then read the row." },
+            { kind: "note", id: "prove", text: "Neither the local dev server nor the local preview enforces these limits. Only production proves the fix." },
         ],
         check: [
             { id: "dev", kind: "truefalse", prompt: "If it works in next dev, the Worker's limits are fine.", answer: false, explanation: "next dev enforces none of the Worker limits, and the local preview does not either. Only production does." },
@@ -410,15 +456,20 @@ export const DEMO_CHAPTERS: Chapter[] = [
         title: "The same bug elsewhere",
         lead: "This is not a Cloudflare bug. It is what happens when slow work lives inside a request.",
         blocks: [
-            { kind: "say", text: "Every platform puts some limit between a user and a slow request. The numbers differ, and so does what happens to your work when the limit is hit. That second part is the one that burns people." },
-            { kind: "compare", columns: ["The limit", "Can you raise it?", "Does the work stop?"], rows: [
+            { kind: "say", focus: "platforms", text: "Is this a Cloudflare bug? Think about the last platform you shipped on before you listen." },
+            { kind: "say", focus: "platforms", text: "Every platform puts a limit between a user and a slow request. The numbers differ. What happens to your work differs more." },
+            { kind: "say", focus: "platforms:Cloudflare Workers", text: "On Workers, work inside the request stops with the connection." },
+            { kind: "say", focus: "platforms:AWS API Gateway (REST)", text: "AWS API Gateway stops waiting at 29 seconds by default. Your backend may keep going." },
+            { kind: "say", focus: "platforms:Heroku", text: "Heroku's router gives up at 30 seconds, but your app keeps working. So the user sees an error, retries, and the work runs twice." },
+            { kind: "say", focus: "platforms:Vercel Functions", text: "Vercel stops a function at its plan's maximum duration." },
+            { kind: "compare", id: "platforms", columns: ["The limit", "Can you raise it?", "Does the work stop?"], rows: [
                 { label: "Cloudflare Workers", cells: ["The connection, 30 s of CPU, 30 s for waitUntil", "CPU on a standalone Worker; not in a dispatch namespace", "Yes: work inside the request stops with the connection"] },
                 { label: "AWS API Gateway (REST)", cells: ["Integration timeout, 29 s by default", "Beyond 29 s only for Regional or private APIs, and it can cost throttle quota", "Check your backend: the gateway stops waiting at its timeout"] },
                 { label: "Heroku", cells: ["The router ends a request that takes over 30 s (error H12)", "No; streaming responses get a rolling 55 s window", "No: your app keeps working on a request the user has already lost"] },
                 { label: "Vercel Functions", cells: ["A maximum duration per plan (maxDuration)", "Up to your plan's maximum", "Yes, at the maximum duration"] },
             ] },
-            { kind: "say", text: "Look at Heroku's row. When the router gives up at 30 seconds, your app keeps going. So the user sees an error, retries, and now the work runs twice. On Workers, the work stops with the connection. Opposite behaviour, same lesson: a timeout at the front door and your work stopping are two separate facts, and your database only knows about one of them." },
-            { kind: "note", text: "The fix every platform recommends is the same shape: start the work, hand it to a background worker, and let the page check a status. Only the names change." },
+            { kind: "say", focus: "common", text: "Opposite behaviours, same lesson. The timeout at the front door and your work stopping are two different facts, and your database only knows about one of them." },
+            { kind: "note", id: "common", text: "The fix every platform recommends is the same shape: start the work, hand it to a background worker, and let the page check a status. Only the names change." },
         ],
         check: [
             { id: "heroku", kind: "truefalse", prompt: "On Heroku, when the router times out a request at 30 seconds, your app stops working on it.", answer: false, explanation: "Heroku says your application will not know the request timed out and will continue to work on it. The user got an error; the work goes on." },

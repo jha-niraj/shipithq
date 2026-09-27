@@ -6,6 +6,7 @@ import { getSession } from "@repo/auth"
 import { modelFor } from "@repo/ai"
 import { db, incidentMockSessions, type VoiceTurn } from "@repo/db"
 import { getIncidentCase } from "@/content/incidents/cases"
+import { activeRun, addRunEvent } from "@/lib/incidents/run"
 
 /**
  * Talk it through (plan/incidents INC-15): a live conversation with the case's
@@ -71,6 +72,8 @@ export async function startIncidentMock(slug: string, stepKey: string = CLOSING)
     const c = getIncidentCase(slug)
     const chapter = stepKey.startsWith("talk-") ? c?.chapters?.find((ch) => `talk-${ch.id}` === stepKey) : undefined
     if (!c || (stepKey === CLOSING ? !c.mock : !chapter?.talk)) return { success: false, error: "This step has no conversation." }
+    // Talks are recorded, so they need the reader's agreement first (INC-34).
+    if (!(await activeRun(uid, slug))) return { success: false, error: "Start a recorded run to talk it through.", code: "RUN" }
     try {
         const [open] = await db.select().from(incidentMockSessions)
             .where(and(eq(incidentMockSessions.userId, uid), eq(incidentMockSessions.caseSlug, slug), eq(incidentMockSessions.stepKey, stepKey), inArray(incidentMockSessions.status, ["SCHEDULED", "IN_PROGRESS"])))
@@ -105,6 +108,7 @@ export async function startIncidentMock(slug: string, stepKey: string = CLOSING)
             endsAt: new Date(Date.now() + (m.minutes + 5) * 60_000),
             variables: { title: `Talk it through: ${c.title}`, role: m.role, interview_brief: brief, question_count: String(m.probe.length), duration_minutes: String(m.minutes) },
         }).returning()
+        await addRunEvent(uid, slug, "talk", stepKey, { sessionId: row!.id })
         return { success: true, data: view(row!) }
     } catch (error: unknown) {
         console.error("startIncidentMock:", error instanceof Error ? error.message : error)

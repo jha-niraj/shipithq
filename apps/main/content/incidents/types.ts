@@ -1,3 +1,4 @@
+import type { TrafficScenario } from "@/components/incidents/sim/schema"
 /**
  * The shape of an Incidents case (plan/incidents INC-2). A case is a typed file in
  * this folder; the components in `components/incidents` render any case of this
@@ -162,19 +163,26 @@ export type FlowNode = {
     tone?: "default" | "strong" | "bad" | "muted"
     /** A decision: drawn as a diamond-ish pill. */
     decision?: boolean
+    /** Builds with the narration (INC-51): shown from the paragraph whose focus reaches this order. */
+    order?: number
 }
 export type FlowEdge = { from: string; to: string; label?: string; dashed?: boolean; bad?: boolean; flowing?: boolean }
 export type Flow = { width: number; height: number; nodes: FlowNode[]; edges: FlowEdge[]; caption?: string }
 
 export type ChapterBlock =
-    /** Narrated: spoken by the lead (the orb) and shown. */
-    | { kind: "say"; text: string }
-    | { kind: "flow"; flow: Flow }
+    /**
+     * Narrated: spoken by the lead and shown. `focus` names what this paragraph is about
+     * (INC-49): a block's `id`, or `id:part` for a flow node id, a compare row label or a
+     * see line index. While it is read, that part lights and the rest dims.
+     */
+    | { kind: "say"; text: string; focus?: string }
+    | { kind: "flow"; flow: Flow; id?: string }
     /** What you would see: a log, a thread, a database row. */
-    | { kind: "see"; title: string; lines: { t?: string; who?: string; text: string; tone?: "bad" | "muted" }[] }
-    | { kind: "note"; text: string }
-    | { kind: "compare"; columns: string[]; rows: { label: string; cells: string[] }[] }
-    | { kind: "simulator" }
+    | { kind: "see"; title: string; lines: { t?: string; who?: string; text: string; tone?: "bad" | "muted" }[]; id?: string }
+    | { kind: "note"; text: string; id?: string }
+    | { kind: "compare"; columns: string[]; rows: { label: string; cells: string[] }[]; id?: string }
+    /** `preset`: the choices it opens on, for the chapter's point (INC-58). */
+    | { kind: "simulator"; id?: string; preset?: Record<string, string> }
 
 export type Chapter = {
     id: string
@@ -200,7 +208,8 @@ export type IncidentCase = IncidentMeta & {
     sources: Record<string, CaseSource>
     story: StoryBeat[]
     model: { diagram: string; intro: string; steps: ModelStep[] }
-    simulator: SimulatorSpec
+    /** Case 1's timeline (code), or a traffic scenario (data) on the shared engine (INC-55). */
+    simulator: SimulatorSpec | TrafficScenario
     predict: PredictQuestion[]
     fix: {
         intro: string
@@ -213,7 +222,8 @@ export type IncidentCase = IncidentMeta & {
     chapters?: Chapter[]
     /** What a reader can learn from this case; the learning path (Pathfinder) builds on these (INC-32). */
     learn?: { title: string; summary: string }[]
-    glossary?: Record<string, { term: string; definition: string }>
+    /** `pathTopic`: the Pathfinder path topic that teaches it properly (INC-50). */
+    glossary?: Record<string, { term: string; definition: string; pathTopic?: string }>
     /** The talk-it-through step: who the reader talks to, how it opens, what it probes. */
     mock?: { role: string; opening: string; probe: string[]; minutes: number }
     /** The postmortem as the team would write it, shown after the fix. */

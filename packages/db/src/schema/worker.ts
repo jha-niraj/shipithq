@@ -84,6 +84,8 @@ export const JOB_TYPES = [
     "voice_interview_score",
     // A pasted job turned into a practisable pipeline, one alarm per step (plan/job-import).
     "job_import",
+    // The one-page review a recorded incident run ends with (plan/incidents INC-36).
+    "incident_report",
 ] as const;
 
 export type JobType = (typeof JOB_TYPES)[number];

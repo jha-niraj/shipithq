@@ -10,6 +10,7 @@ import { cn } from "@repo/ui/lib/utils"
 import { LiveInterview } from "@/components/voice/live-interview"
 import { finishIncidentMock, listIncidentMocks, startIncidentMock, type IncidentMockView } from "@/actions/(main)/incidents/mock.action"
 import { useGate } from "../sign-in-gate"
+import { useRun } from "./run-context"
 
 /**
  * Talk it through (plan/incidents INC-15): the case's incident lead asks what happened
@@ -26,6 +27,7 @@ type Content = { intro?: string; role?: string; opening: string; probe: string[]
  */
 export function MockStep({ slug, stepKey, content, capped = false, onFinished }: { slug: string; stepKey: string; content: Content; capped?: boolean; onFinished?: () => void }) {
     const { signedIn, gate } = useGate()
+    const { requireRun } = useRun()
     const [loading, setLoading] = useState(signedIn)
     const [sessions, setSessions] = useState<IncidentMockView[]>([])
     const [left, setLeft] = useState(3)
@@ -46,10 +48,12 @@ export function MockStep({ slug, stepKey, content, capped = false, onFinished }:
     const done = sessions.filter((s) => s.status === "COMPLETED")
 
     const start = () => gate(async () => {
+        // Talks are recorded, so they need a run (INC-34).
+        if (!requireRun()) return
         setStarting(true)
         const r = await startIncidentMock(slug, stepKey)
         setStarting(false)
-        if (!r.success) { toast.error(r.error); return }
+        if (!r.success) { if (r.code === "RUN") requireRun(); else toast.error(r.error); return }
         setSessions((s) => [r.data, ...s.filter((x) => x.id !== r.data.id)])
         if (capped) setLeft((n) => Math.max(0, n - 1))
     }, stepKey)
@@ -68,7 +72,7 @@ export function MockStep({ slug, stepKey, content, capped = false, onFinished }:
                     <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/10"><Mic className="size-5" aria-hidden /></span>
                     <div className="min-w-0">
                         <p className="text-[16px] leading-7 text-neutral-200">{content.intro ?? `The incident lead will ask: "${content.opening}" Answer out loud or type. It takes about ${content.minutes} minutes.`}</p>
-                        <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-400">It will push on</p>
+                        <p className="mt-4 font-mono text-[11px] text-neutral-400">It will push on</p>
                         <ul className="mt-2 space-y-1.5">
                             {content.probe.map((p) => <li key={p} className="flex gap-2 text-[14px] leading-6 text-neutral-300"><span aria-hidden className="mt-2.5 size-1 shrink-0 rounded-full bg-neutral-500" />{p}</li>)}
                         </ul>
@@ -120,7 +124,7 @@ function Feedback({ s, latest }: { s: IncidentMockView; latest: boolean }) {
     return (
         <article className="rounded-3xl border border-neutral-200 p-6 dark:border-neutral-800">
             <div className="flex items-center justify-between gap-3">
-                <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">
+                <p className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
                     {latest ? "Your last conversation" : "Earlier"} · {new Date(s.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                 </p>
                 {f && <span className={cn("rounded-full px-2.5 py-0.5 font-mono text-[12px] tabular-nums", f.score >= 70 ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300")}>{f.score}/100</span>}

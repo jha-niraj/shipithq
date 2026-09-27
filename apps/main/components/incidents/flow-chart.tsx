@@ -18,7 +18,9 @@ const H = 58
 const MOTION = `
 @keyframes fc-dash { to { stroke-dashoffset: -20; } }
 .fc-flow { stroke-dasharray: 6 4; animation: fc-dash 1s linear infinite; }
-@media (prefers-reduced-motion: reduce) { .fc-flow { animation: none; } }
+@keyframes fc-in { from { opacity: 0; } to { opacity: 1; } }
+.fc-in { animation: fc-in 0.4s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .fc-flow, .fc-in { animation: none; } }
 `
 
 type Box = { x: number; y: number; w: number; h: number }
@@ -35,9 +37,15 @@ function anchor(a: Box, b: Box): { x: number; y: number } {
     return { x: cx(a), y: dy > 0 ? a.y + a.h : a.y }
 }
 
-export function FlowChart({ flow, className }: { flow: Flow; className?: string }) {
+/**
+ * `lit`: the node the lead is talking about (INC-49): ringed, the rest dimmed.
+ * `upTo`: builds the chart as the lead speaks (INC-51): a node with an `order` shows
+ * once `upTo` reaches it; nodes without one are always there. Undefined shows all.
+ */
+export function FlowChart({ flow, className, lit = null, upTo }: { flow: Flow; className?: string; lit?: string | null; upTo?: number }) {
     const id = useId().replace(/:/g, "")
     const byId = new Map(flow.nodes.map((n) => [n.id, n]))
+    const visible = (n: FlowNode) => upTo === undefined || n.order === undefined || n.order <= upTo
     return (
         <figure className={cn("overflow-hidden rounded-3xl border border-neutral-200 bg-neutral-50/60 p-4 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900/40", className)}>
             <style>{MOTION}</style>
@@ -59,13 +67,24 @@ export function FlowChart({ flow, className }: { flow: Flow; className?: string 
                     const q = anchor(box(b), box(a))
                     // A gentle elbow when the two ends are not aligned.
                     const midX = (p.x + q.x) / 2
-                    const d = Math.abs(p.y - q.y) < 2 || Math.abs(p.x - q.x) < 2
+                    const midY = (p.y + q.y) / 2
+                    const straight = Math.abs(p.y - q.y) < 2 || Math.abs(p.x - q.x) < 2
+                    const sideways = p.x === box(a).x || p.x === box(a).x + box(a).w
+                    const d = straight
                         ? `M${p.x} ${p.y} L${q.x} ${q.y}`
-                        : p.x === box(a).x || p.x === box(a).x + box(a).w
+                        : sideways
                             ? `M${p.x} ${p.y} L${midX} ${p.y} L${midX} ${q.y} L${q.x} ${q.y}`
-                            : `M${p.x} ${p.y} L${p.x} ${(p.y + q.y) / 2} L${q.x} ${(p.y + q.y) / 2} L${q.x} ${q.y}`
+                            : `M${p.x} ${p.y} L${p.x} ${midY} L${q.x} ${midY} L${q.x} ${q.y}`
+                    // The label sits BESIDE the line's middle stretch, never on it (INC-46):
+                    // to the right of a vertical stretch, above a horizontal one.
+                    const vertical = straight ? Math.abs(p.x - q.x) < 2 : sideways
+                    const label = vertical
+                        ? { x: (straight ? p.x : midX) + 9, y: midY + 4, anchor: "start" as const }
+                        : { x: midX, y: (straight ? p.y : midY) - 8, anchor: "middle" as const }
+                    const hidden = !visible(a) || !visible(b)
+                    if (hidden) return null
                     return (
-                        <g key={i}>
+                        <g key={i} className={cn("transition-opacity duration-300", lit && lit !== e.from && lit !== e.to && "opacity-30")}>
                             <path
                                 d={d}
                                 fill="none"
@@ -76,7 +95,8 @@ export function FlowChart({ flow, className }: { flow: Flow; className?: string 
                                 className={cn(e.bad ? "stroke-rose-500" : "stroke-neutral-400 dark:stroke-neutral-500", e.flowing && "fc-flow")}
                             />
                             {e.label && (
-                                <text x={midX} y={(p.y + q.y) / 2 - 7} textAnchor="middle" className={cn("font-mono text-[11px]", e.bad ? "fill-rose-600 dark:fill-rose-400" : "fill-neutral-500 dark:fill-neutral-400")}>
+                                <text x={label.x} y={label.y} textAnchor={label.anchor} paintOrder="stroke" strokeWidth={5} strokeLinejoin="round"
+                                    className={cn("font-mono text-[11px] stroke-neutral-50 dark:stroke-neutral-900", e.bad ? "fill-rose-600 dark:fill-rose-400" : "fill-neutral-500 dark:fill-neutral-400")}>
                                     {e.label}
                                 </text>
                             )}
@@ -85,10 +105,13 @@ export function FlowChart({ flow, className }: { flow: Flow; className?: string 
                 })}
 
                 {flow.nodes.map((n) => {
+                    if (!visible(n)) return null
                     const b = box(n)
                     const tone = n.tone ?? "default"
+                    const isLit = lit === n.id
                     return (
-                        <g key={n.id}>
+                        <g key={n.id} className={cn("transition-opacity duration-300", lit && !isLit && "opacity-35", n.order !== undefined && "fc-in")}>
+                            {isLit && <rect x={b.x - 5} y={b.y - 5} width={b.w + 10} height={b.h + 10} rx={(n.decision ? b.h / 2 : 14) + 5} fill="none" strokeWidth={2} className="stroke-neutral-900 dark:stroke-white" />}
                             <rect
                                 x={b.x} y={b.y} width={b.w} height={b.h} rx={n.decision ? b.h / 2 : 14}
                                 strokeWidth={tone === "strong" ? 2 : 1.4}

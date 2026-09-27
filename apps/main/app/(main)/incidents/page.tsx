@@ -48,7 +48,7 @@ export default async function IncidentsIndexPage({ searchParams }: { searchParam
 
     const topics = INCIDENT_TOPICS.map((t) => ({
         id: t.id, label: t.label,
-        count: cases.filter((c) => c.topic === t.id).length,
+        count: cases.filter((c) => c.topics.includes(t.id)).length,
     }))
     const initialTopic = topics.some((t) => t.id === sp.topic) ? sp.topic! : (featured?.topic ?? topics[0]!.id)
     const earned = stats?.badges.length ?? 0
@@ -70,11 +70,12 @@ export default async function IncidentsIndexPage({ searchParams }: { searchParam
             <Record stats={stats} total={cases.length} />
             {featured && <Featured c={featured} stats={stats} />}
             <section aria-labelledby="topics" className="mt-12">
-                <h2 id="topics" className="mb-4 text-lg font-semibold tracking-tight text-neutral-900 dark:text-white">Topics</h2>
+                {/* No heading (Niraj, 2026-09-28): the tabs name themselves. */}
+                <h2 id="topics" className="sr-only">Topics</h2>
                 <TopicTabs
                     topics={topics}
                     initial={initialTopic}
-                    panels={Object.fromEntries(INCIDENT_TOPICS.map((t) => [t.id, <TopicPanel key={t.id} topic={t.id} blurb={t.blurb} cases={cases.filter((c) => c.topic === t.id)} stats={stats} />]))}
+                    panels={Object.fromEntries(INCIDENT_TOPICS.map((t) => [t.id, <TopicPanel key={t.id} topic={t.id} blurb={t.blurb} cases={cases.filter((c) => c.topics.includes(t.id))} stats={stats} />]))}
                 />
             </section>
         </div>
@@ -131,7 +132,7 @@ function Featured({ c, stats }: { c: CaseSummary; stats: IncidentStats | null })
     return (
         <Link href={`/incidents/${c.slug}`} className="group mt-6 grid overflow-hidden rounded-3xl bg-neutral-950 text-white ring-1 ring-white/10 transition-transform duration-300 hover:-translate-y-0.5 lg:grid-cols-2">
             <div className="flex flex-col p-6 sm:p-8">
-                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-neutral-400">Latest case · {topicLabel(c.topic)} · {c.minutes} min</p>
+                <p className="font-mono text-[11px] text-neutral-400">Latest case · {topicLabel(c.topic)} · {c.minutes} min</p>
                 <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{c.title}</h2>
                 <p className="mt-3 max-w-md text-[15px] leading-7 text-neutral-300">{c.summary}</p>
                 <p className="mt-4 font-mono text-[11px] text-neutral-400">{c.steps} steps · {c.quizzes} checks · narrated, with live talks</p>
@@ -159,7 +160,7 @@ function TopicPanel({ topic, blurb, cases, stats }: { topic: IncidentTopicId; bl
                 <p className="text-[14.5px] text-neutral-600 dark:text-neutral-400">{blurb}</p>
                 {cases.length > 0 && (
                     <div className="flex w-full items-center gap-3 sm:w-64">
-                        <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-neutral-500 dark:text-neutral-400">Readiness</span>
+                        <span className="font-mono text-[10.5px] text-neutral-500 dark:text-neutral-400">Readiness</span>
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800"><div className="h-full rounded-full bg-neutral-900 dark:bg-white" style={{ width: `${ready ?? 0}%` }} /></div>
                         <span className="w-9 text-right font-mono text-[12px] tabular-nums text-neutral-700 dark:text-neutral-300">{ready === null ? "-" : `${ready}%`}</span>
                     </div>
@@ -177,7 +178,7 @@ function TopicPanel({ topic, blurb, cases, stats }: { topic: IncidentTopicId; bl
                                 </div>
                                 <div className="flex flex-1 flex-col p-5">
                                     <div className="flex items-center justify-between gap-3">
-                                        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">{c.minutes} min · {c.steps} steps</span>
+                                        <span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{c.minutes} min · {c.steps} steps</span>
                                         {st && st.answered > 0 && (
                                             <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10.5px]", st.complete ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300")}>
                                                 {st.complete ? <><Check className="size-3" aria-hidden /> Complete</> : `${st.answered} of ${st.total}`}

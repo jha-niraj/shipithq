@@ -6,6 +6,7 @@ import { Zap } from "lucide-react"
 import { useSession, signOut } from "@repo/auth/client"
 import { usePathname } from "next/navigation"
 import { openSignInPrompt } from "@/components/auth/sign-in-prompt"
+import { useLead } from "@/components/incidents/lead/store"
 import { cn } from "@repo/ui/lib/utils"
 import { AIGlyph } from "@repo/ui/components/ui/ai-mark"
 import { useSidebar } from "@repo/ui/components/shell/sidebar-provider"
@@ -47,7 +48,10 @@ export default function Sidebar({ primary }: { primary?: NavigationItem[] } = {}
     const pathname = usePathname()
     const closeAI = useAIPanelStore((s) => s.close)
     const signedOut = !isPending && !userId
-    useEffect(() => { if (signedOut && isAIOpen) closeAI() }, [signedOut, isAIOpen, closeAI])
+    // Except on an incident case: there the rail is the incident lead, which shows a
+    // signed-out reader how to sign in to ask (plan/incidents INC-48, Niraj 2026-09-27).
+    const onCase = useLead((s) => s.caseSlug !== null)
+    useEffect(() => { if (signedOut && isAIOpen && !onCase) closeAI() }, [signedOut, isAIOpen, onCase, closeAI])
     const onAI = () => signedOut
         ? openSignInPrompt({ callback: pathname, eyebrow: "ShipItHQ AI", title: "Sign in to ask ShipItHQ AI", body: "The assistant answers with your own work in mind, so it needs an account. You come straight back to this page." })
         : toggleAI()

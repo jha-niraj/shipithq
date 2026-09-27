@@ -14,6 +14,8 @@ export const AI_TASKS = {
     incidentMockFeedback: DEFAULT_CHAT_MODEL,
     /** Incidents: the lead answering a spoken question about the case (INC-31). */
     incidentAskLead: DEFAULT_CHAT_MODEL,
+    /** Incidents: the one-page review of a recorded run (INC-36). Worker job. gpt-4o by decision (Niraj, 2026-09-27). */
+    incidentRunReport: "gpt-4o",
     /** Adaptive onboarding: the next question, or the finished profile. */
     onboardingQuestion: DEFAULT_CHAT_MODEL,
     /** Guided DSA mentor: the streamed reply. */

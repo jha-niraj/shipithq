@@ -33,7 +33,8 @@ export function effectiveValues(spec: SimulatorSpec, v: SimValues): SimValues {
 
 export function Simulator() {
     const c = useCase()
-    const spec = c.simulator
+    // Case 1's timeline; traffic scenarios render in sim/traffic-view (CaseSimulator picks).
+    const spec = c.simulator as SimulatorSpec
     const { gate } = useGate()
     const { dispatch } = useProgress()
     const [values, setValues] = useState<SimValues>(spec.defaults)
@@ -55,7 +56,7 @@ export function Simulator() {
         <div className="rounded-[28px] bg-neutral-950 p-4 text-white ring-1 ring-white/10 sm:p-7 dark:ring-white/15">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-neutral-400">The job</p>
+                    <p className="font-mono text-[11px] text-neutral-400">The job</p>
                     <p className="mt-1 text-[15px] text-neutral-200">{spec.job}</p>
                 </div>
                 <button
@@ -71,7 +72,7 @@ export function Simulator() {
             <div className="mt-6 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
                 {spec.controls.map((ctrl) => (
                     <fieldset key={ctrl.id} className="min-w-0">
-                        <legend className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-neutral-400">{ctrl.label}</legend>
+                        <legend className="font-mono text-[10.5px] text-neutral-400">{ctrl.label}</legend>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                             {ctrl.options.map((o) => {
                                 const disabled = !!o.disabledWhen && Object.entries(o.disabledWhen).every(([k, val]) => eff[k] === val)
@@ -151,7 +152,7 @@ export function SimTimeline({ run, duration, t, onSeek, compact = false }: { run
             <div className="relative space-y-2">
                 {run.lanes.map((lane) => (
                     <div key={lane.id} className="flex items-center">
-                        <div className={cn("shrink-0 pr-3 font-mono uppercase tracking-[0.1em] text-neutral-400", compact ? "w-16 text-[9.5px]" : "w-20 text-[10.5px] sm:w-24")}>{lane.label}</div>
+                        <div className={cn("shrink-0 pr-3 font-mono text-neutral-400", compact ? "w-16 text-[9.5px]" : "w-20 text-[10.5px] sm:w-24")}>{lane.label}</div>
                         <div className={cn("relative flex-1 overflow-hidden rounded-lg bg-white/[0.04]", compact ? "h-7" : "h-10")}>
                             {lane.segments.map((s, i) => {
                                 const visibleTo = Math.min(s.to, t)
@@ -206,7 +207,7 @@ export function SimTimeline({ run, duration, t, onSeek, compact = false }: { run
 
             {onSeek && (
                 <div className="mt-4 flex items-center gap-3">
-                    <label htmlFor="inc-scrub" className="w-20 shrink-0 font-mono text-[10.5px] uppercase tracking-[0.1em] text-neutral-400 sm:w-24">Time</label>
+                    <label htmlFor="inc-scrub" className="w-20 shrink-0 font-mono text-[10.5px] text-neutral-400 sm:w-24">Time</label>
                     <input
                         id="inc-scrub"
                         type="range"
@@ -232,7 +233,7 @@ function Meter({ run, t }: { run: SimRun; t: number }) {
     const spent = frac >= 1
     return (
         <div className="mt-4 flex items-center gap-3">
-            <span className="w-20 shrink-0 font-mono text-[10.5px] uppercase tracking-[0.1em] text-neutral-400 sm:w-24">{m.label}</span>
+            <span className="w-20 shrink-0 font-mono text-[10.5px] text-neutral-400 sm:w-24">{m.label}</span>
             <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-white/10">
                 <div
                     className={cn("absolute inset-y-0 left-0 origin-left rounded-full transition-colors duration-300", spent ? "bg-rose-400" : "bg-white")}

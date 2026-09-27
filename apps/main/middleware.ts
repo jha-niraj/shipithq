@@ -255,6 +255,9 @@ const apiRoutes = [
 	// the tab before verify runs. The route authenticates itself by HMAC on the
 	// raw body; a session would be meaningless here.
 	'/api/payments/webhook',
+	// The incident lead's speech-to-text (plan/incidents INC-48). Signed-out asking is
+	// open for testing (INC-52); the route itself decides who may use it.
+	'/api/incidents/transcribe',
 ]
 
 const PRODUCTION_ORIGIN = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://www.shipithq.com'
