@@ -47,10 +47,10 @@ export function stepsFor(c: IncidentCase): AuthoredStep[] {
             xp: 0,
         })
         if (ch.check?.length) {
-            steps.push({ key: `check-${ch.id}`, part, kind: "check", title: "Check yourself", content: { chapter: ch.id, questions: ch.check }, xp: ch.check.length * INCIDENT_XP.prediction })
+            steps.push({ key: `check-${ch.id}`, part, kind: "check", title: "Check yourself", content: { chapter: ch.id, act: ch.act, questions: ch.check }, xp: ch.check.length * INCIDENT_XP.prediction })
         }
         if (ch.talk) {
-            steps.push({ key: `talk-${ch.id}`, part, kind: "talk", title: "Talk it through", content: { chapter: ch.id, ...ch.talk, minutes: 3 }, xp: 0 })
+            steps.push({ key: `talk-${ch.id}`, part, kind: "talk", title: "Talk it through", content: { chapter: ch.id, act: ch.act, ...ch.talk, minutes: 3 }, xp: 0 })
         }
     })
     const end = "Final"

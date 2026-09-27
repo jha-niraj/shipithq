@@ -1,6 +1,6 @@
 import type { IncidentCase, SimLane, SimRun, SimValues, SourceRef } from "./types"
 import { getIncidentMeta } from "./index"
-import { DEMO_CHAPTERS, DEMO_GLOSSARY } from "./the-demo-chapters"
+import { DEMO_CHAPTERS, DEMO_GLOSSARY, DEMO_LEARN } from "./the-demo-chapters"
 
 /**
  * Case one (plan/incidents/overview.md, "The first case").
@@ -585,6 +585,7 @@ export const demoThatDiedAt30Seconds: IncidentCase = {
     },
 
     chapters: DEMO_CHAPTERS,
+    learn: DEMO_LEARN,
     glossary: DEMO_GLOSSARY,
 
     mock: {

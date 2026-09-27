@@ -12,6 +12,8 @@ import { DEFAULT_CHAT_MODEL, type ModelId } from "./models"
 export const AI_TASKS = {
     /** Incidents: feedback on a talk-it-through conversation (plan/incidents INC-15). */
     incidentMockFeedback: DEFAULT_CHAT_MODEL,
+    /** Incidents: the lead answering a spoken question about the case (INC-31). */
+    incidentAskLead: DEFAULT_CHAT_MODEL,
     /** Adaptive onboarding: the next question, or the finished profile. */
     onboardingQuestion: DEFAULT_CHAT_MODEL,
     /** Guided DSA mentor: the streamed reply. */

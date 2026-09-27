@@ -179,6 +179,8 @@ export type ChapterBlock =
 export type Chapter = {
     id: string
     title: string
+    /** The sidebar's section: "What happened", "How it was fixed", "Beyond this case". */
+    act?: string
     /** One line under the title: what this chapter gives you. */
     lead: string
     blocks: ChapterBlock[]
@@ -209,6 +211,8 @@ export type IncidentCase = IncidentMeta & {
     }
     /** The case as chapters (INC-22). The player shows these; the fields above feed the simulator, the final quiz, the round and ShipItHQ AI. */
     chapters?: Chapter[]
+    /** What a reader can learn from this case; the learning path (Pathfinder) builds on these (INC-32). */
+    learn?: { title: string; summary: string }[]
     glossary?: Record<string, { term: string; definition: string }>
     /** The talk-it-through step: who the reader talks to, how it opens, what it probes. */
     mock?: { role: string; opening: string; probe: string[]; minutes: number }

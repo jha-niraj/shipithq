@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels"
-import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ExternalLink, HelpCircle, Mic, Search, Sparkles } from "lucide-react"
+import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ExternalLink, GraduationCap, HelpCircle, Lock, Mic, Search, Sparkles } from "lucide-react"
 import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
 import { QuizRunner } from "@repo/ui/components/quiz/quiz-runner"
 import { grade, type QuizQuestion, type QuizResult } from "@repo/ui/lib/quiz"
@@ -21,6 +21,14 @@ import { Closing, Checklist, Round } from "../checklist-round"
 import { FlowChart } from "../flow-chart"
 import { MockStep } from "./mock-step"
 import { Narrator } from "./narrator"
+import { speakQuestion } from "@/actions/(main)/incidents/narration.action"
+import { useCase } from "../primitives"
+import { useGate } from "../sign-in-gate"
+import { useRouter } from "next/navigation"
+import toast from "@repo/ui/components/ui/sonner"
+import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { PATH_CASES } from "@/content/incidents/path-cases"
+import { adoptIncidentPath } from "@/actions/(main)/pathfinder/explore.action"
 
 /**
  * The case player (plan/incidents INC-14, INC-18 to INC-24). Inside the app shell, so the
@@ -109,48 +117,74 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
         return progress.stepsDone.includes(s.key)
     }, [progress, derived])
 
-    const parts = useMemo(() => {
-        const out: { part: string; items: { s: PlayerStep; i: number }[] }[] = []
+    const acts = useMemo(() => {
+        const out: { act: string; parts: { part: string; items: { s: PlayerStep; i: number }[] }[] }[] = []
         steps.forEach((s, i) => {
-            const last = out[out.length - 1]
+            const act = typeof s.content.act === "string" ? s.content.act : s.part === "Final" ? "Final" : "The case"
+            let a = out[out.length - 1]
+            if (!a || a.act !== act) { a = { act, parts: [] }; out.push(a) }
+            const last = a.parts[a.parts.length - 1]
             if (last && last.part === s.part) last.items.push({ s, i })
-            else out.push({ part: s.part, items: [{ s, i }] })
+            else a.parts.push({ part: s.part, items: [{ s, i }] })
         })
         return out
     }, [steps])
+
+    // Gating (round 5): reading is never blocked. A chapter's check or talk opens once every
+    // earlier chapter's check and talk is passed; the final steps open after all of them.
+    const chapterOrder = useMemo(() => steps.filter((s) => s.kind === "chapter").map((s) => String(s.content.id)), [steps])
+    const gates = useMemo(() => steps.filter((s) => s.kind === "check" || s.kind === "talk"), [steps])
+    const lockedBy = useCallback((s: PlayerStep): PlayerStep | null => {
+        if (s.kind === "chapter") return null
+        const ci = s.kind === "check" || s.kind === "talk" ? chapterOrder.indexOf(String(s.content.chapter)) : Infinity
+        return gates.find((g) => chapterOrder.indexOf(String(g.content.chapter)) < ci && !isDone(g)) ?? null
+    }, [chapterOrder, gates, isDone])
 
     const done = steps.filter(isDone).length
     const markAndNext = () => { dispatch({ type: "stepDone", stepKey: step.key }); go(index + 1) }
 
     const list = (
-        <ScrollArea className="h-full">
-            <nav aria-label="Steps" className="py-4">
-                {parts.map((p) => (
-                    <div key={p.part} className="mb-4">
-                        <p className="truncate px-4 pb-1.5 font-mono text-[10.5px] uppercase tracking-[0.12em] text-neutral-500 dark:text-neutral-400">{p.part}</p>
-                        <ol>
-                            {p.items.map(({ s, i }) => {
-                                const Icon = ICON[s.kind] ?? BookOpen
-                                const on = i === index
-                                const ok = isDone(s)
-                                return (
-                                    <li key={s.key}>
-                                        <button type="button" onClick={() => go(i)} aria-current={on ? "step" : undefined}
-                                            className={cn("relative flex w-full items-center gap-2.5 py-1.5 pl-4 pr-3 text-left text-[13px] transition-colors",
-                                                on ? "bg-neutral-100 font-medium text-neutral-900 dark:bg-neutral-900 dark:text-white" : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900/60 dark:hover:text-white")}>
-                                            {on && <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-neutral-900 dark:bg-white" />}
-                                            <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-md", ok ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "text-neutral-400 dark:text-neutral-500")}>
-                                                {ok ? <Check className="size-3" aria-hidden /> : <Icon className="size-3.5" aria-hidden />}
-                                            </span>
-                                            <span className="min-w-0 flex-1 truncate">{s.title}</span>
-                                            {s.xp > 0 && <span className="shrink-0 font-mono text-[10px] text-neutral-400">+{s.xp}</span>}
-                                        </button>
-                                    </li>
-                                )
-                            })}
-                        </ol>
+        <ScrollArea className="h-full" reflow>
+            <nav aria-label="Steps" className="py-3">
+                {acts.map((a) => (
+                    <div key={a.act} className="mb-5">
+                        <p className="px-4 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-neutral-900 dark:text-white">{a.act}</p>
+                        {a.parts.map((p) => {
+                            const doneHere = p.items.filter(({ s }) => isDone(s)).length
+                            return (
+                                <div key={p.part} className="mb-2">
+                                    <p className="flex min-w-0 items-center gap-2 px-4 py-1 font-mono text-[10.5px] uppercase tracking-[0.1em] text-neutral-500 dark:text-neutral-400">
+                                        <span className="min-w-0 flex-1 truncate">{p.part}</span>
+                                        <span className="shrink-0 tabular-nums">{doneHere}/{p.items.length}</span>
+                                    </p>
+                                    <ol>
+                                        {p.items.map(({ s, i }) => {
+                                            const Icon = ICON[s.kind] ?? BookOpen
+                                            const on = i === index
+                                            const ok = isDone(s)
+                                            const locked = !!lockedBy(s)
+                                            return (
+                                                <li key={s.key}>
+                                                    <button type="button" onClick={() => go(i)} aria-current={on ? "step" : undefined} title={locked ? "Pass the earlier checks and talks to open this" : s.title}
+                                                        className={cn("relative flex w-full min-w-0 items-center gap-2.5 py-1.5 pl-6 pr-3 text-left text-[13px] transition-colors",
+                                                            on ? "bg-neutral-100 font-medium text-neutral-900 dark:bg-neutral-900 dark:text-white" : locked ? "text-neutral-400 dark:text-neutral-600" : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900/60 dark:hover:text-white")}>
+                                                        {on && <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-neutral-900 dark:bg-white" />}
+                                                        <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-md", ok ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "text-neutral-400 dark:text-neutral-500")}>
+                                                            {ok ? <Check className="size-3" aria-hidden /> : locked ? <Lock className="size-3" aria-hidden /> : <Icon className="size-3.5" aria-hidden />}
+                                                        </span>
+                                                        <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                                                        {s.xp > 0 && <span className="shrink-0 font-mono text-[10px] tabular-nums text-neutral-400">+{s.xp}</span>}
+                                                    </button>
+                                                </li>
+                                            )
+                                        })}
+                                    </ol>
+                                </div>
+                            )
+                        })}
                     </div>
                 ))}
+                <LearnList />
             </nav>
         </ScrollArea>
     )
@@ -165,7 +199,11 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
                     <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">{step.part} · step {index + 1} of {steps.length}</p>
                     <h1 className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900 dark:text-white">{step.title}</h1>
                     <div className="mt-6">
-                        <StepView step={step} slug={data.slug} onDone={() => dispatch({ type: "stepDone", stepKey: step.key })} />
+                        {lockedBy(step) ? (
+                            <Locked by={lockedBy(step)!} onGo={() => go(steps.indexOf(lockedBy(step)!))} />
+                        ) : (
+                            <StepView step={step} slug={data.slug} onDone={() => dispatch({ type: "stepDone", stepKey: step.key })} />
+                        )}
                     </div>
                     {(step.kind === "chapter" || step.kind === "talk" || step.kind === "closing-talk" || step.kind === "closing") && (
                         <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 pt-6 dark:border-neutral-800">
@@ -216,7 +254,7 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
                 <button type="button" onClick={() => go(index - 1)} disabled={index === 0}
                     className="inline-flex h-10 min-w-0 items-center gap-2 rounded-xl border border-neutral-200 px-4 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600">
                     <ArrowLeft className="size-4 shrink-0" aria-hidden />
-                    <span className="hidden max-w-[14rem] truncate sm:inline">{steps[index - 1]?.title ?? "Previous"}</span>
+                    <StepLabel step={steps[index - 1]} fallback="Previous" />
                 </button>
                 <select aria-label="Go to step" value={index} onChange={(e) => go(Number(e.target.value))}
                     className="h-10 min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-sm lg:hidden dark:border-neutral-800 dark:bg-neutral-950">
@@ -225,10 +263,77 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
                 <span className="hidden font-mono text-[11px] text-neutral-400 lg:inline">Arrow keys move between steps</span>
                 <button type="button" onClick={() => go(index + 1)} disabled={index === steps.length - 1}
                     className="inline-flex h-10 min-w-0 items-center gap-2 rounded-xl border border-neutral-200 px-4 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600">
-                    <span className="hidden max-w-[14rem] truncate sm:inline">{steps[index + 1]?.title ?? "Next"}</span>
+                    <StepLabel step={steps[index + 1]} fallback="Next" />
                     <ArrowRight className="size-4 shrink-0" aria-hidden />
                 </button>
             </footer>
+        </div>
+    )
+}
+
+/** A footer label: the step and which chapter it belongs to, so two "Check yourself" never look alike. */
+function StepLabel({ step, fallback }: { step?: PlayerStep; fallback: string }) {
+    if (!step) return <span className="hidden sm:inline">{fallback}</span>
+    return (
+        <span className="hidden min-w-0 flex-col items-start text-left leading-tight sm:flex">
+            <span className="max-w-[14rem] truncate font-mono text-[10px] uppercase tracking-[0.1em] text-neutral-500 dark:text-neutral-400">{step.part}</span>
+            <span className="max-w-[14rem] truncate">{step.title}</span>
+        </span>
+    )
+}
+
+/** A step that opens once an earlier check or talk is passed. */
+function Locked({ by, onGo }: { by: PlayerStep; onGo: () => void }) {
+    return (
+        <div className="flex flex-col items-start gap-4 rounded-3xl border border-dashed border-neutral-300 p-8 dark:border-neutral-700">
+            <span className="flex size-11 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-900"><Lock className="size-5" aria-hidden /></span>
+            <div>
+                <p className="text-lg font-semibold text-neutral-900 dark:text-white">This opens after the earlier check</p>
+                <p className="mt-1 text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">Reading is always open. Checks and talks go in order: pass &ldquo;{by.title}&rdquo; in {by.part} first.</p>
+            </div>
+            <button type="button" onClick={onGo} className="inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200">
+                Go to it <ArrowRight className="size-4" aria-hidden />
+            </button>
+        </div>
+    )
+}
+
+/** What the case teaches (INC-26), and the hand-written Pathfinder path to learn it all (INC-32, PF-13). */
+function LearnList() {
+    const c = useCase()
+    const router = useRouter()
+    const { gate } = useGate()
+    const [adopting, setAdopting] = useState(false)
+    if (!c.learn?.length) return null
+    const adopt = () => gate(async () => {
+        setAdopting(true)
+        const r = await adoptIncidentPath(c.slug)
+        if (!r.success) { toast.error(r.error); setAdopting(false); return }
+        toast.success(r.existing ? "You already have this path. Opening it." : "Added to your Pathfinder goals")
+        router.push(`/pathfinder/${r.slug}`)
+    }, "learn")
+    return (
+        <div className="mx-3 mt-2 rounded-2xl border border-neutral-200 p-3 dark:border-neutral-800">
+            <p className="flex items-center gap-2 px-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-neutral-900 dark:text-white">
+                <GraduationCap className="size-4" aria-hidden /> What you&apos;ll learn
+            </p>
+            <ul className="mt-2 space-y-2">
+                {c.learn.map((l) => (
+                    <li key={l.title} className="rounded-xl px-1 py-1">
+                        <p className="text-[13px] font-medium leading-snug text-neutral-800 dark:text-neutral-200">{l.title}</p>
+                        <p className="text-[12px] leading-5 text-neutral-500 dark:text-neutral-400">{l.summary}</p>
+                    </li>
+                ))}
+            </ul>
+            {PATH_CASES.includes(c.slug) && (
+                <button type="button" onClick={adopt} disabled={adopting}
+                    className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-3 text-[13px] font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-60 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200">
+                    {adopting ? <InlineLoader size="sm" /> : <ArrowRight className="size-4" aria-hidden />} Adopt this path
+                </button>
+            )}
+            <p className="mt-2 px-1 text-[11.5px] leading-5 text-neutral-500 dark:text-neutral-400">
+                {PATH_CASES.includes(c.slug) ? "A Pathfinder goal with notes for each topic, free. It becomes yours to follow day by day." : "The full learning path is being written."}
+            </p>
         </div>
     )
 }
@@ -239,7 +344,7 @@ function StepView({ step, slug, onDone }: { step: PlayerStep; slug: string; onDo
     const c = step.content
     switch (step.kind) {
         case "chapter":
-            return <ChapterView slug={slug} chapter={c as unknown as Chapter & { glossary?: { term: string; definition: string }[] }} />
+            return <ChapterView slug={slug} stepTitle={step.title} chapter={c as unknown as Chapter & { glossary?: { term: string; definition: string }[] }} />
         case "check": {
             const chapter = String(c.chapter)
             const questions = c.questions as QuizQuestion[]
@@ -250,6 +355,7 @@ function StepView({ step, slug, onDone }: { step: PlayerStep; slug: string; onDo
             }) : null
             return (
                 <QuizRunner key={step.key} title="Check yourself" questions={questions} initial={initial} retakeLabel="Practise again"
+                    speak={async (qid) => { const r = await speakQuestion(slug, chapter, qid); return r.success ? r.url : null }}
                     onComplete={(results) => { for (const r of results) dispatch({ type: "quiz", chapter, questionId: r.questionId, response: r.response }) }} />
             )
         }
@@ -261,6 +367,7 @@ function StepView({ step, slug, onDone }: { step: PlayerStep; slug: string; onDo
                 <div className="space-y-4">
                     <p className="text-[16px] leading-7 text-neutral-700 dark:text-neutral-300">Eight situations from the whole case. Answer them all, then see how you did. Your first try earns XP.</p>
                     <QuizRunner key={step.key} title="Make the call" questions={questions} initial={initial} retakeLabel="Practise again"
+                        speak={async (qid) => { const r = await speakQuestion(slug, "final", qid); return r.success ? r.url : null }}
                         onComplete={(results) => { for (const r of results) dispatch({ type: "predict", question: r.questionId, option: String(r.response) }) }} />
                 </div>
             )
@@ -282,19 +389,56 @@ function StepView({ step, slug, onDone }: { step: PlayerStep; slug: string; onDo
     }
 }
 
-/** A chapter: the narrator, then its blocks, with the paragraph being read highlighted. */
-function ChapterView({ slug, chapter }: { slug: string; chapter: Chapter & { glossary?: { term: string; definition: string }[] } }) {
+const TRANSCRIPT_KEY = "incidents:transcript"
+
+/**
+ * A chapter (INC-30): visuals first. The narrated script is behind a remembered "Show
+ * transcript" toggle; the paragraph being read shows as a caption under the orb, and with
+ * the transcript on, the page follows it. Without a voice, the transcript is always shown.
+ */
+function ChapterView({ slug, chapter, stepTitle }: { slug: string; chapter: Chapter & { glossary?: { term: string; definition: string }[] }; stepTitle: string }) {
     const [reading, setReading] = useState<number | null>(null)
-    const says = chapter.blocks.filter((b) => b.kind === "say").length
+    const [voice, setVoice] = useState(true)
+    const [transcript, setTranscript] = useState(false)
+    const refs = useRef<Array<HTMLParagraphElement | null>>([])
+    const paragraphs = chapter.blocks.filter((b): b is { kind: "say"; text: string } => b.kind === "say").map((b) => b.text)
+    const showScript = transcript || !voice
+
+    useEffect(() => { try { setTranscript(localStorage.getItem(TRANSCRIPT_KEY) === "1") } catch { /* private window */ } }, [])
+    useEffect(() => {
+        if (reading === null || !showScript) return
+        refs.current[reading]?.scrollIntoView({ block: "center", behavior: "smooth" })
+    }, [reading, showScript])
+
+    const toggleTranscript = () => setTranscript((v) => {
+        try { localStorage.setItem(TRANSCRIPT_KEY, v ? "0" : "1") } catch { /* ignore */ }
+        return !v
+    })
+
     let sayIndex = -1
     return (
         <div className="space-y-6">
             <p className="text-[17px] leading-8 text-neutral-600 dark:text-neutral-400">{chapter.lead}</p>
-            <Narrator slug={slug} chapterId={chapter.id} count={says} onParagraph={setReading} />
+            <Narrator slug={slug} chapterId={chapter.id} paragraphs={paragraphs} stepTitle={stepTitle} onParagraph={setReading} onAvailable={setVoice} />
+            {voice && paragraphs.length > 0 && (
+                <button type="button" onClick={toggleTranscript} aria-pressed={transcript} className="text-[13px] font-medium text-neutral-600 underline-offset-4 hover:underline dark:text-neutral-400">
+                    {transcript ? "Hide the transcript" : "Show the transcript"}
+                </button>
+            )}
             <div className="space-y-6">
                 {chapter.blocks.map((b, i) => {
-                    if (b.kind === "say") sayIndex += 1
-                    return <Block key={i} block={b} active={b.kind === "say" && sayIndex === reading} />
+                    if (b.kind === "say") {
+                        sayIndex += 1
+                        const at = sayIndex
+                        if (!showScript) return null
+                        return (
+                            <p key={i} ref={(el) => { refs.current[at] = el }}
+                                className={cn("-mx-4 rounded-2xl px-4 py-2 text-[17px] leading-8 transition-colors duration-300", at === reading ? "bg-neutral-100 text-neutral-900 dark:bg-neutral-900 dark:text-white" : "text-neutral-800 dark:text-neutral-200")}>
+                                <Inline text={b.text} />
+                            </p>
+                        )
+                    }
+                    return <Block key={i} block={b} />
                 })}
             </div>
             {chapter.glossary && chapter.glossary.length > 0 && <Glossary terms={chapter.glossary} />}
@@ -314,14 +458,10 @@ function ChapterView({ slug, chapter }: { slug: string; chapter: Chapter & { glo
     )
 }
 
-function Block({ block, active }: { block: ChapterBlock; active: boolean }) {
+function Block({ block }: { block: ChapterBlock }) {
     switch (block.kind) {
         case "say":
-            return (
-                <p className={cn("-mx-4 rounded-2xl px-4 py-2 text-[17px] leading-8 transition-colors duration-300", active ? "bg-neutral-100 text-neutral-900 dark:bg-neutral-900 dark:text-white" : "text-neutral-800 dark:text-neutral-200")}>
-                    <Inline text={block.text} />
-                </p>
-            )
+            return null
         case "flow":
             return <FlowChart flow={block.flow} />
         case "note":

@@ -38,6 +38,7 @@ export const DEMO_CHAPTERS: Chapter[] = [
     // ── 1 ─────────────────────────────────────────────────────────────────────
     {
         id: "incident",
+        act: "What happened",
         title: "The incident",
         lead: "A two-minute job, a client on the call, and a refresh at 30 seconds.",
         terms: ["worker", "namespace"],
@@ -90,6 +91,7 @@ export const DEMO_CHAPTERS: Chapter[] = [
     // ── 2 ─────────────────────────────────────────────────────────────────────
     {
         id: "request-life",
+        act: "What happened",
         title: "How a request lives",
         lead: "Where 'inside the request' actually is, and why waiting is almost free.",
         terms: ["isolate", "invocation", "cpu", "wallclock"],
@@ -138,6 +140,7 @@ export const DEMO_CHAPTERS: Chapter[] = [
     // ── 3 ─────────────────────────────────────────────────────────────────────
     {
         id: "three-limits",
+        act: "What happened",
         title: "Three limits, one number",
         lead: "CPU time, the waitUntil clock and the connection. They fail differently.",
         terms: ["cpu", "waituntil", "namespace"],
@@ -178,6 +181,7 @@ export const DEMO_CHAPTERS: Chapter[] = [
     // ── 4 ─────────────────────────────────────────────────────────────────────
     {
         id: "survives",
+        act: "What happened",
         title: "What survives what",
         lead: "Four places work can run, and three things that can happen to it.",
         terms: ["alarm", "cron"],
@@ -215,6 +219,7 @@ export const DEMO_CHAPTERS: Chapter[] = [
     // ── 5 ─────────────────────────────────────────────────────────────────────
     {
         id: "nothing-saved",
+        act: "What happened",
         title: "Why nothing was saved",
         lead: "A run that is stopped from outside cannot write down that it stopped.",
         terms: ["cancelled"],
@@ -257,6 +262,7 @@ export const DEMO_CHAPTERS: Chapter[] = [
     // ── 6 ─────────────────────────────────────────────────────────────────────
     {
         id: "fix",
+        act: "How it was fixed",
         title: "The fix",
         lead: "Move the work off the request, into something no browser can reach.",
         terms: ["durableobject", "alarm", "polling", "reaper"],
@@ -327,6 +333,7 @@ export const DEMO_CHAPTERS: Chapter[] = [
     // ── 7 ─────────────────────────────────────────────────────────────────────
     {
         id: "env",
+        act: "How it was fixed",
         title: "The fix that failed without a trace",
         lead: "The alarm could not see the database URL, so it died before its first write.",
         terms: ["opennext", "envvar"],
@@ -371,6 +378,7 @@ export const DEMO_CHAPTERS: Chapter[] = [
     // ── 8 ─────────────────────────────────────────────────────────────────────
     {
         id: "running",
+        act: "How it was fixed",
         title: "Running it for real",
         lead: "Four things that bite after the fix ships, and how to prove it works.",
         terms: ["idempotent"],
@@ -398,6 +406,7 @@ export const DEMO_CHAPTERS: Chapter[] = [
     // ── 9 ─────────────────────────────────────────────────────────────────────
     {
         id: "elsewhere",
+        act: "Beyond this case",
         title: "The same bug elsewhere",
         lead: "This is not a Cloudflare bug. It is what happens when slow work lives inside a request.",
         blocks: [
@@ -426,4 +435,13 @@ export const DEMO_CHAPTERS: Chapter[] = [
             { label: "Vercel: Configuring function duration", href: "https://vercel.com/docs/functions/configuring-functions/duration" },
         ],
     },
+]
+
+/** What this case teaches, for the sidebar and the learning path (INC-26, INC-32). */
+export const DEMO_LEARN: { title: string; summary: string }[] = [
+    { title: "Long-running work on Cloudflare Workers", summary: "Where work lives during a request, and the three limits that end it." },
+    { title: "Durable Objects and alarms", summary: "Running work with no browser attached, and surviving closed tabs." },
+    { title: "Background jobs with a status row", summary: "Start, run elsewhere, poll: the shape every platform recommends." },
+    { title: "Failures that leave no trace", summary: "Cancelled runs, missing env in background jobs, and how to see them." },
+    { title: "Operating it: retries, reapers, timeouts", summary: "Idempotency, one run per job, and proving it in production." },
 ]
