@@ -7,11 +7,13 @@ import { Checkbox } from "@repo/ui/components/ui/checkbox"
 import { Input } from "@repo/ui/components/ui/input"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select"
+import { NumberTextInput } from "@repo/ui/components/ui/number-text-input"
 import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@repo/ui/components/ui/sheet"
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
 import { cn } from "@repo/ui/lib/utils"
-import { createCompanyDesignPrompt } from "@/actions/interview-config/pipeline-builder.action"
+import { createCompanyDesignPrompt } from "@/actions/pipelines/pipeline-builder.action"
 import { PIPELINE_LIMITS, type CatalogItem, type PoolLevel, type RubricCriterion } from "@/types/pipeline"
 import { AptitudeAiPanel } from "./aptitude-ai-panel"
 
@@ -132,15 +134,13 @@ export function PoolSheet({ open, onOpenChange, roundType, roundTitle, catalog, 
                             </>
                         )}
                         {tags.length > 1 && (
-                            <select
-                                value={tag ?? ""}
-                                onChange={(e) => setTag(e.target.value || null)}
-                                aria-label="Topic"
-                                className="h-7 rounded-full border border-neutral-200 bg-white px-2.5 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
-                            >
-                                <option value="">All topics</option>
-                                {tags.map((t) => <option key={t} value={t}>{t}</option>)}
-                            </select>
+                            <Select value={tag ?? "__all"} onValueChange={(v) => setTag(v === "__all" ? null : v)}>
+                                <SelectTrigger size="sm" aria-label="Topic" className="h-7 w-auto rounded-full text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__all">All topics</SelectItem>
+                                    {tags.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         )}
                     </div>
                 </div>
@@ -261,9 +261,10 @@ function WritePrompt({ onSaved, onCancel }: { onSaved: (item: CatalogItem) => vo
             <div className="grid gap-3">
                 <div className="flex flex-col gap-2 sm:flex-row">
                     <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Design a notification service" maxLength={80} aria-label="Prompt title" />
-                    <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as PoolLevel)} aria-label="Difficulty" className="h-9 rounded-md border border-neutral-200 bg-white px-2 text-sm dark:border-neutral-700 dark:bg-neutral-900">
-                        <option value="EASY">Easy</option><option value="MEDIUM">Medium</option><option value="HARD">Hard</option>
-                    </select>
+                    <Select value={difficulty} onValueChange={(v) => setDifficulty(v as PoolLevel)}>
+                        <SelectTrigger aria-label="Difficulty" className="h-9 sm:w-32"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="EASY">Easy</SelectItem><SelectItem value="MEDIUM">Medium</SelectItem><SelectItem value="HARD">Hard</SelectItem></SelectContent>
+                    </Select>
                 </div>
                 <Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} maxLength={4000} aria-label="Brief"
                     placeholder="The system to design, its scale (users, requests, data) and what the answer should cover." />
@@ -275,7 +276,7 @@ function WritePrompt({ onSaved, onCancel }: { onSaved: (item: CatalogItem) => vo
                     {rubric.map((c, i) => (
                         <div key={i} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_5rem_minmax(0,1.4fr)_auto]">
                             <Input value={c.criterion} onChange={(e) => setRubric(rubric.map((x, j) => j === i ? { ...x, criterion: e.target.value } : x))} placeholder="Criterion" maxLength={60} aria-label="Criterion" />
-                            <Input type="number" value={Number.isNaN(c.weight) ? "" : c.weight} onChange={(e) => setRubric(rubric.map((x, j) => j === i ? { ...x, weight: e.target.value === "" ? Number.NaN : Number(e.target.value) } : x))} aria-label="Weight" />
+                            <NumberTextInput value={Number.isNaN(c.weight) ? null : c.weight} onChange={(v) => setRubric(rubric.map((x, j) => j === i ? { ...x, weight: v ?? Number.NaN } : x))} min={0} max={100} suffix="%" aria-label="Weight" />
                             <Input value={c.lookFor} onChange={(e) => setRubric(rubric.map((x, j) => j === i ? { ...x, lookFor: e.target.value } : x))} placeholder="What a strong answer shows" maxLength={300} aria-label="What a strong answer shows" />
                             <Button variant="ghost" size="icon" aria-label="Remove criterion" onClick={() => setRubric(rubric.filter((_, j) => j !== i))} disabled={rubric.length <= 2}><Trash2 className="h-4 w-4" /></Button>
                         </div>

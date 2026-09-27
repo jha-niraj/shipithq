@@ -3,7 +3,7 @@ import Loading from "./loading"
 import { 
     getJobs, getOverallJobStats 
 } from "@/actions/jobs"
-import { getInterviewProcesses } from "@/actions/interview-config"
+import { getInterviewProcesses } from "@/actions/pipelines"
 import { JobsContent } from "./jobs-content"
 
 export const dynamic = "force-dynamic"

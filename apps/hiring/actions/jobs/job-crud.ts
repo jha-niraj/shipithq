@@ -3,10 +3,26 @@
 import { db, companyMembers, hiringSends, jobs, interviewProcesses, interviewRounds, withTransaction } from "@repo/db"
 import { notPurged } from "@repo/db/hiring-purge"
 import { requirePermission } from "@/lib/permissions"
-import { createJobCopy, isUsableTemplate, pipelineReadiness } from "@/lib/pipelines"
+import { createJobCopy, isUsableTemplate, pipelineReadiness, runsUsing } from "@/lib/pipelines"
 import { eq, and, desc, inArray, ilike, or, asc, count, ne } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import type { CreateJobInput } from "@/types"
+import { recordOptions } from "@repo/db/options"
+
+/**
+ * New "Other" values the job used, into the shared dataset (plan/hiring-ui HU-2):
+ * best effort, never blocking a save.
+ */
+async function recordJobOptions(companyId: string, input: Partial<CreateJobInput>) {
+    const org = `company:${companyId}`
+    await Promise.all([
+        input.title ? recordOptions("job_title", [input.title], org) : null,
+        input.department ? recordOptions("department", [input.department], org) : null,
+        input.location ? recordOptions("location", [input.location], org) : null,
+        recordOptions("skill", [...(input.skillsRequired ?? []), ...(input.skillsPreferred ?? [])], org),
+        recordOptions("benefit", input.benefits ?? [], org),
+    ]).catch((e: unknown) => console.error("recordJobOptions:", e instanceof Error ? e.message : e))
+}
 
 // ============================================
 // HELPERS
@@ -52,6 +68,7 @@ export async function createJob(input: CreateJobInput) {
                 title: input.title,
                 slug,
                 description: input.description,
+                department: input.department?.trim() || null,
                 requirements: input.requirements || [],
                 responsibilities: input.responsibilities || [],
                 benefits: input.benefits || [],
@@ -84,6 +101,7 @@ export async function createJob(input: CreateJobInput) {
             return created
         })
 
+        await recordJobOptions(member.companyId, input)
         revalidatePath("/jobs")
         return { success: true, data: job }
     } catch (error: unknown) {
@@ -110,6 +128,7 @@ export async function updateJob(jobId: string, input: Partial<CreateJobInput>) {
         const updateData: Record<string, unknown> = {}
         if (input.title !== undefined) updateData.title = input.title
         if (input.description !== undefined) updateData.description = input.description
+        if (input.department !== undefined) updateData.department = input.department.trim() || null
         if (input.requirements !== undefined) updateData.requirements = input.requirements
         if (input.responsibilities !== undefined) updateData.responsibilities = input.responsibilities
         if (input.benefits !== undefined) updateData.benefits = input.benefits
@@ -148,6 +167,7 @@ export async function updateJob(jobId: string, input: Partial<CreateJobInput>) {
 
         const job = updatedJobs[0]
         if (!job) return { success: false, error: "Failed to update job" }
+        await recordJobOptions(member.companyId, input)
 
         revalidatePath("/jobs")
         revalidatePath(`/jobs/${job.slug}`)
@@ -322,7 +342,17 @@ export async function deleteJob(jobId: string) {
         if (!auth.ok) return { success: false, error: auth.error }
         const member = auth.ctx.member
 
-        await db.delete(jobs).where(and(eq(jobs.id, jobId), eq(jobs.companyId, member.companyId)))
+        // The job's own pipeline copies go with it (plan/hiring-ui HU-18): nothing points back
+        // at them once the job is gone. A copy candidates have runs on stays, for those runs.
+        await withTransaction(async (tx) => {
+            const [deleted] = await tx.delete(jobs).where(and(eq(jobs.id, jobId), eq(jobs.companyId, member.companyId))).returning({ id: jobs.id })
+            if (!deleted) return
+            const copies = await tx.select({ id: interviewProcesses.id }).from(interviewProcesses)
+                .where(and(eq(interviewProcesses.jobId, jobId), eq(interviewProcesses.companyId, member.companyId), eq(interviewProcesses.isTemplate, false)))
+            for (const c of copies) {
+                if ((await runsUsing(tx, c.id)) === 0) await tx.delete(interviewProcesses).where(eq(interviewProcesses.id, c.id))
+            }
+        })
 
         revalidatePath("/jobs")
         return { success: true }

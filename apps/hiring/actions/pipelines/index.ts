@@ -4,7 +4,7 @@
  * Re-exports all interview configuration server actions.
  * 
  * Usage:
- * import { createInterviewProcess, addInterviewRound } from "@/actions/interview-config"
+ * import { createInterviewProcess, addInterviewRound } from "@/actions/pipelines"
  */
 
 // Re-export types

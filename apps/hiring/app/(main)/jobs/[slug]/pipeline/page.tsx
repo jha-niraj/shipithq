@@ -1,8 +1,8 @@
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { getJobBySlug } from "@/actions/jobs"
-import { getDefaultPoolSizes, getPipeline } from "@/actions/interview-config/pipeline-builder.action"
-import { PipelineBuilder } from "../../../interview-config/[id]/_components/pipeline-builder"
+import { getDefaultPoolSizes, getPipeline } from "@/actions/pipelines/pipeline-builder.action"
+import { PipelineBuilder } from "../../../pipelines/[id]/_components/pipeline-builder"
 
 export const dynamic = "force-dynamic"
 

@@ -91,7 +91,7 @@ export function NewJobPipeline({ choices, value, onChange }: { choices: Pipeline
             ) : (
                 <p className="text-xs text-neutral-500 dark:text-neutral-400">
                     A draft can be saved without one; publishing needs a pipeline, because candidates take its rounds instead of applying.{" "}
-                    <Link href="/interview-config" className="underline underline-offset-2">Manage pipelines</Link>
+                    <Link href="/pipelines" className="underline underline-offset-2">Manage pipelines</Link>
                 </p>
             )}
         </div>

@@ -6,12 +6,14 @@ import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select"
+import { NumberTextInput } from "@repo/ui/components/ui/number-text-input"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { cn } from "@repo/ui/lib/utils"
 import {
     getGeneration, listDraftQuestions, reviewDraftQuestion, startAptitudeGeneration,
     type DraftQuestion, type GenerationStatus,
-} from "@/actions/interview-config/aptitude-ai.action"
+} from "@/actions/pipelines/aptitude-ai.action"
 
 /*
  * "Generate with AI" and the review of what it wrote (plan/hiring-rounds
@@ -98,22 +100,24 @@ export function AptitudeAiPanel({ onChanged, onClose }: { onChanged: () => Promi
                 <div className="grid gap-2 sm:grid-cols-3">
                     <label className="text-xs text-neutral-600 dark:text-neutral-400">
                         How many ({limits.min} to {limits.max})
-                        <Input type="number" min={limits.min} max={limits.max} value={Number.isNaN(countValue) ? "" : countValue}
-                            onChange={(e) => setCountValue(e.target.value === "" ? Number.NaN : Number(e.target.value))} disabled={running} className="mt-1" />
+                        <NumberTextInput min={limits.min} max={limits.max} value={Number.isNaN(countValue) ? null : countValue}
+                            onChange={(v) => setCountValue(v ?? Number.NaN)} disabled={running} className="mt-1" aria-label="How many questions" />
                     </label>
                     <label className="text-xs text-neutral-600 dark:text-neutral-400">
                         Difficulty
-                        <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as typeof difficulty)} disabled={running}
-                            className="mt-1 block h-9 w-full rounded-md border border-neutral-200 bg-white px-2 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white">
-                            <option value="EASY">Easy</option><option value="MEDIUM">Medium</option><option value="HARD">Hard</option>
-                        </select>
+                        <Select value={difficulty} onValueChange={(v) => setDifficulty(v as typeof difficulty)} disabled={running}>
+                            <SelectTrigger className="mt-1 h-9 w-full text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent><SelectItem value="EASY">Easy</SelectItem><SelectItem value="MEDIUM">Medium</SelectItem><SelectItem value="HARD">Hard</SelectItem></SelectContent>
+                        </Select>
                     </label>
                     <label className="text-xs text-neutral-600 dark:text-neutral-400">
                         Section
-                        <select value={section} onChange={(e) => setSection(e.target.value as typeof section)} disabled={running}
-                            className="mt-1 block h-9 w-full rounded-md border border-neutral-200 bg-white px-2 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white">
-                            <option value="">A mix</option><option value="QUANT">Quant</option><option value="LOGICAL">Logical</option><option value="VERBAL">Verbal</option>
-                        </select>
+                        <Select value={section || "__mix"} onValueChange={(v) => setSection((v === "__mix" ? "" : v) as typeof section)} disabled={running}>
+                            <SelectTrigger className="mt-1 h-9 w-full text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__mix">A mix</SelectItem><SelectItem value="QUANT">Quant</SelectItem><SelectItem value="LOGICAL">Logical</SelectItem><SelectItem value="VERBAL">Verbal</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </label>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

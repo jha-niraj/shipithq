@@ -96,7 +96,7 @@ export async function listPipelines(): Promise<Result<{
             }),
             db.query.interviewProcesses.findMany({
                 where: and(eq(interviewProcesses.ownerKind, "PLATFORM"), eq(interviewProcesses.isTemplate, true), eq(interviewProcesses.isActive, true)),
-                with: { rounds: { columns: { title: true, roundType: true, roundNumber: true } } },
+                with: { rounds: { columns: { title: true, roundType: true, roundNumber: true, durationMinutes: true } } },
                 orderBy: [asc(interviewProcesses.name)],
             }),
             // Jobs use their own copies (HR-12), so a template's jobs are the ones whose copy came from it.
@@ -121,7 +121,7 @@ export async function listPipelines(): Promise<Result<{
                     id: t.id,
                     name: t.name,
                     description: t.description,
-                    rounds: [...t.rounds].sort((a, b) => a.roundNumber - b.roundNumber).map((r) => ({ title: r.title, roundType: r.roundType })),
+                    rounds: [...t.rounds].sort((a, b) => a.roundNumber - b.roundNumber).map((r) => ({ title: r.title, roundType: r.roundType, durationMinutes: r.durationMinutes })),
                 })),
                 canManage: ctx.can("manage_pipelines"),
                 aiDraftsLeft: await draftsLeft(ctx.companyId),
@@ -251,7 +251,7 @@ export async function createPipeline(input: { name: string; fromTemplateId?: str
             if (source) await copyRounds(tx, source.id, created.id)
             return created.id
         })
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true, data: { id } }
     } catch (error: unknown) {
         console.error("createPipeline:", error instanceof Error ? error.message : error)
@@ -377,8 +377,8 @@ export async function savePipeline(id: string, input: { name: string; descriptio
             }
             return target
         })
-        revalidatePath("/interview-config")
-        revalidatePath(`/interview-config/${id}`)
+        revalidatePath("/pipelines")
+        revalidatePath(`/pipelines/${id}`)
         revalidatePath("/jobs")
         return { success: true, data: { id: targetId } }
     } catch (error: unknown) {
@@ -494,7 +494,7 @@ export async function deletePipeline(id: string): Promise<Result<null>> {
         if (!p || !p.isTemplate) return { success: false, error: "That pipeline doesn't exist." }
         // Jobs keep their own copies (HR-12): deleting the template leaves them as they are.
         await db.delete(interviewProcesses).where(eq(interviewProcesses.id, id))
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true, data: null }
     } catch (error: unknown) {
         console.error("deletePipeline:", error instanceof Error ? error.message : error)

@@ -4,16 +4,18 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Reorder, useDragControls } from "framer-motion"
-import { ArrowDown, ArrowLeft, ArrowUp, CircleAlert, GripVertical, Plus, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowLeft, ArrowUp, CircleAlert, GripVertical, Plus, Save, Trash2 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { NumberTextInput } from "@repo/ui/components/ui/number-text-input"
+import { StickyAside } from "@repo/ui/components/ui/sticky-action-bar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { cn } from "@repo/ui/lib/utils"
 import { BEHAVIOURAL_KNOWLEDGE, BEHAVIOURAL_RUBRIC, CULTURE_KNOWLEDGE, CULTURE_RUBRIC } from "@repo/db/hiring-defaults"
-import { deletePipeline, getPipeline, getPoolCatalog, savePipeline } from "@/actions/interview-config/pipeline-builder.action"
+import { deletePipeline, getPipeline, getPoolCatalog, savePipeline } from "@/actions/pipelines/pipeline-builder.action"
 import {
     AI_ASSESSED_TYPES, PIPELINE_LIMITS, POOLED_TYPES, ROUND_TYPE_LABEL, V1_ROUND_TYPES, roundProblems,
     type BuilderRound, type CatalogItem, type PoolLevel, type RoundDraft, type RubricCriterion, type V1RoundType,
@@ -26,6 +28,11 @@ import { PoolSheet } from "./pool-sheet"
  * arrows, and the selected round's settings on the right. Nothing is written
  * until Save, which sends the whole pipeline; leaving with unsaved changes
  * asks first. The company AI docks beside this in HA-11.
+ *
+ * plan/hiring-ui HU-8 (Niraj 2026-09-27): the page uses its width; the name and
+ * description sit compact at the top; the rounds list and the Save / Delete /
+ * unsaved state stay in a sticky left column, the actions pinned to its bottom;
+ * every number is a validated text field or a select, never a spinner.
  */
 
 type Pipeline = {
@@ -212,7 +219,7 @@ export function PipelineBuilder({ pipeline, defaultPoolSizes }: { pipeline: Pipe
         if (!r.success) { toast.error(r.error); setConfirmDelete(false); return }
         setBaseline(snapshot(name, description, rounds)) // nothing to guard any more
         toast.success("Pipeline deleted")
-        router.push("/interview-config")
+        router.push("/pipelines")
     }
 
     const current = rounds.find((r) => r.key === selected) ?? null
@@ -235,8 +242,8 @@ export function PipelineBuilder({ pipeline, defaultPoolSizes }: { pipeline: Pipe
     }
 
     return (
-        <div className="page-frame space-y-5 px-page py-6">
-            <Link href={job ? `/jobs/${job.slug}/edit` : "/interview-config"} className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200">
+        <div className="space-y-4 px-page py-6">
+            <Link href={job ? `/jobs/${job.slug}/edit` : "/pipelines"} className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200">
                 <ArrowLeft className="h-4 w-4" /> {job ? job.title : "Pipelines"}
             </Link>
 
@@ -251,103 +258,113 @@ export function PipelineBuilder({ pipeline, defaultPoolSizes }: { pipeline: Pipe
                 </div>
             )}
 
-            {/* Header: the name, and Save */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0 flex-1 space-y-2">
-                    <Input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        disabled={!editable}
-                        maxLength={80}
-                        aria-label="Pipeline name"
-                        className="h-11 max-w-xl text-lg font-semibold"
-                    />
-                    <Textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        disabled={!editable}
-                        rows={2}
-                        maxLength={1000}
-                        placeholder="Who this pipeline is for (shown to candidates)."
-                        aria-label="Pipeline description"
-                        className="max-w-xl"
-                    />
-                    {!job && (
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                            {jobsUsing === 0 ? "No jobs were made from this pipeline yet." : `${jobsUsing} ${jobsUsing === 1 ? "job was" : "jobs were"} made from this pipeline. Each has its own copy, so saving here doesn't change them.`}
-                        </p>
-                    )}
-                </div>
-                {editable && (
-                    <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        {dirty && <span className="text-sm text-neutral-500 dark:text-neutral-400">Unsaved changes</span>}
-                        {job ? null : confirmDelete ? (
-                            <>
-                                <Button variant="outline" className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400" onClick={() => void destroy()}>
-                                    Delete for good
-                                </Button>
-                                <Button variant="ghost" onClick={() => setConfirmDelete(false)}>Keep</Button>
-                            </>
-                        ) : (
-                            <Button variant="outline" onClick={() => setConfirmDelete(true)} aria-label="Delete pipeline"><Trash2 className="h-4 w-4" /></Button>
-                        )}
-                        <Button onClick={() => void save()} disabled={!canSave} className="gap-1.5">
-                            {saving && <InlineLoader size="sm" />} Save pipeline
-                        </Button>
-                    </div>
-                )}
+            {/* The name and description, compact */}
+            <div className="grid gap-2 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
+                <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={!editable}
+                    maxLength={80}
+                    aria-label="Pipeline name"
+                    placeholder="Name the pipeline"
+                    className="h-10 text-base font-semibold"
+                />
+                <Textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    disabled={!editable}
+                    rows={1}
+                    maxLength={1000}
+                    placeholder="Who this pipeline is for (shown to candidates)."
+                    aria-label="Pipeline description"
+                    className="min-h-10 resize-y"
+                />
             </div>
 
-            {firstProblem >= 0 && dirty && (
-                <p className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-300">
-                    <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                    Round {firstProblem + 1}: {problems[rounds[firstProblem]!.key]![0]}
-                </p>
-            )}
-
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-[20rem_minmax(0,1fr)]">
-                {/* Rounds, in order */}
-                <aside className="space-y-2">
-                    <p className="px-1 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                        Rounds <span className="normal-case tracking-normal">({rounds.length}/{PIPELINE_LIMITS.maxRounds})</span>
-                    </p>
-                    <Reorder.Group axis="y" values={rounds} onReorder={editable ? setRounds : () => {}} className="space-y-2">
-                        {rounds.map((r, i) => (
-                            <RoundRow
-                                key={r.key}
-                                round={r}
-                                index={i}
-                                count={rounds.length}
-                                selected={r.key === selected}
-                                hasProblem={problems[r.key]!.length > 0}
-                                editable={editable}
-                                onSelect={() => setSelected(r.key)}
-                                onMove={(dir) => move(r.key, dir)}
-                            />
-                        ))}
-                    </Reorder.Group>
-                    {rounds.length === 0 && (
-                        <p className="rounded-xl border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
-                            No rounds yet.
+                {/* Rounds, in order, with the pipeline's actions pinned under them */}
+                <StickyAside className="flex flex-col rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+                    <div className="flex-1 space-y-2 p-3">
+                        <p className="px-1 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                            Rounds <span className="normal-case tracking-normal">({rounds.length}/{PIPELINE_LIMITS.maxRounds})</span>
                         </p>
-                    )}
-                    {editable && rounds.length < PIPELINE_LIMITS.maxRounds && (
-                        adding ? (
-                            <div className="rounded-xl border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-900">
-                                {V1_ROUND_TYPES.map((t) => (
-                                    <button key={t} type="button" onClick={() => add(t)} className="block w-full rounded-lg px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800">
-                                        {ROUND_TYPE_LABEL[t]}
-                                    </button>
-                                ))}
-                                <button type="button" onClick={() => setAdding(false)} className="mt-1 block w-full rounded-lg px-3 py-1.5 text-left text-xs text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800">Cancel</button>
-                            </div>
+                        <Reorder.Group axis="y" values={rounds} onReorder={editable ? setRounds : () => {}} className="space-y-2">
+                            {rounds.map((r, i) => (
+                                <RoundRow
+                                    key={r.key}
+                                    round={r}
+                                    index={i}
+                                    count={rounds.length}
+                                    selected={r.key === selected}
+                                    hasProblem={problems[r.key]!.length > 0}
+                                    editable={editable}
+                                    onSelect={() => setSelected(r.key)}
+                                    onMove={(dir) => move(r.key, dir)}
+                                />
+                            ))}
+                        </Reorder.Group>
+                        {rounds.length === 0 && (
+                            <p className="rounded-xl border border-dashed border-neutral-300 px-4 py-6 text-center text-sm text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
+                                No rounds yet.
+                            </p>
+                        )}
+                        {editable && rounds.length < PIPELINE_LIMITS.maxRounds && (
+                            adding ? (
+                                <div className="rounded-xl border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-900">
+                                    {V1_ROUND_TYPES.map((t) => (
+                                        <button key={t} type="button" onClick={() => add(t)} className="block w-full rounded-lg px-3 py-2 text-left text-sm text-neutral-800 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800">
+                                            {ROUND_TYPE_LABEL[t]}
+                                        </button>
+                                    ))}
+                                    <button type="button" onClick={() => setAdding(false)} className="mt-1 block w-full rounded-lg px-3 py-1.5 text-left text-xs text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800">Cancel</button>
+                                </div>
+                            ) : (
+                                <Button variant="outline" className="w-full gap-1.5 border-dashed" onClick={() => setAdding(true)}>
+                                    <Plus className="h-4 w-4" /> Add round
+                                </Button>
+                            )
+                        )}
+                    </div>
+
+                    <div className="sticky bottom-0 space-y-2 rounded-b-2xl border-t border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                        {firstProblem >= 0 && dirty && (
+                            <p className="flex items-start gap-2 text-xs text-rose-700 dark:text-rose-400">
+                                <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                Round {firstProblem + 1}: {problems[rounds[firstProblem]!.key]![0]}
+                            </p>
+                        )}
+                        {!job && (
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                {jobsUsing === 0 ? "No jobs use this pipeline yet." : `${jobsUsing} ${jobsUsing === 1 ? "job was" : "jobs were"} made from it; each has its own copy, so saving here doesn't change them.`}
+                            </p>
+                        )}
+                        {editable ? (
+                            <>
+                                <p className={cn("text-xs font-medium", dirty ? "text-neutral-900 dark:text-white" : "text-neutral-500 dark:text-neutral-400")}>
+                                    {saving ? "Saving" : dirty ? "Unsaved changes" : "All changes saved"}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Button onClick={() => void save()} disabled={!canSave} className="flex-1 gap-1.5">
+                                        {saving ? <InlineLoader size="sm" /> : <Save className="h-4 w-4" />} Save pipeline
+                                    </Button>
+                                    {!job && !confirmDelete && (
+                                        <Button variant="outline" size="icon" onClick={() => setConfirmDelete(true)} aria-label="Delete pipeline"><Trash2 className="h-4 w-4" /></Button>
+                                    )}
+                                </div>
+                                {!job && confirmDelete && (
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" className="flex-1 border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400" onClick={() => void destroy()}>
+                                            Delete for good
+                                        </Button>
+                                        <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>Keep</Button>
+                                    </div>
+                                )}
+                            </>
                         ) : (
-                            <Button variant="outline" className="w-full gap-1.5" onClick={() => setAdding(true)}>
-                                <Plus className="h-4 w-4" /> Add round
-                            </Button>
-                        )
-                    )}
-                </aside>
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400">You can view this pipeline; changing it needs pipeline access.</p>
+                        )}
+                    </div>
+                </StickyAside>
 
                 {/* The selected round */}
                 <section className="min-w-0 rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
@@ -457,7 +474,13 @@ function Field({ label, hint, children, htmlFor }: { label: string; hint?: strin
     )
 }
 
-const num = (v: string) => (v.trim() === "" ? Number.NaN : Number(v))
+/** The round keeps NaN for an empty field (roundProblems names it); the input speaks null. */
+const toField = (n: number) => (Number.isNaN(n) ? null : n)
+const fromField = (n: number | null) => n ?? Number.NaN
+
+/** Cool-downs as choices: the common waits, plus the round's own if it was set to something else. */
+const COOLDOWNS = [0, 1, 6, 12, 24, 48, 72, 168, 336, 720]
+const cooldownLabel = (h: number) => h === 0 ? "No wait" : h < 24 ? `${h} ${h === 1 ? "hour" : "hours"}` : h % 168 === 0 ? `${h / 168} ${h === 168 ? "week" : "weeks"}` : `${h / 24} ${h === 24 ? "day" : "days"}`
 
 function RoundEditor({ round: r, index, problems, pool, defaultPoolSizes, editable, onChange, onRemove, onEditPool }: {
     round: EditRound
@@ -552,14 +575,21 @@ function RoundEditor({ round: r, index, problems, pool, defaultPoolSizes, editab
                         ))}
                     </div>
                 </Field>
-                <Field label="Pass mark (0-100)" htmlFor={id("pass")}>
-                    <Input id={id("pass")} type="number" inputMode="numeric" min={0} max={100} value={Number.isNaN(r.passMark) ? "" : r.passMark} onChange={(e) => onChange({ passMark: num(e.target.value) })} disabled={!editable} className="w-32" />
+                <Field label="Pass mark" htmlFor={id("pass")}>
+                    <NumberTextInput id={id("pass")} value={toField(r.passMark)} onChange={(v) => onChange({ passMark: fromField(v) })} min={PIPELINE_LIMITS.passMark.min} max={PIPELINE_LIMITS.passMark.max} suffix="of 100" disabled={!editable} className="w-40" />
                 </Field>
-                <Field label="Time limit (minutes)" htmlFor={id("time")}>
-                    <Input id={id("time")} type="number" inputMode="numeric" min={5} max={180} value={Number.isNaN(r.timeLimitMinutes) ? "" : r.timeLimitMinutes} onChange={(e) => onChange({ timeLimitMinutes: num(e.target.value) })} disabled={!editable} className="w-32" />
+                <Field label="Time limit" htmlFor={id("time")}>
+                    <NumberTextInput id={id("time")} value={toField(r.timeLimitMinutes)} onChange={(v) => onChange({ timeLimitMinutes: fromField(v) })} min={PIPELINE_LIMITS.timeLimitMinutes.min} max={PIPELINE_LIMITS.timeLimitMinutes.max} suffix="min" disabled={!editable} className="w-40" />
                 </Field>
-                <Field label="Retake cool-down (hours)" hint="How long a candidate waits before trying this round again." htmlFor={id("cool")}>
-                    <Input id={id("cool")} type="number" inputMode="numeric" min={0} max={720} value={Number.isNaN(r.cooldownHours) ? "" : r.cooldownHours} onChange={(e) => onChange({ cooldownHours: num(e.target.value) })} disabled={!editable} className="w-32" />
+                <Field label="Retake cool-down" hint="How long a candidate waits before trying this round again." htmlFor={id("cool")}>
+                    <Select value={Number.isNaN(r.cooldownHours) ? undefined : String(r.cooldownHours)} onValueChange={(v) => onChange({ cooldownHours: Number(v) })} disabled={!editable}>
+                        <SelectTrigger id={id("cool")} className="w-40"><SelectValue placeholder="Pick a wait" /></SelectTrigger>
+                        <SelectContent>
+                            {[...new Set([...COOLDOWNS, ...(Number.isNaN(r.cooldownHours) ? [] : [r.cooldownHours])])].sort((a, b) => a - b).map((h) => (
+                                <SelectItem key={h} value={String(h)}>{cooldownLabel(h)}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </Field>
             </div>
 
@@ -567,7 +597,7 @@ function RoundEditor({ round: r, index, problems, pool, defaultPoolSizes, editab
             {pooled && (
                 <div className="grid gap-4 px-5 py-5 sm:grid-cols-2">
                     <Field label={r.roundType === "APTITUDE" ? "Questions per attempt" : r.roundType === "DSA" ? "Problems per attempt" : "Prompts per attempt"} htmlFor={id("draw")}>
-                        <Input id={id("draw")} type="number" inputMode="numeric" min={1} max={50} value={Number.isNaN(r.drawCount) ? "" : r.drawCount} onChange={(e) => onChange({ drawCount: num(e.target.value) })} disabled={!editable} className="w-32" />
+                        <NumberTextInput id={id("draw")} value={toField(r.drawCount)} onChange={(v) => onChange({ drawCount: fromField(v) })} min={PIPELINE_LIMITS.drawCount.min} max={PIPELINE_LIMITS.drawCount.max} disabled={!editable} className="w-40" />
                     </Field>
                     {freshPool ? (
                         <Field label="Question level" hint="Sets which of ShipItHQ's questions this round draws from. You can pick them one by one later.">
@@ -644,7 +674,7 @@ function RubricEditor({ rubric, editable, onChange }: { rubric: RubricCriterion[
                 {rubric.map((c, i) => (
                     <div key={i} className="grid gap-2 rounded-xl border border-neutral-200 p-3 sm:grid-cols-[minmax(0,1fr)_6rem_auto] dark:border-neutral-800">
                         <Input value={c.criterion} onChange={(e) => set(i, { criterion: e.target.value })} placeholder="Criterion" maxLength={60} disabled={!editable} aria-label="Criterion" />
-                        <Input type="number" inputMode="numeric" min={0} max={100} value={Number.isNaN(c.weight) ? "" : c.weight} onChange={(e) => set(i, { weight: num(e.target.value) })} disabled={!editable} aria-label="Weight" />
+                        <NumberTextInput value={toField(c.weight)} onChange={(v) => set(i, { weight: fromField(v) })} min={0} max={100} suffix="%" disabled={!editable} aria-label="Weight" />
                         {editable && (
                             <Button variant="ghost" size="icon" aria-label="Remove criterion" onClick={() => onChange(rubric.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
                         )}

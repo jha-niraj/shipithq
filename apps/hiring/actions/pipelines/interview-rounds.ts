@@ -51,7 +51,7 @@ export async function addInterviewRound(processId: string, round: InterviewRound
             mockKnowledgeBase: round.mockKnowledgeBase
         }).returning()
 
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true, data: newRound }
     } catch (error: unknown) {
         console.error("Error adding interview round:", error)
@@ -102,7 +102,7 @@ export async function updateInterviewRound(roundId: string, input: Partial<Inter
             .where(eq(interviewRounds.id, roundId))
             .returning()
 
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true, data: round }
     } catch (error: unknown) {
         console.error("Error updating interview round:", error)
@@ -133,7 +133,7 @@ export async function deleteInterviewRound(roundId: string) {
 
         await db.delete(interviewRounds).where(eq(interviewRounds.id, roundId))
 
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true }
     } catch (error: unknown) {
         console.error("Error deleting interview round:", error)
@@ -169,7 +169,7 @@ export async function reorderInterviewRounds(processId: string, roundIds: string
             )
         )
 
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true }
     } catch (error: unknown) {
         console.error("Error reordering interview rounds:", error)

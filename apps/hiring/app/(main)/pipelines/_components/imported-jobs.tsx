@@ -58,7 +58,7 @@ function ImportedRow({ job: j, canManage, pipelines }: { job: CompanyImportedJob
         if (!r.success) { toast.error(r.error); return }
         if (kind === "adopt" && r.data && typeof r.data === "object" && "pipelineId" in r.data) {
             toast.success("Adopted. Students now practise your copy; edit it like any pipeline.")
-            router.push(`/interview-config/${r.data.pipelineId}`)
+            router.push(`/pipelines/${r.data.pipelineId}`)
             return
         }
         toast.success(kind === "replace" ? "Students now practise that pipeline." : "Students are back on ShipItHQ's rounds.")
@@ -80,7 +80,7 @@ function ImportedRow({ job: j, canManage, pipelines }: { job: CompanyImportedJob
                 </div>
                 {j.companyPipeline && (
                     <p className="shrink-0 rounded-lg border border-neutral-900 px-2.5 py-1 text-xs text-neutral-900 dark:border-white dark:text-white">
-                        Students practise <Link href={`/interview-config/${j.companyPipeline.id}`} className="font-medium underline underline-offset-2">{j.companyPipeline.name}</Link>
+                        Students practise <Link href={`/pipelines/${j.companyPipeline.id}`} className="font-medium underline underline-offset-2">{j.companyPipeline.name}</Link>
                     </p>
                 )}
             </div>
@@ -126,7 +126,7 @@ function ImportedRow({ job: j, canManage, pipelines }: { job: CompanyImportedJob
                         </Button>
                     )}
                     {j.companyPipeline && (
-                        <Button asChild size="sm" variant="ghost" className="gap-1.5"><Link href={`/interview-config/${j.companyPipeline.id}`}>Edit your pipeline <ArrowRight className="h-3.5 w-3.5" /></Link></Button>
+                        <Button asChild size="sm" variant="ghost" className="gap-1.5"><Link href={`/pipelines/${j.companyPipeline.id}`}>Edit your pipeline <ArrowRight className="h-3.5 w-3.5" /></Link></Button>
                     )}
                 </div>
             )}

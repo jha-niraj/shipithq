@@ -106,7 +106,7 @@ export interface TemplateSummary {
     id: string
     name: string
     description: string | null
-    rounds: { title: string; roundType: string }[]
+    rounds: { title: string; roundType: string; durationMinutes: number | null }[]
 }
 
 /** Limits every saved pipeline is checked against, client and server alike. */

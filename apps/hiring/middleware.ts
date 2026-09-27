@@ -26,7 +26,7 @@ async function getSessionFromRequest(request: NextRequest): Promise<SessionData 
 
 // Pages a signed-out visitor may open. EVERYTHING else needs a session
 // (plan/hiring-app HA-2). This used to be the opposite - a hand-written list of
-// protected prefixes - and it went stale: /billing, /interview-config, /mock,
+// protected prefixes - and it went stale: /billing, /pipelines, /mock,
 // /invoices and /transactions were never added, so they rendered for anyone.
 // A new page is now protected by default; only a public one needs a line here.
 const publicRoutes = [

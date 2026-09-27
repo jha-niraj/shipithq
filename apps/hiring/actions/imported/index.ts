@@ -75,7 +75,7 @@ export async function adoptImport(importId: string): Promise<Result<{ pipelineId
             await tx.update(importedJobs).set({ companyProcessId: created.id, updatedAt: new Date() }).where(eq(importedJobs.id, row.id))
             return created.id
         })
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true, data: { pipelineId } }
     } catch (error: unknown) {
         console.error("adoptImport:", error instanceof Error ? error.message : error)
@@ -94,7 +94,7 @@ export async function replaceImport(importId: string, pipelineId: string): Promi
         const problems = await pipelineReadiness(pipelineId)
         if (problems.length) return { success: false, error: `That pipeline isn't ready yet. ${problems[0]}` }
         await db.update(importedJobs).set({ companyProcessId: pipelineId, updatedAt: new Date() }).where(eq(importedJobs.id, row.id))
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true, data: null }
     } catch (error: unknown) {
         console.error("replaceImport:", error instanceof Error ? error.message : error)
@@ -108,7 +108,7 @@ export async function revertImport(importId: string): Promise<Result<null>> {
     if ("error" in found) return { success: false, error: found.error! }
     try {
         await db.update(importedJobs).set({ companyProcessId: null, updatedAt: new Date() }).where(eq(importedJobs.id, found.row.id))
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true, data: null }
     } catch (error: unknown) {
         console.error("revertImport:", error instanceof Error ? error.message : error)

@@ -92,6 +92,8 @@ export const jobs = pgTable(
         title: text("title").notNull(),
         slug: text("slug").notNull().unique(),
         description: text("description").notNull(),
+        /** The team the job sits in (plan/hiring-ui HU-5): a select with "Other"; it was asked for and never saved before. */
+        department: text("department"),
         requirements: jsonb("requirements"),
         responsibilities: jsonb("responsibilities"),
         benefits: jsonb("benefits"),

@@ -92,6 +92,7 @@ export interface AssignmentDetails {
 export interface CreateJobInput {
     title: string
     description: string
+    department?: string
     requirements?: string[]
     responsibilities?: string[]
     benefits?: string[]

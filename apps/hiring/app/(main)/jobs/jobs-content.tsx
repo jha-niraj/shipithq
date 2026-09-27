@@ -125,7 +125,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
             ACTIVE: "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100",
             PAUSED: "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100",
             DRAFT: "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400",
-            CLOSED: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+            CLOSED: "bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400",
             FILLED: "bg-neutral-100 dark:bg-neutral-800/30 text-neutral-800 dark:text-neutral-100"
         }
         return styles[status] || styles.DRAFT
@@ -145,15 +145,12 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
     return (
         <div className="page-frame space-y-5 px-page py-6">
             <PageHeader
-                title="Job Listings"
-                subtitle="Manage and track all your open positions"
+                title="Jobs"
+                subtitle="Every job you've posted, with its pipeline and results."
                 actions={
-                    <Link href="/jobs/new">
-                        <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Create New Job
-                        </Button>
-                    </Link>
+                    <Button asChild size="sm" className="gap-1.5">
+                        <Link href="/jobs/new"><Plus className="h-4 w-4" /> New job</Link>
+                    </Button>
                 }
             />
 
@@ -163,11 +160,11 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                         <StatBand
                             cols={6}
                             items={[
-                                { icon: Briefcase, label: "Total Jobs", value: stats.total },
+                                { icon: Briefcase, label: "Jobs", value: stats.total },
                                 { icon: CheckCircle, label: "Active", value: stats.active },
                                 { icon: Pause, label: "Paused", value: stats.paused },
                                 { icon: Edit, label: "Drafts", value: stats.draft },
-                                { icon: Eye, label: "Total Views", value: stats.totalViews },
+                                { icon: Eye, label: "Views", value: stats.totalViews },
                                 { icon: Users, label: "Results received", value: stats.totalApplications },
                             ]}
                         />
@@ -179,7 +176,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <Input
-                        placeholder="Search jobs..."
+                        placeholder="Search jobs"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="pl-10 rounded-xl bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800"
@@ -190,7 +187,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                         <SelectValue placeholder="All statuses" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="all">All statuses</SelectItem>
                         <SelectItem value="ACTIVE">Active</SelectItem>
                         <SelectItem value="PAUSED">Paused</SelectItem>
                         <SelectItem value="DRAFT">Draft</SelectItem>
@@ -298,7 +295,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                                                     <DropdownMenuItem asChild>
                                                         <Link href={`/jobs/${job.slug}/edit`} className="flex items-center">
                                                             <Edit className="w-4 h-4 mr-2" />
-                                                            Edit Job
+                                                            Edit job
                                                         </Link>
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem asChild>
@@ -312,7 +309,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                                                         job.status === "DRAFT" && (
                                                             <DropdownMenuItem onClick={() => handlePublish(job.id)} disabled={isPending}>
                                                                 <Play className="w-4 h-4 mr-2" />
-                                                                Publish Job
+                                                                Publish job
                                                             </DropdownMenuItem>
                                                         )
                                                     }
@@ -320,7 +317,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                                                         job.status === "ACTIVE" && (
                                                             <DropdownMenuItem onClick={() => handlePause(job.id)} disabled={isPending}>
                                                                 <Pause className="w-4 h-4 mr-2" />
-                                                                Pause Job
+                                                                Pause job
                                                             </DropdownMenuItem>
                                                         )
                                                     }
@@ -328,7 +325,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                                                         job.status === "PAUSED" && (
                                                             <DropdownMenuItem onClick={() => handlePublish(job.id)} disabled={isPending}>
                                                                 <Play className="w-4 h-4 mr-2" />
-                                                                Resume Job
+                                                                Resume job
                                                             </DropdownMenuItem>
                                                         )
                                                     }
@@ -340,10 +337,10 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                                                     <DropdownMenuItem
                                                         onClick={() => handleDelete(job.id)}
                                                         disabled={isPending}
-                                                        className="text-red-600 focus:text-red-600"
+                                                        className="text-rose-600 focus:text-rose-600"
                                                     >
                                                         <Trash2 className="w-4 h-4 mr-2" />
-                                                        Delete Job
+                                                        Delete job
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
@@ -369,17 +366,14 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                             {
                                 search || statusFilter !== "all"
                                     ? "Try adjusting your search or filter criteria"
-                                    : "Create your first job listing to start receiving applications from qualified candidates."
+                                    : "Post your first job. Candidates take its rounds on ShipItHQ, and the ones who clear them send you their results."
                             }
                         </p>
                         {
                             !search && statusFilter === "all" && (
-                                <Link href="/jobs/new">
-                                    <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
-                                        <Plus className="w-4 h-4 mr-2" />
-                                        Create Your First Job
-                                    </Button>
-                                </Link>
+                                <Button asChild size="sm" className="gap-1.5">
+                                    <Link href="/jobs/new"><Plus className="h-4 w-4" /> Post your first job</Link>
+                                </Button>
                             )
                         }
                     </motion.div>

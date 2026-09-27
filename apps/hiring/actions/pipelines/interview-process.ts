@@ -159,7 +159,7 @@ export async function createInterviewProcess(input: InterviewProcessInput) {
             }
         })
 
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true, data: fullProcess }
     } catch (error: unknown) {
         console.error("Error creating interview process:", error)
@@ -221,7 +221,7 @@ export async function updateInterviewProcess(processId: string, input: Partial<I
             }
         })
 
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true, data: fullProcess }
     } catch (error: unknown) {
         console.error("Error updating interview process:", error)
@@ -260,7 +260,7 @@ export async function deleteInterviewProcess(processId: string) {
 
         await db.delete(interviewProcesses).where(eq(interviewProcesses.id, processId))
 
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true }
     } catch (error: unknown) {
         console.error("Error deleting interview process:", error)
@@ -343,7 +343,7 @@ export async function cloneInterviewProcess(processId: string, newName?: string)
             }
         })
 
-        revalidatePath("/interview-config")
+        revalidatePath("/pipelines")
         return { success: true, data: fullProcess }
     } catch (error: unknown) {
         console.error("Error cloning interview process:", error)

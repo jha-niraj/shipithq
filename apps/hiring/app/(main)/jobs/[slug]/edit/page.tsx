@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react"
 import { getJobBySlug } from "@/actions/jobs"
 import { getJobPipeline, getPipelineChoices } from "@/actions/jobs/job-pipeline.action"
 import JobFormContent, { type EditableJob } from "../../new/job-form-content"
+import { getOptions } from "@/actions/options"
 import type { CustomQuestion } from "@/types"
 
 export const dynamic = "force-dynamic"
@@ -32,6 +33,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ slug: 
         status: j.status,
         title: j.title,
         description: j.description,
+        department: (j as { department?: string | null }).department ?? null,
         location: j.location,
         locationType: j.locationType,
         employmentType: j.employmentType,
@@ -51,10 +53,13 @@ export default async function EditJobPage({ params }: { params: Promise<{ slug: 
         assignmentDeadlineDays: j.assignmentDeadlineDays,
         customQuestions: Array.isArray(j.customQuestions) ? (j.customQuestions as CustomQuestion[]) : [],
     }
-    const [choices, pipeline] = await Promise.all([getPipelineChoices(), getJobPipeline(j.id)])
+    const [choices, pipeline, options] = await Promise.all([
+        getPipelineChoices(), getJobPipeline(j.id), getOptions(["job_title", "department", "location", "skill", "benefit"]),
+    ])
     return (
         <JobFormContent
             pipelineChoices={choices.success ? choices.data : []}
+            options={options}
             job={job}
             jobPipeline={pipeline.success ? pipeline.data : null}
         />
