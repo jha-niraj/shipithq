@@ -91,16 +91,28 @@
   }
 }
 
+/* The page gutter as a negative margin: a bar (plan/hiring-ui HU-3, the sticky
+   action bar) that spans the page column edge to edge while its content keeps the
+   gutter. Always paired with `px-page`. */
+@utility bleed-page {
+  margin-inline: -0.75rem;
+  @media (width >= 40rem) {
+    margin-inline: -1rem;
+  }
+}
+
 /* ── Page frame ────────────────────────────────────────────────────────────
    Overviews and reading pages are capped at 80rem (max-w-7xl) and centred
    (Niraj, 2026-09-24, plan/ui-pass UI-10). Beside a pinned sidebar the column
    is narrower than this on a laptop, so the page fills it; with the sidebar
    unpinned it centres with even margins instead of stretching edge to edge.
    Grids and tools (Explore, Browse All, the workspace, editors) do not use it.
-   A page and its loading.tsx put it on the same element, or the page jumps. */
+   A page and its loading.tsx put it on the same element, or the page jumps.
+   An app may lift the cap by setting --page-frame-max: apps/hiring sets it to
+   none (full width, Niraj 2026-09-28, plan/hiring-ui HU-19). */
 @utility page-frame {
   width: 100%;
-  max-width: 80rem;
+  max-width: var(--page-frame-max, 80rem);
   margin-inline: auto;
 }
 

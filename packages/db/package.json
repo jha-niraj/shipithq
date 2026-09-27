@@ -33,7 +33,9 @@
         "./profile-values": "./src/profile-values.ts",
         "./hiring-permissions": "./src/hiring-permissions.ts",
         "./hiring-defaults": "./src/seed/hiring-pipelines.ts",
-        "./company-loop": "./src/company-loop.ts"
+        "./company-loop": "./src/company-loop.ts",
+        "./options": "./src/options.ts",
+        "./option-builtins": "./src/option-builtins.ts"
     },
     "scripts": {
         "db:generate": "dotenv -e ../../apps/main/.env -- drizzle-kit generate",

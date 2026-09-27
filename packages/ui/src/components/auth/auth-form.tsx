@@ -82,11 +82,12 @@ export function AuthField({ label, htmlFor, action, hint, error, children }: {
 
 /** The base Input with a show/hide toggle inside its right edge. */
 export const PasswordInput = React.forwardRef<HTMLInputElement, Omit<React.ComponentProps<"input">, "type">>(
-    function PasswordInput({ className, disabled, ...props }, ref) {
+    // A placeholder by default (Niraj, 2026-09-27: the password field had none); a form passes its own for "Create a password".
+    function PasswordInput({ className, disabled, placeholder = "Enter your password", ...props }, ref) {
         const [shown, setShown] = React.useState(false)
         return (
             <div className="relative">
-                <Input ref={ref} type={shown ? "text" : "password"} disabled={disabled} className={cn("pr-11", className)} {...props} />
+                <Input ref={ref} type={shown ? "text" : "password"} disabled={disabled} placeholder={placeholder} className={cn("pr-11", className)} {...props} />
                 <button
                     type="button"
                     onClick={() => setShown((s) => !s)}

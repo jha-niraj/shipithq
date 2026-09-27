@@ -13,11 +13,15 @@ import type { AIChatAction, AIChatAttachment, AIChatMessage, AIChatProposal, AIC
 // usable; above MAX the panel starts eating the page it is meant to assist with.
 export const AI_MIN_WIDTH = 320;
 export const AI_MAX_WIDTH = 900;
-// 380, down from 460 (Niraj, 2026-09-22: "reduce the width default"). With the
-// sidebar always expanded at 240px, 460 left a 1280px laptop a ~580px page.
-export const AI_DEFAULT_WIDTH = 380;
-/** The previous default. A width still at exactly this was never chosen by the user. */
-const PREVIOUS_DEFAULT_WIDTH = 460;
+// 460 (Niraj, 2026-09-28, plan/hiring-ui HU-1): the panel is open by default now and
+// the docked rail unpins the sidebar, so the page keeps its room. It was 380 from
+// 2026-09-22, when the sidebar stayed pinned beside it.
+export const AI_DEFAULT_WIDTH = 460;
+/** Earlier defaults. A width still at exactly one of these was never chosen by the user. */
+const PREVIOUS_DEFAULT_WIDTHS = [460, 380];
+
+/** Open by default on a desktop-width screen; below lg the panel is a Sheet and never opens by itself. */
+const DESKTOP_QUERY = "(min-width: 1024px)";
 
 export function clampPanelWidth(width: number): number {
 	return Math.min(Math.max(width, AI_MIN_WIDTH), AI_MAX_WIDTH);
@@ -26,6 +30,8 @@ export function clampPanelWidth(width: number): number {
 export interface AIPanelState {
 	// Panel chrome
 	isOpen: boolean;
+	/** The person closed the panel; remembered, so a refresh doesn't reopen it (HU-1). */
+	closedByUser: boolean;
 	width: number;
 	isMaximized: boolean;
 	open: () => void;
@@ -91,13 +97,16 @@ export function createAIPanelStore(name: string) {
 	return create<AIPanelState>()(
 	persist(
 		(set) => ({
+			// Closed until the stored choice is read (see onRehydrateStorage), so the
+			// server render and the first client render agree.
 			isOpen: false,
+			closedByUser: false,
 			width: AI_DEFAULT_WIDTH,
 			isMaximized: false,
 
-			open: () => set({ isOpen: true }),
-			close: () => set({ isOpen: false, isMaximized: false }),
-			toggle: () => set((s) => ({ isOpen: !s.isOpen, isMaximized: s.isOpen ? false : s.isMaximized })),
+			open: () => set({ isOpen: true, closedByUser: false }),
+			close: () => set({ isOpen: false, isMaximized: false, closedByUser: true }),
+			toggle: () => set((s) => ({ isOpen: !s.isOpen, closedByUser: s.isOpen, isMaximized: s.isOpen ? false : s.isMaximized })),
 			setWidth: (width) => set({ width: clampPanelWidth(width) }),
 			toggleMaximized: () => set((s) => ({ isMaximized: !s.isMaximized })),
 
@@ -221,12 +230,15 @@ export function createAIPanelStore(name: string) {
 			// v2: conversations moved to the database (plan/ai-chat, AC-4). The old
 			// local `sessions` array is dropped; the app is not in production, so
 			// there is nothing to import.
-			version: 2,
+			// v3: open by default, and 460 wide (plan/hiring-ui HU-1). A width still at an
+			// old default was never chosen, so it moves to the new one.
+			version: 3,
 			migrate: (persisted, version) => {
-				const state = (persisted ?? {}) as { width?: number; sessions?: unknown; activeSessionId?: unknown };
-				if (version < 1 && (state.width === undefined || state.width === PREVIOUS_DEFAULT_WIDTH)) {
+				const state = (persisted ?? {}) as { width?: number; sessions?: unknown; activeSessionId?: unknown; closedByUser?: boolean };
+				if (version < 3 && (state.width === undefined || PREVIOUS_DEFAULT_WIDTHS.includes(state.width))) {
 					state.width = AI_DEFAULT_WIDTH;
 				}
+				if (version < 3) state.closedByUser = false;
 				if (version < 2) {
 					delete state.sessions;
 					// A local id was never a server id.
@@ -234,16 +246,24 @@ export function createAIPanelStore(name: string) {
 				}
 				return state as never;
 			},
-			// `isOpen`/`isStreaming` are deliberately NOT persisted: reopening the app
-			// into a panel you don't remember opening is disorienting, and a persisted
-			// `isStreaming: true` would leave the composer permanently disabled after a
-			// refresh mid-response.
+			// `isOpen` itself is not persisted: the panel opens by default (Niraj,
+			// 2026-09-28), so what is kept is the person's choice to close it,
+			// `closedByUser`. `isStreaming` is never persisted: a stored `true` would
+			// leave the composer disabled after a refresh mid-response.
 			// The open chat's id is kept so a reload reopens it; its messages are
 			// fetched from the server, never stored here.
 			partialize: (s) => ({
 				width: s.width,
 				activeSessionId: s.activeSessionId,
+				closedByUser: s.closedByUser,
 			}),
+			// Open on arrival unless the person closed it last time, and only at desktop
+			// width: below lg the panel is a Sheet, and a sheet that pops open by itself on
+			// every phone visit is in the way.
+			onRehydrateStorage: () => (state) => {
+				if (!state || typeof window === "undefined") return;
+				if (!state.closedByUser && window.matchMedia(DESKTOP_QUERY).matches) state.open();
+			},
 		},
 	),
 );
