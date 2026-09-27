@@ -1,9 +1,10 @@
 import "server-only"
 import { and, asc, count, desc, eq, inArray, ne, sql } from "drizzle-orm"
-import { db, hiringSends, interviewRounds, jobs, messages, messageThreads } from "@repo/db"
+import { companies, companyMembers, db, hiringSends, interviewProcesses, interviewRounds, jobs, messages, messageThreads } from "@repo/db"
 import { notPurged } from "@repo/db/hiring-purge"
 import { roundFunnels } from "@repo/db/hiring-stats"
 import { pipelineReadiness } from "@/lib/pipelines"
+import { loadAnalytics, type WeekPoint } from "@/lib/analytics"
 
 /*
  * The company's Home (plan/hiring-app HA-15, DoD 10): the roles table, the
@@ -26,9 +27,23 @@ export interface HomeRole {
     rounds: HomeRound[]
 }
 export interface AttentionItem { key: string; text: string; href: string; count?: number }
-export interface HomeData { roles: HomeRole[]; attention: AttentionItem[] }
+/** One step of getting a new company ready (plan/hiring-ui HU-6). */
+export interface SetupStep { key: "profile" | "pipeline" | "job" | "team" | "verify"; title: string; detail: string; href: string; done: boolean }
+export interface HomePipeline { id: string; name: string; rounds: number; byShipItHQ: boolean }
+export interface HomeMember { id: string; name: string; image: string | null; role: string | null; pending: boolean }
+export interface HomeData {
+    roles: HomeRole[]
+    attention: AttentionItem[]
+    setup: SetupStep[]
+    /** The company's own pipelines first, then ShipItHQ's templates; at most six. */
+    pipelines: HomePipeline[]
+    team: HomeMember[]
+    /** Twelve weeks of results and practice, zeros included; null when the member can't see analytics. */
+    series: WeekPoint[] | null
+    totals: { live: number; waiting: number; practising: number; received: number | null }
+}
 
-export async function loadHome(companyId: string, company: { verificationStatus: string; claimStatus: string }, canSee: { candidates: boolean; jobs: boolean }): Promise<HomeData> {
+export async function loadHome(companyId: string, company: { verificationStatus: string; claimStatus: string }, canSee: { candidates: boolean; jobs: boolean; analytics: boolean }): Promise<HomeData> {
     const roleRows = await db.query.jobs.findMany({
         where: and(eq(jobs.companyId, companyId), ne(jobs.status, "CLOSED")),
         columns: { id: true, title: true, slug: true, status: true, interviewProcessId: true, adminHiddenAt: true },
@@ -74,7 +89,7 @@ export async function loadHome(companyId: string, company: { verificationStatus:
             attention.push({
                 key: `waiting-${role.id}`,
                 text: old ? `${Number(w.n)} ${Number(w.n) === 1 ? "result has" : "results have"} waited over ${WAITING_DAYS} days for a decision on ${role.title}` : `${Number(w.n)} new ${Number(w.n) === 1 ? "result" : "results"} to review for ${role.title}`,
-                href: `/applications/${role.slug}`,
+                href: `/results/${role.slug}`,
                 count: Number(w.n),
             })
         }
@@ -98,5 +113,60 @@ export async function loadHome(companyId: string, company: { verificationStatus:
             if (problems.length) attention.push({ key: `ready-${j.id}`, text: `${j.title}: ${problems[0]}`, href: `/jobs/${j.slug}/edit` })
         }
     }
-    return { roles, attention }
+    // ── Setup, pipelines, team and the chart (HU-6): Home is never mostly empty ──
+    const [profile, pipelineRows, platformRows, memberRows, analytics] = await Promise.all([
+        db.query.companies.findFirst({ where: eq(companies.id, companyId), columns: { description: true, logoUrl: true, industry: true } }),
+        db.select({ id: interviewProcesses.id, name: interviewProcesses.name })
+            .from(interviewProcesses)
+            .where(and(eq(interviewProcesses.companyId, companyId), eq(interviewProcesses.ownerKind, "COMPANY"), eq(interviewProcesses.isTemplate, true), eq(interviewProcesses.isActive, true)))
+            .orderBy(desc(interviewProcesses.updatedAt)),
+        db.select({ id: interviewProcesses.id, name: interviewProcesses.name })
+            .from(interviewProcesses)
+            .where(and(eq(interviewProcesses.ownerKind, "PLATFORM"), eq(interviewProcesses.isTemplate, true), eq(interviewProcesses.isActive, true)))
+            .orderBy(asc(interviewProcesses.name))
+            .limit(6),
+        db.query.companyMembers.findMany({
+            where: and(eq(companyMembers.companyId, companyId), eq(companyMembers.isActive, true)),
+            columns: { id: true, displayName: true, email: true, inviteStatus: true },
+            with: { user: { columns: { name: true, image: true } }, companyRole: { columns: { name: true } } },
+            orderBy: [asc(companyMembers.createdAt)],
+            limit: 8,
+        }),
+        canSee.analytics ? loadAnalytics(companyId, 12) : null,
+    ])
+    const shown = [
+        ...pipelineRows.map((p) => ({ ...p, byShipItHQ: false })),
+        ...platformRows.map((p) => ({ ...p, byShipItHQ: true })),
+    ].slice(0, 6)
+    // Counted apart: a correlated subquery in drizzle's select leaves its columns unqualified.
+    const roundCounts = shown.length
+        ? await db.select({ processId: interviewRounds.processId, n: count() }).from(interviewRounds)
+            .where(inArray(interviewRounds.processId, shown.map((p) => p.id))).groupBy(interviewRounds.processId)
+        : []
+    const pipelines: HomePipeline[] = shown.map((p) => ({ ...p, rounds: Number(roundCounts.find((c) => c.processId === p.id)?.n ?? 0) }))
+    const team: HomeMember[] = memberRows.map((m) => ({
+        id: m.id,
+        name: m.displayName || m.user?.name || m.email,
+        image: m.user?.image ?? null,
+        role: m.companyRole?.name ?? null,
+        pending: m.inviteStatus !== "ACCEPTED",
+    }))
+    const setup: SetupStep[] = [
+        { key: "profile", title: "Fill in the company page", detail: "What you do, your logo and industry: candidates read it first.", href: "/company", done: Boolean(profile?.description && profile.logoUrl && profile.industry) },
+        { key: "pipeline", title: "Set up a pipeline", detail: "The rounds candidates take. Start from a ShipItHQ template or draft one with AI.", href: "/pipelines", done: pipelineRows.length > 0 },
+        { key: "job", title: "Post your first job", detail: "Five short steps, the pipeline first.", href: "/jobs/new", done: roleRows.length > 0 },
+        { key: "team", title: "Invite your team", detail: "Recruiters and interviewers, each with their own access.", href: "/team", done: memberRows.length > 1 },
+        { key: "verify", title: "Get verified", detail: "Until then candidates can practise your rounds but can't send you results.", href: "/company", done: company.claimStatus === "CLAIMED" && company.verificationStatus === "VERIFIED" },
+    ]
+
+    return {
+        roles, attention, setup, pipelines, team,
+        series: analytics?.series ?? null,
+        totals: {
+            live: roleRows.filter((r) => r.status === "ACTIVE" && !r.adminHiddenAt).length,
+            waiting: roles.reduce((n, r) => n + r.waiting, 0),
+            practising: roles.reduce((n, r) => n + (r.rounds[0]?.practising ?? 0), 0),
+            received: analytics?.totals.received ?? null,
+        },
+    }
 }

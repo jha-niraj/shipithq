@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Check, Layers, Send, X } from "lucide-react"
+import { Briefcase, Check, Layers, Send, X } from "lucide-react"
 import type { AIChatProposal } from "@repo/ui/components/ai-chat/types"
 import { Button } from "@repo/ui/components/ui/button"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
@@ -11,11 +11,21 @@ import { answerHiringProposal } from "@/actions/ai/hiring-ai.action"
 
 /*
  * A proposal from the company AI (plan/hiring-app HA-12): a message to exactly
- * the candidates listed, or a pipeline's rounds. Send / Add acts on the copy the
+ * the candidates listed, a pipeline's rounds, or a job (plan/hiring-ui HU-16,
+ * saved as a draft on Add). Send / Add acts on the copy the
  * server saved with this reply, so what's shown here is what happens.
  */
 
 type MessageData = { text: string; recipients: { sendId: string; name: string; role: string }[]; skipped: { name: string; reason: string }[] }
+type JobData = {
+    title: string; department: string | null; description: string; locationType: string; location: string | null; employmentType: string
+    experienceMin: number | null; experienceMax: number | null; salaryMin: number | null; salaryMax: number | null; salaryCurrency: string
+    skillsRequired: string[]; pipeline: { name: string } | null
+}
+const WORK: Record<string, string> = { REMOTE: "Remote", HYBRID: "Hybrid", ONSITE: "On-site" }
+const EMPLOY: Record<string, string> = { FULL_TIME: "Full-time", PART_TIME: "Part-time", CONTRACT: "Contract", INTERNSHIP: "Internship", FREELANCE: "Freelance" }
+const range = (a: number | null, b: number | null, unit: string, fmt = (n: number) => String(n)) =>
+    a === null && b === null ? null : a !== null && b !== null ? `${fmt(a)} to ${fmt(b)} ${unit}` : `${fmt((a ?? b)!)} ${unit}`
 type PipelineData = { name: string; description: string; rounds: { roundType: string; title: string; gateMode: string; passMark: number; timeLimitMinutes: number }[] }
 
 export function HiringProposalCard({ messageId, proposal, saved, update }: { messageId: string; proposal: AIChatProposal; saved: boolean; update: (p: AIChatProposal) => void }) {
@@ -28,15 +38,30 @@ export function HiringProposalCard({ messageId, proposal, saved, update }: { mes
         update(r.proposal)
     }
     const isMessage = proposal.kind === "message"
+    const isJob = proposal.kind === "job"
     const m = proposal.data as unknown as MessageData
     const p = proposal.data as unknown as PipelineData
+    const j = proposal.data as unknown as JobData
     return (
         <div className="my-2 ml-9 rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900">
             <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                {isMessage ? <Send className="h-3.5 w-3.5" /> : <Layers className="h-3.5 w-3.5" />}
-                {isMessage ? `Message to ${m.recipients.length} ${m.recipients.length === 1 ? "candidate" : "candidates"}` : "New pipeline"}
+                {isMessage ? <Send className="h-3.5 w-3.5" /> : isJob ? <Briefcase className="h-3.5 w-3.5" /> : <Layers className="h-3.5 w-3.5" />}
+                {isMessage ? `Message to ${m.recipients.length} ${m.recipients.length === 1 ? "candidate" : "candidates"}` : isJob ? "New job (saved as a draft)" : "New pipeline"}
             </p>
-            {isMessage ? (
+            {isJob ? (
+                <>
+                    <p className="mt-2 font-medium text-neutral-900 dark:text-white">{j.title}</p>
+                    <p className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-400">
+                        {[j.department, WORK[j.locationType], j.location, EMPLOY[j.employmentType], range(j.experienceMin, j.experienceMax, "years"),
+                            range(j.salaryMin, j.salaryMax, j.salaryCurrency, (n) => n.toLocaleString("en-IN"))].filter(Boolean).join(" · ")}
+                    </p>
+                    <p className="mt-2 line-clamp-4 whitespace-pre-line rounded-lg bg-neutral-50 p-2.5 text-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">{j.description}</p>
+                    <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Required skills">
+                        {j.skillsRequired.map((k) => <li key={k} className="rounded-md border border-neutral-200 px-2 py-0.5 text-xs text-neutral-800 dark:border-neutral-700 dark:text-neutral-200">{k}</li>)}
+                    </ul>
+                    <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">{j.pipeline ? `Pipeline: ${j.pipeline.name}. ` : "No pipeline yet; you pick it when reviewing. "}Candidates see nothing until you publish.</p>
+                </>
+            ) : isMessage ? (
                 <>
                     <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Recipients">
                         {m.recipients.map((r) => <li key={r.sendId} className="rounded-md border border-neutral-200 px-2 py-0.5 text-xs text-neutral-800 dark:border-neutral-700 dark:text-neutral-200">{r.name} <span className="text-neutral-500">· {r.role}</span></li>)}

@@ -1,6 +1,6 @@
 import {
     Home, Briefcase, Users, FileText, UserPlus, BarChart3,
-    Building2, CreditCard, Settings, HelpCircle, ListChecks, Plus, GraduationCap,
+    Building2, CreditCard, Settings, HelpCircle, ListChecks, Plus,
     Receipt, ArrowLeftRight, ShieldCheck, Inbox, FolderOpen,
 } from "lucide-react"
 import type { NavigationItem } from "@repo/ui/lib/shell-navigation"
@@ -32,18 +32,11 @@ export const hiringNavigation: NavigationItem[] = [
             { name: "Create a job", path: "jobs/new", icon: Plus },
         ],
     },
-    { name: "Results", path: "applications", icon: FileText, requiredPermission: "view_candidates" },
-    {
-        name: "Candidates",
-        path: "candidates",
-        icon: Users,
-        requiredPermission: "view_candidates",
-        children: [
-            { name: "All candidates", path: "candidates", icon: Users },
-            { name: "Universities", path: "candidates/universities", icon: GraduationCap },
-        ],
-    },
-    { name: "Interview pipelines", path: "interview-config", icon: ListChecks },
+    { name: "Results", path: "results", icon: FileText, requiredPermission: "view_candidates" },
+    // Universities is out of the nav until it has real data (plan/hiring-ui, Niraj 2026-09-28);
+    // its page stays in code, still under the Candidates permission.
+    { name: "Candidates", path: "candidates", icon: Users, requiredPermission: "view_candidates" },
+    { name: "Pipelines", path: "pipelines", icon: ListChecks },
     // The company's documents for its AI (plan/hiring-app HA-13).
     { name: "Documents", path: "documents", icon: FolderOpen, requiredPermission: "use_ai" },
     { name: "Analytics", path: "analytics", icon: BarChart3, requiredPermission: "view_analytics" },
@@ -54,15 +47,15 @@ export const hiringNavigation: NavigationItem[] = [
         children: [
             { name: "Company profile", path: "company", icon: Building2 },
             { name: "Team members", path: "team", icon: UserPlus },
-            { name: "Roles", path: "team/roles", icon: ShieldCheck },
+            { name: "Access", path: "team/access", icon: ShieldCheck },
         ],
     },
     {
         name: "Settings",
-        path: "settings",
+        path: "account",
         icon: Settings,
         children: [
-            { name: "Account", path: "settings", icon: Settings },
+            { name: "Account", path: "account", icon: Settings },
             { name: "Billing", path: "billing", icon: CreditCard, requiredPermission: "billing" },
             { name: "Transactions", path: "transactions", icon: ArrowLeftRight, requiredPermission: "billing" },
             { name: "Invoices", path: "invoices", icon: Receipt, requiredPermission: "billing" },
@@ -74,13 +67,16 @@ export const hiringNavigation: NavigationItem[] = [
 /**
  * The links this member may see (plan/hiring-app HA-6): an item or child with a
  * `requiredPermission` the member lacks is dropped. Courtesy only - every
- * action checks on the server.
+ * action checks on the server. "company" points at the member's own company page,
+ * `c/<slug>` (plan/hiring-ui HU-22), so the sidebar highlights it there; the static
+ * list keeps `company`, which redirects, for the nav checker.
  */
-export function navigationFor(permissions: readonly string[]): NavigationItem[] {
+export function navigationFor(permissions: readonly string[], companySlug?: string): NavigationItem[] {
     const has = (item: NavigationItem) => !item.requiredPermission || permissions.includes(item.requiredPermission)
+    const own = (item: NavigationItem): NavigationItem => (companySlug && item.path === "company" ? { ...item, path: `c/${companySlug}` } : item)
     return hiringNavigation
         .filter(has)
-        .map((item) => (item.children ? { ...item, children: item.children.filter(has) } : item))
+        .map((item) => own(item.children ? { ...item, children: item.children.filter(has).map(own) } : item))
 }
 
 /** The permission a path needs, from the most specific nav entry that covers it; null when none. */

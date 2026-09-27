@@ -1,6 +1,6 @@
 import "server-only"
 import { and, asc, count, desc, eq, gte, ilike, inArray, ne, sql } from "drizzle-orm"
-import { db, companyAiUsage, hiringSends, interviewRounds, jobs, messages, messageThreads, users, type HiringPermission } from "@repo/db"
+import { db, companies, companyAiUsage, hiringSends, interviewProcesses, interviewRounds, jobs, messages, messageThreads, users, type HiringPermission } from "@repo/db"
 import { modelFor } from "@repo/ai"
 import { HIRING_AI_LIMITS } from "@repo/pricing"
 import type { AssistantChatProposal } from "@repo/db/assistant"
@@ -34,6 +34,27 @@ export interface ToolOutcome { result: unknown; actions?: ToolAction[]; proposal
 export interface MessageProposalData { text: string; recipients: { sendId: string; name: string; role: string }[]; skipped: { name: string; reason: string }[] }
 /** A pipeline proposal: rounds already checked and clamped the way the builder's "Draft with AI" does. */
 export interface PipelineProposalData { name: string; description: string; rounds: RoundDraft[] }
+/** A job proposal (plan/hiring-ui HU-16): saved as a DRAFT on Add, then reviewed in the job stepper. */
+export interface JobProposalData {
+    title: string
+    department: string | null
+    description: string
+    locationType: "REMOTE" | "HYBRID" | "ONSITE"
+    location: string | null
+    employmentType: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP" | "FREELANCE"
+    experienceMin: number | null
+    experienceMax: number | null
+    salaryMin: number | null
+    salaryMax: number | null
+    salaryCurrency: string
+    skillsRequired: string[]
+    skillsPreferred: string[]
+    requirements: string[]
+    responsibilities: string[]
+    benefits: string[]
+    /** One of the company's own pipelines, matched by name; null leaves the pick to the stepper. */
+    pipeline: { id: string; name: string } | null
+}
 
 const MAX_RECIPIENTS = 50
 const DAY_MS = 86_400_000
@@ -131,6 +152,45 @@ export const TOOL_SPECS = [
     {
         type: "function" as const,
         function: {
+            name: "get_company",
+            description: "The company's own page: what it does, how it works, tech stack, benefits, locations. Read it before drafting a job.",
+            parameters: { type: "object", properties: {}, additionalProperties: false },
+        },
+    },
+    {
+        type: "function" as const,
+        function: {
+            name: "propose_job",
+            description: "Propose a new job. It does NOT create it: the member sees the job on a card and presses Add, which saves it as a DRAFT to review in the job form before publishing. Call it only once the member has answered what you asked (level, work type and place, pay, must-have skills).",
+            parameters: {
+                type: "object",
+                properties: {
+                    title: { type: "string", description: "The job title, like \"Backend Engineer\"." },
+                    department: { type: "string", description: "The team, like \"Engineering\"." },
+                    description: { type: "string", description: "150-300 words to the candidate: what they will build, the team, why it matters. From the company's page and documents, never invented facts." },
+                    location_type: { type: "string", enum: ["REMOTE", "HYBRID", "ONSITE"] },
+                    location: { type: "string", description: "City, for HYBRID or ONSITE." },
+                    employment_type: { type: "string", enum: ["FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP", "FREELANCE"] },
+                    experience_min: { type: "number" },
+                    experience_max: { type: "number" },
+                    salary_min: { type: "number", description: "Per year, in salary_currency. Only what the member said." },
+                    salary_max: { type: "number" },
+                    salary_currency: { type: "string", enum: ["INR", "USD", "EUR", "GBP"] },
+                    skills_required: { type: "array", items: { type: "string" }, description: "3-8 must-have skills." },
+                    skills_preferred: { type: "array", items: { type: "string" } },
+                    requirements: { type: "array", items: { type: "string" }, description: "3-6 short sentences." },
+                    responsibilities: { type: "array", items: { type: "string" }, description: "3-6 short sentences." },
+                    benefits: { type: "array", items: { type: "string" }, description: "Only benefits from the company's page or the member." },
+                    pipeline: { type: "string", description: "The name of one of the company's pipelines (from list_roles), if the member picked one." },
+                },
+                required: ["title", "description", "location_type", "employment_type", "skills_required"],
+                additionalProperties: false,
+            },
+        },
+    },
+    {
+        type: "function" as const,
+        function: {
             name: "list_documents",
             description: "The company's document library: job descriptions, hiring policies and the like, uploaded by the team. Names only.",
             parameters: { type: "object", properties: {}, additionalProperties: false },
@@ -163,7 +223,7 @@ export const TOOL_SPECS = [
 
 const str = (v: unknown, max = 120) => (typeof v === "string" ? v.trim().slice(0, max) : "")
 const num = (v: unknown, fallback: number, max: number) => (typeof v === "number" && Number.isFinite(v) ? Math.max(1, Math.min(max, Math.floor(v))) : fallback)
-const resultHref = (jobSlug: string, sendId: string) => `/applications/${jobSlug}?send=${sendId}`
+const resultHref = (jobSlug: string, sendId: string) => `/results/${jobSlug}?send=${sendId}`
 
 async function roles(scope: ToolScope, titlePart?: string) {
     return db.select({ id: jobs.id, title: jobs.title, slug: jobs.slug, status: jobs.status, processId: jobs.interviewProcessId })
@@ -379,6 +439,68 @@ async function proposePipeline(scope: ToolScope, args: Record<string, unknown>):
     }
 }
 
+async function getCompany(scope: ToolScope): Promise<ToolOutcome> {
+    const c = await db.query.companies.findFirst({
+        where: eq(companies.id, scope.companyId),
+        columns: { name: true, tagline: true, description: true, industry: true, companySize: true, headquarters: true, city: true, culture: true, techStack: true, benefits: true, website: true },
+    })
+    if (!c) return { result: { error: "The company page couldn't be read." } }
+    return { result: { ...c, _summary: `Read ${c.name}'s page` } }
+}
+
+const LIST = (v: unknown, n: number, max = 200) => (Array.isArray(v) ? [...new Set(v.map((x) => str(x, max)).filter(Boolean))].slice(0, n) : [])
+const NUM = (v: unknown, min: number, max: number) => (typeof v === "number" && Number.isFinite(v) && v >= min && v <= max ? Math.round(v) : null)
+const oneOf = <T extends string>(v: unknown, all: readonly T[], fallback: T): T => (all as readonly string[]).includes(v as string) ? (v as T) : fallback
+
+async function proposeJob(scope: ToolScope, args: Record<string, unknown>): Promise<ToolOutcome> {
+    if (!scope.can("manage_jobs")) return { result: { error: "This member's role can't create jobs, so nothing was proposed." } }
+    const title = str(args.title, 100)
+    const description = str(args.description, 8000)
+    const skillsRequired = LIST(args.skills_required, 12, 60)
+    if (title.length < 3) return { result: { error: "Give the job a title first." } }
+    if (description.length < 50) return { result: { error: "Write a fuller description (50 characters or more) before proposing." } }
+    if (!skillsRequired.length) return { result: { error: "Ask for the must-have skills first." } }
+
+    let pipeline: JobProposalData["pipeline"] = null
+    const wanted = str(args.pipeline, 120).toLowerCase()
+    if (wanted) {
+        const own = await db.select({ id: interviewProcesses.id, name: interviewProcesses.name }).from(interviewProcesses)
+            .where(and(eq(interviewProcesses.companyId, scope.companyId), eq(interviewProcesses.ownerKind, "COMPANY"), eq(interviewProcesses.isTemplate, true), eq(interviewProcesses.isActive, true)))
+        pipeline = own.find((p) => p.name.toLowerCase() === wanted) ?? own.find((p) => p.name.toLowerCase().includes(wanted)) ?? null
+    }
+    let experienceMin = NUM(args.experience_min, 0, 50)
+    let experienceMax = NUM(args.experience_max, 0, 50)
+    if (experienceMin !== null && experienceMax !== null && experienceMin > experienceMax) [experienceMin, experienceMax] = [experienceMax, experienceMin]
+    let salaryMin = NUM(args.salary_min, 0, 1_000_000_000)
+    let salaryMax = NUM(args.salary_max, 0, 1_000_000_000)
+    if (salaryMin !== null && salaryMax !== null && salaryMin > salaryMax) [salaryMin, salaryMax] = [salaryMax, salaryMin]
+    const locationType = oneOf(args.location_type, ["REMOTE", "HYBRID", "ONSITE"] as const, "REMOTE")
+
+    const data: JobProposalData = {
+        title,
+        department: str(args.department, 60) || null,
+        description,
+        locationType,
+        location: str(args.location, 100) || null,
+        employmentType: oneOf(args.employment_type, ["FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP", "FREELANCE"] as const, "FULL_TIME"),
+        experienceMin, experienceMax, salaryMin, salaryMax,
+        salaryCurrency: oneOf(args.salary_currency, ["INR", "USD", "EUR", "GBP"] as const, "INR"),
+        skillsRequired,
+        skillsPreferred: LIST(args.skills_preferred, 12, 60).filter((x) => !skillsRequired.includes(x)),
+        requirements: LIST(args.requirements, 10, 300),
+        responsibilities: LIST(args.responsibilities, 10, 300),
+        benefits: LIST(args.benefits, 12, 60),
+        pipeline,
+    }
+    return {
+        result: {
+            proposed: true, title, pipeline: pipeline?.name ?? (wanted ? `No pipeline named "${wanted}"; the member picks one when reviewing` : "none picked"),
+            note: "A card with Add and Cancel is shown. Add saves a DRAFT the member reviews in the job form before publishing; nothing is visible to candidates yet. Don't repeat the job's text.",
+        },
+        proposal: { kind: "job", status: "pending", data: data as unknown as Record<string, unknown> },
+    }
+}
+
 export async function runTool(name: string, rawArgs: string, scope: ToolScope): Promise<ToolOutcome | null> {
     let args: Record<string, unknown> = {}
     try { args = rawArgs ? (JSON.parse(rawArgs) as Record<string, unknown>) : {} } catch { args = {} }
@@ -400,6 +522,8 @@ export async function runTool(name: string, rawArgs: string, scope: ToolScope): 
         }
         case "propose_message": return proposeMessage(scope, args)
         case "propose_pipeline": return proposePipeline(scope, args)
+        case "get_company": return getCompany(scope)
+        case "propose_job": return proposeJob(scope, args)
         default: return null
     }
 }

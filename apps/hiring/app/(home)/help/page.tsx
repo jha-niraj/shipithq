@@ -123,12 +123,9 @@ export default function HelpPage() {
                 <p className="text-neutral-500 mb-4">
                     Our support team is ready to assist you with any questions.
                 </p>
-                <Link href="/contactus">
-                    <Button className="rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200">
-                        Contact Support
-                        <ExternalLink className="w-4 h-4 ml-2" />
-                    </Button>
-                </Link>
+                <Button asChild className="gap-1.5">
+                    <Link href="/contactus">Contact support <ExternalLink className="h-4 w-4" /></Link>
+                </Button>
             </motion.div>
         </div>
     )

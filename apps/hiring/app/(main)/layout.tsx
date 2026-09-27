@@ -26,7 +26,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
     await enforcePlan(ctx.companyId).catch((e: unknown) => console.error("enforcePlan:", e))
     const unpinned = (await cookies()).get(SIDEBAR_UNPINNED_COOKIE)?.value === "1"
     return (
-        <HiringShell unpinned={unpinned} permissions={[...ctx.permissions]} roleName={ctx.roleName}>
+        <HiringShell unpinned={unpinned} permissions={[...ctx.permissions]} roleName={ctx.roleName} companySlug={ctx.member.company.slug}>
             {/* A suspended company can sign in and read, and is told why nothing else works (HR-24). */}
             {ctx.member.company.suspendedAt && (
                 <p role="status" className="border-b border-neutral-300 bg-neutral-100 px-5 py-2.5 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">

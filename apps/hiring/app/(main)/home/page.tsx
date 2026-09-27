@@ -10,6 +10,6 @@ export const metadata = { title: "Home | ShipItHQ Hiring" }
 export default async function HomePage() {
     const ctx = await getCompanyContext()
     if (!ctx) redirect("/onboarding")
-    const data = await loadHome(ctx.companyId, ctx.member.company, { candidates: ctx.can("view_candidates"), jobs: ctx.can("manage_jobs") })
+    const data = await loadHome(ctx.companyId, ctx.member.company, { candidates: ctx.can("view_candidates"), jobs: ctx.can("manage_jobs"), analytics: ctx.can("view_analytics") })
     return <HomeContent data={data} canCreateJob={ctx.can("manage_jobs")} canSeeCandidates={ctx.can("view_candidates")} />
 }

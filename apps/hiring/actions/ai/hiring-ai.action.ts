@@ -6,7 +6,8 @@ import type { AssistantChatProposal, AssistantFeedback } from "@repo/db/assistan
 import { deleteSession, getSessionMessages, listSessions, setFeedback, toPanelChat } from "@repo/db/assistant-store"
 import { requirePermission } from "@/lib/permissions"
 import { answerProposal } from "@/lib/hiring-ai/proposals"
-import { createPipeline, savePipeline } from "@/actions/interview-config/pipeline-builder.action"
+import { createPipeline, savePipeline } from "@/actions/pipelines/pipeline-builder.action"
+import { createJob } from "@/actions/jobs"
 import { panelUsage } from "@/lib/hiring-ai/usage"
 
 /*
@@ -92,5 +93,5 @@ export async function answerHiringProposal(messageId: string, decision: "confirm
     const [me] = await db.select({ name: users.name }).from(users).where(eq(users.id, auth.ctx.userId))
     return answerProposal({
         userId: auth.ctx.userId, companyId: auth.ctx.companyId, companyName: auth.ctx.member.company.name, memberName: me?.name ?? "The hiring team", can: auth.ctx.can,
-    }, messageId, decision === "confirm" ? "confirm" : "cancel", { createPipeline, savePipeline })
+    }, messageId, decision === "confirm" ? "confirm" : "cancel", { createPipeline, savePipeline, createJob })
 }

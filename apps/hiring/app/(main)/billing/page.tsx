@@ -92,7 +92,7 @@ function PricingCard({
                 <div className="absolute top-4 right-4">
                     <Badge className="bg-white text-neutral-900 hover:bg-white dark:bg-neutral-900 dark:text-white">
                         <Sparkles className="h-3 w-3 mr-1" />
-                        Most Popular
+                        Most popular
                     </Badge>
                 </div>
             )}
@@ -103,7 +103,7 @@ function PricingCard({
                             ? 'border-white text-white' 
                             : 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100'
                     }`}>
-                        Current Plan
+                        Current plan
                     </Badge>
                 </div>
             )}
@@ -161,7 +161,7 @@ function PricingCard({
                 >
                     {isPending && <InlineLoader size="sm" className="mr-2" />}
                     {isCurrent 
-                        ? 'Current Plan' 
+                        ? 'Current plan' 
                         : planKey === 'ENTERPRISE' 
                             ? 'Contact Sales' 
                             : planKey === 'FREE'
@@ -180,8 +180,8 @@ function InvoiceRow({ invoice }: { invoice: InvoiceDetails }) {
         PAID: 'text-neutral-800 bg-neutral-100 dark:text-neutral-100 dark:bg-neutral-800/30',
         PENDING: 'text-neutral-800 bg-neutral-100 dark:text-neutral-100 dark:bg-neutral-800/30',
         DRAFT: 'text-neutral-600 bg-neutral-100 dark:text-neutral-400 dark:bg-neutral-800',
-        VOID: 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30',
-        UNCOLLECTIBLE: 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30',
+        VOID: 'text-rose-600 bg-rose-100 dark:text-rose-400 dark:bg-rose-900/30',
+        UNCOLLECTIBLE: 'text-rose-600 bg-rose-100 dark:text-rose-400 dark:bg-rose-900/30',
     }
 
     return (
@@ -226,7 +226,7 @@ function PaymentRow({ payment }: { payment: PaymentRecord }) {
     const statusColors = {
         SUCCEEDED: 'text-neutral-800 bg-neutral-100 dark:text-neutral-100 dark:bg-neutral-800/30',
         PENDING: 'text-neutral-800 bg-neutral-100 dark:text-neutral-100 dark:bg-neutral-800/30',
-        FAILED: 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30',
+        FAILED: 'text-rose-600 bg-rose-100 dark:text-rose-400 dark:bg-rose-900/30',
         PROCESSING: 'text-neutral-800 bg-neutral-100 dark:text-neutral-100 dark:bg-neutral-800/30',
         REFUNDED: 'text-neutral-600 bg-neutral-100 dark:text-neutral-400 dark:bg-neutral-800',
         CANCELLED: 'text-neutral-600 bg-neutral-100 dark:text-neutral-400 dark:bg-neutral-800',
@@ -438,15 +438,15 @@ export default function BillingPage() {
     return (
         <div className="page-frame space-y-5 px-page py-6">
             <PageHeader
-                title="Billing & Subscription"
-                subtitle="Manage your subscription, view invoices, and track usage"
+                title="Billing"
+                subtitle="Your plan, credits and what you have spent."
             />
 
             {/* Error Alert */}
             {error && (
-                <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
-                    <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                    <AlertDescription className="text-red-600 dark:text-red-400">
+                <Alert className="border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-900/20">
+                    <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                    <AlertDescription className="text-rose-600 dark:text-rose-400">
                         {error}
                     </AlertDescription>
                 </Alert>
@@ -460,7 +460,7 @@ export default function BillingPage() {
             >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                     <div>
-                        <p className="text-white/60 text-sm mb-1">Current Plan</p>
+                        <p className="text-white/60 text-sm mb-1">Current plan</p>
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             {subscription?.planName || "Free"}
                             <Badge className="bg-white/20 text-white hover:bg-white/20 text-xs">
@@ -503,20 +503,20 @@ export default function BillingPage() {
                     items={[
                         {
                             icon: Wallet,
-                            label: "Total Spent",
+                            label: "Spent so far",
                             value: `${billingOverview.currency === 'INR' ? '₹' : '$'}${billingOverview.totalSpent.toLocaleString()}`,
                         },
                         { icon: Receipt, label: "Invoices", value: billingOverview.invoiceCount },
                         {
                             icon: CalendarCheck,
-                            label: "Last Payment",
+                            label: "Last payment",
                             value: billingOverview.lastPaymentDate
                                 ? new Date(billingOverview.lastPaymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                                 : '-',
                         },
                         {
                             icon: CalendarClock,
-                            label: "Next Billing",
+                            label: "Next bill",
                             value: billingOverview.nextBillingDate
                                 ? new Date(billingOverview.nextBillingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                                 : '-',
@@ -663,10 +663,10 @@ export default function BillingPage() {
                     <div className="mt-6 pt-6 border-t border-neutral-100 dark:border-neutral-800">
                         <Button 
                             variant="outline" 
-                            className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20"
+                            className="text-rose-600 border-rose-200 hover:bg-rose-50 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-900/20"
                             onClick={() => setCancelDialog(true)}
                         >
-                            Cancel Subscription
+                            Cancel subscription
                         </Button>
                     </div>
                 </motion.div>
@@ -741,14 +741,14 @@ export default function BillingPage() {
             <Dialog open={cancelDialog} onOpenChange={setCancelDialog}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Cancel Subscription</DialogTitle>
+                        <DialogTitle>Cancel the subscription?</DialogTitle>
                         <DialogDescription>
                             Are you sure you want to cancel your subscription? You&apos;ll lose access to premium features at the end of your billing period.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setCancelDialog(false)}>
-                            Keep Subscription
+                            Keep subscription
                         </Button>
                         <Button 
                             variant="destructive" 
@@ -756,7 +756,7 @@ export default function BillingPage() {
                             disabled={isPending}
                         >
                             {isPending && <InlineLoader size="sm" className="mr-2" />}
-                            Cancel Subscription
+                            Cancel subscription
                         </Button>
                     </DialogFooter>
                 </DialogContent>

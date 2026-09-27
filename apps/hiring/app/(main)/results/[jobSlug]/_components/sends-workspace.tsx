@@ -7,6 +7,7 @@ import { ReportDialog } from "@repo/ui/components/moderation/report-dialog"
 import { Button } from "@repo/ui/components/ui/button"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { Checkbox } from "@repo/ui/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit"
 import { ProfileCard, RoundCard } from "@repo/ui/components/hiring/send-view"
@@ -122,28 +123,44 @@ export function SendsWorkspace({ data, canMessage, canDecide, canDraft, initialS
     return (
         <div className="flex h-screen flex-col">
             <header className="flex flex-wrap items-center gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
-                <Link href="/applications" aria-label="All roles" className="rounded-md p-1.5 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"><ArrowLeft className="h-4 w-4" /></Link>
+                <Link href="/results" aria-label="All roles" className="rounded-md p-1.5 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"><ArrowLeft className="h-4 w-4" /></Link>
                 <div className="min-w-0 flex-1">
                     <h1 className="truncate text-base font-semibold text-neutral-900 dark:text-white">{data.job.title}</h1>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">{rows.length} {rows.length === 1 ? "candidate" : "candidates"} sent results</p>
                 </div>
-                <label className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
+                {/* Native-looking selects replaced with the shared ones (plan/hiring-ui HU-13); the score is a choice, not a spinner. */}
+                <div className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
                     Sort
-                    <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="h-8 rounded-md border border-neutral-200 bg-white px-2 text-xs dark:border-neutral-700 dark:bg-neutral-950">
-                        <option value="sent">Newest</option>
-                        <option value="average">Average</option>
-                        {data.columns.map((c) => <option key={c.number} value={`round:${c.number}`}>Round {c.number}: {c.title}</option>)}
-                    </select>
-                </label>
-                <label className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
-                    At least
-                    <input type="number" min={0} max={100} value={minScore} onChange={(e) => setMinScore(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} className="h-8 w-14 rounded-md border border-neutral-200 bg-white px-2 text-xs dark:border-neutral-700 dark:bg-neutral-950" aria-label="Minimum score" />
-                    in
-                    <select value={minRound ?? ""} onChange={(e) => setMinRound(e.target.value ? Number(e.target.value) : null)} className="h-8 rounded-md border border-neutral-200 bg-white px-2 text-xs dark:border-neutral-700 dark:bg-neutral-950">
-                        <option value="">any round</option>
-                        {data.columns.map((c) => <option key={c.number} value={c.number}>Round {c.number}</option>)}
-                    </select>
-                </label>
+                    <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
+                        <SelectTrigger size="sm" className="h-8 w-auto min-w-28 text-xs" aria-label="Sort"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="sent">Newest</SelectItem>
+                            <SelectItem value="average">Average</SelectItem>
+                            {data.columns.map((c) => <SelectItem key={c.number} value={`round:${c.number}`}>Round {c.number}: {c.title}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
+                    <Select value={String(minScore)} onValueChange={(v) => setMinScore(Number(v))}>
+                        <SelectTrigger size="sm" className="h-8 w-auto min-w-24 text-xs" aria-label="Minimum score"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="0">Any score</SelectItem>
+                            {[50, 60, 70, 80, 90].map((n) => <SelectItem key={n} value={String(n)}>At least {n}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    {minScore > 0 && (
+                        <>
+                            in
+                            <Select value={minRound === null ? "any" : String(minRound)} onValueChange={(v) => setMinRound(v === "any" ? null : Number(v))}>
+                                <SelectTrigger size="sm" className="h-8 w-auto min-w-24 text-xs" aria-label="In which round"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="any">any round</SelectItem>
+                                    {data.columns.map((c) => <SelectItem key={c.number} value={String(c.number)}>Round {c.number}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </>
+                    )}
+                </div>
                 {canDecide && undecidedTicked.length > 0 && !deciding && (
                     <Button size="sm" variant="outline" onClick={() => { setComparing(false); setMobileDetail(true); setDeciding({ ids: undecidedTicked, decision: "DECLINE" }) }}>
                         Decide ({undecidedTicked.length})
@@ -262,7 +279,7 @@ function CandidateDetail({ detail, jobTitle, canMessage, canDecide, onDecide }: 
     const rounds = detail.snapshot.rounds
     const current = rounds.find((r) => `round-${r.number}` === tab)
     return (
-        <div className="mx-auto w-full max-w-3xl space-y-4 p-5">
+        <div className="w-full space-y-4 p-5">
             {canDecide && (detail.status === "SENT" || detail.status === "VIEWED") && (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900">
                     <p className="text-sm text-neutral-700 dark:text-neutral-300">Decide on {detail.profile.name.split(" ")[0]}</p>
@@ -366,7 +383,7 @@ function CompareView({ columns, details, jobTitle }: { columns: JobSends["column
 
 function DetailSkeleton() {
     return (
-        <div className="mx-auto w-full max-w-3xl space-y-4 p-5">
+        <div className="w-full space-y-4 p-5">
             <ShimmerStyles />
             <Shimmer className="h-8 w-80 rounded-lg" />
             <Shimmer className="h-40 w-full rounded-2xl" delay={0.05} />
@@ -403,10 +420,10 @@ function DecisionCard({ detail, canDecide }: { detail: SendDetail; canDecide: bo
                 <div className="flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-3 text-sm dark:border-neutral-800">
                     <label className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300">
                         Outcome
-                        <select value={outcome} disabled={!canDecide || saving} onChange={(e) => void save(e.target.value)} className="h-8 rounded-md border border-neutral-200 bg-white px-2 text-sm dark:border-neutral-700 dark:bg-neutral-950">
-                            <option value="" disabled>Choose</option>
-                            {Object.entries(OUTCOME_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                        </select>
+                        <Select value={outcome || undefined} disabled={!canDecide || saving} onValueChange={(v) => void save(v)}>
+                            <SelectTrigger size="sm" className="h-8 w-auto min-w-32"><SelectValue placeholder="Choose" /></SelectTrigger>
+                            <SelectContent>{Object.entries(OUTCOME_LABEL).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+                        </Select>
                     </label>
                     {saving && <InlineLoader size="sm" />}
                     <span className="text-neutral-500 dark:text-neutral-400">Candidate says: {detail.decision.studentOutcome ? OUTCOME_LABEL[detail.decision.studentOutcome] : "nothing yet"}</span>

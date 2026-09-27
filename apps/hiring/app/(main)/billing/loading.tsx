@@ -1,5 +1,5 @@
 // Hand-matched to billing/page.tsx: the page frame, PageHeader (no actions), the
-// current-plan banner, the billing-overview StatBand, "Usage This Month" and its
+// current-plan banner, the billing-overview StatBand, "usage this month" and its
 // StatBand, the three plan cards, then the invoices/payments tabs. Also used as
 // the page's own client-side loading state, so first paint and data wait match.
 import { Shimmer, ShimmerStyles } from "@repo/ui/components/skeleton-kit";

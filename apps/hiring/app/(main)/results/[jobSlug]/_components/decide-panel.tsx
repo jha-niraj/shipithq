@@ -68,7 +68,7 @@ export function DecidePanel({ candidates, initial, canDraft, onDecided, onClose 
     const allSent = candidates.every((c) => cards[c.sendId]!.sent)
 
     return (
-        <div className="mx-auto w-full max-w-3xl space-y-4 p-5">
+        <div className="w-full space-y-4 p-5">
             <div className="flex items-center justify-between gap-3">
                 <div>
                     <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">{candidates.length === 1 ? `Decide on ${candidates[0]!.name}` : `Decide on ${candidates.length} candidates`}</h2>
@@ -110,7 +110,7 @@ export function DecidePanel({ candidates, initial, canDraft, onDecided, onClose 
                                 {card.sent && <span className="inline-flex shrink-0 items-center gap-1 text-sm text-neutral-900 dark:text-white"><Check className="h-4 w-4" /> Sent</span>}
                             </div>
                             {card.drafting ? (
-                                <p className="mt-3 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400"><InlineLoader size="sm" /> Drafting from {c.name.split(" ")[0]}&apos;s results</p>
+                                <div className="mt-3 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400"><InlineLoader size="sm" /> Drafting from {c.name.split(" ")[0]}&apos;s results</div>
                             ) : (
                                 <Textarea
                                     value={card.text}

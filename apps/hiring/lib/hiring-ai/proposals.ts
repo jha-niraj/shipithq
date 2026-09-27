@@ -5,7 +5,8 @@ import type { AssistantChatProposal } from "@repo/db/assistant"
 import { getOwnedMessage, setProposalResult, settleProposal } from "@repo/db/assistant-store"
 import { startThread } from "@repo/db/inbox"
 import { sendNewMessageEmail } from "@/lib/inbox/email"
-import type { MessageProposalData, PipelineProposalData } from "@/lib/hiring-ai/tools"
+import type { JobProposalData, MessageProposalData, PipelineProposalData } from "@/lib/hiring-ai/tools"
+import type { CreateJobInput } from "@/types/job"
 
 /*
  * Confirming or cancelling a company AI proposal (plan/hiring-app HA-12). Acts
@@ -20,6 +21,7 @@ export interface ProposalActor { userId: string; companyId: string; companyName:
 type Builder = {
     createPipeline: (input: { name: string }) => Promise<{ success: true; data: { id: string } } | { success: false; error: string }>
     savePipeline: (id: string, input: PipelineProposalData) => Promise<{ success: true; data: { id: string } } | { success: false; error: string }>
+    createJob: (input: CreateJobInput) => Promise<{ success: boolean; error?: string; data?: { slug: string } | null }>
 }
 
 export async function answerProposal(actor: ProposalActor, messageId: string, decision: "confirm" | "cancel", builder: Builder): Promise<{ success: true; proposal: AssistantChatProposal } | { success: false; error: string }> {
@@ -60,13 +62,33 @@ export async function answerProposal(actor: ProposalActor, messageId: string, de
         if (!created.success) result = { summary: `Couldn't add it: ${created.error}` }
         else {
             const saved = await builder.savePipeline(created.data.id, data)
-            if (saved.success) result = { summary: `Added "${data.name}" to your pipelines. Review it before using it on a role.`, href: `/interview-config/${created.data.id}` }
+            if (saved.success) result = { summary: `Added "${data.name}" to your pipelines. Review it before using it on a role.`, href: `/pipelines/${created.data.id}` }
             else {
                 // A pipeline the builder won't accept isn't left half-made.
                 await db.delete(interviewProcesses).where(and(eq(interviewProcesses.id, created.data.id), eq(interviewProcesses.companyId, actor.companyId)))
                 result = { summary: `Couldn't add it: ${saved.error}` }
             }
         }
+        await setProposalResult(messageId, result)
+        return { success: true, proposal: { ...proposal, status: "done", result } }
+    }
+    if (proposal.kind === "job") {
+        if (!actor.can("manage_jobs")) return { success: false, error: "Your role can't create jobs." }
+        if (!(await settleProposal(scope, messageId, "done"))) return { success: false, error: "This was already answered." }
+        const d = proposal.data as unknown as JobProposalData
+        // Always a DRAFT (plan/hiring-ui HU-16): the member reviews it in the stepper and publishes from there.
+        const created = await builder.createJob({
+            title: d.title, description: d.description, department: d.department ?? undefined,
+            locationType: d.locationType, location: d.location ?? undefined, employmentType: d.employmentType,
+            experienceMin: d.experienceMin ?? undefined, experienceMax: d.experienceMax ?? undefined,
+            salaryMin: d.salaryMin ?? undefined, salaryMax: d.salaryMax ?? undefined, salaryCurrency: d.salaryCurrency, salaryDisclosed: true,
+            skillsRequired: d.skillsRequired, skillsPreferred: d.skillsPreferred, requirements: d.requirements,
+            responsibilities: d.responsibilities, benefits: d.benefits,
+            interviewProcessId: d.pipeline?.id, status: "DRAFT",
+        })
+        const result = created.success && created.data?.slug
+            ? { summary: `Saved "${d.title}" as a draft. Review it, ${d.pipeline ? "check its rounds" : "pick its pipeline"} and publish.`, href: `/jobs/${created.data.slug}/edit?step=review` }
+            : { summary: `Couldn't save it: ${created.error ?? "the job was refused"}` }
         await setProposalResult(messageId, result)
         return { success: true, proposal: { ...proposal, status: "done", result } }
     }

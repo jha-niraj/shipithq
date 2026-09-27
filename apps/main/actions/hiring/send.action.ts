@@ -117,8 +117,8 @@ export async function sendResults(jobSlug: string, input: SendInput): Promise<Re
                 title: `sent results for ${state.job.title}`,
                 body: `${profile.profile.headline}. ${snapshot.rounds.map((r) => `${r.title} ${r.attempt.score}`).join(" · ")}`,
                 actor: { name: profile.profile.name },
-                context: { label: state.job.title, href: `/applications/${state.job.slug}` },
-                href: `/applications/${state.job.slug}?send=${sendId}`,
+                context: { label: state.job.title, href: `/results/${state.job.slug}` },
+                href: `/results/${state.job.slug}?send=${sendId}`,
             }).catch((e: unknown) => console.error("notify SEND_RECEIVED:", e))
             await emailNewResults({
                 companyId: state.company.id,
@@ -126,7 +126,7 @@ export async function sendResults(jobSlug: string, input: SendInput): Promise<Re
                 headline: profile.profile.headline,
                 jobTitle: state.job.title,
                 scores: snapshot.rounds.map((r) => `${r.title} ${r.attempt.score}`).join(" · "),
-                path: `/applications/${state.job.slug}?send=${sendId}`,
+                path: `/results/${state.job.slug}?send=${sendId}`,
             }).catch((e: unknown) => console.error("email NEW_RESULTS:", e))
         }
         revalidatePath(`/jobs/${jobSlug}/rounds`)
@@ -168,8 +168,8 @@ export async function withdrawSend(sendId: string): Promise<Result<null>> {
             title: `withdrew their results for ${job?.title ?? "a role"}`,
             body: "They no longer appear in this role's list.",
             actor: { name: (send.profile as { name?: string } | null)?.name ?? "A candidate" },
-            context: job ? { label: job.title, href: `/applications/${job.slug}` } : null,
-            href: job ? `/applications/${job.slug}` : null,
+            context: job ? { label: job.title, href: `/results/${job.slug}` } : null,
+            href: job ? `/results/${job.slug}` : null,
         }).catch((e: unknown) => console.error("notify SEND_WITHDRAWN:", e))
         revalidatePath("/jobs")
         return { success: true, data: null }
@@ -201,8 +201,8 @@ export async function setStudentOutcome(sendId: string, outcome: (typeof STUDENT
             title: `marked their application: ${OUTCOME_WORDS[outcome]}`,
             body: `For ${job?.title ?? "a role"}.`,
             actor: { name: (s.profile as { name?: string } | null)?.name ?? "A candidate" },
-            context: job ? { label: job.title, href: `/applications/${job.slug}` } : null,
-            href: job ? `/applications/${job.slug}?send=${sendId}` : null,
+            context: job ? { label: job.title, href: `/results/${job.slug}` } : null,
+            href: job ? `/results/${job.slug}?send=${sendId}` : null,
         }).catch((e: unknown) => console.error("notify STUDENT_OUTCOME:", e))
         revalidatePath("/jobs")
         return { success: true, data: null }

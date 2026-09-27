@@ -22,7 +22,7 @@ export function RolesContent({ roles }: { roles: RoleSends[] }) {
             <StatBand
                 cols={4}
                 items={[
-                    { icon: Briefcase, label: "Roles", value: roles.length },
+                    { icon: Briefcase, label: "Jobs", value: roles.length },
                     { icon: FileCheck2, label: "Results received", value: total },
                     { icon: Inbox, label: "New", value: unread },
                     { icon: Mail, label: "Invited", value: invited },
@@ -30,13 +30,13 @@ export function RolesContent({ roles }: { roles: RoleSends[] }) {
             />
             {roles.length === 0 ? (
                 <p className="rounded-2xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
-                    No roles yet. <Link href="/jobs/new" className="font-medium underline underline-offset-2">Post a role</Link> with a pipeline, and results arrive here as students clear it.
+                    No jobs yet. <Link href="/jobs/new" className="font-medium underline underline-offset-2">Post a job</Link> with a pipeline, and results arrive here as students clear it.
                 </p>
             ) : (
                 <ul className="divide-y divide-neutral-200 overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
                     {roles.map((r) => (
                         <li key={r.slug}>
-                            <Link href={`/applications/${r.slug}`} className="flex items-center gap-4 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/60">
+                            <Link href={`/results/${r.slug}`} className="flex items-center gap-4 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/60">
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate font-medium text-neutral-900 dark:text-white">{r.title}</p>
                                     <p className="text-xs text-neutral-500 dark:text-neutral-400">{r.status === "ACTIVE" ? "Open" : r.status.charAt(0) + r.status.slice(1).toLowerCase()} · last result {when(r.lastAt)}</p>

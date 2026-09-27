@@ -21,11 +21,12 @@ import { navigationFor, permissionForPath } from "@/lib/navigation"
 // load.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function HiringShell({ children, unpinned, permissions, roleName }: {
+export function HiringShell({ children, unpinned, permissions, roleName, companySlug }: {
     children: React.ReactNode
     unpinned: boolean
     permissions: string[]
     roleName: string
+    companySlug: string
 }) {
     const pathname = usePathname()
     const needed = permissionForPath(pathname)
@@ -36,7 +37,7 @@ export function HiringShell({ children, unpinned, permissions, roleName }: {
     return (
         <SidebarProvider initialUnpinned={unpinned}>
             <div className="relative flex h-dvh w-full overflow-hidden bg-neutral-50 dark:bg-black">
-                <ShellFrame sidebar={<HiringSidebar navigation={navigationFor(permissions)} canUseAI={canUseAI} />} rail={canUseAI ? <HiringAIRail /> : undefined} surfaceClassName="bg-white dark:bg-neutral-950">
+                <ShellFrame sidebar={<HiringSidebar navigation={navigationFor(permissions, companySlug)} canUseAI={canUseAI} />} rail={canUseAI ? <HiringAIRail /> : undefined} surfaceClassName="bg-white dark:bg-neutral-950">
                     {allowed ? children : <NoAccess roleName={roleName} />}
                 </ShellFrame>
             </div>

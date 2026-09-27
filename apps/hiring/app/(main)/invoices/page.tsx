@@ -52,14 +52,14 @@ const statusConfig = {
     VOID: { 
         label: "Void", 
         icon: XCircle, 
-        color: "text-red-600 dark:text-red-400",
-        bg: "bg-red-100 dark:bg-red-900/30"
+        color: "text-rose-600 dark:text-rose-400",
+        bg: "bg-rose-100 dark:bg-rose-900/30"
     },
     UNCOLLECTIBLE: { 
         label: "Uncollectible", 
         icon: XCircle, 
-        color: "text-red-600 dark:text-red-400",
-        bg: "bg-red-100 dark:bg-red-900/30"
+        color: "text-rose-600 dark:text-rose-400",
+        bg: "bg-rose-100 dark:bg-rose-900/30"
     },
 }
 
@@ -421,14 +421,14 @@ export default function InvoicesPage() {
         <div className="page-frame space-y-5 px-page py-6">
             <PageHeader
                 title="Invoices"
-                subtitle="View and download your billing invoices"
+                subtitle="Every invoice, to view or download."
             />
 
             {/* Error Alert */}
             {error && (
-                <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
-                    <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                    <AlertDescription className="text-red-600 dark:text-red-400">
+                <Alert className="border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-900/20">
+                    <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                    <AlertDescription className="text-rose-600 dark:text-rose-400">
                         {error}
                     </AlertDescription>
                 </Alert>
@@ -438,8 +438,8 @@ export default function InvoicesPage() {
             <StatBand
                 cols={4}
                 items={[
-                    { icon: Receipt, label: "Total Invoiced", value: `${overview?.currency === "INR" ? "₹" : "$"}${totalAmount.toLocaleString()}` },
-                    { icon: FileText, label: "Total Invoices", value: invoices.length },
+                    { icon: Receipt, label: "Invoiced", value: `${overview?.currency === "INR" ? "₹" : "$"}${totalAmount.toLocaleString()}` },
+                    { icon: FileText, label: "Invoices", value: invoices.length },
                     { icon: CheckCircle, label: "Paid", value: paidInvoices.length },
                     { icon: Clock, label: "Pending", value: pendingInvoices.length },
                 ]}
@@ -462,7 +462,7 @@ export default function InvoicesPage() {
                         <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="all">All statuses</SelectItem>
                         <SelectItem value="PAID">Paid</SelectItem>
                         <SelectItem value="PENDING">Pending</SelectItem>
                         <SelectItem value="DRAFT">Draft</SelectItem>

@@ -112,7 +112,7 @@ export function AnalyticsContent({ data }: { data: AnalyticsData }) {
                             {data.roles.map((r) => (
                                 <tr key={r.id}>
                                     <td className="px-4 py-3">
-                                        <Link href={`/applications/${r.slug}`} className="font-medium text-neutral-900 hover:underline dark:text-white">{r.title}</Link>
+                                        <Link href={`/results/${r.slug}`} className="font-medium text-neutral-900 hover:underline dark:text-white">{r.title}</Link>
                                         <p className="text-xs text-neutral-500 dark:text-neutral-400">{r.status.charAt(0) + r.status.slice(1).toLowerCase()}</p>
                                     </td>
                                     <td className="px-4 py-3 text-right tabular-nums text-neutral-900 dark:text-white">{r.received}</td>

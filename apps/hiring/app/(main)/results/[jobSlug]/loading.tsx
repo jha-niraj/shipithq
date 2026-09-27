@@ -31,8 +31,8 @@ export default function Loading() {
                 </div>
                 <div className="hidden flex-1 space-y-4 p-5 md:block">
                     <Shimmer className="h-8 w-80 rounded-lg" delay={0.12} />
-                    <Shimmer className="h-40 w-full max-w-3xl rounded-2xl" delay={0.16} />
-                    <div className="grid max-w-3xl grid-cols-2 gap-3">
+                    <Shimmer className="h-40 w-full rounded-2xl" delay={0.16} />
+                    <div className="grid grid-cols-2 gap-3">
                         {[0, 1, 2, 3].map((i) => <Shimmer key={i} className="h-24 w-full rounded-2xl" delay={0.2 + i * 0.03} />)}
                     </div>
                 </div>

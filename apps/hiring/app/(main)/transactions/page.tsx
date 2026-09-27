@@ -45,8 +45,8 @@ const statusConfig = {
     FAILED: {
         label: "Failed",
         icon: XCircle,
-        color: "text-red-600 dark:text-red-400",
-        bg: "bg-red-100 dark:bg-red-900/30"
+        color: "text-rose-600 dark:text-rose-400",
+        bg: "bg-rose-100 dark:bg-rose-900/30"
     },
     REFUNDED: {
         label: "Refunded",
@@ -79,7 +79,7 @@ function TransactionCard({ payment }: { payment: PaymentRecord }) {
                     </div>
                     <div>
                         <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">
-                            {payment.description || "Subscription Payment"}
+                            {payment.description || "Subscription payment"}
                         </h3>
                         <p className="text-sm text-neutral-500 mt-1">
                             {
@@ -206,14 +206,14 @@ export default function TransactionsPage() {
         <div className="page-frame space-y-5 px-page py-6">
             <PageHeader
                 title="Transactions"
-                subtitle="View and manage all your payment transactions"
+                subtitle="Every payment and credit top-up."
             />
 
             {
                 error && (
-                    <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
-                        <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                        <AlertDescription className="text-red-600 dark:text-red-400">
+                    <Alert className="border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-900/20">
+                        <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                        <AlertDescription className="text-rose-600 dark:text-rose-400">
                             {error}
                         </AlertDescription>
                     </Alert>
@@ -223,7 +223,7 @@ export default function TransactionsPage() {
             <StatBand
                 cols={4}
                 items={[
-                    { icon: CreditCard, label: "Total Spent", value: `${overview?.currency === "INR" ? "₹" : "$"}${(overview?.totalSpent || 0).toLocaleString()}` },
+                    { icon: CreditCard, label: "Spent so far", value: `${overview?.currency === "INR" ? "₹" : "$"}${(overview?.totalSpent || 0).toLocaleString()}` },
                     { icon: CheckCircle, label: "Successful", value: successfulPayments.length },
                     { icon: Clock, label: "Pending", value: pendingPayments.length },
                     { icon: XCircle, label: "Failed", value: failedPayments.length, tone: "rose" },
@@ -245,7 +245,7 @@ export default function TransactionsPage() {
                         <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="all">All statuses</SelectItem>
                         <SelectItem value="SUCCEEDED">Succeeded</SelectItem>
                         <SelectItem value="PENDING">Pending</SelectItem>
                         <SelectItem value="PROCESSING">Processing</SelectItem>
