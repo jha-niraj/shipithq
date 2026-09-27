@@ -143,3 +143,41 @@ piece that happens to be playable.
 5. The website links to Incidents (navbar, footer, a landing tile).
 6. At 375px and at 1440px, no horizontal scroll and no layout shift while answering or
    playing the simulator; with reduced motion, every step still reads.
+
+## Runs and the run report (Niraj, 2026-09-27)
+
+A reader who agrees at the start gets a **recorded run**: everything they do in the case,
+tied together and turned into a one-page review when they finish.
+
+**Decisions**
+
+- **Consent at the start, optional.** A "Start this case" screen says what is kept (check
+  answers, questions to the lead and its answers, talk transcripts) and why (your report).
+  "Start and build my report" opens a recorded run. "Just read, no report" keeps reading
+  and practice, stores nothing, and keeps the mic off. The choice can be changed from the
+  header ("Start recording") at any time. Signed out, the start screen offers sign-in.
+- **The report is made after the final talk**, by a worker job (Durable Object, gpt-4o
+  through a `@repo/ai` task line). Retakes allowed: "Start a new run" begins a fresh
+  attempt; every past report stays listed, so progress over time shows.
+- **Private, with a share link.** Only the reader sees it until they turn a link on; the
+  link is a public, read-only page and can be turned off. Recruiter access later, opt-in
+  only (not in this module).
+- **Free, capped:** at most 2 reports a day per reader.
+- **Rubric bands, no single score.** Four skills, each Strong / Solid / Developing / Not
+  shown yet with one line of evidence: Diagnosis, Reasoning under uncertainty, Questions
+  asked, Explaining the fix.
+- **Sections:** the four bands; Highlights (2 to 4 quoted moments, each with why);
+  Questions they asked (each marked sharp / clarifying / off track, the best one called
+  out); Checks and final quiz (first-try accuracy per chapter, ideas missed, linked back);
+  Next steps (2 or 3, linked to the case's Pathfinder topics).
+- **The lead's answers to "Ask" are kept with the question.**
+
+**Done when**
+
+7. A reader who agrees at the start, answers checks, asks the lead, does the talks and
+   the closing talk, sees a report page within about a minute of finishing, and every
+   quote on it can be found in what they actually said or asked (a query shows the
+   source row).
+8. A reader who chose "Just read" leaves no run rows, no transcripts and no ask rows.
+9. A second run makes a second report; the first is unchanged and both are listed.
+10. The share link opens signed out; turned off, it returns not found.

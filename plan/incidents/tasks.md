@@ -29,6 +29,25 @@ Build in order. Browser checks are Niraj's.
 | INC-23 | Case one rewritten into chapters, with a same-bug-elsewhere chapter | built 2026-09-26 (awaiting Niraj's read) |
 | INC-24 | Midway talks (short, free) and the closing talk | built 2026-09-26 |
 | INC-25 | Seed and prove it on dev | done 2026-09-26 |
+| INC-26 | Sidebar: clear chapter groups, titles truncate with the XP always visible, a "What you'll learn" section | built 2026-09-27, browser check Niraj |
+| INC-27 | Gating: reading free; a chapter's check or talk opens when the previous one is passed; finals after all | built 2026-09-27 |
+| INC-28 | Footer: previous and next name the chapter too | built 2026-09-27 |
+| INC-29 | Signed out, the AI button opens the sign-in dialog, not the sign-in page | built 2026-09-27 |
+| INC-30 | Transcript: visuals first, a remembered toggle, a live caption, auto-scroll while reading | built 2026-09-27 |
+| INC-31 | Voice: auto-play (remembered), playback speed, ask the lead by voice, read the check aloud (opt-in) | built 2026-09-27, browser check Niraj (mic) |
+| INC-32 | The learning path: one hand-written Pathfinder goal per incident, adopt from the case | done 2026-09-27 as plan/pathfinder PF-13 |
+| INC-33 | Runs: `incident_run` + `incident_run_event`, consent, and every action writes to the active run | not started |
+| INC-34 | The start screen: consent, "Just read", and the mic gated on a recorded run | not started |
+| INC-35 | Ask keeps the lead's answer | not started |
+| INC-36 | The `incident_report` worker job (Durable Object, gpt-4o) | not started |
+| INC-37 | Trigger and follow: the report starts after the closing talk; 2 a day | not started |
+| INC-38 | The report page | not started |
+| INC-39 | Share link and the public report page | not started |
+| INC-40 | Runs list and "Start a new run" | not started |
+| INC-41 | Compare with the last run: each band shows its change | not started |
+| INC-42 | Report XP: once per case, the first report | not started |
+| INC-43 | Next steps mark topics in the reader's adopted path | not started |
+| INC-44 | Delete a run and its transcripts | not started |
 
 ## INC-1 - Routes and the sign-in dialog
 **Files** `apps/main/app/(public)/incidents/{page,layout,loading}.tsx`,
@@ -371,3 +390,185 @@ Feedback on the player: "the UI is okay-ish, the content needs to be really grea
   saved and loaded back. Every step renders inside the shell, no new server errors.
 - **Now unused (proposed deletion):** `story.tsx`, `predict.tsx`, `fix.tsx`, `case-cover.tsx`,
   `diagrams/worker-limits.tsx` (the old long-form pieces the chapters replaced).
+
+## Round 5 (Niraj, 2026-09-27)
+
+"This is literally good ... the voice that talks about this, it's way easier to
+understand than reading a text." Decisions:
+- **Transcript**: visuals first; the spoken script behind a remembered "Show transcript"
+  toggle; the current paragraph as a live caption under the orb; auto-scroll to it when the
+  transcript is shown.
+- **Gating**: reading is never blocked. A chapter's check or talk opens once the previous
+  chapter's check or talk is passed; the final quiz, round and closing talk open after all
+  chapters' checks and talks.
+- **Sidebar**: clearer chapter grouping; titles truncate with an ellipsis so the XP stays
+  visible at any width; a "What you'll learn" section.
+- **Footer**: previous and next say which chapter, so two "Check yourself" never meet.
+- **Signed out**: the AI button opens the sign-in dialog, not the sign-in page.
+- **Voice**: auto-play on each chapter (a remembered switch), playback speed (1x, 1.25x,
+  1.5x), "Ask the lead" by voice (ask out loud, answered from the case, spoken back), and
+  "read the check aloud", **off by default**, for those who want it.
+- **Learning**: one hand-written Pathfinder goal per incident (topics, quizzes, a mock, a
+  project), seeded by a script and adoptable from the case. **First**: a scan and sweep of
+  the Pathfinder module (screens that no longer make sense), its UI brought to the
+  workspace and Incidents standard (clean, tab-based like projects), and the two empty
+  goals removed with a preview-first script. Then Niraj's Pathfinder questions.
+
+**Outcome, round 5 (2026-09-27)**
+- INC-26 The step list groups by act (What happened, How it was fixed, Beyond this case,
+  Final), then chapter with a done count; the list's ScrollArea uses `reflow`, which is
+  what let titles push the XP out of view (its viewport sized to content). Titles truncate,
+  the XP stays. "What you'll learn" lists the case's `learn` topics.
+- INC-27 `lockedBy`: chapters always open; a check or talk opens once every earlier
+  chapter's check and talk is done; the finals after all of them. A locked step shows a
+  panel naming the step to pass, with Go to it.
+- INC-28 Footer labels carry the chapter above the title.
+- INC-29 `components/auth/sign-in-prompt.tsx`: the dialog is shared, openable from anywhere
+  (`openSignInPrompt`) and mounted once in the shell; the sidebar's AI button uses it
+  signed out; the Incidents gate uses the same dialog with its own wording.
+- INC-30 Visuals first: narrated paragraphs are hidden unless "Show the transcript" (a
+  remembered choice) or the voice is unavailable; the paragraph being read is a caption
+  under the orb; with the transcript on, the page scrolls to it.
+- INC-31 Narrator: Auto (remembered, on by default; a blocked autoplay falls back to
+  Listen), speed 1x, 1.25x, 1.5x (remembered), Ask (records with the Sarvam dictation hook,
+  `askLead` answers from the case brief in 2-4 spoken sentences, signed in, 20 a day,
+  logged as `ask` rows), the answer as a caption and spoken. `lib/incidents/speech.ts`
+  caches any case text in R2 by hash (inline without R2). The shared QuizRunner gains an
+  opt-in "Read aloud" switch (off by default, remembered) fed by `speakQuestion`.
+- Verified: `tsc` clean; re-seeded (the chapters now carry their act); the player renders
+  the acts, What you'll learn, the voice controls and the transcript toggle; a fresh reader
+  sees chapter 7's talk and the final quiz locked; no new server errors. The mic and ask
+  path need Niraj's browser.
+
+
+## Runs and the run report (INC-33 to INC-40)
+
+Decisions and "done when" (7 to 10) are in `overview.md`, "Runs and the run report".
+
+### INC-33 Runs: tables, consent, and recording into the active run
+- [ ] Status: not started
+- **Why:** the report needs everything one attempt did, tied together. `incident_progress`
+  is the XP and unlock ledger, unique per (user, case, kind, item), so a retake cannot
+  record a second answer there; it stays as it is.
+- **Files:** `packages/db/src/schema/incidents.ts` (a migration), `lib/incidents/run.ts`
+  (new), `lib/incidents/record.ts`, `actions/(main)/incidents/mock.action.ts`,
+  `actions/(main)/incidents/narration.action.ts`.
+- **Steps:**
+  1. `incident_run`: id, userId, caseSlug, status (`ACTIVE`, `REPORTING`, `REPORTED`,
+     `FAILED`, `ENDED`), consentText, consentedAt, startedAt, endedAt, reportJobId,
+     report jsonb, shareToken (unique, nullable), sharedAt. One ACTIVE run per user and
+     case (partial unique index).
+  2. `incident_run_event`: id, runId, kind (`check`, `quiz`, `ask`, `talk`, `step`),
+     itemId, payload jsonb, createdAt. Check: the response and the grade. Ask: question
+     and answer. Talk: the mock session id (the transcript stays on the session).
+  3. `activeRun(userId, slug)` in `lib/incidents/run.ts`; `recordProgressFor`, `askLead`
+     and `startIncidentMock` add an event when one exists, and do nothing extra when not.
+  4. `startRun(slug)` (consent text stored verbatim) and `endRun`.
+- **Edge cases:** a check answered twice in one run keeps both (first try is what the
+  report grades); events are written only by the server from graded results, never
+  from client-sent grades; deleting a user cascades.
+- **Done when:** on dev, a throwaway user with a run answers a check, asks, and starts a
+  talk: three events; without a run, none; the migration preview shows only these two
+  tables and the index.
+
+### INC-34 The start screen and the gated mic
+- [ ] Status: not started
+- **Why:** consent comes before anything is kept (decision: at the start, optional).
+- **Files:** `components/incidents/player/start-screen.tsx` (new), `case-player.tsx`,
+  `narrator.tsx`, `mock-step.tsx`.
+- **Steps:** signed in with no active run and no remembered "Just read" for this case:
+  the start screen (the mockup in the decision). "Just read" is remembered per case in
+  localStorage; the header shows "Recording" or "Start recording". Ask and the talks
+  require a run: without one they open the start screen instead.
+- **Edge cases:** signed out: the start screen's button opens the sign-in prompt and
+  returns here; a reader mid-case when this ships starts with no run and sees "Start
+  recording" (their earlier answers are not in the run).
+- **Done when:** a fresh signed-in reader sees the start screen; "Just read" leaves no
+  run row; the mic buttons open the start screen until a run exists.
+
+### INC-35 Ask keeps the answer
+- [ ] Status: not started
+- **Why:** the report judges whether they understood the answer and followed up.
+- **Files:** `actions/(main)/incidents/narration.action.ts`.
+- **Steps:** the `ask` run event stores `{ question, answer, stepTitle }`.
+- **Done when:** an ask in a run shows both in its event row.
+
+### INC-36 The `incident_report` job
+- [ ] Status: not started
+- **Why:** reading a whole run and writing a careful review can take more than 30
+  seconds (CLAUDE.md: worker).
+- **Files:** `packages/db/src/schema/worker.ts` (`JOB_TYPES`), `apps/worker/src/jobs/
+  incident-report.ts` (new), `src/env.ts`, `src/jobs/index.ts`, `wrangler.jsonc` (a new
+  migration tag), `src/index.ts` (export: the fifth edit), `packages/ai/src/tasks.ts`
+  (`incidentRunReport: "gpt-4o"`).
+- **Steps:** input `{ runId }` only; re-read the run, its events, each talk's transcript
+  and feedback, and the case brief; one JSON-mode call returning the bands, highlights
+  (each with `quote` and `sourceEventId` or `sourceSessionId`), question marks, check
+  summary and next steps; validate that every quote occurs in its source (drop any that
+  do not); write `report`, status `REPORTED`.
+- **Edge cases:** a run with no talks or no asks: the band says "Not shown yet" rather
+  than guessing; model output that fails validation twice: status `FAILED` with a retry;
+  the owner check re-done in the job.
+- **Done when:** a seeded run on the local worker produces a report whose every quote is
+  found verbatim in the run's rows.
+
+### INC-37 Trigger, follow, cap
+- [ ] Status: not started
+- **Files:** `mock.action.ts` (`finishIncidentMock`), `actions/(main)/incidents/run.action.ts`
+  (new), `case-player.tsx`.
+- **Steps:** when the closing talk finishes inside a run, dispatch the job
+  (`startBackgroundJob`, no cost, singleFlight on the run id), set `REPORTING`; the
+  closing step follows it and links to the report. A 3rd report in a day is refused with
+  the time it frees up; the run stays finished and can be reported later.
+- **Done when:** finishing the closing talk on dev starts one job and the page links to the
+  report when it lands; a third that day is refused.
+
+### INC-38 The report page
+- [ ] Status: not started
+- **Files:** `app/(main)/incidents/[slug]/report/[runId]/{page,loading}.tsx`,
+  `components/incidents/report/*`.
+- **Steps:** one page: header (case, date, time taken), the four bands with evidence,
+  Highlights, Questions asked, Checks and final quiz (linked to chapters), Next steps
+  (linked to the path's topics, with Adopt). Owner only. Printable.
+- **Done when:** renders for the owner with a seeded report, 404 for anyone else; skeleton
+  matches; no horizontal scroll at 375px (Niraj).
+
+### INC-39 Share link
+- [ ] Status: not started
+- **Files:** `run.action.ts` (`setRunShared`), `app/(public)/incidents/report/[token]/page.tsx`,
+  `middleware.ts` (public prefix), `lib/urls.ts`.
+- **Steps:** a random token; the public page is the same report without the reader's
+  email; off clears the token.
+- **Done when:** the link opens signed out; after turning it off it 404s.
+
+### INC-40 Runs list and a new run
+- [ ] Status: not started
+- **Files:** `case-player.tsx` (sidebar "Your runs"), `run.action.ts`.
+- **Steps:** each past run with its date and bands, linking to its report; "Start a new
+  run" ends the active one (status `ENDED` if unreported) and opens the start screen.
+- **Done when:** a second run makes a second report and both are listed; the first is
+  unchanged.
+
+### INC-41 Compare with the last run
+- [ ] Status: not started
+- **Files:** the report job (reads the previous REPORTED run's bands), `components/incidents/report/*`.
+- **Steps:** from the second report on, each band carries `previous` and shows "Developing -> Solid".
+- **Done when:** a second seeded report shows the change for each band.
+
+### INC-42 Report XP
+- [ ] Status: not started
+- **Files:** the report job's settle step in main (`run.action.ts`), `INCIDENT_XP` in `content/incidents/index.ts` (the amount is a decision in the overview).
+- **Steps:** an `incident_progress` row `kind: "report"`, itemId `report`, so the unique key makes it once per case.
+- **Done when:** the first report awards XP once; a second run awards none.
+
+### INC-43 Next steps into the adopted path
+- [ ] Status: not started
+- **Files:** the report page, `lib/pathfinder/copy.ts` callers, the report's next steps (each names a path topic title).
+- **Steps:** if the reader has adopted the path, "Next steps" links straight to those topics (`/pathfinder/<slug>?tab=plan`, topic selected) and lists them first in Today; if not, it offers Adopt.
+- **Done when:** with an adopted path, each next step opens its topic.
+
+### INC-44 Delete a run
+- [ ] Status: not started
+- **Files:** `run.action.ts` (`deleteRun`), the report page.
+- **Steps:** a confirm naming what goes (the run, its events, its talk transcripts, its share link); XP already earned stays.
+- **Done when:** after deleting, the run's rows and its sessions are gone and the share link 404s.
