@@ -57,10 +57,6 @@ export const PATHFINDER_XP = {
 } as const
 
 export const PATHFINDER_CREDITS = {
-    /** Private goal creation */
-    privateGoalCreation: 5,
-    /** Public goal creation */
-    publicGoalCreation: 0,
     /** Verification fixed fee (refund based on score) */
     verificationFee: 20,
     /** Block AI usage when pending cost reaches this */

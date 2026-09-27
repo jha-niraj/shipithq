@@ -1,0 +1,1 @@
+ALTER TABLE "pathfinder_goal" ALTER COLUMN "is_public" SET DEFAULT false;

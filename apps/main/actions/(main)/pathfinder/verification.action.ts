@@ -10,9 +10,12 @@ import {
     pathfinderCodingSubmissions,
     users,
     creditTransactions,
+    mockVoiceSession,
+    projectsV2,
+    userProjectV2Progress,
 } from '@repo/db'
-import { eq, and, sql } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
+import { eq, and, or, sql, desc } from 'drizzle-orm'
+import { revalidateGoal } from '@/lib/pathfinder/revalidate'
 import type { VerificationAIPlan } from '@/types/pathfinder'
 import { PATHFINDER_CREDITS, PATHFINDER_XP } from '@/lib/constants/pricing'
 import { addXpToUser } from '@/actions/(main)/user/level.action'
@@ -53,50 +56,8 @@ export interface VerificationCodingSubmission {
 }
 
 // ================================================================================
-// START VERIFICATION
-// ================================================================================
-
-export async function startVerification(goalId: string) {
-    try {
-        const session = await getSession(headers())
-        if (!session?.user?.id) {
-            return { success: false, error: 'Unauthorized' }
-        }
-
-        const goal = await db.query.pathfinderGoals.findFirst({
-            where: and(eq(pathfinderGoals.id, goalId), eq(pathfinderGoals.userId, session.user.id)),
-            with: { verification: true },
-        })
-
-        if (!goal) {
-            return { success: false, error: 'Goal not found' }
-        }
-
-        if (goal.status !== 'ACTIVE') {
-            return { success: false, error: 'Goal is not in active status' }
-        }
-
-        await db.update(pathfinderGoals)
-            .set({
-                status: 'VERIFICATION',
-                verificationStartedAt: new Date(),
-            })
-            .where(eq(pathfinderGoals.id, goalId))
-
-        revalidatePath(`/pathfinder/${goalId}`)
-        return { success: true }
-    } catch (error) {
-        console.error('Error starting verification:', error)
-        return { success: false, error: 'Failed to start verification' }
-    }
-}
-
-// ================================================================================
 // GET VERIFICATION STATUS
 // ================================================================================
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const CUID_REGEX = /^c[a-z0-9]{24}$/i
 
 export async function getVerificationStatus(slugOrId: string) {
     try {
@@ -105,11 +66,8 @@ export async function getVerificationStatus(slugOrId: string) {
             return { success: false, error: 'Unauthorized', verification: null }
         }
 
-        const isId = UUID_REGEX.test(slugOrId) || CUID_REGEX.test(slugOrId)
         const goal = await db.query.pathfinderGoals.findFirst({
-            where: isId
-                ? and(eq(pathfinderGoals.id, slugOrId), eq(pathfinderGoals.userId, session.user.id))
-                : and(eq(pathfinderGoals.userId, session.user.id), eq(pathfinderGoals.slug, slugOrId)),
+            where: and(eq(pathfinderGoals.userId, session.user.id), or(eq(pathfinderGoals.slug, slugOrId), eq(pathfinderGoals.id, slugOrId))),
             with: { verification: true },
         })
 
@@ -193,7 +151,7 @@ export async function submitVerificationQuiz(submission: VerificationQuizSubmiss
             await checkVerificationCompletion(goal.verification.id)
         }
 
-        revalidatePath(`/pathfinder/${submission.goalId}/verify`)
+        await revalidateGoal(submission.goalId, { verify: true })
         return { success: true, score, passed }
     } catch (error) {
         console.error('Error submitting verification quiz:', error)
@@ -269,7 +227,7 @@ export async function submitVerificationCoding(submission: VerificationCodingSub
             await checkVerificationCompletion(goal.verification.id)
         }
 
-        revalidatePath(`/pathfinder/${submission.goalId}/verify`)
+        await revalidateGoal(submission.goalId, { verify: true })
         return { success: true, passed: submission.passed, overallPassed: allPassed }
     } catch (error) {
         console.error('Error submitting verification coding:', error)
@@ -278,105 +236,221 @@ export async function submitVerificationCoding(submission: VerificationCodingSub
 }
 
 // ================================================================================
-// COMPLETE MOCK INTERVIEW
+// MOCK INTERVIEW (plan/pathfinder PF-10)
 // ================================================================================
 
-export async function completeMockInterview(
-    goalId: string,
-    mockSessionId: string,
-    score: number
-) {
+const LIVE = ['SCHEDULED', 'IN_PROGRESS']
+
+/**
+ * Start (or resume) the verification mock: a real voice session on the mock the
+ * verification job wrote for this goal. Returns the SESSION id, which is what
+ * `/mock/voice/interview/[sessionId]` takes. The old link passed the mock's id and
+ * 404'd, and nothing ever completed the section.
+ */
+export async function startVerificationMock(goalId: string) {
     try {
         const session = await getSession(headers())
-        if (!session?.user?.id) {
-            return { success: false, error: 'Unauthorized' }
-        }
-
+        const userId = session?.user?.id
+        if (!userId) return { success: false as const, error: 'Unauthorized' }
         const goal = await db.query.pathfinderGoals.findFirst({
-            where: and(eq(pathfinderGoals.id, goalId), eq(pathfinderGoals.userId, session.user.id)),
+            where: and(eq(pathfinderGoals.id, goalId), eq(pathfinderGoals.userId, userId)),
             with: { verification: true },
         })
+        const v = goal?.verification
+        if (!v) return { success: false as const, error: 'Goal not found' }
+        if (v.mockStatus === 'LOCKED') return { success: false as const, error: 'Pass the coding section first' }
+        if (v.mockStatus === 'COMPLETED') return { success: false as const, error: 'You already passed the mock' }
+        if (!v.mockInterviewId) return { success: false as const, error: 'Generate the verification questions first' }
 
-        if (!goal || !goal.verification) {
-            return { success: false, error: 'Goal not found' }
+        if (v.mockSessionId) {
+            const open = await db.query.mockVoiceSession.findFirst({
+                where: and(eq(mockVoiceSession.id, v.mockSessionId), eq(mockVoiceSession.userId, userId)),
+                columns: { id: true, status: true, endsAt: true },
+            })
+            if (open && LIVE.includes(open.status) && (!open.endsAt || open.endsAt.getTime() > Date.now())) {
+                return { success: true as const, sessionId: open.id }
+            }
         }
 
-        const passed = score >= 70
-        const newStatus: VerificationSectionStatus = passed ? 'COMPLETED' : 'FAILED'
-
-        const aiPlan = (goal.verification as { generatedPlan?: { minorProject?: unknown; majorProject?: unknown } } | null)?.generatedPlan as { minorProject?: unknown; majorProject?: unknown } | null
-        const hasProject = !!(aiPlan?.minorProject || aiPlan?.majorProject)
+        const { createMockVoiceSession } = await import('@/actions/(main)/mockvoice/session.action')
+        const created = await createMockVoiceSession({ mockId: v.mockInterviewId, mockType: 'custom' })
+        if (!created.success || !created.sessionId) return { success: false as const, error: created.error ?? 'Could not start the interview' }
 
         await db.update(pathfinderVerifications)
-            .set({
-                mockStatus: newStatus,
-                mockScore: score,
-                mockAttempts: goal.verification.mockAttempts + 1,
-                mockSessionId,
-                mockCompletedAt: passed ? new Date() : undefined,
-                ...(passed && hasProject ? { projectStatus: 'PENDING' as VerificationSectionStatus } : {}),
-            })
-            .where(eq(pathfinderVerifications.id, goal.verification.id))
+            .set({ mockSessionId: created.sessionId, mockStatus: 'IN_PROGRESS' })
+            .where(eq(pathfinderVerifications.id, v.id))
+        await revalidateGoal(goalId, { verify: true })
+        return { success: true as const, sessionId: created.sessionId }
+    } catch (error: unknown) {
+        console.error('Error starting verification mock:', error)
+        return { success: false as const, error: 'Could not start the interview' }
+    }
+}
 
-        if (passed) {
-            await checkVerificationCompletion(goal.verification.id)
+/**
+ * Bring the mock section up to date with its session, on every Verify render. A
+ * scored session completes the section at the session's own score (70 to pass),
+ * never at a number the browser sends; a session that ended unscored puts the
+ * section back to "start again". Idempotent.
+ */
+export async function refreshVerificationMock(slugOrId: string) {
+    try {
+        const session = await getSession(headers())
+        const userId = session?.user?.id
+        if (!userId) return
+        const goal = await db.query.pathfinderGoals.findFirst({
+            where: and(eq(pathfinderGoals.userId, userId), or(eq(pathfinderGoals.slug, slugOrId), eq(pathfinderGoals.id, slugOrId))),
+            with: { verification: true },
+        })
+        const v = goal?.verification
+        if (!v?.mockSessionId || v.mockStatus === 'COMPLETED' || v.mockStatus === 'LOCKED') return
+
+        const { progressVoiceMock } = await import('@/lib/voice/score')
+        const row = await db.query.mockVoiceSession.findFirst({
+            where: and(eq(mockVoiceSession.id, v.mockSessionId), eq(mockVoiceSession.userId, userId)),
+            columns: { status: true, endsAt: true },
+        })
+        if (!row) return
+        // A handed-in interview is scored by polling; do the poll here so leaving the
+        // results page early does not leave the section waiting forever.
+        const outcome = row.status === 'SUBMITTED' || row.status === 'COMPLETED' || row.status === 'FAILED'
+            ? await progressVoiceMock(userId, v.mockSessionId)
+            : null
+        const expired = LIVE.includes(row.status) && row.endsAt && row.endsAt.getTime() < Date.now()
+
+        if (outcome?.state === 'scored') {
+            const score = Math.round(outcome.analysis.overallScore)
+            const passed = score >= 70
+            const aiPlan = v.generatedPlan as { minorProject?: unknown; majorProject?: unknown } | null
+            const hasProject = !!(aiPlan?.minorProject || aiPlan?.majorProject)
+            const [moved] = await db.update(pathfinderVerifications)
+                .set({
+                    mockStatus: passed ? 'COMPLETED' : 'FAILED',
+                    mockScore: score,
+                    mockAttempts: v.mockAttempts + 1,
+                    mockSessionId: passed ? v.mockSessionId : null,
+                    mockCompletedAt: passed ? new Date() : undefined,
+                    ...(passed && hasProject && v.projectStatus === 'LOCKED' ? { projectStatus: 'PENDING' as VerificationSectionStatus } : {}),
+                })
+                // Guarded on the session id so two renders cannot count one interview twice.
+                .where(and(eq(pathfinderVerifications.id, v.id), eq(pathfinderVerifications.mockSessionId, v.mockSessionId)))
+                .returning({ id: pathfinderVerifications.id })
+            if (moved && passed) await checkVerificationCompletion(v.id)
+            return
         }
-
-        revalidatePath(`/pathfinder/${goalId}/verify`)
-        return { success: true, passed }
-    } catch (error) {
-        console.error('Error completing mock interview:', error)
-        return { success: false, error: 'Failed to complete mock interview' }
+        if (outcome?.state === 'not_scored' || expired) {
+            await db.update(pathfinderVerifications)
+                .set({ mockStatus: 'PENDING', mockSessionId: null })
+                .where(and(eq(pathfinderVerifications.id, v.id), eq(pathfinderVerifications.mockSessionId, v.mockSessionId)))
+        }
+    } catch (error: unknown) {
+        console.error('Error refreshing verification mock:', error)
     }
 }
 
 // ================================================================================
-// SUBMIT PROJECT
+// PROJECT (plan/pathfinder PF-11)
 // ================================================================================
 
-export async function submitProject(
-    goalId: string,
-    projectType: 'CODERZ' | 'PORTFOLIO',
-    projectId: string
-) {
+/** The projects you have started, for picking one to verify a goal with. */
+export async function listMyProjectsForVerification() {
     try {
         const session = await getSession(headers())
-        if (!session?.user?.id) {
-            return { success: false, error: 'Unauthorized' }
-        }
+        if (!session?.user?.id) return { success: false as const, projects: [] }
+        const rows = await db.select({
+            id: projectsV2.id,
+            title: projectsV2.title,
+            slug: projectsV2.slug,
+            status: userProjectV2Progress.status,
+            progress: userProjectV2Progress.progressPercentage,
+        })
+            .from(userProjectV2Progress)
+            .innerJoin(projectsV2, eq(projectsV2.id, userProjectV2Progress.projectId))
+            .where(eq(userProjectV2Progress.userId, session.user.id))
+            .orderBy(desc(userProjectV2Progress.updatedAt))
+        return { success: true as const, projects: rows }
+    } catch (error: unknown) {
+        console.error('Error listing projects for verification:', error)
+        return { success: false as const, projects: [] }
+    }
+}
 
+/**
+ * Verify a goal with one of your own Projects. The section passes when that
+ * project is COMPLETED under the project's own review, now or later: nothing typed
+ * here is taken on trust. The old form threw away everything it asked for and
+ * marked the section complete.
+ */
+export async function linkVerificationProject(goalId: string, projectId: string) {
+    try {
+        const session = await getSession(headers())
+        const userId = session?.user?.id
+        if (!userId) return { success: false as const, error: 'Unauthorized' }
         const goal = await db.query.pathfinderGoals.findFirst({
-            where: and(eq(pathfinderGoals.id, goalId), eq(pathfinderGoals.userId, session.user.id)),
+            where: and(eq(pathfinderGoals.id, goalId), eq(pathfinderGoals.userId, userId)),
             with: { verification: true },
         })
+        const v = goal?.verification
+        if (!v) return { success: false as const, error: 'Goal not found' }
+        if (v.projectStatus === 'LOCKED') return { success: false as const, error: 'Pass the mock interview first' }
+        if (v.projectStatus === 'COMPLETED') return { success: false as const, error: 'The project section is already passed' }
 
-        if (!goal || !goal.verification) {
-            return { success: false, error: 'Goal not found' }
-        }
+        const progress = await db.query.userProjectV2Progress.findFirst({
+            where: and(eq(userProjectV2Progress.userId, userId), eq(userProjectV2Progress.projectId, projectId)),
+            columns: { status: true },
+        })
+        if (!progress) return { success: false as const, error: 'That is not one of your projects' }
 
+        const done = progress.status === 'COMPLETED'
         await db.update(pathfinderVerifications)
             .set({
-                projectStatus: 'COMPLETED',
-                projectComplete: true,
-                projectType,
                 projectId,
-                projectCompletedAt: new Date(),
+                projectType: 'SHIPITHQ',
+                projectStatus: done ? 'COMPLETED' : 'IN_PROGRESS',
+                projectComplete: done,
+                projectCompletedAt: done ? new Date() : null,
             })
-            .where(eq(pathfinderVerifications.id, goal.verification.id))
-
-        await checkVerificationCompletion(goal.verification.id)
-
-        revalidatePath(`/pathfinder/${goalId}/verify`)
-        return { success: true }
-    } catch (error) {
-        console.error('Error submitting project:', error)
-        return { success: false, error: 'Failed to submit project' }
+            .where(eq(pathfinderVerifications.id, v.id))
+        if (done) await checkVerificationCompletion(v.id)
+        await revalidateGoal(goalId, { verify: true })
+        return { success: true as const, passed: done }
+    } catch (error: unknown) {
+        console.error('Error linking verification project:', error)
+        return { success: false as const, error: 'Could not link the project' }
     }
 }
 
-// ================================================================================
-// RETRY SECTION
-// ================================================================================
+/** Bring the project section up to date with its project, on every Verify render. */
+export async function refreshVerificationProject(slugOrId: string) {
+    try {
+        const session = await getSession(headers())
+        const userId = session?.user?.id
+        if (!userId) return
+        const goal = await db.query.pathfinderGoals.findFirst({
+            where: and(eq(pathfinderGoals.userId, userId), or(eq(pathfinderGoals.slug, slugOrId), eq(pathfinderGoals.id, slugOrId))),
+            with: { verification: true },
+        })
+        const v = goal?.verification
+        if (!v?.projectId || v.projectStatus !== 'IN_PROGRESS') return
+        const progress = await db.query.userProjectV2Progress.findFirst({
+            where: and(eq(userProjectV2Progress.userId, userId), eq(userProjectV2Progress.projectId, v.projectId)),
+            columns: { status: true },
+        })
+        if (!progress) {
+            // The project was deleted: back to picking one.
+            await db.update(pathfinderVerifications).set({ projectId: null, projectStatus: 'PENDING' }).where(eq(pathfinderVerifications.id, v.id))
+            return
+        }
+        if (progress.status !== 'COMPLETED') return
+        const [moved] = await db.update(pathfinderVerifications)
+            .set({ projectStatus: 'COMPLETED', projectComplete: true, projectCompletedAt: new Date() })
+            .where(and(eq(pathfinderVerifications.id, v.id), eq(pathfinderVerifications.projectStatus, 'IN_PROGRESS')))
+            .returning({ id: pathfinderVerifications.id })
+        if (moved) await checkVerificationCompletion(v.id)
+    } catch (error: unknown) {
+        console.error('Error refreshing verification project:', error)
+    }
+}
 
 export async function retryVerificationSection(
     goalId: string,
@@ -402,7 +476,7 @@ export async function retryVerificationSection(
             .set({ [statusField]: 'PENDING' as VerificationSectionStatus })
             .where(eq(pathfinderVerifications.id, goal.verification.id))
 
-        revalidatePath(`/pathfinder/${goalId}/verify`)
+        await revalidateGoal(goalId, { verify: true })
         return { success: true }
     } catch (error) {
         console.error('Error retrying section:', error)

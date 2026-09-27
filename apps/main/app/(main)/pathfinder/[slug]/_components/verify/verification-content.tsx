@@ -7,10 +7,9 @@ import {
     Tabs, TabsContent, TabsList, TabsTrigger
 } from '@repo/ui/components/ui/tabs'
 import {
-    Target, ArrowLeft, CheckCircle2, XCircle, Lock, Brain, Code,
+    CheckCircle2, XCircle, Lock, Brain, Code,
     Mic, Wrench, Trophy
 } from 'lucide-react'
-import Link from 'next/link'
 import {
     PathfinderCategory, PathfinderLevel, VerificationSectionStatus
 } from '@repo/db'
@@ -72,6 +71,7 @@ interface Verification {
     codingScore: number | null
     mockScore: number | null
     projectComplete: boolean
+    projectId?: string | null
     quizAttempts: number
     codingAttempts: number
     mockAttempts: number
@@ -199,7 +199,6 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
     if (verification?.passed) {
         return (
             <div className="flex-1 flex flex-col overflow-hidden">
-                <VerificationHeader goal={goal} verification={verification} />
                 <CompletionScreen verification={verification} />
             </div>
         )
@@ -207,7 +206,7 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
 
     return (
         <div className="flex-1 flex flex-col overflow-hidden">
-            <VerificationHeader goal={goal} verification={verification} />
+            <VerificationProgress verification={verification} />
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
@@ -274,6 +273,7 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
                         </TabsContent>
                         <TabsContent value="mock" className="h-full m-0">
                             <MockVerification
+                                goalId={goal.id}
                                 mockInterviewId={mockInterviewId ?? null}
                                 mockConfig={aiPlan?.mockInterview}
                                 status={verification?.mockStatus || 'LOCKED'}
@@ -290,6 +290,7 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
                                         majorProject={aiPlan?.majorProject}
                                         status={verification?.projectStatus || 'LOCKED'}
                                         complete={verification?.projectComplete || false}
+                                        linkedProjectId={verification?.projectId ?? null}
                                     />
                                 </TabsContent>
                             )
@@ -301,47 +302,15 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
     )
 }
 
-function VerificationHeader({ goal, verification }: { goal: Goal; verification: Verification | null }) {
-    // Calculate overall progress
-    const sections = [
-        verification?.quizStatus === 'COMPLETED',
-        verification?.codingStatus === 'COMPLETED',
-        verification?.mockStatus === 'COMPLETED',
-    ]
-    const completedSections = sections.filter(Boolean).length
-    const totalSections = sections.length
-    const progress = Math.round((completedSections / totalSections) * 100)
-
+/** How far through verification you are. The workspace header carries the goal's title. */
+function VerificationProgress({ verification }: { verification: Verification | null }) {
+    const done = [verification?.quizStatus, verification?.codingStatus, verification?.mockStatus, verification?.projectStatus]
+        .filter((s) => s === 'COMPLETED').length
     return (
-        <div className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-6 py-4">
-            <Link href={`/pathfinder/${(goal as { slug?: string }).slug ?? goal.id}`} className="inline-flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white mb-4">
-                <ArrowLeft className="w-4 h-4" />
-                Back to Goal
-            </Link>
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-neutral-900 dark:bg-neutral-100 flex items-center justify-center">
-                        <Target className="w-6 h-6 text-white dark:text-neutral-900" />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
-                            Skill Verification
-                        </h1>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400">{goal.title}</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <div className="text-right">
-                        <div className="text-sm text-neutral-500 dark:text-neutral-400">Progress</div>
-                        <div className="text-lg font-semibold text-neutral-900 dark:text-white">
-                            {completedSections}/{totalSections} sections
-                        </div>
-                    </div>
-                    <div className="w-32">
-                        <Progress value={progress} className="h-3" />
-                    </div>
-                </div>
-            </div>
+        <div className="flex items-center gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
+            <p className="text-sm font-medium text-neutral-900 dark:text-white">Verification</p>
+            <p className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{done} of 4 sections</p>
+            <Progress value={(done / 4) * 100} className="ml-auto h-1.5 w-32" />
         </div>
     )
 }

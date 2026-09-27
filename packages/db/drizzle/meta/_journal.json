@@ -470,6 +470,13 @@
       "when": 1790440450482,
       "tag": "0066_imported_job_private_once",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1790500478562,
+      "tag": "0067_pathfinder_private_default",
+      "breakpoints": true
     }
   ]
 }

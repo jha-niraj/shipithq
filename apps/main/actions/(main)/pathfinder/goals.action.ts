@@ -10,12 +10,10 @@ import {
     pathfinderDailySessions,
     pathfinderSubGoals,
     studios,
-    users,
-    creditTransactions,
 } from '@repo/db'
-import { eq, and, desc, asc, sql } from 'drizzle-orm'
+import { eq, and, or, desc, asc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { PATHFINDER_CREDITS } from '@/lib/constants/pricing'
+import { revalidateGoal } from '@/lib/pathfinder/revalidate'
 import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
 
 // ================================================================================
@@ -50,7 +48,6 @@ import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
 // Nothing needed the re-export anyway: every consumer already imports these
 // three from `@repo/db` directly, which is where they belong.
 import type { PathfinderCategory, PathfinderLevel, PathfinderStatus } from '@repo/db'
-import { modelFor } from '@repo/ai'
 
 export interface CreateGoalInput {
     title: string
@@ -182,22 +179,9 @@ export async function createPathfinderGoal(input: CreateGoalInput) {
             ? DURATION_DAYS[input.duration] ?? input.estimatedDays
             : input.estimatedDays ?? null
 
-        const isPublic = input.isPublic ?? true
-
-        // Private goals cost 5 credits
-        if (!isPublic) {
-            const [user] = await db.select({ credits: users.credits }).from(users).where(eq(users.id, session.user.id))
-            const required = PATHFINDER_CREDITS.privateGoalCreation
-            if (!user || user.credits < required) {
-                return {
-                    success: false,
-                    error: `Insufficient credits. Private goals require ${required} credits.`,
-                    code: 'INSUFFICIENT_CREDITS',
-                    required,
-                    available: user?.credits ?? 0,
-                }
-            }
-        }
+        // Private by default and sharing is free (plan/pathfinder decision 2, 2026-09-27).
+        // A private goal used to cost credits, which made every goal public by default.
+        const isPublic = input.isPublic ?? false
 
         // Create the goal
         const [goal] = await db.insert(pathfinderGoals).values({
@@ -220,22 +204,6 @@ export async function createPathfinderGoal(input: CreateGoalInput) {
         }).returning()
 
         if (!goal) throw new Error("Failed to create goal")
-
-        if (!isPublic) {
-            const required = PATHFINDER_CREDITS.privateGoalCreation
-            // Was a read-then-write debit plus a separate ledger insert: two
-            // concurrent creates both passed the check, and a failure between the
-            // two writes left the balance and the ledger permanently disagreeing.
-            // `debitCredits` does both in one guarded transaction.
-            const charge = await debitCredits({
-                userId: session.user.id,
-                amount: required,
-                description: `Pathfinder Private Goal: ${input.title}`,
-            })
-            if (!charge.ok) {
-                return { success: false, error: insufficientCreditsMessage(charge), code: charge.code }
-            }
-        }
 
         // Create verification record
         await db.insert(pathfinderVerifications).values({
@@ -292,25 +260,13 @@ export async function getUserPathfinderGoals() {
         const goals = await db.query.pathfinderGoals.findMany({
             where: eq(pathfinderGoals.userId, session.user.id),
             orderBy: [desc(pathfinderGoals.createdAt)],
-            with: {
-                verification: true,
-                group: true,
-                dailySessions: {
-                    orderBy: [desc(pathfinderDailySessions.date)],
-                    limit: 7,
-                    with: {
-                        subGoals: true,
-                    },
-                },
-            },
         })
 
+        // The dashboard draws cards from the goal rows alone; it used to load each
+        // goal's last seven days with every topic, and every group with its goals.
         const groups = await db.query.pathfinderGroups.findMany({
             where: eq(pathfinderGroups.userId, session.user.id),
             orderBy: [asc(pathfinderGroups.order)],
-            with: {
-                goals: true,
-            },
         })
 
         return { success: true, goals, groups }
@@ -320,8 +276,6 @@ export async function getUserPathfinderGoals() {
     }
 }
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 export async function getPathfinderGoal(slugOrId: string) {
     try {
         const session = await getSession(headers())
@@ -329,11 +283,9 @@ export async function getPathfinderGoal(slugOrId: string) {
             return { success: false, error: 'Unauthorized', goal: null }
         }
 
-        const isUuid = UUID_REGEX.test(slugOrId)
+        // Ids are cuid2 and slugs are unique per owner, so one query covers both.
         const goal = await db.query.pathfinderGoals.findFirst({
-            where: isUuid
-                ? and(eq(pathfinderGoals.id, slugOrId), eq(pathfinderGoals.userId, session.user.id))
-                : and(eq(pathfinderGoals.userId, session.user.id), eq(pathfinderGoals.slug, slugOrId)),
+            where: and(eq(pathfinderGoals.userId, session.user.id), or(eq(pathfinderGoals.slug, slugOrId), eq(pathfinderGoals.id, slugOrId))),
             with: {
                 verification: true,
                 group: true,
@@ -427,218 +379,81 @@ export async function deletePathfinderGoal(goalId: string) {
 // AI STUDY PLAN GENERATION
 // ================================================================================
 
-import { openai } from '@/lib/openai-client'
-import { debitCredits, insufficientCreditsMessage } from '@/lib/credits/debit'
-
-interface StudyPlanTopic {
-    title: string
-    description: string
-    order: number
-}
-
 /**
- * Generate AI content (quiz, coding, resources) for an AI-generated sub-goal
- * that hasn't had content loaded yet. Called when user clicks "Generate Content".
+ * Fill an AI-planned topic with its notes and practice problems (plan/pathfinder PF-7).
+ * The model calls run in the `subgoal_generation` worker job, the same one a topic
+ * added by hand uses; this only makes the topic's Studio and dispatches the job. It
+ * used to run three model calls inline in this action, so a slow reply timed the
+ * request out and left the topic on "Generating" for good.
  */
 export async function generateContentForAISubGoal(subGoalId: string) {
     try {
         const session = await getSession(headers())
-        if (!session?.user?.id) {
-            return { success: false, error: 'Unauthorized' }
-        }
+        if (!session?.user?.id) return { success: false as const, error: 'Unauthorized' }
 
         const subGoal = await db.query.pathfinderSubGoals.findFirst({
             where: eq(pathfinderSubGoals.id, subGoalId),
-            with: { goal: { columns: { id: true, userId: true, category: true, level: true, title: true } } },
+            with: { goal: { columns: { id: true, userId: true } } },
         })
+        if (!subGoal || subGoal.goal.userId !== session.user.id) return { success: false as const, error: 'Topic not found' }
+        if (subGoal.isContentLoaded) return { success: true as const, jobId: undefined }
 
-        if (!subGoal || subGoal.goal.userId !== session.user.id) {
-            return { success: false, error: 'Sub-goal not found' }
-        }
-
-        if (subGoal.isContentLoaded) {
-            return { success: true, message: 'Content already loaded' }
-        }
-
-        // Check usage
-        const { canRunPathfinderAI, getGoalUsageSummary } = await import('./usage.action')
+        const { canRunPathfinderAI } = await import('./usage.action')
         const canRun = await canRunPathfinderAI(subGoal.goalId)
-        if (!canRun.allowed) {
-            return {
-                success: false,
-                error: canRun.reason ?? 'AI usage limit reached',
-                code: 'USAGE_BLOCKED',
-            }
+        if (!canRun.allowed) return { success: false as const, error: canRun.reason ?? 'AI usage limit reached' }
+
+        let studioId = subGoal.studioId
+        if (!studioId) {
+            const [studio] = await db.insert(studios).values({
+                slug: `subgoal-${subGoalId}-${Date.now().toString(36)}`,
+                title: `📝 ${subGoal.title}`,
+                description: `Study notes for: ${subGoal.title}`,
+                source: 'PATHFINDER',
+                sourceId: subGoalId,
+                visibility: 'PRIVATE',
+                userId: session.user.id,
+                stepCount: 0,
+            }).returning({ id: studios.id })
+            if (!studio) throw new Error('Failed to create studio')
+            studioId = studio.id
+            await db.update(pathfinderSubGoals).set({ studioId }).where(eq(pathfinderSubGoals.id, subGoalId))
+
+            // Videos and docs are Exa lookups against the Studio, the same fire-and-forget
+            // `createSubGoal` does; nothing waits on them.
+            const { generateVideos, generateDocuments } = await import('@/actions/(main)/studios/ai-generation.actions')
+            Promise.all([generateVideos(studioId, subGoal.title), generateDocuments(studioId, subGoal.title)])
+                .catch((err: unknown) => console.error('Failed to add videos/docs:', err))
         }
 
-        const { generateExplanation, generateVideos, generateDocuments } = await import('@/actions/(main)/studios/ai-generation.actions')
-
-        // Create Studio for this sub-goal
-        const studioSlug = `subgoal-${subGoalId}-${Date.now().toString(36)}`
-        const [studio] = await db.insert(studios).values({
-            slug: studioSlug,
-            title: `📝 ${subGoal.title}`,
-            description: `Study notes for: ${subGoal.title}`,
-            source: 'PATHFINDER',
-            sourceId: subGoalId,
-            visibility: 'PRIVATE',
-            userId: session.user.id,
-            stepCount: 0,
-        }).returning()
-
-        if (!studio) throw new Error("Failed to create studio")
-
-        await db.update(pathfinderSubGoals)
-            .set({ studioId: studio.id })
-            .where(eq(pathfinderSubGoals.id, subGoalId))
-
-        await generateExplanation(
-            studio.id,
-            `Provide a detailed explanation of "${subGoal.title}". Include key concepts, practical examples, code snippets where relevant, and best practices. Use clear markdown formatting.`
-        )
-
-        Promise.all([
-            generateVideos(studio.id, subGoal.title),
-            generateDocuments(studio.id, subGoal.title),
-        ]).catch((err) => console.error('Failed to add videos/docs:', err))
-
-        await generateQuizAndCoding(subGoalId, subGoal.goalId, session.user.id, subGoal.title, subGoal.goal.category, subGoal.goal.level)
-
-        await db.update(pathfinderSubGoals)
-            .set({ isContentLoaded: true })
-            .where(eq(pathfinderSubGoals.id, subGoalId))
-
-        const usageSummary = await getGoalUsageSummary(subGoal.goalId)
-
-        revalidatePath(`/pathfinder/${subGoal.goalId}`)
-        return {
-            success: true,
-            usageSummary: usageSummary ?? undefined,
-        }
-    } catch (error) {
-        console.error('Error generating content for AI sub-goal:', error)
-        return { success: false, error: 'Failed to generate content' }
+        // One job per topic at a time: a double click follows the running job.
+        const started = await startBackgroundJob('subgoal_generation', { subGoalId }, { singleFlight: true, singleFlightKey: subGoalId })
+        if (!started.success) return { success: false as const, error: started.error ?? 'Could not start generating' }
+        return { success: true as const, jobId: started.jobId }
+    } catch (error: unknown) {
+        console.error('Error starting AI sub-goal generation:', error)
+        return { success: false as const, error: 'Could not start generating' }
     }
 }
 
-async function generateQuizAndCoding(
-    subGoalId: string,
-    goalId: string,
-    userId: string,
-    title: string,
-    category: string,
-    level: string
-) {
+// ================================================================================
+// SHARE (plan/pathfinder PF-4)
+// ================================================================================
+
+/** Share a goal in Explore, or stop sharing it. Free either way; owner only. */
+export async function setGoalPublic(goalId: string, isPublic: boolean) {
     try {
-        const codingCount = level === 'BEGINNER' ? 2 : level === 'INTERMEDIATE' ? 2 : 3
-        const prompt = `You are an expert educator creating coding practice.
-
-A user is learning about "${title}" as part of their ${category} studies at ${level} level.
-
-Generate ${codingCount} coding problems if this topic involves practical coding skills. Pick appropriate difficulty (EASY, MEDIUM, HARD) for each - vary them. For theory-only topics, use [].
-
-Return JSON in this exact format:
-{
-  "codingProblems": [
-    {
-      "id": "cp1",
-      "title": "Problem title",
-      "description": "Detailed problem description",
-      "difficulty": "EASY" | "MEDIUM" | "HARD",
-      "starterCode": "function solve() {\\n  // Your code here\\n}",
-      "hints": ["Hint 1", "Hint 2"],
-      "sampleInput": "Example input",
-      "sampleOutput": "Expected output"
+        const session = await getSession(headers())
+        if (!session?.user?.id) return { success: false as const, error: 'Unauthorized' }
+        const [row] = await db.update(pathfinderGoals)
+            .set({ isPublic, updatedAt: new Date() })
+            .where(and(eq(pathfinderGoals.id, goalId), eq(pathfinderGoals.userId, session.user.id)))
+            .returning({ id: pathfinderGoals.id })
+        if (!row) return { success: false as const, error: 'Goal not found' }
+        await revalidateGoal(goalId)
+        revalidatePath('/pathfinder/explore')
+        return { success: true as const, isPublic }
+    } catch (error: unknown) {
+        console.error('Error sharing goal:', error)
+        return { success: false as const, error: 'Could not change sharing' }
     }
-  ]
-}
-
-Rules: Vary difficulty. Return ONLY valid JSON, no markdown.`
-
-        const response = await openai.chat.completions.create({
-            model: modelFor("pathfinderQuizAndCoding"),
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7,
-            max_tokens: 2000,
-            response_format: { type: 'json_object' },
-        })
-
-        const content = response.choices[0]?.message?.content
-        if (!content) return
-
-        const { logPathfinderUsage } = await import('./usage.action')
-        const inputTokens = response.usage?.prompt_tokens ?? 0
-        const outputTokens = response.usage?.completion_tokens ?? 0
-        if (inputTokens > 0 || outputTokens > 0) {
-            await logPathfinderUsage({ goalId, userId, action: 'subgoal_quiz_coding', provider: 'openai', inputTokens, outputTokens })
-        }
-
-        const aiContent = JSON.parse(content)
-        const codingProblems = Array.isArray(aiContent.codingProblems)
-            ? aiContent.codingProblems
-            : aiContent.codingProblem
-                ? [aiContent.codingProblem]
-                : []
-        const hasCoding = codingProblems.length > 0
-
-        await db.update(pathfinderSubGoals)
-            .set({
-                aiCodingProblem: hasCoding ? codingProblems : null,
-                hasCoding,
-            })
-            .where(eq(pathfinderSubGoals.id, subGoalId))
-
-        const subGoal = await db.query.pathfinderSubGoals.findFirst({
-            where: eq(pathfinderSubGoals.id, subGoalId),
-            columns: { sessionId: true },
-        })
-
-        if (subGoal) {
-            await db.update(pathfinderDailySessions)
-                .set({ totalCodingProblems: sql`${pathfinderDailySessions.totalCodingProblems} + ${codingProblems.length}` })
-                .where(eq(pathfinderDailySessions.id, subGoal.sessionId))
-        }
-    } catch (error) {
-        console.error('Error generating quiz/coding for AI sub-goal:', error)
-    }
-}
-
-function _getCategoryEmoji(category: PathfinderCategory): string {
-    const emojis: Record<PathfinderCategory, string> = {
-        DSA: '🧮',
-        WEB_DEVELOPMENT: '🌐',
-        FRONTEND: '🎨',
-        BACKEND: '⚙️',
-        DEVOPS: '🚀',
-        AI_ML: '🤖',
-        DATABASE: '🗄️',
-        SYSTEM_DESIGN: '🏗️',
-        MOBILE: '📱',
-        INTERVIEW_PREP: '🎯',
-        OTHER: '📚',
-    }
-    return emojis[category] || '📚'
-}
-
-function _mapToMockCategory(category: PathfinderCategory): 'TECHNICAL' | 'CODING' | 'SYSTEM_DESIGN' | 'GENERAL' {
-    const mapping: Record<PathfinderCategory, 'TECHNICAL' | 'CODING' | 'SYSTEM_DESIGN' | 'GENERAL'> = {
-        DSA: 'CODING',
-        WEB_DEVELOPMENT: 'TECHNICAL',
-        FRONTEND: 'TECHNICAL',
-        BACKEND: 'TECHNICAL',
-        DEVOPS: 'TECHNICAL',
-        AI_ML: 'TECHNICAL',
-        DATABASE: 'TECHNICAL',
-        SYSTEM_DESIGN: 'SYSTEM_DESIGN',
-        MOBILE: 'TECHNICAL',
-        // An interview-prep goal's mock section is a general interview, not a
-        // subject exam - its questions already carry their own kind.
-        INTERVIEW_PREP: 'GENERAL',
-        OTHER: 'GENERAL',
-    }
-    return mapping[category]
-}
-
-function _mapToMockLevel(level: PathfinderLevel): 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT' {
-    return level
 }

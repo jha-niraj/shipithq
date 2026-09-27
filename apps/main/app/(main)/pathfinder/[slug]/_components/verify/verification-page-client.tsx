@@ -7,10 +7,9 @@ import {
     Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription
 } from '@repo/ui/components/ui/sheet'
 import {
-    Target, ArrowLeft, Brain, Code, Mic, Wrench, Trophy,
+    Brain, Code, Mic, Wrench, Trophy,
     Sparkles, Coins, ArrowRight
 } from 'lucide-react'
-import Link from 'next/link'
 import { VerificationContent } from './verification-content'
 import { startVerificationGeneration, getVerificationJobStatus } from '@/actions/(main)/workers/verificationworker.action'
 import { usePathfinderStore } from '@/app/store/pathfinderStore'
@@ -139,26 +138,6 @@ export function VerificationPageClient({ goal: initialGoal, verification }: Veri
     return (
         <>
             <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-6 py-4">
-                    <Link
-                        href={`/pathfinder/${initialGoal.slug ?? initialGoal.id}`}
-                        className="inline-flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white mb-4"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Goal
-                    </Link>
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-neutral-900 to-neutral-800 flex items-center justify-center">
-                            <Target className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
-                                Verify this Goal
-                            </h1>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400">{initialGoal.title}</p>
-                        </div>
-                    </div>
-                </div>
                 <div className="flex-1 flex items-center justify-center p-6">
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
@@ -218,11 +197,6 @@ export function VerificationPageClient({ goal: initialGoal, verification }: Veri
                                 </SheetTitle>
                             </SheetHeader>
                             <div className="flex flex-col items-center justify-center py-16">
-                                <motion.div
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                                    className="w-16 h-16 rounded-full border-2 border-neutral-200 dark:border-neutral-700 border-t-neutral-600 mb-4"
-                                />
                                 <p className="text-sm text-neutral-600 dark:text-neutral-400 text-center max-w-sm">
                                     {phaseLabel ?? 'Creating personalized quiz and coding questions based on your learning progress.'}
                                 </p>

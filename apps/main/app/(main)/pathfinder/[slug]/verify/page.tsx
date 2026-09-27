@@ -1,31 +1,7 @@
-import { 
-    getPathfinderGoal, getVerificationStatus 
-} from '@/actions/(main)/pathfinder'
-import { VerificationPageClient } from './_components/verification-page-client'
-import { notFound } from 'next/navigation'
-import type { PathfinderVerification } from '@repo/db'
+import { redirect } from 'next/navigation'
 
-export const dynamic = 'force-dynamic'
-
-interface PageProps {
-    params: Promise<{ slug: string }>
-}
-
-export default async function VerificationPage({ params }: PageProps) {
+// Verify is a tab of the goal's workspace now (plan/pathfinder PF-9). Old links land on it.
+export default async function VerificationPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params
-    const [{ goal }, { verification }] = await Promise.all([
-        getPathfinderGoal(slug),
-        getVerificationStatus(slug)
-    ])
-
-    if (!goal) {
-        notFound()
-    }
-
-    return (
-        <VerificationPageClient
-            goal={goal}
-            verification={verification as PathfinderVerification | null}
-        />
-    )
+    redirect(`/pathfinder/${slug}?tab=verify`)
 }

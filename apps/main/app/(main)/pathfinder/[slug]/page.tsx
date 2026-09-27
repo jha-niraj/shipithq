@@ -1,33 +1,37 @@
-import {
-    getPathfinderGoal, getOrCreateDailySession, getGoalSessions
-} from '@/actions/(main)/pathfinder'
-import { DailyPracticeView } from './_components/daily-practice-view'
+import { getPathfinderGoal, getGoalSessions, refreshVerificationMock, refreshVerificationProject } from '@/actions/(main)/pathfinder'
 import { notFound } from 'next/navigation'
+import type { PathfinderVerification } from '@repo/db'
+import { GoalWorkspace, type WorkspaceTab } from './_components/goal-workspace'
+import type { DailySession } from './_components/topic-row'
 
 export const dynamic = 'force-dynamic'
 
-interface PageProps {
+const TABS: WorkspaceTab[] = ['today', 'plan', 'notes', 'verify']
+
+export default async function GoalPage({ params, searchParams }: {
     params: Promise<{ slug: string }>
-}
-
-export default async function GoalDetailsPage({ params }: PageProps) {
-    const { slug } = await params
-    const { goal, success } = await getPathfinderGoal(slug)
-
-    if (!success || !goal) {
-        notFound()
+    searchParams: Promise<{ tab?: string }>
+}) {
+    const [{ slug }, { tab }] = await Promise.all([params, searchParams])
+    // Verify reads the mock's and the project's live state: a scored interview or a
+    // completed project completes its section here.
+    if (tab === 'verify') {
+        await refreshVerificationMock(slug)
+        await refreshVerificationProject(slug)
     }
-
-    const [{ session }, { sessions: allSessions }] = await Promise.all([
-        getOrCreateDailySession(goal.id),
-        getGoalSessions(goal.id),
-    ])
+    const { goal } = await getPathfinderGoal(slug)
+    if (!goal) notFound()
+    const { sessions = [] } = await getGoalSessions(goal.id)
 
     return (
-        <DailyPracticeView
-            goal={goal}
-            initialSession={session ?? null}
-            allSessions={allSessions ?? []}
+        <GoalWorkspace
+            goal={{
+                id: goal.id, slug: goal.slug, title: goal.title, category: goal.category, level: goal.level,
+                isPublic: goal.isPublic, totalSubGoals: goal.totalSubGoals, completedSubGoals: goal.completedSubGoals,
+            }}
+            tab={TABS.includes(tab as WorkspaceTab) ? (tab as WorkspaceTab) : 'today'}
+            sessions={sessions as unknown as DailySession[]}
+            verification={(goal.verification ?? null) as PathfinderVerification | null}
         />
     )
 }

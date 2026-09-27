@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import Quiz from '@/components/quiz'
 import type { QuizQuestion, QuizResult } from '@/components/main/quiz'
 import {
@@ -49,13 +50,15 @@ function transformToQuizQuestions(raw: Question[]): QuizQuestion[] {
 }
 
 export function QuizVerification({ goalId, questions, status, score, attempts }: QuizVerificationProps) {
+    const router = useRouter()
     const quizQuestions = useMemo(() => transformToQuizQuestions(questions), [questions])
 
     const handleRetry = async () => {
         const result = await retryVerificationSection(goalId, 'quiz')
         if (result.success) {
             toast.success('Quiz reset. You can try again!')
-            window.location.reload()
+            // The server re-renders this tab; no full reload (plan/pathfinder PF-9).
+            router.refresh()
         } else {
             toast.error(result.error ?? 'Failed to retry')
         }
@@ -129,7 +132,8 @@ export function QuizVerification({ goalId, questions, status, score, attempts }:
         })
         if (result.success) {
             toast.success(`Quiz completed! Score: ${result.score}%`)
-            window.location.reload()
+            // The server re-renders this tab; no full reload (plan/pathfinder PF-9).
+            router.refresh()
         } else {
             toast.error(result.error ?? 'Failed to submit quiz')
         }

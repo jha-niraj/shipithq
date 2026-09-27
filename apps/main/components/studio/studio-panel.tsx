@@ -3,10 +3,9 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    PenLine, Plus, X, ExternalLink,
+    PenLine, Plus, X,
 } from "lucide-react";
 import { Button } from "@repo/ui/components/ui/button";
-import Link from "next/link";
 import { StudioViewer } from "./viewer/studio-viewer";
 import { AIInputPanel } from "./ui/ai-input-panel";
 import { 
@@ -206,15 +205,6 @@ export function StudioPanel({
                                 <span className="text-sm font-semibold">Studio</span>
                             </div>
                             <div className="flex items-center gap-1">
-                                {
-                                    studioId && (
-                                        <Link href="/studio">
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Open full Studio">
-                                                <ExternalLink className="w-3.5 h-3.5" />
-                                            </Button>
-                                        </Link>
-                                    )
-                                }
                                 {
                                     !hideClose && (
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onToggle}>

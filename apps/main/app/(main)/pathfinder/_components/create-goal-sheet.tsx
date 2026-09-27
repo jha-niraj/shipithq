@@ -19,8 +19,6 @@ import toast from '@repo/ui/components/ui/sonner'
 import {
     createPathfinderGoal, createPathfinderGroup
 } from '@/actions/(main)/pathfinder'
-import { PATHFINDER_CREDITS } from '@/lib/constants/pricing'
-import { useUserStore } from '@/app/store/useUserStore'
 import { PathfinderCategory, PathfinderLevel } from '@repo/db'
 import { cn } from '@repo/ui/lib/utils'
 import type { PathfinderGoal, PathfinderGroup } from '@/types/pathfinder'
@@ -92,7 +90,6 @@ function generateSlug(title: string): string {
 }
 
 export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], onGroupCreated }: CreateGoalSheetProps) {
-    const { credits } = useUserStore()
     const [step, setStep] = useState(0)
     const [processing, setProcessing] = useState(false)
     const [progressPercent, setProgressPercent] = useState(0)
@@ -104,7 +101,7 @@ export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], on
         customDays: null as number | null,
         focusAreas: [] as string[],
         groupId: null as string | null,
-        isPublic: true as boolean,
+        isPublic: false as boolean,
         generateAIPlan: true as boolean,
     })
 
@@ -143,7 +140,7 @@ export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], on
             customDays: null,
             focusAreas: [],
             groupId: null,
-            isPublic: true as boolean,
+            isPublic: false as boolean,
             generateAIPlan: true as boolean,
         })
         setShowNewGroup(false)
@@ -152,42 +149,19 @@ export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], on
         setNewGroupColor('#525252')
     }
 
-    /**
-     * A PRIVATE goal costs credits; a public one is free. Checked here so the
-     * button is dead before the click, not after.
-     *
-     * The old flow let the user finish the wizard, press Create, and only then
-     * meet "Insufficient credits" from the server - after the sheet had closed
-     * over three steps of input. The server check stays (it is the real one, and
-     * a client can lie), but the user should never reach it.
-     */
-    const privateGoalCost = PATHFINDER_CREDITS.privateGoalCreation
-    const needsCredits = !formData.isPublic
-    const creditShortfall = needsCredits ? Math.max(0, privateGoalCost - (credits ?? 0)) : 0
-    const cannotAfford = creditShortfall > 0
-
     const canProceed = () => {
         switch (step) {
             case 0: return formData.title.trim().length >= 3
             case 1: return formData.category !== '' && Boolean(formData.level)
-            // The last step is where visibility is chosen, so it is the only one
-            // that can be blocked by credits.
-            case 2: return !cannotAfford
+            case 2: return true
             default: return false
         }
     }
 
     const nextStep = () => {
         if (!canProceed()) {
-            // A disabled button cannot fire this, but the guard stays for the
-            // keyboard and programmatic paths - and it names the real reason
-            // rather than "complete this step", which would be a lie when the
-            // step IS complete and the wallet is not.
-            toast.error(
-                cannotAfford
-                    ? `A private goal costs ${privateGoalCost} credits. You need ${creditShortfall} more, or make it public - that is free.`
-                    : 'Please complete this step'
-            )
+            // A disabled button cannot fire this; the guard is for the keyboard path.
+            toast.error('Please complete this step')
             return
         }
         if (step < steps.length - 1) {
@@ -269,13 +243,6 @@ export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], on
             })
 
             if (!result.success) {
-                const err = result as { code?: string; required?: number; available?: number }
-                if (err.code === 'INSUFFICIENT_CREDITS') {
-                    throw new Error(
-                        `Insufficient credits. Private goals require ${err.required ?? PATHFINDER_CREDITS.privateGoalCreation} credits. ` +
-                        `You have ${err.available ?? 0}.`
-                    )
-                }
                 throw new Error(result.error || 'Failed to create goal')
             }
 
@@ -635,44 +602,12 @@ export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], on
                                                             </div>
                                                         </div>
 
-                                                        <div className="space-y-2">
-                                                            <Label className="text-xs text-neutral-500 dark:text-neutral-400">Visibility</Label>
-                                                            <div className="grid grid-cols-2 gap-2">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setFormData(prev => ({ ...prev, isPublic: true }))}
-                                                                    className={cn(
-                                                                        "p-3 rounded-lg border text-left transition-all",
-                                                                        formData.isPublic
-                                                                            ? "border-neutral-900 bg-neutral-50 dark:bg-neutral-900/30"
-                                                                            : "border-neutral-200 dark:border-neutral-700"
-                                                                    )}
-                                                                >
-                                                                    <p className="font-medium text-sm">Public</p>
-                                                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">Free • Others can copy</p>
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setFormData(prev => ({ ...prev, isPublic: false }))}
-                                                                    className={cn(
-                                                                        "p-3 rounded-lg border text-left transition-all",
-                                                                        !formData.isPublic
-                                                                            ? "border-neutral-900 bg-neutral-50 dark:bg-neutral-900/30"
-                                                                            : "border-neutral-200 dark:border-neutral-700"
-                                                                    )}
-                                                                >
-                                                                    <p className="font-medium text-sm">Private</p>
-                                                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{PATHFINDER_CREDITS.privateGoalCreation} credits</p>
-                                                                    {
-                                                                        (credits ?? 0) < PATHFINDER_CREDITS.privateGoalCreation && (
-                                                                            <p className="text-xs text-neutral-800 dark:text-neutral-200 mt-0.5">Need {PATHFINDER_CREDITS.privateGoalCreation - (credits ?? 0)} more</p>
-                                                                        )
-                                                                    }
-                                                                </button>
+                                                        <div className="flex items-start justify-between gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
+                                                            <div>
+                                                                <p className="text-sm font-medium text-neutral-900 dark:text-white">Share in Explore</p>
+                                                                <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">Anyone can copy it, free. You can change this later.</p>
                                                             </div>
-                                                            <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                                                                You have <span className="font-medium">{credits ?? 0} credits</span>
-                                                            </p>
+                                                            <Switch checked={formData.isPublic} onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isPublic: checked }))} aria-label="Share in Explore" />
                                                         </div>
 
                                                         {
@@ -833,18 +768,12 @@ export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], on
                                             onClick={nextStep}
                                             disabled={!canProceed()}
                                             className="cursor-pointer disabled:cursor-not-allowed"
-                                            // A disabled button with no explanation is a dead end. The
-                                            // title says why on hover, and the line under the footer
-                                            // says it without hovering.
-                                            title={cannotAfford ? `Need ${creditShortfall} more credits, or make the goal public` : undefined}
                                         >
                                             {
                                                 step === steps.length - 1 ? (
                                                     <>
                                                         {formData.generateAIPlan ? <Wand2 className="w-4 h-4 mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
-                                                        {cannotAfford
-                                                            ? `Need ${creditShortfall} more credits`
-                                                            : formData.generateAIPlan ? 'Create Goal + AI Plan' : 'Create Goal'}
+                                                        {formData.generateAIPlan ? 'Create Goal + AI Plan' : 'Create Goal'}
                                                     </>
                                                 ) : (
                                                     <>

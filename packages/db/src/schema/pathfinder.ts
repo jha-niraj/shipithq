@@ -140,7 +140,7 @@ export const pathfinderGoals = pgTable(
         focusAreas: text("focus_areas").array().notNull().default([]),
         targetDate: timestamp("target_date"),
         duration: pathfinderGoalDurationEnum("duration"),
-        isPublic: boolean("is_public").notNull().default(true),
+        isPublic: boolean("is_public").notNull().default(false),
         forkedFromId: text("forked_from_id"),
         creditPrice: integer("credit_price"),
         overview: text("overview"),

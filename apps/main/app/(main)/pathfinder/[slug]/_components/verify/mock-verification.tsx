@@ -1,15 +1,17 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@repo/ui/components/ui/button'
+import toast from '@repo/ui/components/ui/sonner'
+import { InlineLoader } from '@repo/ui/components/ui/inline-loader'
+import { startVerificationMock } from '@/actions/(main)/pathfinder/verification.action'
 import { Badge } from '@repo/ui/components/ui/badge'
 import {
     CheckCircle2, Clock, ListChecks, Lock, Mic, Play, Target
 } from 'lucide-react'
 import { StatBand } from '@repo/ui/components/ui/stat-band'
 import { VerificationSectionStatus } from '@repo/db'
-import Link from 'next/link'
-import { CreateMockSheet } from '@/app/(main)/mock/_components/create-mock-sheet'
 
 interface MockConfig {
     title: string
@@ -20,6 +22,7 @@ interface MockConfig {
 }
 
 interface MockVerificationProps {
+    goalId: string
     mockInterviewId: string | null
     mockConfig?: MockConfig
     status: VerificationSectionStatus
@@ -28,13 +31,24 @@ interface MockVerificationProps {
 }
 
 export function MockVerification({
+    goalId,
     mockInterviewId,
     mockConfig,
     status,
     score,
     attempts
 }: MockVerificationProps) {
-    const [showMockSheet, setShowMockSheet] = useState(false)
+    const router = useRouter()
+    const [starting, setStarting] = useState(false)
+
+    // Starts, or resumes, a real voice session briefed on this goal, and opens it
+    // (plan/pathfinder PF-10). The section completes from that session's own score.
+    const start = async () => {
+        setStarting(true)
+        const r = await startVerificationMock(goalId)
+        if (!r.success) { toast.error(r.error); setStarting(false); return }
+        router.push(`/mock/voice/interview/${r.sessionId}`)
+    }
 
     // Show completed state
     if (status === 'COMPLETED') {
@@ -71,8 +85,8 @@ export function MockVerification({
     return (
         <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center max-w-lg">
-                <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-neutral-800 to-neutral-800 flex items-center justify-center mb-6 shadow-lg">
-                    <Mic className="w-12 h-12 text-white" />
+                <div className="w-24 h-24 mx-auto rounded-full bg-neutral-900 dark:bg-white flex items-center justify-center mb-6">
+                    <Mic className="w-12 h-12 text-white dark:text-neutral-900" />
                 </div>
                 <h3 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
                     {mockConfig?.title || 'Mock Interview'}
@@ -101,32 +115,16 @@ export function MockVerification({
                         </ul>
                     </div>
 
-                    {
-                        mockInterviewId ? (
-                            <Link href={`/mock/voice/interview/${mockInterviewId}`}>
-                                <Button size="lg" className="w-full bg-gradient-to-r from-neutral-900 to-neutral-800 hover:opacity-90">
-                                    <Play className="w-5 h-5 mr-2" />
-                                    Start Mock Interview
-                                </Button>
-                            </Link>
-                        ) : (
-                            <>
-                                <Button
-                                    size="lg"
-                                    className="w-full bg-gradient-to-r from-neutral-900 to-neutral-800 hover:opacity-90"
-                                    onClick={() => setShowMockSheet(true)}
-                                >
-                                    <Play className="w-5 h-5 mr-2" />
-                                    Create & Start Interview
-                                </Button>
-                                <CreateMockSheet
-                                    open={showMockSheet}
-                                    onOpenChange={setShowMockSheet}
-                                    trigger={<></>}
-                                />
-                            </>
-                        )
-                    }
+                    {status === 'FAILED' && score !== null && (
+                        <p className="text-sm text-neutral-600 dark:text-neutral-400">Last attempt scored {score}%. 70% passes.</p>
+                    )}
+                    <Button size="lg" className="w-full gap-2" onClick={start} disabled={starting || !mockInterviewId}>
+                        {starting ? <InlineLoader size="sm" /> : <Play className="size-5" />}
+                        {status === 'IN_PROGRESS' ? 'Continue the interview' : status === 'FAILED' ? 'Try again' : 'Start the interview'}
+                    </Button>
+                    {!mockInterviewId && (
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">The interview is set up when the verification questions are generated.</p>
+                    )}
 
                     {
                         attempts > 0 && (

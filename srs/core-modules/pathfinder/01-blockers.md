@@ -1,5 +1,12 @@
 # Pathfinder — blockers
 
+> **Current state lives in `plan/pathfinder/` (2026-09-27).** This file predates the
+> Pathfinder sweep (PF-0 to PF-14). Out of date here: the goal page is now a tabbed
+> workspace (Today, Plan, Notes, Verify) and `/verify` redirects into it; Explore is
+> addressed by goal id; goals are private by default and copies are free (no pricing,
+> no earnings); "Generate content" runs in the `subgoal_generation` worker; mock and
+> project verification read real sessions and projects. Read `plan/pathfinder/overview.md` first.
+
 `PF-B1` and `PF-B2` are the two most serious findings in either module. They are
 the same code path, and fixing them together is cheaper than fixing them apart.
 

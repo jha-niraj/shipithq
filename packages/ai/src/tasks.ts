@@ -98,8 +98,6 @@ export const AI_TASKS = {
     pathfinderSubgoalExplain: "gpt-4o-mini",
     /** Pathfinder: a sub-goal's practice problems. Worker job. */
     pathfinderSubgoalPractice: "gpt-4o-mini",
-    /** Pathfinder: a goal's quiz and coding problems. Inline. */
-    pathfinderQuizAndCoding: "gpt-4o-mini",
     /** Pathfinder: a sub-goal's submitted code reviewed. Inline. */
     pathfinderCodingReview: "gpt-4o-mini",
     /** Interview prep: the questions a posting implies (plan/interview-prep). Worker job. */

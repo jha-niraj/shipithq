@@ -31,6 +31,7 @@ export interface PathfinderGoal {
     startedAt: Date | null;
     completedAt: Date | null;
     groupId: string | null;
+    isPublic?: boolean;
 }
 
 export interface PathfinderGroup {

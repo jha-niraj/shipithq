@@ -125,7 +125,9 @@ export class SubGoalGeneration extends JobDurableObject<SubGoalGenerationInput> 
         await db.batch([
             db
                 .update(pathfinderSubGoals)
-                .set({ aiCodingProblem: hasCoding ? codingProblems : null, hasCoding })
+                // `isContentLoaded` marks the topic filled, so an AI-planned topic stops
+                // offering "Generate content" (plan/pathfinder PF-7).
+                .set({ aiCodingProblem: hasCoding ? codingProblems : null, hasCoding, isContentLoaded: true })
                 .where(eq(pathfinderSubGoals.id, subGoalId)),
             db
                 .update(pathfinderDailySessions)

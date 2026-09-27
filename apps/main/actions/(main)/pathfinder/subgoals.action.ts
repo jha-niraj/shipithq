@@ -10,7 +10,7 @@ import {
     studios,
 } from '@repo/db'
 import { eq, and, asc, desc, sql, max } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
+import { revalidateGoal } from '@/lib/pathfinder/revalidate'
 import type OpenAI from 'openai'
 import { openai } from '@/lib/openai-client'
 import {
@@ -92,40 +92,6 @@ export async function getOrCreateDailySession(goalId: string) {
         return { success: true, session: dailySession }
     } catch (error) {
         console.error('Error getting/creating daily session:', error)
-        return { success: false, error: 'Failed to get daily session' }
-    }
-}
-
-// ================================================================================
-// GET DAILY SESSION BY DATE
-// ================================================================================
-
-export async function getDailySessionByDate(goalId: string, date: Date) {
-    try {
-        const session = await getSession(headers())
-        if (!session?.user?.id) {
-            return { success: false, error: 'Unauthorized' }
-        }
-
-        const normalizedDate = new Date(date)
-        normalizedDate.setHours(0, 0, 0, 0)
-        const normalizedDateStr = normalizedDate.toISOString().split('T')[0]!
-
-        const dailySession = await db.query.pathfinderDailySessions.findFirst({
-            where: and(
-                eq(pathfinderDailySessions.goalId, goalId),
-                eq(pathfinderDailySessions.date, normalizedDateStr)
-            ),
-            with: {
-                subGoals: {
-                    orderBy: [asc(pathfinderSubGoals.order)],
-                },
-            },
-        })
-
-        return { success: true, session: dailySession }
-    } catch (error) {
-        console.error('Error getting daily session:', error)
         return { success: false, error: 'Failed to get daily session' }
     }
 }
@@ -276,7 +242,7 @@ export async function createSubGoal(input: CreateSubGoalInput) {
 
         const usageSummary = await getGoalUsageSummary(input.goalId)
 
-        revalidatePath(`/pathfinder/${input.goalId}`)
+        await revalidateGoal(input.goalId)
         return {
             success: true,
             subGoal,
@@ -381,82 +347,11 @@ export async function updateSubGoalStatus(
                 .where(eq(pathfinderGoals.id, subGoal.goalId))
         }
 
-        revalidatePath(`/pathfinder/${subGoal.goal.id}`)
+        await revalidateGoal(subGoal.goal.id)
         return { success: true }
     } catch (error) {
         console.error('Error updating sub-goal status:', error)
         return { success: false, error: 'Failed to update status' }
-    }
-}
-
-// ================================================================================
-// SUBMIT SUB-GOAL QUIZ ANSWERS
-// ================================================================================
-
-export async function submitSubGoalQuiz(
-    subGoalId: string,
-    answers: { questionId: string; selectedAnswer: number }[]
-) {
-    try {
-        const session = await getSession(headers())
-        if (!session?.user?.id) {
-            return { success: false, error: 'Unauthorized' }
-        }
-
-        const subGoal = await db.query.pathfinderSubGoals.findFirst({
-            where: eq(pathfinderSubGoals.id, subGoalId),
-            with: {
-                goal: {
-                    columns: { id: true, userId: true },
-                },
-            },
-        })
-
-        if (!subGoal || subGoal.goal.userId !== session.user.id) {
-            return { success: false, error: 'Sub-goal not found' }
-        }
-
-        // Quiz now lives in Studio - for legacy sub-goals we no longer have aiQuizQuestions
-        const quizQuestions = ((subGoal as { aiQuizQuestions?: unknown }).aiQuizQuestions as QuizQuestion[] | undefined) || []
-
-        if (quizQuestions.length === 0) {
-            return { success: false, error: 'Quiz is in the Studio. Complete it in the Notes tab.' }
-        }
-
-        // Calculate score
-        let correctCount = 0
-        for (const answer of answers) {
-            const question = quizQuestions.find((q) => q.id === answer.questionId)
-            if (question && question.correctAnswer === answer.selectedAnswer) {
-                correctCount++
-            }
-        }
-
-        const score = Math.round((correctCount / quizQuestions.length) * 100)
-
-        await db.update(pathfinderSubGoals)
-            .set({
-                quizCompleted: true,
-                quizScore: score,
-            })
-            .where(eq(pathfinderSubGoals.id, subGoalId))
-
-        await db.update(pathfinderDailySessions)
-            .set({ correctQuizAnswers: sql`${pathfinderDailySessions.correctQuizAnswers} + ${correctCount}` })
-            .where(eq(pathfinderDailySessions.id, subGoal.sessionId))
-
-        await db.update(pathfinderGoals)
-            .set({
-                totalQuizAnswered: sql`${pathfinderGoals.totalQuizAnswered} + ${quizQuestions.length}`,
-                lastActivityAt: new Date(),
-            })
-            .where(eq(pathfinderGoals.id, subGoal.goalId))
-
-        revalidatePath(`/pathfinder/${subGoal.goal.id}`)
-        return { success: true, score, correctCount, total: quizQuestions.length }
-    } catch (error) {
-        console.error('Error submitting quiz:', error)
-        return { success: false, error: 'Failed to submit quiz' }
     }
 }
 
@@ -573,7 +468,7 @@ Return ONLY valid JSON.`
             })
             .where(eq(pathfinderGoals.id, subGoal.goalId))
 
-        revalidatePath(`/pathfinder/${subGoal.goal.id}`)
+        await revalidateGoal(subGoal.goal.id)
         return {
             success: true,
             passed: evaluation.passed,
@@ -630,43 +525,10 @@ export async function deleteSubGoal(subGoalId: string) {
             })
             .where(eq(pathfinderGoals.id, subGoal.goalId))
 
-        revalidatePath(`/pathfinder/${subGoal.goal.id}`)
+        await revalidateGoal(subGoal.goal.id)
         return { success: true }
     } catch (error) {
         console.error('Error deleting sub-goal:', error)
         return { success: false, error: 'Failed to delete sub-goal' }
-    }
-}
-
-// ================================================================================
-// SAVE SESSION NOTES
-// ================================================================================
-
-export async function saveSessionNotes(sessionId: string, notes: string) {
-    try {
-        const session = await getSession(headers())
-        if (!session?.user?.id) {
-            return { success: false, error: 'Unauthorized' }
-        }
-
-        const dailySession = await db.query.pathfinderDailySessions.findFirst({
-            where: and(
-                eq(pathfinderDailySessions.id, sessionId),
-                eq(pathfinderDailySessions.userId, session.user.id)
-            ),
-        })
-
-        if (!dailySession) {
-            return { success: false, error: 'Session not found' }
-        }
-
-        await db.update(pathfinderDailySessions)
-            .set({ notes })
-            .where(eq(pathfinderDailySessions.id, sessionId))
-
-        return { success: true }
-    } catch (error) {
-        console.error('Error saving notes:', error)
-        return { success: false, error: 'Failed to save notes' }
     }
 }
