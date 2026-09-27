@@ -48,6 +48,12 @@ export interface FlowStep {
 	placeholder?: string
 	required?: boolean
 	options?: string[]
+	/**
+	 * For a "short_text" step: choices shown under the input as the person types (up to
+	 * six). Arrows move, Enter picks the highlighted one, and anything typed is still a
+	 * valid answer - the select with "Other" (plan/ui-forms UF-5).
+	 */
+	suggestions?: string[]
 	/** When set, the choices are computed from the answers so far (e.g. boards by country). */
 	dynamicOptions?: (answers: Record<string, unknown>) => string[]
 	/** Lay the choice options out in a 2-column grid instead of a single-column stack.
@@ -957,6 +963,7 @@ function StepContent({
 	error,
 }: StepContentProps) {
 	const [inputFocused, setInputFocused] = useState(false)
+	const [highlight, setHighlight] = useState(-1)
 
 	// Common question header
 	const header = (
@@ -1007,10 +1014,29 @@ function StepContent({
 		step.type === "phone" ||
 		step.type === "number"
 	) {
+		const typed = String(value ?? "").trim().toLowerCase()
+		const matches = step.type === "short_text" && step.suggestions?.length
+			? step.suggestions.filter((sug) => sug.toLowerCase() !== typed && (!typed || sug.toLowerCase().includes(typed))).slice(0, 6)
+			: []
 		return (
 			<div className="py-4">
 				{header}
 				<input
+					role={matches.length ? "combobox" : undefined}
+					aria-expanded={matches.length ? true : undefined}
+					aria-autocomplete={matches.length ? "list" : undefined}
+					onKeyDown={(e) => {
+						if (!matches.length) return
+						if (e.key === "ArrowDown") { e.preventDefault(); setHighlight((h) => Math.min(h + 1, matches.length - 1)) }
+						else if (e.key === "ArrowUp") { e.preventDefault(); setHighlight((h) => Math.max(h - 1, -1)) }
+						else if (e.key === "Enter" && highlight >= 0 && matches[highlight]) {
+							// Pick the highlighted choice; the flow's own Enter (next step) doesn't run.
+							e.preventDefault()
+							e.stopPropagation()
+							onChange(matches[highlight])
+							setHighlight(-1)
+						}
+					}}
 					ref={inputRef}
 					type={
 						step.type === "email"
@@ -1023,7 +1049,7 @@ function StepContent({
 					}
 					inputMode={step.type === "number" || step.type === "phone" ? "numeric" : undefined}
 					value={(value as string) ?? ""}
-					onChange={(e) => onChange(step.type === "number" ? e.target.value.replace(/[^0-9]/g, "") : e.target.value)}
+					onChange={(e) => { setHighlight(-1); onChange(step.type === "number" ? e.target.value.replace(/[^0-9]/g, "") : e.target.value) }}
 					onFocus={() => setInputFocused(true)}
 					onBlur={() => setInputFocused(false)}
 					placeholder={step.placeholder ?? "Type your answer here…"}
@@ -1032,6 +1058,27 @@ function StepContent({
 					autoComplete="off"
 					spellCheck={false}
 				/>
+				{matches.length > 0 && (
+					<ul role="listbox" className="mt-3 flex flex-wrap gap-2">
+						{matches.map((sug, i) => (
+							<li key={sug} role="option" aria-selected={i === highlight}>
+								<button
+									type="button"
+									onMouseDown={(e) => e.preventDefault()}
+									onClick={() => { onChange(sug); setHighlight(-1) }}
+									className="cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition-colors"
+									style={{
+										borderColor: i === highlight ? "var(--tf-accent)" : "var(--tf-border)",
+										backgroundColor: i === highlight ? "var(--tf-accent-tint)" : "transparent",
+										color: "var(--tf-text)",
+									}}
+								>
+									{sug}
+								</button>
+							</li>
+						))}
+					</ul>
+				)}
 				<ErrorMessage error={error} />
 			</div>
 		)

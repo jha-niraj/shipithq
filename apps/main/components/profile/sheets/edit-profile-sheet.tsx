@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Camera, X } from "lucide-react"
+import { Camera } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
@@ -28,14 +28,15 @@ import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@repo/ui/components/ui/select"
-import {
-    Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
-} from "@repo/ui/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover"
+import { NumberTextInput } from "@repo/ui/components/ui/number-text-input"
+import { OptionSelect } from "@repo/ui/components/ui/option-select"
+import { TagInput } from "@repo/ui/components/ui/tag-input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
 import toast from "@repo/ui/components/ui/sonner"
 import { saveProfileDetails, type ProfileDetailsInput } from "@/actions/(main)/user/profile.action"
 import { getCompanies } from "@/actions/(main)/user/college.action"
+import { rememberOptions } from "@/actions/(common)/options/options.action"
+import { useOptions } from "@/lib/use-options"
 import { PROFILE_LIMITS } from "@/lib/profile/limits"
 import { Field, FieldGroup, ProfileSheet, Segmented, normalizeUrl } from "./profile-sheet"
 
@@ -59,10 +60,11 @@ interface Props {
 export type EditProfileTab = "basic" | "work" | "career" | "privacy"
 type Tab = EditProfileTab
 
-const ROLES = [
-    "Frontend Developer", "Backend Developer", "Full Stack Developer", "Mobile Developer",
-    "Data Scientist", "ML Engineer", "DevOps Engineer", "Other",
-]
+/*
+ * plan/ui-forms UF-2, UF-6 (2026-09-28): location, title, company, university and the
+ * role you want are selects with "Other" over the shared dataset; salary is validated
+ * text; target companies is the keyboard tag input. New values are remembered on save.
+ */
 /** Stored ids from the old sheet, read back as the roles they meant. */
 const LEGACY_ROLE: Record<string, string> = {
     frontend: "Frontend Developer", backend: "Backend Developer", fullstack: "Full Stack Developer",
@@ -96,6 +98,7 @@ export function EditProfileSheet({ open, onOpenChange, details, onSaved, onUploa
     const [busy, setBusy] = useState(false)
     const [serverError, setServerError] = useState<{ field?: string; message: string } | null>(null)
     const fileRef = useRef<HTMLInputElement>(null)
+    const options = useOptions(["location", "job_title", "company", "university"] as const)
 
     useEffect(() => {
         if (open) {
@@ -133,6 +136,12 @@ export function EditProfileSheet({ open, onOpenChange, details, onSaved, onUploa
                 return
             }
             toast.success("Profile saved")
+            void rememberOptions([
+                { kind: "location", values: [form.location] },
+                { kind: "job_title", values: [form.occupation, ...form.careerGoals] },
+                { kind: "company", values: [form.company, ...form.targetCompanies] },
+                { kind: "university", values: [form.university] },
+            ])
             onOpenChange(false)
             onSaved()
         } catch (error: unknown) {
@@ -217,7 +226,7 @@ export function EditProfileSheet({ open, onOpenChange, details, onSaved, onUploa
                     </Field>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Field label="Location" htmlFor="ep-location">
-                            <Input id="ep-location" placeholder="Bengaluru, India" value={form.location} onChange={(e) => set("location", e.target.value)} />
+                            <OptionSelect id="ep-location" value={form.location} onChange={(v) => set("location", v)} options={options.location} placeholder="Pick a city" />
                         </Field>
                         <Field label="Website" htmlFor="ep-website" error={errors.website}>
                             <Input id="ep-website" inputMode="url" placeholder="yourname.dev" value={form.website} onChange={(e) => set("website", e.target.value)} />
@@ -228,14 +237,14 @@ export function EditProfileSheet({ open, onOpenChange, details, onSaved, onUploa
                 <TabsContent value="work" className="mt-0 space-y-6">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Field label="Current title" htmlFor="ep-occupation">
-                            <Input id="ep-occupation" placeholder="Software Engineer" value={form.occupation} onChange={(e) => set("occupation", e.target.value)} />
+                            <OptionSelect id="ep-occupation" value={form.occupation} onChange={(v) => set("occupation", v)} options={options.job_title} placeholder="Pick one or type your own" />
                         </Field>
                         <Field label="Company" htmlFor="ep-company">
-                            <Input id="ep-company" placeholder="Acme" value={form.company} onChange={(e) => set("company", e.target.value)} />
+                            <OptionSelect id="ep-company" value={form.company} onChange={(v) => set("company", v)} options={options.company} placeholder="Pick one or type your own" />
                         </Field>
                     </div>
                     <Field label="University" htmlFor="ep-university">
-                        <Input id="ep-university" placeholder="Lovely Professional University" value={form.university} onChange={(e) => set("university", e.target.value)} />
+                        <OptionSelect id="ep-university" value={form.university} onChange={(v) => set("university", v)} options={options.university} placeholder="Pick one or type your own" />
                     </Field>
                     <ToggleRow
                         title="Open to work"
@@ -251,12 +260,7 @@ export function EditProfileSheet({ open, onOpenChange, details, onSaved, onUploa
                     </p>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Field label="Role you want">
-                            <Select value={role} onValueChange={(v) => set("careerGoals", [v])}>
-                                <SelectTrigger className="w-full cursor-pointer"><SelectValue placeholder="Choose a role" /></SelectTrigger>
-                                <SelectContent>
-                                    {(ROLES.includes(role) || !role ? ROLES : [...ROLES, role]).map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <OptionSelect value={role} onChange={(v) => set("careerGoals", v ? [v] : [])} options={options.job_title} placeholder="Choose a role" />
                         </Field>
                         <Field label="Experience">
                             <Select value={form.workExperience} onValueChange={(v) => set("workExperience", v)}>
@@ -267,7 +271,7 @@ export function EditProfileSheet({ open, onOpenChange, details, onSaved, onUploa
                             </Select>
                         </Field>
                         <Field label="Expected salary (LPA)" htmlFor="ep-salary">
-                            <Input id="ep-salary" inputMode="decimal" placeholder="12" value={form.expectedSalary} onChange={(e) => set("expectedSalary", e.target.value.replace(/[^\d.]/g, ""))} />
+                            <NumberTextInput id="ep-salary" decimals min={0} max={500} suffix="LPA" placeholder="12" value={form.expectedSalary ? Number(form.expectedSalary) : null} onChange={(v) => set("expectedSalary", v === null ? "" : String(v))} aria-label="Expected salary in LPA" />
                         </Field>
                         <Field label="Notice period">
                             <Select value={form.noticePeriod} onValueChange={(v) => set("noticePeriod", v)}>
@@ -278,7 +282,7 @@ export function EditProfileSheet({ open, onOpenChange, details, onSaved, onUploa
                             </Select>
                         </Field>
                     </div>
-                    <TargetCompanies value={form.targetCompanies} onChange={(v) => set("targetCompanies", v)} />
+                    <TargetCompanies value={form.targetCompanies} onChange={(v) => set("targetCompanies", v)} builtins={options.company} />
                 </TabsContent>
 
                 <TabsContent value="privacy" className="mt-0 space-y-6">
@@ -328,11 +332,9 @@ function ToggleRow({ title, body, checked, onChange }: { title: string; body: st
     )
 }
 
-/** Target companies: a combobox over the company list, plus anything typed. */
-function TargetCompanies({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+/** Target companies: the keyboard tag input over the company list and the dataset, anything typed too (UF-6). */
+function TargetCompanies({ value, onChange, builtins }: { value: string[]; onChange: (v: string[]) => void; builtins: string[] }) {
     const [companies, setCompanies] = useState<string[]>([])
-    const [open, setOpen] = useState(false)
-    const [query, setQuery] = useState("")
 
     useEffect(() => {
         let cancelled = false
@@ -342,52 +344,10 @@ function TargetCompanies({ value, onChange }: { value: string[]; onChange: (v: s
         return () => { cancelled = true }
     }, [])
 
-    const add = (c: string) => {
-        const t = c.trim()
-        if (t && !value.some((x) => x.toLowerCase() === t.toLowerCase())) onChange([...value, t])
-        setQuery("")
-    }
-    const options = companies.filter((c) => !value.includes(c))
-
+    const suggestions = useMemo(() => [...new Set([...companies, ...builtins])], [companies, builtins])
     return (
-        <Field label="Companies you would like to work at" hint="Up to 20.">
-            <div className="flex flex-wrap items-center gap-1.5">
-                {value.map((c) => (
-                    <span key={c} className="inline-flex items-center gap-1 rounded-md border border-neutral-200 py-0.5 pl-2 pr-1 text-xs text-neutral-800 dark:border-neutral-700 dark:text-neutral-200">
-                        {c}
-                        <button type="button" aria-label={`Remove ${c}`} onClick={() => onChange(value.filter((x) => x !== c))}
-                            className="cursor-pointer rounded p-0.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white">
-                            <X className="size-3" />
-                        </button>
-                    </span>
-                ))}
-                <Popover open={open} onOpenChange={setOpen}>
-                    <PopoverTrigger asChild>
-                        <Button type="button" variant="outline" size="sm" className="h-7 cursor-pointer px-2.5 text-xs" disabled={value.length >= 20}>
-                            Add company
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-72 p-0" align="start">
-                        <Command>
-                            <CommandInput placeholder="Search or type a name" value={query} onValueChange={setQuery} />
-                            <CommandList className="max-h-56">
-                                <CommandEmpty>
-                                    {query.trim() ? (
-                                        <button type="button" className="w-full cursor-pointer px-2 py-1.5 text-left text-sm" onClick={() => { add(query); setOpen(false) }}>
-                                            Add &ldquo;{query.trim()}&rdquo;
-                                        </button>
-                                    ) : "No companies found."}
-                                </CommandEmpty>
-                                <CommandGroup>
-                                    {options.map((c) => (
-                                        <CommandItem key={c} value={c} onSelect={() => { add(c); setOpen(false) }}>{c}</CommandItem>
-                                    ))}
-                                </CommandGroup>
-                            </CommandList>
-                        </Command>
-                    </PopoverContent>
-                </Popover>
-            </div>
+        <Field label="Companies you would like to work at" hint="Up to 20. Arrows to pick, Enter to add, Backspace to remove.">
+            <TagInput values={value} onChange={onChange} suggestions={suggestions} max={20} placeholder="Search or type a company" />
         </Field>
     )
 }

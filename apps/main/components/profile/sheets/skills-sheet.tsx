@@ -12,13 +12,15 @@
 import { useEffect, useMemo, useState } from "react"
 import { X } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
-import { Input } from "@repo/ui/components/ui/input"
+import { OptionSelect } from "@repo/ui/components/ui/option-select"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@repo/ui/components/ui/select"
 import toast from "@repo/ui/components/ui/sonner"
 import { deleteSkill, updateUserSkills } from "@/actions/(main)/user/user.action"
+import { rememberOptions } from "@/actions/(common)/options/options.action"
+import { useOptions } from "@/lib/use-options"
 import {
     SKILL_CATEGORIES, SKILL_LEVELS, skillCategoryLabel, skillLevelLabel, type SkillCategory,
 } from "@/lib/profile/labels"
@@ -47,6 +49,7 @@ export function SkillsSheet({ open, onOpenChange, skills: initialSkills, onSaved
     const [adding, setAdding] = useState(false)
     const [pendingId, setPendingId] = useState<string | null>(null)
     const [changed, setChanged] = useState(false)
+    const options = useOptions(["skill"] as const)
 
     useEffect(() => {
         if (open) {
@@ -73,6 +76,7 @@ export function SkillsSheet({ open, onOpenChange, skills: initialSkills, onSaved
             setSkills(saved.map((s) => ({ id: s.id!, name: s.name, level: String(s.level), category: s.category ?? "FRONTEND" })))
             setName("")
             setChanged(true)
+            void rememberOptions([{ kind: "skill", values: [n] }])
         } catch (error: unknown) {
             console.error("Adding skill failed:", error)
             toast.error(`Could not add "${n}"`)
@@ -134,15 +138,9 @@ export function SkillsSheet({ open, onOpenChange, skills: initialSkills, onSaved
                     // Name on its own line: in a 512px sheet, a four-column row left the
                     // name field about 80px wide, too narrow to read what you typed.
                     className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2"
-                    onKeyDown={(e) => {
-                        // Enter adds the skill instead of submitting the sheet's form.
-                        if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
-                            e.preventDefault()
-                            void add()
-                        }
-                    }}
                 >
-                    <Input aria-label="Skill" autoFocus placeholder="TypeScript" className="col-span-3" value={name} onChange={(e) => setName(e.target.value)} />
+                    {/* A choice with "Other" over the shared skills (plan/ui-forms UF-2): Enter picks, Add saves. */}
+                    <OptionSelect aria-label="Skill" className="col-span-3" value={name} onChange={setName} options={options.skill.filter((x) => !skills.some((s) => s.name.toLowerCase() === x.toLowerCase()))} placeholder="Pick a skill or type your own" />
                     <Select value={category} onValueChange={(v) => setCategory(v as SkillCategory)}>
                         <SelectTrigger aria-label="Category" className="w-full cursor-pointer"><SelectValue /></SelectTrigger>
                         <SelectContent>

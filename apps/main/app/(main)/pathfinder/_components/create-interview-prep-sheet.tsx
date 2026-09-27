@@ -6,6 +6,12 @@ import { useRouter } from 'next/navigation'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@repo/ui/components/ui/sheet'
 import { Button } from '@repo/ui/components/ui/button'
 import { Input } from '@repo/ui/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select'
+import { OptionSelect } from '@repo/ui/components/ui/option-select'
+import { useOptions } from '@/lib/use-options'
+import { rememberOptions } from '@/actions/(common)/options/options.action'
+
+const QUESTION_COUNTS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20]
 import { Label } from '@repo/ui/components/ui/label'
 import { Textarea } from '@repo/ui/components/ui/textarea'
 import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
@@ -44,8 +50,11 @@ export function CreateInterviewPrepSheet({ open, onOpenChange }: CreateInterview
     const [position, setPosition] = useState('')
     const [jobDescription, setJobDescription] = useState('')
     const [jobUrl, setJobUrl] = useState('')
+    const roles = useOptions(['job_title'] as const)
     const [counts, setCounts] = useState({ technical: 8, behavioral: 8, coding: 3 })
     const [submitting, setSubmitting] = useState(false)
+    // Two steps (plan/ui-forms UF-7): the job, then how many questions.
+    const [step, setStep] = useState<1 | 2>(1)
 
     const total = counts.technical + counts.behavioral + counts.coding
     // Mirrors `Math.ceil(total / 2)` in the action. Shown BEFORE the click,
@@ -59,23 +68,27 @@ export function CreateInterviewPrepSheet({ open, onOpenChange }: CreateInterview
         setJobDescription('')
         setJobUrl('')
         setCounts({ technical: 8, behavioral: 8, coding: 3 })
+        setStep(1)
+    }
+
+    /** What stops step 1: the role and the posting. Null when it's complete. */
+    const jobProblem = (): string | null => {
+        if (!position.trim()) return 'Which role is this for?'
+        if (mode === 'paste' && jobDescription.trim().length < MIN_DESCRIPTION_CHARS) return `Paste at least ${MIN_DESCRIPTION_CHARS} characters of the posting.`
+        if (mode === 'url' && !jobUrl.trim()) return 'Paste a link to the posting, or switch to pasting the text.'
+        return null
     }
 
     const handleSubmit = async () => {
-        if (!position.trim()) {
-            toast.error('Which role is this for?')
-            return
-        }
-        if (mode === 'paste' && jobDescription.trim().length < MIN_DESCRIPTION_CHARS) {
-            toast.error(`Paste at least ${MIN_DESCRIPTION_CHARS} characters of the posting.`)
-            return
-        }
-        if (mode === 'url' && !jobUrl.trim()) {
-            toast.error('Paste a link to the posting, or switch to pasting the text.')
+        const problem = jobProblem()
+        if (problem) {
+            toast.error(problem)
+            setStep(1)
             return
         }
 
         setSubmitting(true)
+        void rememberOptions([{ kind: 'job_title', values: [position] }])
         try {
             const result = await createInterviewPrepGoal({
                 position: position.trim(),
@@ -128,15 +141,11 @@ export function CreateInterviewPrepSheet({ open, onOpenChange }: CreateInterview
                     scrolls sideways. */}
                 <ScrollArea reflow className="min-h-0 min-w-0 flex-1">
                     <div className="space-y-6 p-6">
+                        <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Step {step} of 2: {step === 1 ? 'the job' : 'how many questions'}</p>
+                        {step === 1 && (<>
                         <div className="space-y-2">
                             <Label htmlFor="ip-position">Role</Label>
-                            <Input
-                                id="ip-position"
-                                value={position}
-                                onChange={(e) => setPosition(e.target.value)}
-                                placeholder="e.g. Senior Backend Engineer"
-                                disabled={submitting}
-                            />
+                            <OptionSelect id="ip-position" value={position} onChange={setPosition} options={roles.job_title} placeholder="e.g. Backend Engineer" disabled={submitting} />
                         </div>
 
                         <div className="space-y-2">
@@ -186,6 +195,8 @@ export function CreateInterviewPrepSheet({ open, onOpenChange }: CreateInterview
                             )}
                         </div>
 
+                        </>)}
+                        {step === 2 && (
                         <div className="space-y-3">
                             <Label>How many questions</Label>
                             <div className="grid grid-cols-3 gap-3">
@@ -198,24 +209,13 @@ export function CreateInterviewPrepSheet({ open, onOpenChange }: CreateInterview
                                         <Label htmlFor={`ip-${key}`} className="text-xs font-normal text-neutral-500 dark:text-neutral-400">
                                             {label}
                                         </Label>
-                                        <Input
-                                            id={`ip-${key}`}
-                                            type="number"
-                                            min={0}
-                                            max={20}
-                                            value={counts[key]}
-                                            onChange={(e) => {
-                                                // Clamped on the way IN. An empty input
-                                                // parses to NaN, and NaN in the total
-                                                // makes the credit cost read "NaN".
-                                                const n = Number.parseInt(e.target.value, 10)
-                                                setCounts((c) => ({
-                                                    ...c,
-                                                    [key]: Number.isNaN(n) ? 0 : Math.max(0, Math.min(20, n)),
-                                                }))
-                                            }}
-                                            disabled={submitting}
-                                        />
+                                        {/* A choice, not a typed number (plan/ui-forms UF-1): 0 to 20 in the steps people use. */}
+                                        <Select value={String(counts[key])} onValueChange={(v) => setCounts((c) => ({ ...c, [key]: Number(v) }))} disabled={submitting}>
+                                            <SelectTrigger id={`ip-${key}`}><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {QUESTION_COUNTS.map((n) => <SelectItem key={n} value={String(n)}>{n === 0 ? 'None' : n}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                 ))}
                             </div>
@@ -223,14 +223,26 @@ export function CreateInterviewPrepSheet({ open, onOpenChange }: CreateInterview
                                 {total} questions, {creditCost} credit{creditCost === 1 ? '' : 's'}.
                             </p>
                         </div>
+                        )}
                     </div>
                 </ScrollArea>
 
-                <div className="shrink-0 border-t border-neutral-200 p-6 dark:border-neutral-800">
+                <div className="flex shrink-0 gap-2 border-t border-neutral-200 p-6 dark:border-neutral-800">
+                    {step === 2 && (
+                        <Button variant="outline" onClick={() => setStep(1)} disabled={submitting} className="cursor-pointer">Back</Button>
+                    )}
+                    {step === 1 ? (
+                        <Button
+                            onClick={() => { const problem = jobProblem(); if (problem) toast.error(problem); else setStep(2) }}
+                            className="flex-1 cursor-pointer"
+                        >
+                            Next: how many questions
+                        </Button>
+                    ) : (
                     <Button
                         onClick={handleSubmit}
                         disabled={submitting || total < 1}
-                        className="w-full cursor-pointer"
+                        className="flex-1 cursor-pointer"
                     >
                         {submitting ? (
                             <>
@@ -241,6 +253,7 @@ export function CreateInterviewPrepSheet({ open, onOpenChange }: CreateInterview
                             `Generate ${total} questions`
                         )}
                     </Button>
+                    )}
                 </div>
             </SheetContent>
         </Sheet>

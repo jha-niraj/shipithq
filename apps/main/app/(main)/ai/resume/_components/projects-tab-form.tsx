@@ -6,7 +6,7 @@ import { Input } from "@repo/ui/components/ui/input"
 import { Label } from "@repo/ui/components/ui/label"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import {
-    Plus, Trash2, CalendarIcon, Link2, Image, ChevronDown
+    Plus, Trash2, CalendarIcon, Link2, Image
 } from "lucide-react"
 import { format } from "date-fns"
 import { Calendar } from "@repo/ui/components/ui/calendar"
@@ -16,10 +16,9 @@ import {
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@repo/ui/components/ui/select"
-import {
-    Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@repo/ui/components/ui/command"
 import toast from "@repo/ui/components/ui/sonner"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { TagInput } from "@repo/ui/components/ui/tag-input"
 
 type ProjectLink = { id?: string; linkType: string; url: string; description?: string | null }
 type ProjectMedia = { id?: string; mediaUrl: string; mediaType: string; caption?: string | null }
@@ -45,85 +44,6 @@ const VISIBILITIES = ["PUBLIC", "PRIVATE"]
 
 const LINK_TYPES = ["GITHUB", "GITLAB", "BITBUCKET", "DEMO", "DOCUMENTATION", "LIVE SITE", "DOWNLOAD", "BLOG POST"]
 const MEDIA_TYPES = ["Image", "Video"]
-
-export function TechSelect({
-    options,
-    selected,
-    onToggle,
-    onAddCustom,
-}: {
-    options: string[]
-    selected: string[]
-    onToggle: (tech: string) => void
-    onAddCustom: (tech: string) => void
-}) {
-    const [open, setOpen] = useState(false)
-    const [input, setInput] = useState("")
-    const filtered = options.filter((t) => !selected.includes(t) && t.toLowerCase().includes(input.toLowerCase()))
-
-    return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-                    <Plus className="w-3 h-3" />
-                    Add <ChevronDown className="w-3 h-3" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[260px] p-0" align="start" portal={false}>
-                <Command>
-                    <CommandInput
-                        placeholder="Search or type custom..."
-                        value={input}
-                        onValueChange={setInput}
-                    />
-                    <CommandEmpty>
-                        {
-                            input.trim() ? (
-                                <CommandItem
-                                    onSelect={() => {
-                                        onAddCustom(input.trim())
-                                        setInput("")
-                                        setOpen(false)
-                                    }}
-                                >
-                                    Add &quot;{input.trim()}&quot; (custom)
-                                </CommandItem>
-                            ) : (
-                                "No results."
-                            )
-                        }
-                    </CommandEmpty>
-{/* CommandList, not `overflow-auto` on the group.
-                    cmdk owns the scroll VIEWPORT and it is
-                    Command.List - it is what it scrolls into view
-                    on arrow-key navigation, and what it measures.
-                    Putting the height cap on CommandGroup instead
-                    gave a box with a visible scrollbar that did
-                    not respond to the wheel, because the element
-                    cmdk manages was not the element being
-                    clipped. */}
-                    <CommandList className="max-h-[200px]">
-                    <CommandGroup>
-                        {
-                            filtered.map((tech) => (
-                                <CommandItem
-                                    key={tech}
-                                    onSelect={() => {
-                                        onToggle(tech)
-                                        setOpen(false)
-                                    }}
-                                >
-                                    {tech}
-                                </CommandItem>
-                            ))
-                        }
-                    </CommandGroup>
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
-    )
-}
 
 const TECH_OPTIONS = [
     "HTML", "HTML5", "CSS", "CSS3", "Sass", "Less", "JavaScript", "TypeScript", "jQuery", "Redux",
@@ -342,15 +262,6 @@ function ProjectCard({
         }
     }
 
-    const toggleTech = (tech: string) => {
-        setLocal((p) => ({
-            ...p,
-            technologies: p.technologies.includes(tech)
-                ? p.technologies.filter((t) => t !== tech)
-                : [...p.technologies, tech],
-        }))
-    }
-
     return (
         <div className="rounded-xl border bg-card p-6 space-y-4">
             <div className="flex items-start justify-between gap-4">
@@ -452,44 +363,9 @@ function ProjectCard({
                 </p>
             </div>
             <div>
-                <Label>Technologies Used</Label>
-                <div className="flex flex-wrap gap-2 mt-1">
-                    {
-                        local.technologies.filter((t) => TECH_OPTIONS.includes(t)).map((tech) => (
-                            <button
-                                key={tech}
-                                type="button"
-                                onClick={() => toggleTech(tech)}
-                                className="px-2 py-1 rounded text-xs border bg-primary text-primary-foreground border-primary"
-                            >
-                                {tech} ×
-                            </button>
-                        ))
-                    }
-                    {
-                        local.technologies.filter((t) => !TECH_OPTIONS.includes(t)).map((tech) => (
-                            <button
-                                key={tech}
-                                type="button"
-                                onClick={() => toggleTech(tech)}
-                                className="px-2 py-1 rounded text-xs border bg-primary text-primary-foreground border-primary"
-                            >
-                                {tech} ×
-                            </button>
-                        ))
-                    }
-                    <TechSelect
-                        options={TECH_OPTIONS}
-                        selected={local.technologies}
-                        onToggle={toggleTech}
-                        onAddCustom={(tech) => {
-                            const t = tech.trim().toUpperCase().replace(/\s+/g, "_")
-                            if (t && !local.technologies.includes(t)) {
-                                setLocal((p) => ({ ...p, technologies: [...p.technologies, t] }))
-                            }
-                        }}
-                    />
-                </div>
+                <Label>Technologies used</Label>
+                {/* The shared keyboard tag input (plan/ui-forms UF-6); custom values stay as typed. */}
+                <TagInput className="mt-1" values={local.technologies} onChange={(v) => setLocal((p) => ({ ...p, technologies: v }))} suggestions={TECH_OPTIONS} placeholder="e.g. React, then Enter" />
             </div>
             <div>
                 <Label className="flex items-center gap-2">

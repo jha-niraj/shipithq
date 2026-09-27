@@ -6,7 +6,9 @@ import {
     Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle
 } from '@repo/ui/components/ui/sheet'
 import { Button } from '@repo/ui/components/ui/button'
-import { Input } from '@repo/ui/components/ui/input'
+import { OptionSelect } from '@repo/ui/components/ui/option-select'
+import { useOptions } from '@/lib/use-options'
+import { rememberOptions } from '@/actions/(common)/options/options.action'
 import { Label } from '@repo/ui/components/ui/label'
 import { Textarea } from '@repo/ui/components/ui/textarea'
 import { Switch } from '@repo/ui/components/ui/switch'
@@ -72,6 +74,7 @@ export function CreateMockSheet({
         onOpenChange?.(value)
     }
     const [step, setStep] = useState(0)
+    const roles = useOptions(['job_title'] as const)
     const [processing, setProcessing] = useState(false)
     const [progressPercent, setProgressPercent] = useState(0)
     const [, setCreatedMockId] = useState<string | null>(null) // Set only, value used internally
@@ -164,6 +167,7 @@ export function CreateMockSheet({
         }
 
         setProcessing(true)
+        void rememberOptions([{ kind: 'job_title', values: [formData.title] }])
         setProgressPercent(10)
 
         // Simulate progress
@@ -270,7 +274,7 @@ export function CreateMockSheet({
                             <div className="p-2 bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-xl">
                                 <Brain className="w-6 h-6 text-white" />
                             </div>
-                            Create Mock Interview
+                            Create a mock interview
                         </SheetTitle>
                         <SheetDescription>
                             Design your personalized AI-powered interview practice
@@ -431,13 +435,9 @@ export function CreateMockSheet({
                                                             <p className="text-neutral-500 dark:text-neutral-400">What position are you preparing for?</p>
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <Label>Position Title *</Label>
-                                                            <Input
-                                                                placeholder="e.g., Senior Frontend Developer, SDE-2"
-                                                                value={formData.title}
-                                                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                                                className="h-12"
-                                                            />
+                                                            <Label>Position *</Label>
+                                                            {/* A choice with "Other" (plan/ui-forms UF-4). */}
+                                                            <OptionSelect value={formData.title} onChange={(v) => setFormData({ ...formData, title: v })} options={roles.job_title} placeholder="e.g. Frontend Engineer, SDE-2" className="h-12" />
                                                         </div>
                                                         <div className="space-y-2">
                                                             <Label>Description *</Label>
@@ -682,7 +682,8 @@ export function CreateMockSheet({
                                             }
                                         </motion.div>
                                     </AnimatePresence>
-                                    <div className="flex items-center justify-between mt-8 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                                    {/* Pinned to the sheet's bottom while the step scrolls (plan/ui-forms UF-8). */}
+                                    <div className="sticky bottom-0 z-10 mt-8 flex items-center justify-between border-t border-neutral-200 bg-background/95 py-4 backdrop-blur dark:border-neutral-800">
                                         <Button
                                             variant="outline"
                                             onClick={prevStep}
@@ -694,7 +695,6 @@ export function CreateMockSheet({
                                         <Button
                                             onClick={nextStep}
                                             disabled={!canProceed() || (step === 2 && userCredits < totalCredits)}
-                                            className="bg-gradient-to-r from-neutral-800 to-neutral-800 hover:opacity-90 text-white"
                                         >
                                             {
                                                 step === steps.length - 1 ? (

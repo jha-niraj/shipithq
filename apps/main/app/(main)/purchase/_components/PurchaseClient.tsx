@@ -6,6 +6,7 @@ import { useSession } from '@repo/auth/client';
 import { Button } from '@repo/ui/components/ui/button'
 import { InlineLoader } from '@repo/ui/components/ui/inline-loader'
 import { Input } from '@repo/ui/components/ui/input'
+import { NumberTextInput } from '@repo/ui/components/ui/number-text-input'
 import { Label } from '@repo/ui/components/ui/label'
 import {
 	Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle
@@ -85,6 +86,8 @@ export default function PurchasePage() {
 	const MIN_CUSTOM_CREDITS = 20
 	const MAX_CUSTOM_CREDITS = 1000
 	const [basicCredits, setBasicCredits] = useState(50)
+	// What's typed in the custom field; null while it's empty (UF-1).
+	const [customTyped, setCustomTyped] = useState<number | null>(50)
 
 	// UI States
 	const [isRequestSheetOpen, setIsRequestSheetOpen] = useState(false)
@@ -317,6 +320,7 @@ export default function PurchasePage() {
 		handledIntent.current = true
 		setCurrency(intent.currency)
 		setBasicCredits(intent.pkg.credits)
+		setCustomTyped(intent.pkg.credits)
 
 		if (!session?.user) {
 			router.push(
@@ -457,19 +461,20 @@ export default function PurchasePage() {
 									Custom amount
 								</Label>
 								<div className="flex items-center gap-2">
-									<Input
+									{/* Typed freely, shown with its range message; the price and checkout use the
+										clamped amount, so an empty field never reaches the price helper (UF-1). */}
+									<NumberTextInput
 										id="custom-credits"
-										type="number"
 										min={MIN_CUSTOM_CREDITS}
 										max={MAX_CUSTOM_CREDITS}
-										value={basicCredits}
-										onChange={(e) => {
-											// Clamped on the way in. An empty field parses to NaN,
-											// and NaN reaches the price helper and renders "NaN".
-											const n = Number.parseInt(e.target.value, 10)
-											setBasicCredits(Number.isNaN(n) ? MIN_CUSTOM_CREDITS : Math.max(MIN_CUSTOM_CREDITS, Math.min(MAX_CUSTOM_CREDITS, n)))
+										value={customTyped}
+										onChange={(v) => {
+											setCustomTyped(v)
+											setBasicCredits(v === null ? MIN_CUSTOM_CREDITS : Math.max(MIN_CUSTOM_CREDITS, Math.min(MAX_CUSTOM_CREDITS, v)))
 										}}
-										className="h-9 w-24"
+										className="w-28"
+										inputClassName="h-9"
+										aria-label="Custom credits"
 									/>
 									<span className="text-xs text-neutral-500 dark:text-neutral-400">
 										= {currency === 'INR' ? '₹' : '$'}{calculateCustomPrice(basicCredits)}
@@ -477,6 +482,7 @@ export default function PurchasePage() {
 									<Button
 										size="sm"
 										className="h-9 cursor-pointer"
+										disabled={customTyped === null || customTyped < MIN_CUSTOM_CREDITS || customTyped > MAX_CUSTOM_CREDITS}
 										onClick={() => startCheckout(basicCredits, calculatePrice(basicCredits, currency))}
 									>
 										Buy

@@ -368,7 +368,8 @@ export default function ProjectDetailsClient({ project, currentUserId, userCredi
                         </section>
                     </main>
 
-                    <aside className="space-y-6">
+                    {/* Stays in view beside the scrolling page (plan/ui-forms UF-9). */}
+                    <aside className="space-y-6 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
                         {stackRows.length > 0 && (
                             <SideCard title="Stack" icon={Layers}>
                                 <dl className="space-y-2 text-sm">

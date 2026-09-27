@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, Check, FileText, Link2, Plus, Search, Trash2, X } f
 import { Button } from "@repo/ui/components/ui/button"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { Input } from "@repo/ui/components/ui/input"
+import { NumberTextInput } from "@repo/ui/components/ui/number-text-input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@repo/ui/components/ui/sheet"
 import { toast } from "@repo/ui/components/ui/sonner"
@@ -199,7 +200,7 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
                                     <SelectTrigger className="h-8 w-48 text-sm"><SelectValue placeholder="Kind of round" /></SelectTrigger>
                                     <SelectContent>{REPORT_ROUND_TYPES.map((t) => <SelectItem key={t} value={t}>{REPORT_ROUND_LABEL[t]}</SelectItem>)}</SelectContent>
                                 </Select>
-                                <Input className="h-8 w-24 text-sm" type="number" min={1} max={600} value={r.minutes} onChange={(e) => setRound(r.key, { minutes: e.target.value })} placeholder="Minutes" aria-label="Minutes" />
+                                <NumberTextInput className="w-28" inputClassName="h-8" min={1} max={600} value={r.minutes === "" ? null : Number(r.minutes)} onChange={(v) => setRound(r.key, { minutes: v === null ? "" : String(v) })} placeholder="Minutes" suffix="min" aria-label="Minutes" />
                                 <span className="ml-auto flex items-center">
                                     <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move up"><ArrowUp className="h-3.5 w-3.5" /></Button>
                                     <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={i === rounds.length - 1} onClick={() => move(i, 1)} aria-label="Move down"><ArrowDown className="h-3.5 w-3.5" /></Button>

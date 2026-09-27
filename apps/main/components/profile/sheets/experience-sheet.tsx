@@ -11,6 +11,9 @@ import { Textarea } from "@repo/ui/components/ui/textarea"
 import { Checkbox } from "@repo/ui/components/ui/checkbox"
 import { MonthPicker } from "@repo/ui/components/ui/month-picker"
 import toast from "@repo/ui/components/ui/sonner"
+import { OptionSelect } from "@repo/ui/components/ui/option-select"
+import { rememberOptions } from "@/actions/(common)/options/options.action"
+import { useOptions } from "@/lib/use-options"
 import {
     addWorkExperience, deleteWorkExperience, updateWorkExperience,
 } from "@/actions/(main)/user/profile.action"
@@ -119,6 +122,7 @@ export function ExperienceSheet({ open, onOpenChange, experience, onSaved }: Pro
                 return
             }
             toast.success(editing ? "Role updated" : "Role added")
+            void rememberOptions([{ kind: "job_title", values: [form.roleTitle] }, { kind: "company", values: [form.companyName] }])
             onOpenChange(false)
             onSaved()
         } catch (error: unknown) {
@@ -149,6 +153,7 @@ export function ExperienceSheet({ open, onOpenChange, experience, onSaved }: Pro
         }
     }
 
+    const options = useOptions(["job_title", "company"] as const)
     const show = (k: keyof typeof errors) => (touched ? errors[k] : null)
 
     return (
@@ -167,11 +172,12 @@ export function ExperienceSheet({ open, onOpenChange, experience, onSaved }: Pro
         >
             <FieldGroup>
                 <Field label="Title" htmlFor="exp-title" required error={show("roleTitle")}>
-                    <Input id="exp-title" autoFocus placeholder="Software Engineer" value={form.roleTitle} onChange={(e) => set("roleTitle", e.target.value)} />
+                    {/* Selects with "Other" over the shared dataset (plan/ui-forms UF-2). */}
+                    <OptionSelect id="exp-title" value={form.roleTitle} onChange={(v) => set("roleTitle", v)} options={options.job_title} placeholder="Pick one or type your own" />
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Company" htmlFor="exp-company" required error={show("companyName")}>
-                        <Input id="exp-company" placeholder="Acme" value={form.companyName} onChange={(e) => set("companyName", e.target.value)} />
+                        <OptionSelect id="exp-company" value={form.companyName} onChange={(v) => set("companyName", v)} options={options.company} placeholder="Pick one or type your own" />
                     </Field>
                     <Field label="Company website" htmlFor="exp-site" error={show("companyWebsite")}>
                         <Input id="exp-site" inputMode="url" placeholder="acme.com" value={form.companyWebsite} onChange={(e) => set("companyWebsite", e.target.value)} />

@@ -185,7 +185,8 @@ export function CompanyPageView({ data }: { data: CompanyPage }) {
                     )}
                 </div>
 
-                <aside className="space-y-6">
+                {/* Stays in view beside the scrolling page (plan/ui-forms UF-9). */}
+                <aside className="space-y-6 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
                     <section className="space-y-2" aria-label="Stats">
                         <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Stats</h2>
                         <StatBand

@@ -18,6 +18,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
 import { Plus, X } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
@@ -28,7 +29,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@repo/ui/components/ui/select"
 import toast from "@repo/ui/components/ui/sonner"
-import { TechSelect } from "@/app/(main)/ai/resume/_components/projects-tab-form"
+import { TagInput } from "@repo/ui/components/ui/tag-input"
 import {
     addPortfolioProject, deletePortfolioProject, updatePortfolioProject,
 } from "@/actions/(main)/user/profile.action"
@@ -129,17 +130,21 @@ function fromRow(p: ProjectRow): Form {
     }
 }
 
+type ProjectTab = "basics" | "built" | "links"
+
 export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
     const editing = !!project?.id
     const initial = useMemo(() => (project ? fromRow(project) : emptyForm()), [project])
     const [form, setForm] = useState<Form>(initial)
     const [busy, setBusy] = useState(false)
     const [touched, setTouched] = useState(false)
+    const [tab, setTab] = useState<ProjectTab>("basics")
 
     useEffect(() => {
         if (open) {
             setForm(initial)
             setTouched(false)
+            setTab("basics")
         }
     }, [open, initial])
 
@@ -155,13 +160,6 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
     const removeMedia = (i: number) =>
         set("media", form.media.length > 1 ? form.media.filter((_, j) => j !== i) : [emptyMedia()])
 
-    const toggleTech = (t: string) =>
-        set("technologies", form.technologies.includes(t) ? form.technologies.filter((x) => x !== t) : [...form.technologies, t])
-    const addCustomTech = (raw: string) => {
-        const t = raw.trim()
-        if (!t || form.technologies.some((x) => x.toLowerCase() === t.toLowerCase())) return
-        set("technologies", [...form.technologies, t])
-    }
 
     const start = fromMonthValue(form.startDate)
     const end = form.ongoing ? null : fromMonthValue(form.endDate)
@@ -175,10 +173,16 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
     const valid = !Object.values(errors).some(Boolean)
         && !linkChecks.some((c) => c.error) && !mediaChecks.some((c) => c.error)
     const show = (k: keyof typeof errors) => (touched ? errors[k] : null)
+    const basicsError = Boolean(errors.projectName || errors.startDate || errors.endDate)
+    const linksError = linkChecks.some((c) => c.error) || mediaChecks.some((c) => c.error)
 
     const submit = async () => {
         setTouched(true)
-        if (!valid || !start) return
+        if (!valid || !start) {
+            // Open the tab that has the problem.
+            setTab(basicsError ? "basics" : "links")
+            return
+        }
         setBusy(true)
         const links = form.links
             .map((l, i) => ({ linkType: l.linkType, url: linkChecks[i]?.url ?? "", description: l.description.trim() || null }))
@@ -243,6 +247,7 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
         : [...PROJECT_TYPES, form.projectType]
 
     return (
+        <Tabs value={tab} onValueChange={(v) => setTab(v as ProjectTab)}>
         <ProfileSheet
             open={open}
             onOpenChange={onOpenChange}
@@ -256,7 +261,16 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
             dirty={dirty}
             onDelete={editing ? remove : undefined}
             deleteWhat="this project"
+            headerAside={
+                <TabsList variant="segmented" size="sm" fit>
+                    <TabsTrigger value="basics">Basics{touched && basicsError && tab !== "basics" ? " *" : ""}</TabsTrigger>
+                    <TabsTrigger value="built">What you built</TabsTrigger>
+                    <TabsTrigger value="links">Links and media{touched && linksError && tab !== "links" ? " *" : ""}</TabsTrigger>
+                </TabsList>
+            }
         >
+            {/* Three tabs, like Edit profile (plan/ui-forms UF-7): the sheet was five stacked groups. */}
+            <TabsContent value="basics" className="mt-0 space-y-6">
             <FieldGroup>
                 <Field label="Name" htmlFor="proj-name" required error={show("projectName")}>
                     <Input id="proj-name" autoFocus placeholder="ShipItHQ" value={form.projectName} onChange={(e) => set("projectName", e.target.value)} />
@@ -294,40 +308,6 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
             </FieldGroup>
 
             <FieldGroup>
-                <Field label="Summary" htmlFor="proj-desc" hint="One or two sentences: what it is and who it is for.">
-                    <Textarea id="proj-desc" rows={3} className="resize-none" placeholder="A place for developers to learn by shipping real projects." value={form.description} onChange={(e) => set("description", e.target.value)} />
-                </Field>
-                <Field label="Highlights" htmlFor="proj-bullets" hint="One per line. What you built and what it achieved.">
-                    <Textarea
-                        id="proj-bullets"
-                        rows={4}
-                        className="resize-none"
-                        placeholder={"Built the judge on Cloudflare Containers\n2,000 users in the first month"}
-                        value={form.bullets}
-                        onChange={(e) => set("bullets", e.target.value)}
-                    />
-                </Field>
-                <Field label="Technologies">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        {form.technologies.map((t) => (
-                            <span key={t} className="inline-flex items-center gap-1 rounded-md border border-neutral-200 py-0.5 pl-2 pr-1 text-xs text-neutral-800 dark:border-neutral-700 dark:text-neutral-200">
-                                {t}
-                                <button
-                                    type="button"
-                                    aria-label={`Remove ${t}`}
-                                    onClick={() => toggleTech(t)}
-                                    className="cursor-pointer rounded p-0.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
-                                >
-                                    <X className="size-3" />
-                                </button>
-                            </span>
-                        ))}
-                        <TechSelect options={TECH_OPTIONS} selected={form.technologies} onToggle={toggleTech} onAddCustom={addCustomTech} />
-                    </div>
-                </Field>
-            </FieldGroup>
-
-            <FieldGroup>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Started" required error={show("startDate")}>
                         <MonthPicker aria-label="Start month" placeholder="Month and year" value={form.startDate} onChange={(v) => set("startDate", v ?? "")} />
@@ -348,6 +328,30 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
                 </label>
             </FieldGroup>
 
+            </TabsContent>
+            <TabsContent value="built" className="mt-0 space-y-6">
+            <FieldGroup>
+                <Field label="Summary" htmlFor="proj-desc" hint="One or two sentences: what it is and who it is for.">
+                    <Textarea id="proj-desc" rows={3} className="resize-none" placeholder="A place for developers to learn by shipping real projects." value={form.description} onChange={(e) => set("description", e.target.value)} />
+                </Field>
+                <Field label="Highlights" htmlFor="proj-bullets" hint="One per line. What you built and what it achieved.">
+                    <Textarea
+                        id="proj-bullets"
+                        rows={4}
+                        className="resize-none"
+                        placeholder={"Built the judge on Cloudflare Containers\n2,000 users in the first month"}
+                        value={form.bullets}
+                        onChange={(e) => set("bullets", e.target.value)}
+                    />
+                </Field>
+                <Field label="Technologies" hint="Arrows to pick, Enter to add, Backspace to remove.">
+                    {/* The shared keyboard tag input (plan/ui-forms UF-6): Enter adds anything typed. */}
+                    <TagInput values={form.technologies} onChange={(v) => set("technologies", v)} suggestions={TECH_OPTIONS} placeholder="e.g. React, then Enter" />
+                </Field>
+            </FieldGroup>
+
+            </TabsContent>
+            <TabsContent value="links" className="mt-0 space-y-6">
             <FieldGroup
                 label="Links"
                 action={
@@ -402,7 +406,9 @@ export function ProjectSheet({ open, onOpenChange, project, onSaved }: Props) {
                     </RepeatRow>
                 ))}
             </FieldGroup>
+            </TabsContent>
         </ProfileSheet>
+        </Tabs>
     )
 }
 

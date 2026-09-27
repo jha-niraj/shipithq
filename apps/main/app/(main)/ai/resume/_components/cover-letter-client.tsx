@@ -29,6 +29,10 @@ import { MarkdownRenderer } from "@/components/common/markdown-renderer"
 import { Card, CardContent } from "@repo/ui/components/ui/card"
 import { CoverLetterHistoryItem, CoverLetterQuestion } from "@/types/aitools/cover-letter"
 import { DotmSquare11 } from "@repo/ui/components/ui/dotm-square-11"
+import { OptionSelect } from "@repo/ui/components/ui/option-select"
+import { StickyAside } from "@repo/ui/components/ui/sticky-action-bar"
+import { rememberOptions } from "@/actions/(common)/options/options.action"
+import { useOptions } from "@/lib/use-options"
 
 // ── Loading overlay ──────────────────────────────────────────────────────────
 function LoadingOverlay({ message, sub }: { message: string; sub?: string }) {
@@ -46,9 +50,9 @@ function LoadingOverlay({ message, sub }: { message: string; sub?: string }) {
 // ── Step indicator ───────────────────────────────────────────────────────────
 function StepIndicator({ current }: { current: number }) {
     const steps = [
-        { n: 1, label: "Job Details", icon: FileText },
+        { n: 1, label: "Job details", icon: FileText },
         { n: 2, label: "Tailor", icon: Wand2 },
-        { n: 3, label: "Your Letter", icon: CheckCircle2 },
+        { n: 3, label: "Your letter", icon: CheckCircle2 },
     ]
     return (
         <div className="flex items-center gap-0 mb-6">
@@ -111,6 +115,9 @@ export function CoverLetterClient({
 
     // History
     const [history, setHistory] = useState<CoverLetterHistoryItem[]>(initialCoverLetters)
+    // plan/ui-forms UF-3, UF-8, UF-9: company and title as selects with "Other", the
+    // step's actions sticky, the letters column sticky beside the steps.
+    const options = useOptions(["company", "job_title"] as const)
 
     const fetchLetter = useCallback(async (id: string) => {
         const res = await getCoverLetter(id)
@@ -180,6 +187,7 @@ export function CoverLetterClient({
 
     const handleGenerateQuestions = async (jd: string) => {
         setIsGeneratingQuestions(true)
+        void rememberOptions([{ kind: "company", values: [companyName] }, { kind: "job_title", values: [jobTitle] }])
         const res = await generateCoverLetterQuestions(jd)
         if (!res.success || !res.jobId) {
             setIsGeneratingQuestions(false)
@@ -289,7 +297,7 @@ export function CoverLetterClient({
                         {/* Job Link */}
                         <div className="space-y-1.5">
                             <Label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                Job Link
+                                Job link
                             </Label>
                             <p className="text-xs text-neutral-500 dark:text-neutral-400">Paste the job posting URL and we&apos;ll auto-extract the role details.</p>
                             <div className="flex gap-2 mt-1">
@@ -306,7 +314,7 @@ export function CoverLetterClient({
                                     className="shrink-0"
                                 >
                                     <Sparkles className="w-4 h-4 mr-2" />
-                                    Start Magic
+                                    Read the posting
                                 </Button>
                             </div>
                         </div>
@@ -315,32 +323,22 @@ export function CoverLetterClient({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <Label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                    Company Name <span className="text-neutral-600 dark:text-neutral-400 font-normal">(optional)</span>
+                                    Company <span className="text-neutral-600 dark:text-neutral-400 font-normal">(optional)</span>
                                 </Label>
-                                <Input
-                                    placeholder="E.g. Apple"
-                                    value={companyName}
-                                    onChange={e => setCompanyName(e.target.value)}
-                                    disabled={isLoading}
-                                />
+                                <OptionSelect value={companyName} onChange={setCompanyName} options={options.company} placeholder="e.g. Razorpay" disabled={isLoading} />
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                    Job Title Override <span className="text-neutral-600 dark:text-neutral-400 font-normal">(optional)</span>
+                                    Job title <span className="text-neutral-600 dark:text-neutral-400 font-normal">(optional, overrides the posting)</span>
                                 </Label>
-                                <Input
-                                    placeholder="E.g. Senior Frontend Engineer"
-                                    value={jobTitle}
-                                    onChange={e => setJobTitle(e.target.value)}
-                                    disabled={isLoading}
-                                />
+                                <OptionSelect value={jobTitle} onChange={setJobTitle} options={options.job_title} placeholder="e.g. Frontend Engineer" disabled={isLoading} />
                             </div>
                         </div>
 
                         {/* Tone */}
                         <div className="space-y-1.5">
                             <Label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                Cover Letter Tone
+                                Tone
                             </Label>
                             <Select value={tone} onValueChange={setTone} disabled={isLoading}>
                                 <SelectTrigger className="w-full sm:w-64">
@@ -358,7 +356,7 @@ export function CoverLetterClient({
                         {/* Manual JD fallback */}
                         <div className="pt-4 border-t border-dashed border-neutral-200 dark:border-neutral-800 space-y-1.5">
                             <Label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                Paste Job Description manually
+                                Or paste the job description
                             </Label>
                             <p className="text-xs text-neutral-500 dark:text-neutral-400">Use this if the URL extraction fails.</p>
                             <Textarea
@@ -375,7 +373,7 @@ export function CoverLetterClient({
                                     onClick={() => handleGenerateQuestions(jobDescription)}
                                     disabled={!jobDescription || isLoading}
                                 >
-                                    Use Manual JD{priceSuffix("cover_letter_questions")}
+                                    Use this description{priceSuffix("cover_letter_questions")}
                                 </Button>
                             </div>
                         </div>
@@ -393,7 +391,7 @@ export function CoverLetterClient({
                         )}
 
                         <div>
-                            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Tailor Your Letter</h2>
+                            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Tailor your letter</h2>
                             <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">Answer a few questions about your experience specific to this role.</p>
                         </div>
 
@@ -407,14 +405,14 @@ export function CoverLetterClient({
                             />
                         ))}
 
-                        <div className="flex items-center justify-between pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                        <div className="sticky bottom-0 z-10 -mx-6 -mb-6 flex items-center justify-between rounded-b-2xl border-t border-neutral-200 bg-white/95 px-6 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/95">
                             <Button variant="outline" size="sm" onClick={() => setStep(1)}>
                                 <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
                                 Back
                             </Button>
                             <Button onClick={handleGenerateLetter} disabled={isGeneratingLetter}>
                                 <Wand2 className="w-4 h-4 mr-2" />
-                                Generate Cover Letter{priceSuffix("cover_letter_generate")}
+                                Write my letter{priceSuffix("cover_letter_generate")}
                             </Button>
                         </div>
                     </div>
@@ -426,7 +424,7 @@ export function CoverLetterClient({
                         <div className="flex items-center justify-between">
                             <Button variant="outline" size="sm" onClick={resetFlow}>
                                 <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
-                                New Letter
+                                New letter
                             </Button>
                             <div className="flex items-center gap-2">
                                 <Button
@@ -459,7 +457,7 @@ export function CoverLetterClient({
             </div>
 
             {/* ── History sidebar ── */}
-            <div className="lg:col-span-1 space-y-3">
+            <StickyAside as="div" className="lg:col-span-1 space-y-3">
                 <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
                     <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">Letters</span>
@@ -502,16 +500,16 @@ export function CoverLetterClient({
                                             )}
                                         </div>
                                         <p className={`text-xs font-semibold truncate ${selectedId === h.id ? "text-white dark:text-black" : "text-neutral-800 dark:text-neutral-200"}`}>
-                                            {h.jobTitle || "Untitled Role"}
+                                            {h.jobTitle || "Untitled role"}
                                         </p>
-                                        <p className={`text-xs truncate mt-0.5 ${selectedId === h.id ? "text-neutral-600 dark:text-neutral-400" : "text-neutral-500"}`}>
-                                            {h.isDraft ? "Continue from step 2 →" : (h.companyName || "Unknown Company")}
+                                        <p className={`text-xs truncate mt-0.5 ${selectedId === h.id ? "text-white/75 dark:text-neutral-900/70" : "text-neutral-500"}`}>
+                                            {h.isDraft ? "Continue from step 2 →" : (h.companyName || "Unknown company")}
                                         </p>
                                     </div>
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className={`h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${selectedId === h.id ? "hover:bg-white/20 text-neutral-600 dark:text-neutral-400" : "text-neutral-600 hover:text-red-500"}`}
+                                        className={`h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${selectedId === h.id ? "hover:bg-white/20 text-white/75 dark:text-neutral-900/70" : "text-neutral-600 hover:text-red-500"}`}
                                         onClick={(e) => handleDelete(h.id, e)}
                                     >
                                         <Trash2 className="w-3 h-3" />
@@ -521,7 +519,7 @@ export function CoverLetterClient({
                         ))}
                     </div>
                 )}
-            </div>
+            </StickyAside>
         </div>
     )
 }

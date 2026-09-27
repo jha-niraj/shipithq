@@ -24,7 +24,8 @@ export function SettingsLayoutClient({
     return (
         <div className="flex flex-col lg:flex-row gap-8">
             {/* Left navigation */}
-            <aside className="w-full lg:w-64 flex-shrink-0">
+            {/* Stays in view beside the scrolling page (plan/ui-forms UF-9). */}
+            <aside className="w-full lg:w-64 flex-shrink-0 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
                 <nav
                     className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide"
                     aria-label="Settings navigation"

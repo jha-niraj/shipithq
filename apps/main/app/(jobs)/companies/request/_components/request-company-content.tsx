@@ -175,7 +175,8 @@ export function RequestCompanyContent({ signedIn, initialQuery, initialRequests 
                     )}
                 </div>
 
-                <aside className="space-y-4">
+                {/* Stays in view beside the scrolling page (plan/ui-forms UF-9). */}
+                <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
                     <div className="rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
                         <p className="border-b border-neutral-200 px-4 py-3 text-sm font-medium text-neutral-900 dark:border-neutral-800 dark:text-white">Your requests</p>
                         {requests.length === 0 ? (

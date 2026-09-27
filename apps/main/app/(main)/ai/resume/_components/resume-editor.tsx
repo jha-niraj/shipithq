@@ -1,7 +1,7 @@
 'use client'
 import Link from "next/link";
 
-import { useState, useCallback, useTransition, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useCallback, useTransition, useEffect, useLayoutEffect, useRef, createContext, useContext } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@repo/ui/components/ui/button'
 import { Input } from '@repo/ui/components/ui/input'
@@ -38,6 +38,21 @@ import {
 } from '@/types/resume-draft'
 import { cn } from '@repo/ui/lib/utils'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { OptionSelect } from '@repo/ui/components/ui/option-select'
+import { TagInput } from '@repo/ui/components/ui/tag-input'
+import { OPTION_BUILTINS } from '@repo/db/option-builtins'
+import { rememberOptions } from '@/actions/(common)/options/options.action'
+import { useOptions } from '@/lib/use-options'
+
+/*
+ * plan/ui-forms UF-3 (2026-09-28): company, title, school, degree, field and skill
+ * category are selects with "Other"; technologies and skills are keyboard tag inputs
+ * (the comma-separated text is gone). The choices load once, here, and reach each
+ * section through this context; a manual save remembers new values.
+ */
+const RESUME_KINDS = ['company', 'job_title', 'university', 'degree', 'field_of_study', 'skill_category', 'skill', 'tech'] as const
+type ResumeOptions = Record<(typeof RESUME_KINDS)[number], string[]>
+const ResumeOptionsContext = createContext<ResumeOptions>(Object.fromEntries(RESUME_KINDS.map((k) => [k, [...OPTION_BUILTINS[k]]])) as ResumeOptions)
 
 function nanoid() { return Math.random().toString(36).slice(2, 10) }
 
@@ -88,85 +103,6 @@ function hrefFor(url: string | undefined | null): string {
     return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
 }
 
-// ─── A comma-separated list, typed as text ───────────────────────────────────
-/**
- * An `<Input>` for a `string[]` that you can actually type a comma into.
- *
- * ── The bug this exists to fix ──
- *
- * Both list fields were written the obvious way: show `items.join(', ')`, and on every
- * keystroke re-parse the whole field with `.split(',').map(trim).filter(Boolean)`. That
- * round trip is lossy, and it eats exactly the characters you need to add a second entry:
- *
- *     type "ReactJS,"  ->  split gives ["ReactJS", ""]
- *                      ->  filter(Boolean) drops the empty tail  ->  ["ReactJS"]
- *                      ->  re-render shows "ReactJS"
- *
- * The comma is deleted between the keypress and the paint, so it never appears. Same for
- * the space after it, which `trim()` removes. The field was not "hard to add skills to" -
- * a second skill could not be entered at all, by any sequence of keystrokes.
- *
- * ── The fix ──
- *
- * The field owns the TEXT and the array is derived from it, rather than the other way
- * round. A half-typed "ReactJS, " is a perfectly good intermediate state; it just happens
- * to parse to the same list as "ReactJS", which is why the re-sync below compares parsed
- * forms. Blur normalises the spacing, so nobody is left looking at "React,,  Node".
- */
-const parseList = (text: string) => text.split(',').map(s => s.trim()).filter(Boolean)
-const sameList = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])
-
-function CommaListInput({ value, onChange, placeholder, className }: {
-    value: string[]
-    onChange: (v: string[]) => void
-    placeholder: string
-    className?: string
-}) {
-    const [text, setText] = useState(() => value.join(', '))
-
-    // Re-sync only when the prop describes a list this field did not just type - a profile
-    // sync landing, an AI rewrite, a draft loading. Comparing PARSED forms is what keeps a
-    // trailing comma alive: "ReactJS, " and ["ReactJS"] agree, so the text is left alone.
-    useEffect(() => {
-        setText(t => (sameList(parseList(t), value) ? t : value.join(', ')))
-    }, [value])
-
-    return (
-        <Input
-            className={className}
-            placeholder={placeholder}
-            value={text}
-            onChange={e => { setText(e.target.value); onChange(parseList(e.target.value)) }}
-            onBlur={() => setText(parseList(text).join(', '))}
-        />
-    )
-}
-
-// ─── Bullets, entered as bullets ─────────────────────────────────────────────
-/**
- * One row per bullet.
- *
- * ── What this replaces ──
- *
- * A single `<Textarea>` labelled "Bullet points (one per line)", with the array joined on
- * `\n` and split back on every keystroke. Two things went wrong with that, both visible in
- * the screenshots:
- *
- *   1. Nothing enforces the "one per line" the label asks for. Paste a paragraph and you get
- *      ONE bullet 400 characters long, which the preview then renders as a single six-line
- *      `•` - the one shape a resume must never have.
- *   2. There is no affordance. The user cannot see where a bullet begins or ends, cannot
- *      reorder, and cannot delete one without selecting exactly the right run of text.
- *
- * A list of inputs makes the data structure visible. You can see you have four bullets
- * because there are four rows.
- *
- * ── Empty rows ──
- *
- * The row is kept in state while it is empty, so the field does not vanish under the cursor
- * the moment it is cleared - that is the same mistake the comma bug made. Empties are
- * stripped on the way OUT (`onCommit`), not on the way in.
- */
 function BulletsEditor({ value, onChange, placeholder }: {
     value: string[]
     onChange: (v: string[]) => void
@@ -289,6 +225,7 @@ function ExperienceSection({ items, onChange }: { items: ResumeExperienceEntry[]
         onChange(items.map(x => x.id === id ? { ...x, ...patch } : x))
     const remove = (id: string) => onChange(items.filter(x => x.id !== id))
     const add = () => onChange([...items, { id: nanoid(), company: '', role: '', startDate: '', endDate: '', current: false, bullets: [''] }])
+    const opts = useContext(ResumeOptionsContext)
 
     return (
         <div className="space-y-4">
@@ -299,8 +236,8 @@ function ExperienceSection({ items, onChange }: { items: ResumeExperienceEntry[]
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-neutral-600 dark:text-neutral-400 hover:text-red-500" onClick={() => remove(e.id)}><Trash2 className="w-3 h-3" /></Button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <Input className="h-8 text-sm" placeholder="Company" value={e.company} onChange={ev => update(e.id, { company: ev.target.value })} />
-                        <Input className="h-8 text-sm" placeholder="Job Title" value={e.role} onChange={ev => update(e.id, { role: ev.target.value })} />
+                        <OptionSelect className="h-8" value={e.company} onChange={v => update(e.id, { company: v })} options={opts.company} placeholder="Company" />
+                        <OptionSelect className="h-8" value={e.role} onChange={v => update(e.id, { role: v })} options={opts.job_title} placeholder="Job title" />
                         {/* The company's own site. It renders as a link on the company name
                             in the preview, so a reader can check who this employer is. */}
                         <Input className="h-8 col-span-2 text-sm" placeholder="Company website (optional)" value={e.companyUrl ?? ''} onChange={ev => update(e.id, { companyUrl: ev.target.value })} />
@@ -352,6 +289,7 @@ function ProjectsSection({ items, onChange }: { items: ResumeProjectEntry[]; onC
         onChange(items.map(x => x.id === id ? { ...x, ...patch } : x))
     const remove = (id: string) => onChange(items.filter(x => x.id !== id))
     const add = () => onChange([...items, { id: nanoid(), name: '', description: '', technologies: [], github: '', liveUrl: '', bullets: [''] }])
+    const opts = useContext(ResumeOptionsContext)
 
     return (
         <div className="space-y-4">
@@ -368,12 +306,7 @@ function ProjectsSection({ items, onChange }: { items: ResumeProjectEntry[]; onC
                     </div>
                     <div className="space-y-1.5">
                         <Label className="text-xs text-neutral-500 dark:text-neutral-400">Technologies</Label>
-                        <CommaListInput
-                            className="h-8 text-sm"
-                            placeholder="Technologies (comma-separated)"
-                            value={p.technologies}
-                            onChange={technologies => update(p.id, { technologies })}
-                        />
+                        <TagInput values={p.technologies} onChange={technologies => update(p.id, { technologies })} suggestions={[...new Set([...opts.tech, ...opts.skill])]} placeholder="e.g. React, then Enter" />
                     </div>
                     <div className="space-y-1.5">
                         <Label className="text-xs text-neutral-500 dark:text-neutral-400">Bullet points</Label>
@@ -396,6 +329,7 @@ function EducationSection({ items, onChange }: { items: ResumeEducationEntry[]; 
         onChange(items.map(x => x.id === id ? { ...x, ...patch } : x))
     const remove = (id: string) => onChange(items.filter(x => x.id !== id))
     const add = () => onChange([...items, { id: nanoid(), institution: '', degree: '', startDate: '', endDate: '', bullets: [] }])
+    const opts = useContext(ResumeOptionsContext)
 
     return (
         <div className="space-y-4">
@@ -406,9 +340,9 @@ function EducationSection({ items, onChange }: { items: ResumeEducationEntry[]; 
                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-neutral-600 dark:text-neutral-400 hover:text-red-500" onClick={() => remove(e.id)}><Trash2 className="w-3 h-3" /></Button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <Input className="h-8 text-sm col-span-2" placeholder="Institution" value={e.institution} onChange={ev => update(e.id, { institution: ev.target.value })} />
-                        <Input className="h-8 text-sm" placeholder="Degree" value={e.degree ?? ''} onChange={ev => update(e.id, { degree: ev.target.value })} />
-                        <Input className="h-8 text-sm" placeholder="Field of Study" value={e.field ?? ''} onChange={ev => update(e.id, { field: ev.target.value })} />
+                        <OptionSelect className="h-8 col-span-2" value={e.institution} onChange={v => update(e.id, { institution: v })} options={opts.university} placeholder="School or university" />
+                        <OptionSelect className="h-8" value={e.degree ?? ''} onChange={v => update(e.id, { degree: v })} options={opts.degree} placeholder="Degree" />
+                        <OptionSelect className="h-8" value={e.field ?? ''} onChange={v => update(e.id, { field: v })} options={opts.field_of_study} placeholder="Field of study" />
                         <MonthPicker
                             className="h-8 text-sm"
                             aria-label="Start month"
@@ -437,24 +371,20 @@ function SkillsSection({ items, onChange }: { items: ResumeSkillGroup[]; onChang
         onChange(items.map((x, idx) => idx === i ? { ...x, ...patch } : x))
     const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i))
     const add = () => onChange([...items, { category: '', items: [] }])
+    const opts = useContext(ResumeOptionsContext)
 
     return (
         <div className="space-y-3">
             {items.map((g, i) => (
                 <div key={i} className="rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 space-y-2">
                     <div className="flex items-center gap-2">
-                        <Input className="h-7 min-w-0 flex-1 text-xs" placeholder="Category (e.g. Languages, Frameworks)" value={g.category} onChange={e => update(i, { category: e.target.value })} />
+                        <OptionSelect className="h-8 min-w-0 flex-1" value={g.category} onChange={v => update(i, { category: v })} options={opts.skill_category} placeholder="Category (Languages, Frontend...)" />
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-neutral-600 dark:text-neutral-400 hover:text-red-500" onClick={() => remove(i)}><Trash2 className="w-3 h-3" /></Button>
                     </div>
-                    <CommaListInput
-                        className="h-7 text-xs"
-                        placeholder="Skills (comma-separated)"
-                        value={g.items}
-                        onChange={items => update(i, { items })}
-                    />
+                    <TagInput values={g.items} onChange={items => update(i, { items })} suggestions={[...new Set([...opts.skill, ...opts.tech])]} placeholder="e.g. TypeScript, then Enter" />
                 </div>
             ))}
-            <Button variant="outline" size="sm" className="w-full" onClick={add}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Skill Group</Button>
+            <Button variant="outline" size="sm" className="w-full" onClick={add}><Plus className="w-3.5 h-3.5 mr-1.5" />Add skill group</Button>
         </div>
     )
 }
@@ -482,6 +412,7 @@ function AIToolsPanel({ draftId, open, onClose, onContentUpdated }: {
     draftId: string; open: boolean; onClose: () => void
     onContentUpdated: (content: ResumeDraftContent) => void
 }) {
+    const opts = useContext(ResumeOptionsContext)
     const router = useRouter()
     const [jd, setJd] = useState('')
     const [jobUrl, setJobUrl] = useState('')
@@ -709,12 +640,12 @@ function AIToolsPanel({ draftId, open, onClose, onContentUpdated }: {
                                     </div>
                                 )}
                     <div className="space-y-1.5">
-                        <Label className="text-sm font-medium">Job Title</Label>
-                        <Input placeholder="e.g. Senior Frontend Engineer" value={jobTitle} onChange={e => setJobTitle(e.target.value)} />
+                        <Label className="text-sm font-medium">Job title</Label>
+                        <OptionSelect value={jobTitle} onChange={setJobTitle} options={opts.job_title} placeholder="e.g. Senior Frontend Engineer" />
                     </div>
                     <div className="space-y-1.5">
                         <Label className="text-sm font-medium">Company <span className="text-neutral-600 dark:text-neutral-400">(optional)</span></Label>
-                        <Input placeholder="e.g. Stripe" value={company} onChange={e => setCompany(e.target.value)} />
+                        <OptionSelect value={company} onChange={setCompany} options={opts.company} placeholder="e.g. Stripe" />
                     </div>
                     <div className="space-y-1.5">
                         <Label className="text-sm font-medium">Job Posting URL</Label>
@@ -1077,6 +1008,7 @@ function PreviewPane({ content, templateSlug }: { content: ResumeDraftContent; t
 
 // ─── Main Editor ──────────────────────────────────────────────────────────────
 export function ResumeEditor({ draft, content: initialContent, templates }: Props) {
+    const resumeOptions = useOptions(RESUME_KINDS)
     const [content, setContent] = useState<ResumeDraftContent>(initialContent)
     const [name, setName] = useState(draft.name)
     const [templateSlug, setTemplateSlug] = useState(draft.templateSlug)
@@ -1106,6 +1038,17 @@ export function ResumeEditor({ draft, content: initialContent, templates }: Prop
     const save = useCallback(async (silent = false) => {
         setSaving(true)
         const res = await updateResumeDraft(draft.id, { name, templateSlug, content, isPublic })
+        // New values join the shared choices, on a save the student asked for only (UF-3).
+        if (!silent && res.success) void rememberOptions([
+            { kind: 'company', values: content.experience.map((e) => e.company) },
+            { kind: 'job_title', values: content.experience.map((e) => e.role) },
+            { kind: 'university', values: content.education.map((e) => e.institution) },
+            { kind: 'degree', values: content.education.map((e) => e.degree ?? '') },
+            { kind: 'field_of_study', values: content.education.map((e) => e.field ?? '') },
+            { kind: 'skill_category', values: content.skills.map((g) => g.category) },
+            { kind: 'skill', values: content.skills.flatMap((g) => g.items) },
+            { kind: 'tech', values: content.projects.flatMap((p) => p.technologies) },
+        ])
 
         // The same four links the import page already writes back to `users`. The header
         // form was collecting them and throwing them away, so the profile stayed empty and
@@ -1139,6 +1082,7 @@ export function ResumeEditor({ draft, content: initialContent, templates }: Prop
     const platformTemplates = templates.filter(t => t.isPlatform)
 
     return (
+        <ResumeOptionsContext.Provider value={resumeOptions}>
         <div className="flex flex-col h-dvh">
             {/* ── Top bar ── */}
             <div className="flex items-center gap-3 px-4 h-12 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex-shrink-0">
@@ -1272,5 +1216,6 @@ export function ResumeEditor({ draft, content: initialContent, templates }: Prop
 
 
         </div>
+        </ResumeOptionsContext.Provider>
     )
 }

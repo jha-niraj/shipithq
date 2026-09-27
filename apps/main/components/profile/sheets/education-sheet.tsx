@@ -6,11 +6,13 @@
  */
 
 import { useEffect, useMemo, useState } from "react"
-import { Input } from "@repo/ui/components/ui/input"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { Checkbox } from "@repo/ui/components/ui/checkbox"
 import { MonthPicker } from "@repo/ui/components/ui/month-picker"
 import toast from "@repo/ui/components/ui/sonner"
+import { OptionSelect } from "@repo/ui/components/ui/option-select"
+import { rememberOptions } from "@/actions/(common)/options/options.action"
+import { useOptions } from "@/lib/use-options"
 import {
     addUserEducation, deleteUserEducation, updateUserEducation,
 } from "@/actions/(main)/user/profile.action"
@@ -33,6 +35,13 @@ interface Props {
     education?: EducationRow | null
     onSaved: () => void
 }
+
+/** "B.Tech, Computer Science" into its two parts, and back. A degree with no field stays whole. */
+function splitDegree(v: string): { degree: string; field: string } {
+    const i = v.indexOf(", ")
+    return i < 0 ? { degree: v.trim(), field: "" } : { degree: v.slice(0, i).trim(), field: v.slice(i + 2).trim() }
+}
+const joinDegree = (degree: string, field: string) => [degree.trim(), field.trim()].filter(Boolean).join(", ")
 
 type Form = { institution: string; degree: string; startDate: string; endDate: string; current: boolean; bullets: string }
 
@@ -95,6 +104,11 @@ export function EducationSheet({ open, onOpenChange, education, onSaved }: Props
                 return
             }
             toast.success(editing ? "Education updated" : "Education added")
+            void rememberOptions([
+                { kind: "university", values: [form.institution] },
+                { kind: "degree", values: [splitDegree(form.degree).degree] },
+                { kind: "field_of_study", values: [splitDegree(form.degree).field] },
+            ])
             onOpenChange(false)
             onSaved()
         } catch (error: unknown) {
@@ -125,6 +139,8 @@ export function EducationSheet({ open, onOpenChange, education, onSaved }: Props
         }
     }
 
+    const options = useOptions(["university", "degree", "field_of_study"] as const)
+
     return (
         <ProfileSheet
             open={open}
@@ -141,11 +157,17 @@ export function EducationSheet({ open, onOpenChange, education, onSaved }: Props
         >
             <FieldGroup>
                 <Field label="School or university" htmlFor="edu-school" required error={show("institution")}>
-                    <Input id="edu-school" autoFocus placeholder="Lovely Professional University" value={form.institution} onChange={(e) => set("institution", e.target.value)} />
+                    <OptionSelect id="edu-school" value={form.institution} onChange={(v) => set("institution", v)} options={options.university} placeholder="Pick one or type your own" />
                 </Field>
-                <Field label="Degree" htmlFor="edu-degree" hint="Degree and field, as you would write it on a resume.">
-                    <Input id="edu-degree" placeholder="B.Tech, Computer Science" value={form.degree} onChange={(e) => set("degree", e.target.value)} />
-                </Field>
+                {/* Two choices, saved as one line ("B.Tech, Computer Science") as before (UF-2). */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Degree" htmlFor="edu-degree">
+                        <OptionSelect id="edu-degree" value={splitDegree(form.degree).degree} onChange={(v) => set("degree", joinDegree(v, splitDegree(form.degree).field))} options={options.degree} placeholder="B.Tech, BCA, MBA..." />
+                    </Field>
+                    <Field label="Field of study" htmlFor="edu-field">
+                        <OptionSelect id="edu-field" value={splitDegree(form.degree).field} onChange={(v) => set("degree", joinDegree(splitDegree(form.degree).degree, v))} options={options.field_of_study} placeholder="Computer Science..." />
+                    </Field>
+                </div>
             </FieldGroup>
 
             <FieldGroup>

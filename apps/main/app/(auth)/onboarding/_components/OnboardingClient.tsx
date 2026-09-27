@@ -1,5 +1,7 @@
 "use client"
 
+import { useOptions } from "@/lib/use-options"
+import { rememberOptions } from "@/actions/(common)/options/options.action"
 import { useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { isSafeCallback } from "@/lib/urls"
@@ -77,6 +79,9 @@ export default function OnboardingClient() {
 	// The profile was saved (at the learning goals step); the resume after it is optional.
 	const savedRef = useRef(false)
 
+	// Built-ins at once, then the colleges other students added (UF-5).
+	const colleges = useOptions(["university"] as const)
+
 	const steps: FlowStep[] = useMemo(() => [
 		{
 			id: "welcome",
@@ -119,8 +124,10 @@ export default function OnboardingClient() {
 			icon: <GraduationCap />,
 			question: "Where do you study?",
 			navLabel: "University",
-			description: "Your college or university. Leave it blank if it doesn't apply.",
-			placeholder: "e.g. Tribhuvan University",
+			description: "Pick yours as you type, or type it if it isn't listed. Leave it blank if it doesn't apply.",
+			placeholder: "Start typing your college",
+			// A choice with "Other" (plan/ui-forms UF-5): the list shows as you type.
+			suggestions: colleges.university,
 		},
 		{
 			id: "semester",
@@ -165,7 +172,7 @@ export default function OnboardingClient() {
 			maxSizeMb: 5,
 			slots: [{ id: "resume", label: "Resume" }],
 		},
-	], [])
+	], [colleges.university])
 
 	const initialAnswers = useMemo(
 		() => ({ username: suggestUsername(session?.user?.name || session?.user?.email) }),
@@ -195,6 +202,7 @@ export default function OnboardingClient() {
 		//    step with its error, instead of dropping them into an app that still thinks
 		//    they haven't onboarded. It also refreshes the session cookie (see the action).
 		const selectedLabels = (answers.interests as string[]) ?? []
+		void rememberOptions([{ kind: "university", values: [String(answers.university ?? "")] }])
 		await completeOnboarding({
 			username: String(answers.username ?? "").trim(),
 			university: String(answers.university ?? "").trim() || undefined,

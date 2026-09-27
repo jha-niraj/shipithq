@@ -7,6 +7,7 @@ import {
 } from '@repo/ui/components/ui/sheet'
 import { Button } from '@repo/ui/components/ui/button'
 import { Input } from '@repo/ui/components/ui/input'
+import { NumberTextInput } from '@repo/ui/components/ui/number-text-input'
 import { Label } from '@repo/ui/components/ui/label'
 import { Badge } from '@repo/ui/components/ui/badge'
 import { Progress } from '@repo/ui/components/ui/progress'
@@ -524,13 +525,14 @@ export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], on
                                                                 {
                                                                     formData.duration === 'CUSTOM' && (
                                                                         <div className="mt-2">
-                                                                            <Input
-                                                                                type="number"
+                                                                            <NumberTextInput
                                                                                 min={1}
                                                                                 max={365}
-                                                                                placeholder="Days"
-                                                                                value={formData.customDays ?? ''}
-                                                                                onChange={(e) => setFormData({ ...formData, customDays: e.target.value ? parseInt(e.target.value, 10) : null })}
+                                                                                placeholder="How many days"
+                                                                                suffix="days"
+                                                                                aria-label="Days"
+                                                                                value={formData.customDays ?? null}
+                                                                                onChange={(v) => setFormData({ ...formData, customDays: v })}
                                                                             />
                                                                         </div>
                                                                     )
@@ -539,8 +541,9 @@ export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], on
                                                         </div>
                                                         <div className="space-y-4">
                                                             <div className="text-center mb-4">
+                                                                {/* Its own heading: this used to print steps[2] ("Organize"), the next step's (UF-4). */}
                                                                 <h3 className="text-lg font-medium text-neutral-900 dark:text-white">
-                                                                    {steps[2]?.title}
+                                                                    What to focus on
                                                                 </h3>
                                                                 <p className="text-sm text-neutral-500 dark:text-neutral-400">Select at least one</p>
                                                             </div>
@@ -576,7 +579,7 @@ export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], on
                                                     <div className="space-y-4">
                                                         <div className="text-center mb-4">
                                                             <h3 className="text-lg font-medium text-neutral-900 dark:text-white">
-                                                                {steps[3]?.title}
+                                                                {steps[2]?.title}
                                                             </h3>
                                                             <p className="text-sm text-neutral-500 dark:text-neutral-400">Group your goal for better organization</p>
                                                         </div>
@@ -754,7 +757,8 @@ export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], on
                                             }
                                         </motion.div>
                                     </AnimatePresence>
-                                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                                    {/* Pinned to the sheet's bottom while the step scrolls (plan/ui-forms UF-8). */}
+                                    <div className="sticky bottom-0 z-10 -mx-6 -mb-6 mt-6 flex items-center justify-between border-t border-neutral-200 bg-background/95 px-6 py-4 backdrop-blur dark:border-neutral-800">
                                         <Button
                                             variant="ghost"
                                             onClick={prevStep}
@@ -773,7 +777,7 @@ export function CreateGoalSheet({ open, onOpenChange, onSuccess, groups = [], on
                                                 step === steps.length - 1 ? (
                                                     <>
                                                         {formData.generateAIPlan ? <Wand2 className="w-4 h-4 mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
-                                                        {formData.generateAIPlan ? 'Create Goal + AI Plan' : 'Create Goal'}
+                                                        {formData.generateAIPlan ? 'Create goal and AI plan' : 'Create goal'}
                                                     </>
                                                 ) : (
                                                     <>
