@@ -1,8 +1,8 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
-import { ArrowDown, ArrowRight, ArrowUp, Check, RotateCcw, X } from "lucide-react"
+import { ArrowDown, ArrowRight, ArrowUp, Check, RotateCcw, Volume2, VolumeX, X } from "lucide-react"
 import { cn } from "../../lib/utils"
 import { grade, isAnswered, scrambled, type QuizQuestion, type QuizResponse, type QuizResult } from "../../lib/quiz"
 
@@ -13,12 +13,17 @@ import { grade, isAnswered, scrambled, type QuizQuestion, type QuizResponse, typ
  * into buckets, put in order. No drag and drop is needed: buckets are chosen per item,
  * order moves with up and down, so it works by keyboard and on a phone.
  *
+ * `speak`, when given, adds a "Read aloud" switch (off until the reader turns it on, and
+ * remembered): each question is read out as it appears. It returns an audio URL.
+ *
  * `onComplete` receives the results once, when the reader finishes; the caller saves
  * them. `initial` shows a finished attempt's results straight away. Monochrome with
  * `dark:` pairs; right is ink, wrong is rose.
  */
 
-export function QuizRunner({ questions, title, onComplete, initial, onRetake, retakeLabel = "Try again", className }: {
+const READ_ALOUD_KEY = "quiz:read-aloud"
+
+export function QuizRunner({ questions, title, onComplete, initial, onRetake, retakeLabel = "Try again", className, speak }: {
     questions: QuizQuestion[]
     title?: string
     onComplete?: (results: QuizResult[]) => void | Promise<void>
@@ -28,6 +33,8 @@ export function QuizRunner({ questions, title, onComplete, initial, onRetake, re
     onRetake?: () => void
     retakeLabel?: string
     className?: string
+    /** Audio for a question, for the opt-in read-aloud switch. */
+    speak?: (questionId: string) => Promise<string | null>
 }) {
     const reduced = useReducedMotion()
     const [index, setIndex] = useState(0)
@@ -37,6 +44,29 @@ export function QuizRunner({ questions, title, onComplete, initial, onRetake, re
 
     const q = questions[index]
     const answered = q ? isAnswered(q, responses[q.id]) : false
+
+    // Read aloud: opt-in, remembered, one question at a time.
+    const [aloud, setAloud] = useState(false)
+    const player = useRef<HTMLAudioElement | null>(null)
+    useEffect(() => { try { setAloud(localStorage.getItem(READ_ALOUD_KEY) === "1") } catch { /* private window */ } }, [])
+    useEffect(() => {
+        if (!aloud || !speak || !q || results) return
+        let live = true
+        void speak(q.id).then((url) => {
+            if (!live || !url) return
+            player.current?.pause()
+            const a = new Audio(url)
+            player.current = a
+            void a.play().catch(() => undefined)
+        })
+        return () => { live = false; player.current?.pause() }
+    }, [aloud, speak, q, results])
+    const toggleAloud = () => setAloud((v) => {
+        const next = !v
+        try { localStorage.setItem(READ_ALOUD_KEY, next ? "1" : "0") } catch { /* ignore */ }
+        if (!next) player.current?.pause()
+        return next
+    })
     const last = index === questions.length - 1
 
     const finish = async () => {
@@ -54,7 +84,15 @@ export function QuizRunner({ questions, title, onComplete, initial, onRetake, re
     return (
         <div className={cn("rounded-3xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950", className)}>
             <div className="flex items-center justify-between gap-4 border-b border-neutral-200 px-5 py-3.5 dark:border-neutral-800">
-                <p className="truncate font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">{title ?? "Check"} · {index + 1} of {questions.length}</p>
+                <div className="flex min-w-0 items-center gap-3">
+                    <p className="truncate font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">{title ?? "Check"} · {index + 1} of {questions.length}</p>
+                    {speak && (
+                        <button type="button" onClick={toggleAloud} aria-pressed={aloud} title={aloud ? "Stop reading questions aloud" : "Read questions aloud"}
+                            className={cn("inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors", aloud ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-200 text-neutral-500 hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-400")}>
+                            {aloud ? <Volume2 className="size-3" aria-hidden /> : <VolumeX className="size-3" aria-hidden />} Read aloud
+                        </button>
+                    )}
+                </div>
                 <div className="flex gap-1" aria-hidden>
                     {questions.map((qq, i) => (
                         <span key={qq.id} className={cn("h-1.5 w-6 rounded-full transition-colors", i < index || (i === index && answered) ? "bg-neutral-900 dark:bg-white" : i === index ? "bg-neutral-400 dark:bg-neutral-600" : "bg-neutral-200 dark:bg-neutral-800")} />
