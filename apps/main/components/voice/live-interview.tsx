@@ -318,7 +318,7 @@ function TypedInterview({ voiceRef, initialTurns, ending, onHandIn }: {
             <div className="sticky bottom-0 border-t border-neutral-200 bg-neutral-50 py-3 dark:border-neutral-800 dark:bg-neutral-950">
                 {error && <p role="alert" className="mb-2 text-sm text-rose-700 dark:text-rose-400">{error}</p>}
                 {done ? (
-                    <p className="flex items-center justify-center gap-2 py-2 text-sm text-neutral-600 dark:text-neutral-300"><InlineLoader size="sm" /> Interview complete. Handing in.</p>
+                    <div className="flex items-center justify-center gap-2 py-2 text-sm text-neutral-600 dark:text-neutral-300"><InlineLoader size="sm" /> Interview complete. Handing in.</div>
                 ) : (
                     <div className="flex items-end gap-2">
                         <Textarea

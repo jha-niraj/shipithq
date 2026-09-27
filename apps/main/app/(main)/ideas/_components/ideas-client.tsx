@@ -223,7 +223,7 @@ function PostIdeaSheet({ open, onOpenChange, onPosted }: { open: boolean; onOpen
                     <Checkbox checked={anonymous} onCheckedChange={(c) => setAnonymous(c === true)} />
                     Post anonymously (shows as Community instead of your first name)
                 </label>
-                {busy && <p className="flex items-center gap-2 text-xs text-neutral-500"><InlineLoader size="sm" /> Posting</p>}
+                {busy && <div className="flex items-center gap-2 text-xs text-neutral-500"><InlineLoader size="sm" /> Posting</div>}
             </FieldGroup>
         </ProfileSheet>
     )

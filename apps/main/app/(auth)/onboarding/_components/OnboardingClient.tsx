@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { isSafeCallback } from "@/lib/urls"
-import { LogOut, Loader2 } from "lucide-react"
+import { AtSign, CalendarDays, Camera, FileText, GraduationCap, LogOut, Loader2, Target } from "lucide-react"
 import {
 	TypeformFlow, type FlowStep, type FlowFileValue,
 } from "@repo/ui/components/typeform-flow"
@@ -74,6 +74,8 @@ export default function OnboardingClient() {
 	// Without it the page renders NOTHING in that window - see the note on `handleClose`.
 	const [leaving, setLeaving] = useState(false)
 	const submittedRef = useRef(false)
+	// The profile was saved (at the learning goals step); the resume after it is optional.
+	const savedRef = useRef(false)
 
 	const steps: FlowStep[] = useMemo(() => [
 		{
@@ -86,6 +88,7 @@ export default function OnboardingClient() {
 		{
 			id: "username",
 			type: "short_text",
+			icon: <AtSign />,
 			question: "Pick your username",
 			navLabel: "Username",
 			description: "This is your handle across ShipItHQ - on your profile, projects and leaderboard.",
@@ -102,6 +105,7 @@ export default function OnboardingClient() {
 		{
 			id: "avatar",
 			type: "file",
+			icon: <Camera />,
 			question: "Add a profile photo",
 			navLabel: "Profile photo",
 			description: "Optional - you can always add or change it later.",
@@ -112,6 +116,7 @@ export default function OnboardingClient() {
 		{
 			id: "university",
 			type: "short_text",
+			icon: <GraduationCap />,
 			question: "Where do you study?",
 			navLabel: "University",
 			description: "Your college or university. Leave it blank if it doesn't apply.",
@@ -120,6 +125,7 @@ export default function OnboardingClient() {
 		{
 			id: "semester",
 			type: "single_choice",
+			icon: <CalendarDays />,
 			question: "Where are you right now?",
 			navLabel: "Semester",
 			options: SEMESTERS,
@@ -128,20 +134,33 @@ export default function OnboardingClient() {
 		{
 			id: "interests",
 			type: "multiple_choice",
+			icon: <Target />,
 			question: "What do you want to get better at?",
 			navLabel: "Learning goals",
 			description: "Pick as many as you like - this shapes what ShipItHQ recommends you.",
 			options: LEARNING_GOALS.map((g) => g.label),
-			columns: 2,
+			columns: 3,
 			required: true,
+			// Saving happens HERE, not after the resume step (Niraj, 2026-09-28): the resume
+			// is optional, so leaving on it must still leave a finished profile. A failed
+			// save shows as this step's error and keeps the reader here.
+			validateAsync: async (value, answers) => {
+				try {
+					await saveProfile({ ...answers, interests: value })
+					return null
+				} catch (error: unknown) {
+					return error instanceof Error ? error.message : "Could not save your profile. Try again."
+				}
+			},
 		},
 		{
 			id: "resume",
 			type: "file",
+			icon: <FileText />,
 			question: "Upload your resume",
 			navLabel: "Resume",
 			description:
-				"Optional, but it powers the AI resume review, cover letters and interview prep. PDF or DOCX.",
+				"Optional. Your profile is already saved, so you can skip this and add it later from your profile. It powers the AI resume review, cover letters and interview prep. PDF or DOCX.",
 			accept: ".pdf,.doc,.docx",
 			maxSizeMb: 5,
 			slots: [{ id: "resume", label: "Resume" }],
@@ -153,12 +172,12 @@ export default function OnboardingClient() {
 		[session?.user?.name, session?.user?.email],
 	)
 
-	const handleSubmit = async (answers: Record<string, unknown>) => {
+	/** Everything but the resume: the photo, the profile and the signup side effects. Runs once. */
+	const saveProfile = async (answers: Record<string, unknown>) => {
+		if (savedRef.current) return
 		const avatarFiles = (answers.avatar as FlowFileValue) ?? {}
-		const resumeFiles = (answers.resume as FlowFileValue) ?? {}
 
-		// 1) Profile photo → Cloudinary. Best-effort: a failed upload must never
-		//    block the account from being usable.
+		// 1) Profile photo. Best-effort: a failed upload must never block the account.
 		let imageUrl: string | undefined
 		const avatarFile = avatarFiles.avatar
 		if (avatarFile) {
@@ -172,24 +191,9 @@ export default function OnboardingClient() {
 			}
 		}
 
-		// 2) Resume → R2. `uploadResume` persists hasResume/resume/resumeText itself
-		//    and dispatches the worker job that turns that text into a structured
-		//    resume draft, so the experience and skills we need for cover letters
-		//    and mock interviews are already there the first time the user asks.
-		//    Best-effort: the parse happens off the request path and lands minutes
-		//    later, long after this screen is gone.
-		const resumeFile = resumeFiles.resume
-		if (resumeFile) {
-			try {
-				await uploadResume(resumeFile, undefined, { draftName: "My resume" })
-			} catch {
-				toast.warning("Resume upload failed - you can upload it later from your profile.")
-			}
-		}
-
-		// 3) The profile itself. This one MUST succeed: throwing keeps the user on
-		//    the last step with the flow's error state, instead of dropping them
-		//    into an app that still thinks they haven't onboarded.
+		// 2) The profile itself. This one MUST succeed: throwing keeps the reader on the
+		//    step with its error, instead of dropping them into an app that still thinks
+		//    they haven't onboarded. It also refreshes the session cookie (see the action).
 		const selectedLabels = (answers.interests as string[]) ?? []
 		await completeOnboarding({
 			username: String(answers.username ?? "").trim(),
@@ -201,14 +205,29 @@ export default function OnboardingClient() {
 				.filter((id): id is string => Boolean(id)),
 		})
 
-		// 4) Signup side effects (referral credit, activity, welcome mail). Idempotent,
-		//    and the only place they run for users who arrived via Google or a magic
-		//    link - those paths never touch the register page.
+		// 3) Signup side effects (referral credit, activity, welcome mail). Idempotent, and
+		//    the only place they run for users who arrived via Google or a magic link.
 		await finalizeSignup(null)
-
-		// Refresh the cached session so middleware sees onboardingCompleted:true and
-		// stops bouncing /home back to /onboarding.
 		await refetch()
+		savedRef.current = true
+		// From here, closing the flow goes into the app: the profile is done.
+		submittedRef.current = true
+	}
+
+	const handleSubmit = async (answers: Record<string, unknown>) => {
+		// Normally already saved at the learning goals step; this covers any path that skipped it.
+		await saveProfile(answers)
+
+		// The resume, if they added one. Best-effort: `uploadResume` persists it and
+		// dispatches the parse job off the request path.
+		const resumeFile = ((answers.resume as FlowFileValue) ?? {}).resume
+		if (resumeFile) {
+			try {
+				await uploadResume(resumeFile, undefined, { draftName: "My resume" })
+			} catch {
+				toast.warning("Resume upload failed - you can upload it later from your profile.")
+			}
+		}
 		submittedRef.current = true
 		// TypeformFlow shows its own "You're all set" screen; its Continue button
 		// (or autoCloseMs) triggers onClose below, which routes into the app.

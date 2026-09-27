@@ -130,3 +130,16 @@ matches.
   carry the destination; the client exits to it). One gap fixed: an onboarded user on
   `/onboarding?callbackUrl=X` now goes to X, not /home. The middleware's inline callback
   check is replaced by `isSafeCallback` from `lib/urls`.
+
+## AUTH-8 Onboarding: optional resume, compact goals, a real icon per step (Niraj, 2026-09-28)
+- [ ] Status: built 2026-09-28, waiting on Niraj's browser check.
+- **Why:** readers who stopped on the optional resume step were sent back to onboarding on every visit, because the profile, and `onboardingCompleted`, were only saved by the last step's submit. The learning-goal cards were oversized, and every step showed the same "↗".
+- **Files:** `apps/main/app/(auth)/onboarding/_components/OnboardingClient.tsx`, `packages/ui/src/components/typeform-flow.tsx` (only onboarding uses it).
+- **Built:**
+  - `saveProfile` (photo, `completeOnboarding` with its session-cookie refresh, `finalizeSignup`, `refetch`; runs once) now runs from the learning-goals step's `validateAsync`, so pressing OK there finishes onboarding. A failed save shows as that step's error.
+  - The resume step only uploads a file if one was added, and says the profile is already saved. Closing the flow after the save goes into the app.
+  - `validateAsync(value, answers)` now receives every answer (a restored draft included).
+  - Choice cards are compact: 1px border, `px-3 py-2`, a 24px letter box, 14px text, no scale-up. `columns: 3` gives 2 columns on phones and 3 from `sm`; learning goals use 3.
+  - `FlowStep.icon` replaces the fixed "↗": @ username, camera photo, graduation cap university, calendar semester, target goals, file resume.
+- **Done when:** a new account that presses OK on learning goals and closes the tab lands in the app on its next visit, not on /onboarding (Niraj's browser).
+- **Wider (Niraj, 2026-09-28):** the step column in `TypeformFlow` is `max-w-3xl` (768px), up from `max-w-xl` (576px). It applies to every onboarding step; the footer already spans the full width.

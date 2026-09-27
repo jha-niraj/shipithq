@@ -1,7 +1,7 @@
 "use client"
 
 import {
-	useEffect, useRef, useCallback, useState, useMemo, type KeyboardEvent,
+	useEffect, useRef, useCallback, useState, useMemo, type KeyboardEvent, type ReactNode,
 } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
@@ -53,7 +53,9 @@ export interface FlowStep {
 	/** Lay the choice options out in a 2-column grid instead of a single-column stack.
 	 *  Use for long lists (grade, subjects) so they take roughly half the vertical space
 	 *  and do not force the pane to scroll. Applies to single_choice / multiple_choice only. */
-	columns?: 1 | 2
+	columns?: 1 | 2 | 3
+	/** Shown above the question, one per step (Niraj, 2026-09-28: not the same arrow on every step). */
+	icon?: ReactNode
 	/** For a "country_phone" step: the id of a "location" step whose selected country
 	 *  pre-fills the phone's dial code, so the student does not have to re-pick it. */
 	countrySourceStepId?: string
@@ -65,7 +67,8 @@ export interface FlowStep {
 	 *  the step, or null to allow it. Use for uniqueness checks - a username, a
 	 *  slug - where the answer only exists on the server. The OK button shows a
 	 *  checking state while it runs. */
-	validateAsync?: (value: unknown) => Promise<string | null>
+	/** Runs on advance, after `validate`. Gets every answer so far too, for a step that saves them. */
+	validateAsync?: (value: unknown, answers: Record<string, unknown>) => Promise<string | null>
 	// ── "file" step config ──
 	/** Named upload slots. If omitted, a single unnamed slot (id === step.id) is used. */
 	slots?: FlowFileSlot[]
@@ -455,7 +458,7 @@ export function TypeformFlow({
 		if (currentStep.validateAsync) {
 			setIsChecking(true)
 			try {
-				const msg = await currentStep.validateAsync(val)
+				const msg = await currentStep.validateAsync(val, answersRef.current)
 				if (msg) {
 					showError(msg)
 					return false
@@ -711,7 +714,8 @@ export function TypeformFlow({
 					    centred and the step sat at the top of the panel. See the rule
 					    in styles/globals.css. */}
 					<ScrollArea className="tf-center-scroll relative z-10 flex-1 min-h-0 w-full">
-						<div className="max-w-xl w-full mx-auto px-6 py-8">
+						{/* 768px, up from 576 (Niraj, 2026-09-28): room for 3-column choices on every step. */}
+						<div className="max-w-3xl w-full mx-auto px-6 py-8">
 							<AnimatePresence mode="wait" custom={direction}>
 								{!ready ? null : isDone ? (
 									<ThankYouScreen
@@ -957,11 +961,9 @@ function StepContent({
 	// Common question header
 	const header = (
 		<div className="mb-8">
-			{step.type !== "welcome" && (
-				<div className="flex items-baseline gap-2 mb-3">
-					<span className="font-mono font-bold text-base" style={{ color: "var(--tf-accent)" }}>
-						↗
-					</span>
+			{step.type !== "welcome" && step.icon && (
+				<div className="mb-4 flex size-10 items-center justify-center rounded-xl [&_svg]:size-5" style={{ backgroundColor: "var(--tf-accent-tint)", color: "var(--tf-accent)" }}>
+					{step.icon}
 				</div>
 			)}
 			<h2 className="text-3xl md:text-4xl font-display font-bold leading-tight" style={{ color: "var(--tf-text)" }}>
@@ -1072,7 +1074,7 @@ function StepContent({
 		return (
 			<div className="py-4">
 				{header}
-				<div className={step.columns === 2 ? "grid grid-cols-2 gap-2.5" : "space-y-2.5"}>
+				<div className={step.columns === 3 ? "grid grid-cols-2 gap-2 sm:grid-cols-3" : step.columns === 2 ? "grid grid-cols-2 gap-2" : "space-y-2"}>
 					{opts.map((opt, i) => {
 						const letter = LETTERS[i] ?? String(i + 1)
 						const isSelected = isMulti
@@ -1091,28 +1093,27 @@ function StepContent({
 										setTimeout(() => onNext(), 320)
 									}
 								}}
-								className="group w-full flex items-center gap-4 px-4 py-3.5 rounded-xl border-2 text-left transition-all duration-200 cursor-pointer"
+								className="group flex w-full min-w-0 items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors duration-150 cursor-pointer"
 								style={{
 									borderColor: isSelected ? "var(--tf-accent)" : "var(--tf-border)",
 									backgroundColor: isSelected ? "var(--tf-accent-tint)" : "var(--tf-surface)",
-									transform: isSelected ? "scale(1.01)" : undefined,
 								}}
 							>
 								<span
-									className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 transition-all duration-200"
+									className="w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-mono font-bold shrink-0 transition-colors duration-150"
 									style={{
 										backgroundColor: isSelected ? "var(--tf-accent)" : "var(--tf-accent-tint)",
 										color: isSelected ? "var(--tf-accent-ink)" : "var(--tf-text-dim)",
 									}}
 								>
 									{isSelected && isMulti ? (
-										<Check className="w-4 h-4" strokeWidth={2.5} />
+										<Check className="w-3.5 h-3.5" strokeWidth={2.5} />
 									) : (
 										letter
 									)}
 								</span>
 								<span
-									className="text-base font-medium transition-colors duration-200"
+									className="min-w-0 text-[14px] font-medium leading-snug transition-colors duration-150"
 									style={{ color: "var(--tf-text)" }}
 								>
 									{opt}

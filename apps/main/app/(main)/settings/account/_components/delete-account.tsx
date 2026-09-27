@@ -61,7 +61,7 @@ export function DeleteAccountCard({ email }: { email: string }) {
                         <DialogDescription>Everything goes: your profile, resumes, projects, practice, rounds and messages. Payments stay on record without your name.</DialogDescription>
                     </DialogHeader>
                     {!plan && !error ? (
-                        <p className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400"><InlineLoader size="sm" /> Checking your account</p>
+                        <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400"><InlineLoader size="sm" /> Checking your account</div>
                     ) : plan?.ownerOf.length ? (
                         <p className="text-sm text-rose-700 dark:text-rose-400">You&apos;re the Owner of {plan.ownerOf.join(", ")} on ShipItHQ Hiring. Hand ownership to a teammate, or delete the company there, first.</p>
                     ) : plan ? (
