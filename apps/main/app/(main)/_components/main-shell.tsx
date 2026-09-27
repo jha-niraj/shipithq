@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import Sidebar from '@/components/common/mainsidebar';
 import { SidebarProvider } from '@/components/common/sidebarprovider';
 import { ShellFrame } from '@repo/ui/components/shell/shell-frame';
+import { SignInPromptHost } from '@/components/auth/sign-in-prompt';
 import {
     WifiOff, RotateCcw
 } from 'lucide-react';
@@ -39,6 +40,8 @@ const MainContent = ({ children }: { children: React.ReactNode }) => {
             <ShellFrame sidebar={<Sidebar />} rail={<AiRail />}>
                 {children}
             </ShellFrame>
+            {/* "Sign in to do this", openable from anywhere in the shell (components/auth/sign-in-prompt). */}
+            <SignInPromptHost />
 
             <Script
                 src="https://checkout.razorpay.com/v1/checkout.js"

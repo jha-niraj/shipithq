@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Zap } from "lucide-react"
 import { useSession, signOut } from "@repo/auth/client"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
+import { openSignInPrompt } from "@/components/auth/sign-in-prompt"
 import { cn } from "@repo/ui/lib/utils"
 import { AIGlyph } from "@repo/ui/components/ui/ai-mark"
 import { useSidebar } from "@repo/ui/components/shell/sidebar-provider"
@@ -43,13 +44,12 @@ export default function Sidebar({ primary }: { primary?: NavigationItem[] } = {}
     // Public pages inside the shell (Incidents, plan/incidents INC-7) reach a signed-out
     // reader. The assistant needs a session: signed out, its button goes to sign-in and
     // back, and a rail left open from an earlier session is closed.
-    const router = useRouter()
     const pathname = usePathname()
     const closeAI = useAIPanelStore((s) => s.close)
     const signedOut = !isPending && !userId
     useEffect(() => { if (signedOut && isAIOpen) closeAI() }, [signedOut, isAIOpen, closeAI])
     const onAI = () => signedOut
-        ? router.push(`/signin?callbackUrl=${encodeURIComponent(pathname)}`)
+        ? openSignInPrompt({ callback: pathname, eyebrow: "ShipItHQ AI", title: "Sign in to ask ShipItHQ AI", body: "The assistant answers with your own work in mind, so it needs an account. You come straight back to this page." })
         : toggleAI()
 
     // The Inbox's unread count (plan/inbox IN-4): on load, on focus, every minute,
