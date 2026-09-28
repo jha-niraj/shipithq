@@ -24,10 +24,9 @@ export function SettingsLayoutClient({
     const pathname = usePathname()
 
     return (
-        <div className="flex flex-col lg:flex-row gap-8">
-            {/* Left navigation */}
-            {/* Stays in view beside the scrolling page (plan/ui-forms UF-9). */}
-            <aside className="w-full lg:w-64 flex-shrink-0 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
+        <div className="flex flex-col lg:flex-row gap-8 lg:min-h-0 lg:flex-1">
+            {/* Left navigation: fixed in place on desktop; the right side scrolls on its own. */}
+            <aside className="w-full lg:w-64 flex-shrink-0 lg:self-start">
                 <nav
                     className="flex flex-row lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide"
                     aria-label="Settings navigation"
@@ -54,8 +53,8 @@ export function SettingsLayoutClient({
                     })}
                 </nav>
             </aside>
-            {/* Right content */}
-            <main className="flex-1 min-w-0">{children}</main>
+            {/* Right content: its own scroll on desktop, with the app's thin scrollbar. */}
+            <main className="flex-1 min-w-0 lg:min-h-0 lg:overflow-y-auto sh-thin-scroll lg:pr-2 lg:pb-8">{children}</main>
         </div>
     )
 }

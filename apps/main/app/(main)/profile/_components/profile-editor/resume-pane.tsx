@@ -92,7 +92,7 @@ export function ResumePane({ onChanged }: { onChanged: () => void }) {
                         {files === null ? <CardsSkeleton /> : files.length === 0 ? (
                             <EmptyCard
                                 title="No resume uploaded"
-                                body="Upload a PDF or DOCX. The primary one is what ShipItHQ AI reads, and we can turn it into an editable resume."
+                                body="Upload a PDF or DOCX. The primary one is what Harbor, your AI, reads, and we can turn it into an editable resume."
                                 action={<Button size="sm" onClick={() => setUploadOpen(true)}><Upload className="mr-1.5 size-3.5" /> Upload a resume</Button>}
                             />
                         ) : (
@@ -175,7 +175,7 @@ function FileCard({ file, onChanged }: { file: ResumeFileSummary; onChanged: () 
         try {
             const res = await setPrimaryResumeFile(file.id)
             if (!res.success) return void toast.error(res.error)
-            toast.success(`"${file.name}" is now the resume ShipItHQ AI reads`)
+            toast.success(`"${file.name}" is now the resume Harbor reads`)
             await onChanged()
         } finally {
             setBusy(false)
@@ -226,7 +226,7 @@ function FileCard({ file, onChanged }: { file: ResumeFileSummary; onChanged: () 
                 </div>
                 {file.isPrimary && !file.hasText && (
                     <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
-                        This looks like a scanned PDF: ShipItHQ AI can read nothing from it. Upload a text-based export to use AI features.
+                        This looks like a scanned PDF: Harbor can read nothing from it. Upload a text-based export to use AI features.
                     </p>
                 )}
             </div>
@@ -382,7 +382,7 @@ function UploadDialog({ open, onOpenChange, onUploaded }: {
                 <form onSubmit={submit}>
                     <DialogHeader>
                         <DialogTitle>Upload a resume</DialogTitle>
-                        <DialogDescription>PDF or DOCX, up to 5MB. It becomes your primary resume, the one ShipItHQ AI reads.</DialogDescription>
+                        <DialogDescription>PDF or DOCX, up to 5MB. It becomes your primary resume, the one Harbor reads.</DialogDescription>
                     </DialogHeader>
                     <div className="mt-5 space-y-4">
                         <button

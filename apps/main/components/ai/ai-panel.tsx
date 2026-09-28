@@ -69,7 +69,9 @@ export function AIPanel() {
 			autoTag={tagState.auto}
 			onRemoveTag={removePinnedTag}
 			useDictation={useDictation}
-			title="ShipItHQ AI"
+			// The assistant's name (Niraj, 2026-09-28).
+			title="Harbor"
+			composerLabel="Message Harbor"
 			emptyState={EMPTY_STATE}
 			firstName={firstName}
 		/>

@@ -18,7 +18,7 @@ export function AITriggerButton({ className }: { className?: string }) {
 		<button
 			type="button"
 			onClick={open}
-			aria-label="Open ShipItHQ AI"
+			aria-label="Open Harbor"
 			className={cn(
 				"fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full",
 				"bg-neutral-900 dark:bg-white px-4 py-3 text-sm font-semibold text-white dark:text-neutral-900 shadow-lg",

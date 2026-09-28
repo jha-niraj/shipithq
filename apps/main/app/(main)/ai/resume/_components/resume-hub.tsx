@@ -570,7 +570,7 @@ export function ResumeHub({ drafts: initialDrafts, templates, links, initialOrig
                 return
             }
             setDrafts(d => d.map(x => ({ ...x, isDefault: x.id === id })))
-            toast.success('ShipItHQ AI will use this resume from now on')
+            toast.success('Harbor will use this resume from now on')
         })
     }
 
@@ -596,7 +596,7 @@ export function ResumeHub({ drafts: initialDrafts, templates, links, initialOrig
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">Resume Builder</h1>
                     <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                        Build, import and tailor resumes. The default one is what ShipItHQ AI reads.
+                        Build, import and tailor resumes. The default one is what Harbor, your AI, reads.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">

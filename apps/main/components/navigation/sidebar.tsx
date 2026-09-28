@@ -55,7 +55,7 @@ export default function Sidebar({ primary }: { primary?: NavigationItem[] } = {}
     const onCase = useLead((s) => s.caseSlug !== null)
     useEffect(() => { if (signedOut && isAIOpen && !onCase) closeAI() }, [signedOut, isAIOpen, onCase, closeAI])
     const onAI = () => signedOut
-        ? openSignInPrompt({ callback: pathname, eyebrow: "ShipItHQ AI", title: "Sign in to ask ShipItHQ AI", body: "The assistant answers with your own work in mind, so it needs an account. You come straight back to this page." })
+        ? openSignInPrompt({ callback: pathname, eyebrow: "Harbor", title: "Sign in to ask Harbor", body: "The assistant answers with your own work in mind, so it needs an account. You come straight back to this page." })
         : toggleAI()
 
     // The Inbox's unread count (plan/inbox IN-4): on load, on focus, every minute,
@@ -101,11 +101,11 @@ export default function Sidebar({ primary }: { primary?: NavigationItem[] } = {}
                         )}
                     >
                         <AIGlyph size={16} />
-                        <span className="truncate">ShipItHQ AI</span>
+                        <span className="truncate">Harbor</span>
                     </button>
                 </>
             }
-            ai={{ label: "Ask ShipItHQ AI", open: isAIOpen, onToggle: onAI }}
+            ai={{ label: "Ask Harbor", open: isAIOpen, onToggle: onAI }}
             user={session?.user ? {
                 name: session.user.name,
                 image: session.user.image ?? null,

@@ -26,10 +26,10 @@ export function AiRail() {
             minWidth={AI_MIN_WIDTH}
             maxWidth={AI_MAX_WIDTH}
             maximized={isMaximized}
-            title={onCase ? 'The incident lead' : 'ShipItHQ AI'}
+            title={onCase ? 'The incident lead' : 'Harbor'}
         >
             {/* On a case the rail is the incident lead alone (Niraj, 2026-09-27: no second
-                chat, no tab bar). Everywhere else it is ShipItHQ AI. */}
+                chat, no tab bar). Everywhere else it is Harbor. */}
             {onCase ? <LeadPanel /> : <AIPanel />}
         </DockedRail>
     )

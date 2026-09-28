@@ -36,7 +36,7 @@ function useCurrent() {
 }
 
 const DEFAULT_PERKS = [
-    { icon: Sparkles, text: "ShipItHQ AI, which knows the page you are on" },
+    { icon: Sparkles, text: "Harbor, the AI that knows the page you are on" },
     { icon: Trophy, text: "XP and your level across practice, projects and Incidents" },
     { icon: BookOpen, text: "Your progress, kept between visits" },
 ]
