@@ -253,10 +253,12 @@ finds none) and a pick-up study space opens its goal's Notes tab.
 
 ## HOME-10 - GitHub contributions on Home
 
-**Status:** built (2026-09-28); not seen yet. On dev no account has GitHub connected, and
-`GITHUB_NIRAJ_JHA_TOKEN` in `apps/main/.env` gets 401 Bad credentials from GitHub (the
-existing GitHub integration fails the same way). With a failed call the card says so in
-one line. **Why** (Niraj, 2026-09-28): the installed
+**Status:** done (2026-09-28). Checked in Chrome with a temporary GitHub link row for
+Niraj's dev account (removed after): the card showed @jha-niraj's real year (2,355
+contributions) and the hover tooltip. Niraj replaced the rejected token. Connecting GitHub
+from Settings > Integrations fails on dev: the GitHub OAuth app has no callback URL for
+`http://localhost:6001/api/auth/callback/github` (Niraj's GitHub settings; an OAuth app
+takes one callback URL, so dev and production need separate apps). **Why** (Niraj, 2026-09-28): the installed
 `github-contributions` graph, for users who connected GitHub in Settings > Integrations.
 **Files** `home/_components/github-activity.tsx`, `lib/github/*` (the existing integration),
 `home/page.tsx`.

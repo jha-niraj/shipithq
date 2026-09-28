@@ -8,6 +8,11 @@
 		"enabled": true
 	},
 
+	// The app reaches the worker at worker.shipithq.com (WORKER_URL in apps/main's
+	// .env.production). `pnpm release` creates the custom domain and its certificate;
+	// the shipithq.com zone must be on this Cloudflare account.
+	"routes": [{ "pattern": "worker.shipithq.com", "custom_domain": true }],
+
 	// ── One Durable Object per job type ───────────────────────────────────────
 	// Each class owns the jobs of one type: `/start` persists the input and
 	// schedules an Alarm, `alarm()` runs the work off the request path and writes
