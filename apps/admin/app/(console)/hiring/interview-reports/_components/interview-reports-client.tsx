@@ -93,6 +93,7 @@ function ReportCard({ report: r }: { report: InterviewReportRow }) {
                     {r.reporter && ` · paid for ${r.paidRecently} of 5 in 30 days`}
                 </p>
                 <GroupPicker id={r.id} family={r.roleFamily} level={r.level} />
+                {r.roleFamilyOther && <p className="text-sm text-neutral-700 dark:text-neutral-300">They said the kind of role was: <span className="font-medium">{r.roleFamilyOther}</span></p>}
                 {r.status === "REJECTED" && r.rejectReason && <p className="text-sm text-neutral-700 dark:text-neutral-300">Rejected: {r.rejectReason}</p>}
                 {r.status === "APPROVED" && <p className="text-sm text-neutral-700 dark:text-neutral-300">Approved{r.reviewedAt ? ` ${when(r.reviewedAt)}` : ""} · {r.creditsRewarded} credits paid</p>}
             </header>

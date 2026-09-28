@@ -45,6 +45,8 @@ export const interviewReports = pgTable(
         roleKey: text("role_key").notNull(),
         /** With `level`, the group a report is counted in (CMP-2); the student picks, the admin may correct. */
         roleFamily: interviewReportRoleFamilyEnum("role_family").notNull().default("OTHER"),
+        /** The student's own words when they picked "Other" (plan/jobs-polish JP-12): shown to the admin, who may regroup it. */
+        roleFamilyOther: text("role_family_other"),
         level: interviewReportLevelEnum("level").notNull().default("ENTRY"),
         /** The first day of the month it happened; only the month is asked for. */
         interviewedOn: date("interviewed_on").notNull(),

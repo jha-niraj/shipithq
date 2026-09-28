@@ -1,0 +1,1 @@
+ALTER TABLE "interview_report" ADD COLUMN "role_family_other" text;

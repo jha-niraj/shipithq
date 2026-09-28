@@ -8,6 +8,7 @@ import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { Input } from "@repo/ui/components/ui/input"
 import { MonthPicker } from "@repo/ui/components/ui/month-picker"
 import { NumberTextInput } from "@repo/ui/components/ui/number-text-input"
+import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@repo/ui/components/ui/sheet"
 import { toast } from "@repo/ui/components/ui/sonner"
@@ -68,14 +69,16 @@ export function ReportInterviewButton({ prefill, label = "Report your interview"
                 <FileText className="h-4 w-4" /> {label}
             </Button>
             <Sheet open={open} onOpenChange={setOpen}>
-                <SheetContent className="w-full overflow-y-auto sm:max-w-3xl">
-                    <SheetHeader>
+                {/* Its own column (JP-12): header, steps, a scrolling middle, and Back / Next pinned
+                    to the bottom, so a short step doesn't leave the buttons hanging halfway. */}
+                <SheetContent scroll={false} className="flex w-full flex-col gap-0 sm:max-w-3xl">
+                    <SheetHeader className="shrink-0 pr-8">
                         <SheetTitle>Report your interview</SheetTitle>
                         <SheetDescription>
                             The rounds you took and what they asked. It helps the next student prepare: only totals are ever shown (&quot;reported 4 times&quot;), never your report. Sending it earns 20 XP; an admin reviews it, and an approved report earns 10 credits.
                         </SheetDescription>
                     </SheetHeader>
-                    <div className="px-4 pb-6">{open && <ReportForm prefill={prefill} onDone={() => setOpen(false)} />}</div>
+                    {open && <ReportForm prefill={prefill} onDone={() => setOpen(false)} />}
                 </SheetContent>
             </Sheet>
         </>
@@ -88,6 +91,8 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
     const [month, setMonth] = useState(thisMonth())
     const [outcome, setOutcome] = useState<ReportOutcome | "">("")
     const [family, setFamily] = useState<ReportRoleFamily | "">("")
+    /** With "Other": the kind of role in the student's words (JP-12). */
+    const [familyOther, setFamilyOther] = useState("")
     const [level, setLevel] = useState<ReportLevel | "">(prefill?.level ?? "")
     const [rounds, setRounds] = useState<Round[]>([newRound()])
     const [busy, setBusy] = useState(false)
@@ -103,8 +108,9 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
         ;[copy[i], copy[j]] = [copy[j]!, copy[i]!]
         return copy
     })
-    const interviewDone = Boolean(company && role.trim().length >= 2 && family && level && month && outcome)
-    const roundsDone = rounds.length > 0 && rounds.every((r) => r.type)
+    const interviewDone = Boolean(company && role.trim().length >= 2 && family && (family !== "OTHER" || familyOther.trim().length >= 2) && level && month && outcome)
+    // A round of kind "Other" needs its name (JP-12).
+    const roundsDone = rounds.length > 0 && rounds.every((r) => r.type && (r.type !== "OTHER" || r.title.trim().length >= 2))
     const ready = interviewDone && roundsDone
 
     const submit = async () => {
@@ -116,6 +122,7 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
             importedJobId: prefill?.importedJobId,
             role,
             roleFamily: family,
+            roleFamilyOther: family === "OTHER" ? familyOther : undefined,
             level,
             month,
             outcome,
@@ -137,7 +144,7 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
 
     if (sent) {
         return (
-            <div className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="mt-6 space-y-3 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
                 <p className="flex items-center gap-2 font-medium text-neutral-900 dark:text-white"><Check className="h-4 w-4" /> Thanks. Your report is with ShipItHQ.</p>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">You earned 20 XP for sending it. An admin reviews it, usually within a few days; you&apos;ll hear either way, and an approved report earns 10 credits. Follow it under My rounds.</p>
                 <Button size="sm" variant="outline" onClick={onDone}>Done</Button>
@@ -146,8 +153,8 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
     }
 
     return (
-        <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); if (step === 2 && ready && !busy) void submit() }}>
-            <ol className="grid grid-cols-3 gap-2" aria-label="Steps">
+        <form className="flex min-h-0 flex-1 flex-col" onSubmit={(e) => { e.preventDefault(); if (step === 2 && ready && !busy) void submit() }}>
+            <ol className="mt-6 grid shrink-0 grid-cols-3 gap-2" aria-label="Steps">
                 {["The interview", "The rounds", "Review and send"].map((label, i) => {
                     const reachable = i === 0 || (i === 1 && interviewDone) || (i === 2 && ready)
                     return (
@@ -173,6 +180,9 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
                 })}
             </ol>
 
+            {/* The sheet's p-6 pulled back so the scroller and the footer's border run edge to edge. */}
+            <ScrollArea className="-mx-6 mt-5 min-h-0 flex-1" reflow>
+            <div className="px-6 pb-6">
             {step === 0 && (
                 <div className="space-y-5">
             <div className="space-y-2">
@@ -205,6 +215,9 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
                         <SelectTrigger className="w-full"><SelectValue placeholder="Choose one" /></SelectTrigger>
                         <SelectContent>{REPORT_ROLE_FAMILIES.map((f) => <SelectItem key={f} value={f}>{REPORT_ROLE_FAMILY_LABEL[f]}</SelectItem>)}</SelectContent>
                     </Select>
+                    {family === "OTHER" && (
+                        <Input aria-label="What kind of role?" value={familyOther} onChange={(e) => setFamilyOther(e.target.value)} maxLength={60} placeholder="What kind? e.g. Security, Embedded, Support" autoFocus />
+                    )}
                 </div>
                 <div className="space-y-2">
                     <p className="text-sm font-medium text-neutral-900 dark:text-white">Level</p>
@@ -248,7 +261,14 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
                                     <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={rounds.length === 1} onClick={() => setRounds((rs) => rs.filter((x) => x.key !== r.key))} aria-label="Remove round"><Trash2 className="h-3.5 w-3.5" /></Button>
                                 </span>
                             </div>
-                            <Input className="h-8 text-sm" value={r.title} maxLength={80} onChange={(e) => setRound(r.key, { title: e.target.value })} placeholder="Title, if it had one (optional)" />
+                            <Input
+                                className="h-8 text-sm"
+                                value={r.title}
+                                maxLength={80}
+                                onChange={(e) => setRound(r.key, { title: e.target.value })}
+                                aria-invalid={r.type === "OTHER" && r.title.trim().length < 2 ? true : undefined}
+                                placeholder={r.type === "OTHER" ? "What was the round? e.g. Group discussion" : "Title, if it had one (optional)"}
+                            />
                             <div className="space-y-2">
                                 {r.questions.map((q) => (
                                     <QuestionRow
@@ -283,6 +303,7 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
                     role={role}
                     month={month}
                     family={family}
+                    familyOther={familyOther}
                     level={level}
                     outcome={outcome}
                     rounds={rounds}
@@ -290,7 +311,10 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
                 />
             )}
 
-            <div className="flex items-center justify-between gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+            </div>
+            </ScrollArea>
+
+            <div className="-mx-6 -mb-6 flex shrink-0 items-center justify-between gap-3 border-t border-neutral-200 px-6 py-4 dark:border-neutral-800">
                 {step > 0 ? <Button type="button" variant="outline" onClick={() => setStep((step - 1) as 0 | 1)}>Back</Button> : <span />}
                 {step < 2
                     ? <Button type="button" onClick={() => setStep((step + 1) as 1 | 2)} disabled={step === 0 ? !interviewDone : !roundsDone}>Next</Button>
@@ -301,9 +325,9 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
 }
 
 /** Step 3: everything as it will be sent, read-only, with a way back to each part. */
-function ReportReview({ company, role, month, family, level, outcome, rounds, onEdit }: {
+function ReportReview({ company, role, month, family, familyOther, level, outcome, rounds, onEdit }: {
     company: Company | null; role: string; month: string
-    family: ReportRoleFamily | ""; level: ReportLevel | ""; outcome: ReportOutcome | ""
+    family: ReportRoleFamily | ""; familyOther: string; level: ReportLevel | ""; outcome: ReportOutcome | ""
     rounds: Round[]; onEdit: (step: 0 | 1) => void
 }) {
     const when = month ? new Date(`${month}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "-"
@@ -311,7 +335,7 @@ function ReportReview({ company, role, month, family, level, outcome, rounds, on
         ["Company", company?.name ?? "-"],
         ["Role", role || "-"],
         ["When", when],
-        ["Kind of role", family ? REPORT_ROLE_FAMILY_LABEL[family] : "-"],
+        ["Kind of role", family === "OTHER" ? `Other: ${familyOther.trim()}` : family ? REPORT_ROLE_FAMILY_LABEL[family] : "-"],
         ["Level", level ? REPORT_LEVEL_LABEL[level] : "-"],
         ["How it ended", outcome ? REPORT_OUTCOME_LABEL[outcome] : "-"],
     ]

@@ -37,6 +37,8 @@ export interface ReportInput {
     role: string
     /** The group it's counted in (CMP-2). */
     roleFamily: ReportRoleFamily
+    /** With roleFamily OTHER: the kind of role in the student's words (JP-12). */
+    roleFamilyOther?: string
     level: ReportLevel
     /** "YYYY-MM". */
     month: string
@@ -89,6 +91,9 @@ export async function submitReport(input: ReportInput): Promise<Result<{ id: str
     const role = clean(input.role, 120)
     if (role.length < 2) return { success: false, error: "Which role was it for?" }
     if (!REPORT_ROLE_FAMILIES.includes(input.roleFamily)) return { success: false, error: "Pick the kind of role." }
+    const roleFamilyOther = input.roleFamily === "OTHER" ? clean(input.roleFamilyOther, 60) : ""
+    if (input.roleFamily === "OTHER" && roleFamilyOther.length < 2) return { success: false, error: "Say what kind of role it was." }
+    if (personalData(roleFamilyOther)) return { success: false, error: "The kind of role includes personal details. Remove them.", code: "PERSONAL_DATA" }
     if (!REPORT_LEVELS.includes(input.level)) return { success: false, error: "Pick the level." }
     const m = /^(\d{4})-(\d{2})$/.exec(input.month ?? "")
     if (!m) return { success: false, error: "Pick the month of the interview." }
@@ -113,6 +118,8 @@ export async function submitReport(input: ReportInput): Promise<Result<{ id: str
         }
         const title = clean(r.title, 80)
         if (personalData(title)) return { success: false, error: `Round ${i + 1}: the title includes personal details. Remove them.`, code: "PERSONAL_DATA" }
+        // "Other" is only useful with its name (JP-12).
+        if (r.type === "OTHER" && title.length < 2) return { success: false, error: `Round ${i + 1}: say what the round was.` }
         const minutes = typeof r.minutes === "number" && Number.isFinite(r.minutes) ? Math.min(600, Math.max(1, Math.round(r.minutes))) : null
         cleaned.push({ type: r.type, title: title || null, minutes, questions })
     }
@@ -158,7 +165,7 @@ export async function submitReport(input: ReportInput): Promise<Result<{ id: str
         const id = await withTransaction(async (tx) => {
             const [report] = await tx.insert(interviewReports).values({
                 userId, companyId, companyRequestId, importedJobId,
-                role, roleKey: keyOf(role), roleFamily: input.roleFamily, level: input.level,
+                role, roleKey: keyOf(role), roleFamily: input.roleFamily, roleFamilyOther: roleFamilyOther || null, level: input.level,
                 interviewedOn: when.toISOString().slice(0, 10),
                 outcome: input.outcome,
             }).onConflictDoNothing().returning({ id: interviewReports.id })

@@ -31,6 +31,8 @@ export interface InterviewReportRow {
     role: string
     /** The group it counts in (CMP-2); the reviewer may correct it. */
     roleFamily: string
+    /** The student's words when they picked "Other" (JP-12). */
+    roleFamilyOther: string | null
     level: string
     month: string
     outcome: string
@@ -86,6 +88,7 @@ export async function listInterviewReports(tab: ReportTab): Promise<Result<{ row
                 company: co ? { name: co.name, slug: co.slug, pending: false } : { name: req?.name ?? "A company", slug: null, pending: true },
                 role: r.role,
                 roleFamily: r.roleFamily,
+                roleFamilyOther: r.roleFamilyOther ?? null,
                 level: r.level,
                 month: String(r.interviewedOn).slice(0, 7),
                 outcome: r.outcome,
