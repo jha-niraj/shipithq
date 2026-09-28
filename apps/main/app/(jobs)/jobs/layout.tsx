@@ -59,13 +59,17 @@ export default async function JobsLayout({
                     </div>
 
                     {/* Its own boundary. Without this the counts block the whole tree. */}
-                    <Suspense
-                        fallback={
-                            <div className="h-8 w-full animate-pulse rounded-xl bg-neutral-100 lg:w-[34rem] dark:bg-neutral-900" />
-                        }
-                    >
-                        <JobsTabs isAuthenticated={isAuthenticated} />
-                    </Suspense>
+                    {/* `min-w-0 flex-1`: the strip takes what's left beside the title and scrolls
+                        inside it, rather than running under the Harbor rail (JP-13). */}
+                    <div className="flex min-w-0 lg:flex-1 lg:justify-end">
+                        <Suspense
+                            fallback={
+                                <div className="h-8 w-full animate-pulse rounded-xl bg-neutral-100 lg:w-[34rem] dark:bg-neutral-900" />
+                            }
+                        >
+                            <JobsTabs isAuthenticated={isAuthenticated} />
+                        </Suspense>
+                    </div>
                 </div>
             </JobsHeaderOffset>
 

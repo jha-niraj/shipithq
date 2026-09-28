@@ -13,6 +13,12 @@
 | JP-9 | Results: sticky summary left, questions right | 8 | built (2026-09-28) |
 | JP-10 | Answer visibility per round (company side) | 9 | built (2026-09-28); migration 0076 applied on dev |
 | JP-11 | Report your interview: three steps, wider, 20 XP | 10 | built (2026-09-28) |
+| JP-12 | Report sheet: "Other" with a text box, Next pinned to the bottom, spacing | 12 | done 2026-09-29 (Chrome: Other box, pinned footer; migration 0078 applied on dev; a sent report not tried) |
+| JP-13 | Jobs header tabs scroll sideways instead of clipping | 13 | done 2026-09-29 (TabsNav on a horizontal ScrollArea; typecheck) |
+| JP-14 | Cards with a side action reflow by their own width (apps/main sweep) | 14 | done 2026-09-29 (rounds card checked in Chrome at phone width; sweep list in Outcomes) |
+| JP-15 | `CompanyMark`: 16 animated marks for companies without a logo, used everywhere | 15 | done 2026-09-29 (Chrome: companies page) |
+| JP-16 | Company cards: one shape, one meta line, a pinned footer | 16 | done 2026-09-29 (Chrome: companies page) |
+| JP-17 | The 404 page: an animated scene, centred, with the right way back | 17 | done 2026-09-29 (Chrome, dark theme, signed in; signed-out button by code) |
 
 ## JP-1 - Shell headers line up
 **Files** `apps/main/app/(jobs)/jobs/layout.tsx`, `packages/ui/src/components/ai-chat/ai-chat-panel.tsx`.
@@ -139,3 +145,89 @@ account gains 20 XP once.
   submitting pays 20 XP (`addXpToUser`) and records `INTERVIEW_REPORTED` keyed by the report.
 All typecheck clean (main, hiring, uni, worker, ui, db). Not yet seen in a browser: the
 rounds list, the runner and results, the builder setting, the report sheet, the company tabs.
+
+
+## Round 2 (Niraj, 2026-09-28)
+
+### JP-12 - Report sheet: Other, pinned footer, spacing
+**Why** A student whose kind of role or round isn't listed had no way to say so; Next hung
+halfway down a short step; the stepper sat against the description.
+**Files** `components/interview-reports/report-sheet.tsx`, `lib/interview-reports/types.ts`,
+`actions/(main)/companies/reports.action.ts`, `packages/db/src/schema/interview-reports.ts`,
+migration 0078 (`interview_report.role_family_other text`).
+**Steps** Kind of role: "Other" (already the enum's OTHER) opens "What kind of role?", stored in
+`role_family_other`. Round kind: "Other" makes the round's title required ("What was the
+round?"), stored in the existing `title`. Level and How it ended stay fixed lists (a ladder
+and a fixed set of endings: an extra free answer can't be counted). The sheet becomes a
+flex column (`scroll={false}`): header, the stepper with space above, a scrolling middle,
+and Back / Next in a footer pinned to the bottom with a full-width top border.
+**Edge cases** Switching away from Other clears nothing the student typed until they send;
+the review shows "Other: <text>". Admin views show the text.
+**Done when** a report with a role of kind Other and a round of kind Other sends on dev and
+the row holds both texts; Next sits at the sheet's bottom on the short first step.
+
+### JP-13 - Jobs header tabs scroll
+**Why** With the sidebar and Harbor open, the tabs ("Practise any job") were cut off.
+**Files** `app/(jobs)/jobs/components/jobs-tabs.tsx`.
+**Steps** The tab strip sits in a horizontal ScrollArea that takes the space left beside the
+title; the active tab is scrolled into view.
+**Done when** with the sidebar pinned and Harbor open, every tab is reachable by scrolling.
+
+### JP-14 - Cards with a side action reflow by their own width
+**Why** A button beside a card's text squeezes the text into a narrow column when the card is
+narrow (sidebar and Harbor open), whatever the screen width.
+**Files** `components/hiring/rounds-overview.tsx` first, then every apps/main card with a
+side action found by the sweep (listed in Outcomes).
+**Steps** The card is a container (`@container`); below its own width threshold the action
+moves under the text at the bottom of the card, full width on the smallest.
+**Done when** the rounds page with sidebar and Harbor open shows each round's text at full
+card width with the action at the bottom, checked in Chrome, and the swept cards are listed.
+
+### JP-15 - CompanyMark
+**Why** Every company without a logo showed the same building icon, so the companies page
+read as a wall of identical tiles (Niraj, 2026-09-28).
+**Decisions** 16 monochrome animated SVG marks; a company always gets the same one, picked by
+a hash of its id (stable across visits); a slow loop while on screen, faster on hover, none
+under `prefers-reduced-motion`; the uploaded logo (when `companyTrust(...).showLogo`) replaces it.
+Used everywhere a company logo shows: the companies list, company pages, job cards, rounds
+pages, and the hiring app's company header.
+**Files** `packages/ui/src/components/ui/company-mark.tsx` (+ a `COMPANY-MARK.md` note), the
+call sites found by grep for the building-icon fallback.
+**Edge cases** No id (a company request): hash the name. Sizes from 24px (lists) to 96px (page
+header): marks scale by viewBox, stroke widths stay readable. Light and dark: `currentColor` on
+a neutral tile, legible in both.
+**Done when** the companies page shows varied marks, the same company shows the same mark on
+its page and in job cards, and reduced motion stops them (checked in Chrome).
+
+### JP-16 - Company cards
+**Why** Cards differed in height, the meta wrapped ("2 / jobs", "201- / 500"), and the
+"Transparent Interview Process" row with its icon looked stuck on.
+**Files** `app/(jobs)/companies/companies-content.tsx` (one `CompanyCard` for featured and all).
+**Steps** Mark, name with a small verified tick, industry under it; one meta line (location,
+jobs, size) that truncates as a whole; a footer pinned to the bottom with a hairline: "Open
+process" tag left (when transparent), "Practise" right. Every card in a row the same height.
+**Done when** at the screenshot's width no meta text wraps and the cards line up.
+
+### JP-17 - The 404 page
+**Why** `app/not-found.tsx` was a white page with a GIF hot-linked from dribbble.com: wrong in
+dark mode, a third-party request on every miss, and off-brand (Niraj, 2026-09-28).
+**Files** `app/not-found.tsx`, `components/common/lost-at-sea.tsx`.
+**Steps** Centred: an SVG scene (a boat adrift on layered moving waves at night, a lighthouse
+beam sweeping the water, a blinking buoy, twinkling stars), a large "404", one line, and the way
+back: signed in, "Go to your home" (/home); signed out, "Sign in" (/signin) and "ShipItHQ home".
+Pure SVG + CSS keyframes, `currentColor`, no network requests; no motion under
+`prefers-reduced-motion`.
+**Done when** /does-not-exist shows the scene in both themes, signed in and out, with the
+matching button, checked in Chrome.
+
+## Outcomes, round 2 (2026-09-29)
+- **JP-14 sweep** (container queries, action under the text when the card is narrow):
+  `rounds-overview.tsx` (round card @2xl, send banners @xl), `my-rounds.tsx` Row,
+  `company-page.tsx` (import rows, pipeline rows, paste band, loop header, RoleRow),
+  `referrals-view.tsx`, `job-card.tsx` (@lg), `job-detail-content.tsx` rounds band,
+  `module-section.tsx` header, `integrations-content.tsx` (@lg), `home-dashboard.tsx` "Start
+  here", `project-details-client.tsx` "Next up". Page-width headers and rows with only a short
+  link or pill were left as they are.
+- **JP-15** `packages/ui/src/components/ui/company-mark.tsx` (16 marks, FNV-1a of the id) used on
+  the companies list, company page, job cards, job detail, skill-gap modal, spark panel, and the
+  hiring app's company page and profile chip. Order is load-bearing (COMPANY-MARK.md).

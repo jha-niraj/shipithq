@@ -65,7 +65,8 @@ function MyRequests({ rows }: { rows: MyReferralRequest[] }) {
     return (
         <ul className="space-y-2.5">
             {rows.map((r) => (
-                <li key={r.id} className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900">
+                <li key={r.id} className="@container rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+<div className="flex flex-col items-start gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
                     <div className="min-w-0">
                         <p className="truncate font-medium text-neutral-900 dark:text-white"><Link href={r.href} className="hover:underline">{r.jobTitle}</Link> <span className="font-normal text-neutral-500 dark:text-neutral-400">· {r.companyName}</span></p>
                         <p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">
@@ -78,7 +79,8 @@ function MyRequests({ rows }: { rows: MyReferralRequest[] }) {
                             {busy === r.id ? <InlineLoader size="sm" /> : <X className="h-3.5 w-3.5" />} Withdraw
                         </Button>
                     )}
-                </li>
+                </div>
+</li>
             ))}
         </ul>
     )
@@ -109,7 +111,8 @@ function OfferBar({ offer }: { offer: NonNullable<ReferrerState["offer"]> }) {
         router.refresh()
     }
     return (
-        <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="@container rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+<div className="flex flex-col items-start gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
             <div>
                 <p className="flex items-center gap-2 font-medium text-neutral-900 dark:text-white"><ShieldCheck className="h-4 w-4" /> Verified at {offer.companyName}</p>
                 <p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">
@@ -120,6 +123,7 @@ function OfferBar({ offer }: { offer: NonNullable<ReferrerState["offer"]> }) {
                 {busy ? <InlineLoader size="sm" /> : paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />} {paused ? "Take requests" : "Pause"}
             </Button>
         </div>
+</div>
     )
 }
 

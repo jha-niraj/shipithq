@@ -82,8 +82,8 @@ function Section<T>({ title, note, items, render }: { title: string; note?: stri
 
 function Row({ title, sub, pill, children, footer }: { title: React.ReactNode; sub: React.ReactNode; pill?: React.ReactNode; children?: React.ReactNode; footer?: React.ReactNode }) {
     return (
-        <li className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <li className="@container rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="flex flex-col gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
                 <div className="min-w-0">
                     <p className="truncate font-medium text-neutral-900 dark:text-white">{title}</p>
                     <p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">{sub}</p>

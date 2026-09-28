@@ -137,8 +137,11 @@ function RoundRow({ round: r, state: s, busy, disabled, onStart, onSkip, onCoole
 }) {
     const locked = s.status === "locked"
     return (
-        <li className={cn("rounded-2xl border bg-white p-4 sm:p-5 dark:bg-neutral-900", locked ? "border-neutral-200 opacity-70 dark:border-neutral-800" : "border-neutral-200 dark:border-neutral-800")}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        // Laid out by the CARD's width, not the screen's (plan/jobs-polish JP-14): with the
+        // sidebar and Harbor open a wide screen still gives a narrow card, and a side button
+        // squeezed the text into a column. Below @2xl the action sits under the text.
+        <li className={cn("@container rounded-2xl border bg-white p-4 @lg:p-5 dark:bg-neutral-900", locked ? "border-neutral-200 opacity-70 dark:border-neutral-800" : "border-neutral-200 dark:border-neutral-800")}>
+            <div className="flex items-start gap-4">
                 <span className={cn(
                     "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
                     s.isCleared ? "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500" : "border-neutral-300 text-neutral-700 dark:border-neutral-600 dark:text-neutral-200",
@@ -159,8 +162,11 @@ function RoundRow({ round: r, state: s, busy, disabled, onStart, onSkip, onCoole
                     </p>
                     {r.description && <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">{r.description}</p>}
                     <StatusLine state={s} />
+                    <div className="mt-4 border-t border-neutral-200 pt-3 @2xl:hidden dark:border-neutral-800">
+                        <Action round={r} state={s} busy={busy} disabled={disabled} onStart={onStart} onSkip={onSkip} onCooledDown={onCooledDown} />
+                    </div>
                 </div>
-                <div className="shrink-0 sm:pt-0.5">
+                <div className="hidden shrink-0 pt-0.5 @2xl:block">
                     <Action round={r} state={s} busy={busy} disabled={disabled} onStart={onStart} onSkip={onSkip} onCooledDown={onCooledDown} />
                 </div>
             </div>
@@ -206,7 +212,7 @@ function Action({ round: r, state: s, busy, disabled, onStart, onSkip, onCooledD
     // Cooling down (after a fail, or a cleared round's retake): the wait, and a paid way past it (JP-7).
     if (s.availableAt) {
         return (
-            <div className="flex flex-col items-start gap-2 sm:items-end">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 @2xl:flex-col @2xl:items-end">
                 {s.isCleared && <span className="inline-flex items-center gap-1 text-sm text-emerald-700 dark:text-emerald-400"><Check className="h-3.5 w-3.5" /> Cleared</span>}
                 <span className="inline-flex items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-300">
                     <Clock className="h-3.5 w-3.5" /> Free retake in <Countdown until={s.availableAt} onDone={onCooledDown} />
@@ -255,7 +261,8 @@ function SendBanner({ send, jobSlug, companyName }: { send: SendSummary; jobSlug
     if (send.state === "invited") return <InvitedBanner send={send} companyName={companyName} />
     if (send.state === "ready") {
         return (
-            <div className="flex flex-col gap-3 rounded-2xl border border-neutral-900 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-white dark:bg-neutral-900">
+            <div className="@container rounded-2xl border border-neutral-900 bg-white p-4 dark:border-white dark:bg-neutral-900">
+<div className="flex flex-col items-start gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
                 <div>
                     <p className="font-medium text-neutral-900 dark:text-white">{send.reusedFrom ? "You've already cleared these rounds" : "Every round cleared"}</p>
                     <p className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -268,16 +275,19 @@ function SendBanner({ send, jobSlug, companyName }: { send: SendSummary; jobSlug
                 </div>
                 <Button asChild className="gap-1.5"><Link href={`/jobs/${jobSlug}/rounds/send`}><Send className="h-4 w-4" /> Send your results</Link></Button>
             </div>
+</div>
         )
     }
     return (
-        <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="@container rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+<div className="flex flex-col items-start gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
             <div>
                 <p className="flex items-center gap-1.5 font-medium text-neutral-900 dark:text-white"><Check className="h-4 w-4" /> {SEND_STATUS[send.status] ?? send.status}</p>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">You sent your results to {companyName} on {when(send.sentAt)}.</p>
             </div>
             {send.status !== "INVITED" && <WithdrawButton sendId={send.sendId} />}
         </div>
+</div>
     )
 }
 

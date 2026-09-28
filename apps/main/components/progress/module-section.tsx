@@ -60,7 +60,9 @@ function ago(isoTime: string, now = Date.now()) {
 function SectionHeader({ meta, numbers, readOnly }: { meta: ModuleMeta; numbers: ModuleSummary["numbers"]; readOnly?: boolean }) {
     const Icon = meta.icon;
     return (
-        <div className="flex flex-col gap-3 border-b border-neutral-200 px-5 py-4 sm:flex-row sm:items-center dark:border-neutral-800">
+        // By the section's own width (JP-14): with the sidebar and Harbor open the section is narrow on a wide screen.
+        <div className="@container border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
+        <div className="flex flex-col gap-3 @xl:flex-row @xl:items-center">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
                 <div className="flex items-center gap-2.5">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-900/10 dark:bg-white/10">
@@ -80,10 +82,11 @@ function SectionHeader({ meta, numbers, readOnly }: { meta: ModuleMeta; numbers:
                 )}
             </div>
             {!readOnly && (
-                <Button asChild variant="outline" size="sm" className="shrink-0 self-start sm:self-auto">
+                <Button asChild variant="outline" size="sm" className="shrink-0 self-start @xl:self-auto">
                     <Link href={meta.open.href}>{meta.open.label} <ArrowRight className="ml-1.5 size-3.5" /></Link>
                 </Button>
             )}
+        </div>
         </div>
     );
 }

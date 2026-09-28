@@ -271,7 +271,8 @@ export default function ProjectDetailsClient({ project, currentUserId, userCredi
 
                 {/* 2. Next up */}
                 {next && (
-                    <section className="mt-6 flex flex-col gap-4 rounded-xl border border-neutral-200 p-5 dark:border-neutral-800 sm:flex-row sm:items-center">
+                    <section className="@container mt-6 rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
+<div className="flex flex-col gap-4 @xl:flex-row @xl:items-center">
                         <div className="min-w-0 flex-1">
                             <p className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Next up · {sprintLabel(next.sprint.sprintNumber)}</p>
                             <p className="mt-1 truncate text-base font-semibold text-neutral-900 dark:text-white">{next.task.title}</p>
@@ -282,7 +283,8 @@ export default function ProjectDetailsClient({ project, currentUserId, userCredi
                         <Button asChild className="shrink-0 gap-2">
                             <Link href={openUrl({ task: next.task.id, file: '@task' })}>Continue <ArrowRight className="h-4 w-4" /></Link>
                         </Button>
-                    </section>
+                    </div>
+</section>
                 )}
 
                 {/* 3. One body: read on the left, glance on the right */}

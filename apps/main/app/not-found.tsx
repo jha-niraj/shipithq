@@ -1,37 +1,45 @@
-"use client";
-import Link from "next/link";
+import Link from "next/link"
+import { headers } from "next/headers"
+import { ArrowRight, LogIn } from "lucide-react"
+import { getSession } from "@repo/auth"
+import { Button } from "@repo/ui/components/ui/button"
+import { LostAtSea } from "@/components/common/lost-at-sea"
 
-import { Button } from "@repo/ui/components/ui/button";
+export const metadata = { title: "Page not found | ShipItHQ" }
 
-export default function NotFoundPage() {
-
+/**
+ * Every missing page (plan/jobs-polish JP-17): the scene, centred, and the way back that fits
+ * the visitor - their home when signed in, sign in when not. The old page hot-linked a GIF
+ * from another site and was white in dark mode.
+ */
+export default async function NotFound() {
+    let signedIn = false
+    try {
+        signedIn = Boolean((await getSession(await headers()))?.user?.id)
+    } catch (error: unknown) {
+        // A 404 must render even when the session can't be read.
+        console.error("not-found session:", error instanceof Error ? error.message : error)
+    }
     return (
-        <section className="bg-white font-serif min-h-screen flex items-center justify-center">
-            <div className="container mx-auto">
-                <div className="flex justify-center">
-                    <div className="w-full sm:w-10/12 md:w-8/12 text-center">
-                        <div
-                            className="bg-[url(https://cdn.dribbble.com/users/285475/screenshots/2083086/dribbble_1.gif)] h-[250px] sm:h-[350px] md:h-[400px] bg-center bg-no-repeat bg-contain"
-                            aria-hidden="true"
-                        >
-                            <h1 className="text-center text-black text-6xl sm:text-7xl md:text-8xl pt-6 sm:pt-8">
-                                404
-                            </h1>
-                        </div>
-                        <div className="mt-[-50px]">
-                            <h3 className="text-2xl text-black sm:text-3xl font-bold mb-4">
-                                Look like you&apos;re lost
-                            </h3>
-                            <p className="mb-6 text-black sm:mb-5">
-                                The page you are looking for is not available!
-                            </p>
-                            <Button variant="default" className="my-5 bg-neutral-800 hover:bg-neutral-700" asChild><Link href="/">
-                                Go to Home
-                            </Link></Button>
-                        </div>
-                    </div>
+        <main className="flex min-h-dvh items-center justify-center bg-white px-4 py-12 dark:bg-black">
+            <div className="flex w-full max-w-xl flex-col items-center text-center">
+                <LostAtSea className="w-full overflow-hidden rounded-3xl border border-neutral-200 bg-neutral-950 dark:border-neutral-800" />
+                <p className="mt-8 font-mono text-sm tracking-[0.3em] text-neutral-500 dark:text-neutral-400">404</p>
+                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl dark:text-white">This page drifted off</h1>
+                <p className="mt-2 max-w-md text-sm leading-6 text-neutral-600 dark:text-neutral-400">
+                    The link may be old, or the page moved. The lighthouse is still looking; you can head back to harbour.
+                </p>
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                    {signedIn ? (
+                        <Button asChild className="gap-1.5"><Link href="/home">Go to your home <ArrowRight className="h-4 w-4" /></Link></Button>
+                    ) : (
+                        <>
+                            <Button asChild className="gap-1.5"><Link href="/signin"><LogIn className="h-4 w-4" /> Sign in</Link></Button>
+                            <Button asChild variant="outline"><Link href="/">ShipItHQ home</Link></Button>
+                        </>
+                    )}
                 </div>
             </div>
-        </section>
-    );
+        </main>
+    )
 }

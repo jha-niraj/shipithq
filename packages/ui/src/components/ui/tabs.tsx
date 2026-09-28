@@ -7,6 +7,7 @@ import * as TabsPrimitive from "@radix-ui/react-tabs"
 import { motion, useReducedMotion } from "framer-motion"
 import Link from "next/link"
 import { cn } from "../../lib/utils"
+import { ScrollArea } from "./scroll-area"
 
 /**
  * The active tab value + a per-instance layoutId, shared down so each TabsTrigger can
@@ -383,8 +384,19 @@ function TabsNav({
 	"aria-label": string
 }) {
 	const layoutId = React.useId()
+	const ref = React.useRef<HTMLElement>(null)
+	const active = items.find((i) => i.active)?.href
+	// A strip narrower than its tabs scrolls; keep the open tab in view (on load and on change).
+	React.useEffect(() => {
+		ref.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "nearest" })
+	}, [active])
+	// `min-w-0` so the strip can shrink inside a flex row and scroll, instead of pushing
+	// past its container (the jobs header ran under the Harbor rail, plan/jobs-polish
+	// JP-13). The shared ScrollArea, horizontal, rather than a native scroller with its
+	// bar hidden: a thin bar on hover says there's more.
 	return (
-		<nav aria-label={ariaLabel} className={cn("max-w-full overflow-x-auto [scrollbar-width:none]", className)}>
+		<nav ref={ref} aria-label={ariaLabel} className={cn("min-w-0 max-w-full", className)}>
+			<ScrollArea orientation="horizontal" className="w-full" viewportClassName="pb-0">
 			<div className={tabsListClass(variant, size, fit)}>
 				{items.map((item) => (
 					<Link
@@ -407,6 +419,7 @@ function TabsNav({
 					</Link>
 				))}
 			</div>
+			</ScrollArea>
 		</nav>
 	)
 }

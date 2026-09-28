@@ -164,14 +164,16 @@ function PickUp({ items, streak }: { items: PickUpItem[]; streak: number }) {
 	if (items.length === 0) {
 		// Honest when empty: a new account has nothing to resume, so offer the start.
 		return (
-			<section className="flex flex-col gap-4 rounded-xl border border-neutral-200 bg-white p-5 sm:flex-row sm:items-center dark:border-neutral-800 dark:bg-neutral-950">
+			<section className="@container rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950">
+<div className="flex flex-col gap-4 @xl:flex-row @xl:items-center">
 				<div className="min-w-0 flex-1">
 					<p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Start here</p>
 					<p className="mt-1 text-base font-semibold text-neutral-900 dark:text-white">Build your first project</p>
 					<p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">Pick one from the catalogue or describe your own. It becomes a sprint board you work through.</p>
 				</div>
 				<Button asChild><Link href="/projects">Browse projects <ArrowRight className="ml-1.5 size-3.5" /></Link></Button>
-			</section>
+			</div>
+</section>
 		)
 	}
 	const [lead, ...rest] = items
