@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, ClipboardPaste, Clock, ExternalLink, File
 import { Button } from "@repo/ui/components/ui/button"
 import { CompanyMark } from "@repo/ui/components/ui/company-mark"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
+import { TabsNav } from "@repo/ui/components/ui/tabs"
 import { cn } from "@repo/ui/lib/utils"
 import { CompanyTrustBadge } from "@/components/companies/trust-badge"
 import { ROUND_TYPE_LABEL } from "@/lib/hiring/round-types"
@@ -14,15 +15,12 @@ import { CompanyActions } from "./company-actions"
 import { FollowButton } from "./follow-button"
 
 /*
- * The public company page (plan/hiring-rounds HR-23): the header across the
- * top, then tabs kept in the URL (plan/jobs-polish JP-5): Overview (the
- * profile, with stats and quick facts in a sticky rail), Jobs, Practice and
- * Interviews. The tabs are links, so each is shareable and the back button
- * moves between them. Server-rendered; only Follow and Report are client islands.
- *
- * Not TabsNav from @repo/ui: that draws the segmented chip strip and its links
- * can't opt out of scrolling to the top, and these tabs sit under a header, so
- * they use the underline strip of the hiring app's company page.
+ * The public company page (plan/hiring-rounds HR-23, plan/jobs-polish JP-18): the company's
+ * details in a sticky column on the left (name, trust, links, stats, quick facts), and the
+ * whole right column for the tabs, from the top, with the actions on their right: Overview, Jobs, Practice and
+ * Interviews. The tabs are the shared `TabsNav` kept in the URL (JP-5), so each is shareable
+ * and the back button walks them; they keep the scroll position. Server-rendered; only
+ * Follow and Report are client islands.
  */
 
 const LOCATION: Record<string, string> = { REMOTE: "Remote", HYBRID: "Hybrid", ONSITE: "On-site" }
@@ -36,7 +34,7 @@ const days = (d: number) => (d < 1 ? "Under a day" : `${Math.round(d)} day${Math
 const tabHref = (slug: string, tab: CompanyTab) => (tab === "overview" ? `/companies/${slug}` : `/companies/${slug}?tab=${tab}`)
 
 export function CompanyPageView({ data, tab }: { data: CompanyPage; tab: CompanyTab }) {
-    const { company: c, sources } = data
+    const { company: c } = data
     const tabs: { key: CompanyTab; label: string; count?: number }[] = [
         { key: "overview", label: "Overview" },
         // Imported jobs are hidden while suspended, so they don't count then either.
@@ -45,134 +43,134 @@ export function CompanyPageView({ data, tab }: { data: CompanyPage; tab: Company
         { key: "interviews", label: "Interviews", count: data.reportCount },
     ]
     return (
-        <div className="page-frame space-y-6 px-page py-6">
-            <Link href="/companies" className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200">
-                <ArrowLeft className="h-4 w-4" /> Companies
-            </Link>
+        <div className="page-frame grid gap-8 px-page py-6 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start">
+            <CompanyDetails data={data} />
 
-            <div>
-                {/* Header: name, logo only if claimed, the label, domain, size, locations, follow. */}
-                <header className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                    <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900">
-                        {c.logoUrl ? <Image src={c.logoUrl} alt="" fill className="object-cover" /> : <CompanyMark seed={c.id} name={c.name} fill size={64} className="rounded-none border-0" />}
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-2">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">{c.name}</h1>
-                            <div className="flex flex-wrap items-center gap-1">
-                                {data.signedIn && !data.suspended && <ReportInterviewButton prefill={{ company: { companyId: c.id, companyRequestId: null, name: c.name } }} variant="ghost" />}
-                                {data.signedIn && <CompanyActions companyId={c.id} companyName={c.name} blocked={data.blocked} />}
-                                <FollowButton companyId={c.id} companySlug={c.slug} initial={data.following} signedIn={data.signedIn} />
-                            </div>
-                        </div>
-                        <CompanyTrustBadge claimStatus={data.claimStatus} verificationStatus={data.verificationStatus} companyName={c.name} />
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
-                            {(c.domain || c.website) && (
-                                <a href={c.website ?? `https://${c.domain}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:underline">
-                                    <Globe className="h-4 w-4" /> {c.domain ?? c.website} <ExternalLink className="h-3 w-3" />
-                                </a>
-                            )}
-                            {c.size && <span className="inline-flex items-center gap-1"><Users className="h-4 w-4" /> {c.size} people<Source href={sources.size} /></span>}
-                            {c.headquarters && <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> {c.headquarters}<Source href={sources.locations} /></span>}
-                        </div>
-                    </div>
-                </header>
-
-                {data.suspended && (
-                    <p role="status" className="mt-5 rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
-                        <span className="font-medium">Suspended.</span> ShipItHQ has suspended {c.name} while it looks into a report. Its roles and rounds are paused, and it can&apos;t receive results or send messages.
-                    </p>
-                )}
-
-                {/* The tabs: links, so the URL carries the tab and the back button walks them. */}
-                <nav aria-label={`${c.name} sections`} className="mt-5 flex gap-1 overflow-x-auto border-b border-neutral-200 [scrollbar-width:none] dark:border-neutral-800">
-                    {tabs.map((t) => (
-                        <Link
-                            key={t.key}
-                            href={tabHref(c.slug, t.key)}
-                            scroll={false}
-                            aria-current={tab === t.key ? "page" : undefined}
-                            className={cn(
-                                "-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-3 pb-3 pt-1 text-sm font-medium transition-colors",
-                                tab === t.key ? "border-neutral-900 text-neutral-900 dark:border-white dark:text-white" : "border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white",
-                            )}
-                        >
-                            {t.label}
-                            {t.count !== undefined && <span className="rounded-full bg-neutral-100 px-1.5 text-xs tabular-nums text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">{t.count}</span>}
-                        </Link>
-                    ))}
-                </nav>
+            <div className="min-w-0 space-y-6">
+                {/* One row: the tabs, then the company's actions at the right (CLAUDE.md, tabs rule). */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <TabsNav
+                    aria-label={`${c.name} sections`}
+                    items={tabs.map((t) => ({
+                        href: tabHref(c.slug, t.key),
+                        active: tab === t.key,
+                        scroll: false,
+                        label: (
+                            <>
+                                {t.label}
+                                {t.count !== undefined && <span className="ml-1.5 text-xs tabular-nums opacity-60">{t.count}</span>}
+                            </>
+                        ),
+                    }))}
+                />
+                <div className="flex shrink-0 flex-wrap items-center gap-1">
+                    {data.signedIn && !data.suspended && <ReportInterviewButton prefill={{ company: { companyId: c.id, companyRequestId: null, name: c.name } }} variant="ghost" />}
+                    {data.signedIn && <CompanyActions companyId={c.id} companyName={c.name} blocked={data.blocked} />}
+                    <FollowButton companyId={c.id} companySlug={c.slug} initial={data.following} signedIn={data.signedIn} />
+                </div>
+                </div>
+                {tab === "overview" && <OverviewTab data={data} />}
+                {tab === "jobs" && <JobsTab data={data} />}
+                {tab === "practice" && <PracticeTab data={data} />}
+                {tab === "interviews" && <InterviewsTab data={data} />}
             </div>
-
-            {tab === "overview" && <OverviewTab data={data} />}
-            {tab === "jobs" && <JobsTab data={data} />}
-            {tab === "practice" && <PracticeTab data={data} />}
-            {tab === "interviews" && <InterviewsTab data={data} />}
         </div>
     )
 }
 
-/** About, Stack, Culture and Benefits, with stats and quick facts in a sticky rail on lg. */
-function OverviewTab({ data }: { data: CompanyPage }) {
+/** The left column: who the company is, what to do about it, and the numbers. */
+function CompanyDetails({ data }: { data: CompanyPage }) {
     const { company: c, sources, stats } = data
+    return (
+        <aside className="space-y-6 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:pr-1 sh-thin-scroll">
+            <Link href="/companies" className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200">
+                <ArrowLeft className="h-4 w-4" /> Companies
+            </Link>
+
+            <header className="space-y-3">
+                <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900">
+                    {c.logoUrl ? <Image src={c.logoUrl} alt="" fill className="object-cover" /> : <CompanyMark seed={c.id} name={c.name} fill size={64} className="rounded-none border-0" />}
+                </div>
+                <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 break-words dark:text-white">{c.name}</h1>
+                <CompanyTrustBadge claimStatus={data.claimStatus} verificationStatus={data.verificationStatus} companyName={c.name} />
+                <ul className="space-y-1.5 text-sm text-neutral-600 dark:text-neutral-400">
+                    {(c.domain || c.website) && (
+                        <li>
+                            <a href={c.website ?? `https://${c.domain}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-w-0 items-center gap-1.5 hover:underline">
+                                <Globe className="h-4 w-4 shrink-0" /> <span className="truncate">{c.domain ?? c.website}</span> <ExternalLink className="h-3 w-3 shrink-0" />
+                            </a>
+                        </li>
+                    )}
+                    {c.size && <li className="flex items-center gap-1.5"><Users className="h-4 w-4 shrink-0" /> {c.size} people<Source href={sources.size} /></li>}
+                    {c.headquarters && <li className="flex items-center gap-1.5"><MapPin className="h-4 w-4 shrink-0" /> {c.headquarters}<Source href={sources.locations} /></li>}
+                    {c.linkedIn && (
+                        <li><a href={c.linkedIn} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:underline"><ExternalLink className="h-4 w-4" /> LinkedIn</a></li>
+                    )}
+                </ul>
+            </header>
+
+            {data.suspended && (
+                <p role="status" className="rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
+                    <span className="font-medium">Suspended.</span> ShipItHQ has suspended {c.name} while it looks into a report. Its roles and rounds are paused, and it can&apos;t receive results or send messages.
+                </p>
+            )}
+
+            <section className="space-y-2" aria-label="Stats">
+                <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Stats</h2>
+                <StatBand
+                    cols={1}
+                    size="sm"
+                    items={[
+                        { icon: Users, label: "Practising", value: gated(stats.practising, (v) => v.toLocaleString("en-IN")), hint: stats.practising ? "students" : "Too few to show" },
+                        { icon: Send, label: "Results received", value: gated(stats.sends, (v) => v.toLocaleString("en-IN")), hint: stats.sends ? undefined : "Too few to show" },
+                        { icon: Timer, label: "Answers in", value: gated(stats.answersInDays, days), hint: stats.answersInDays ? "median, send to decision" : "Too few to show" },
+                        { icon: FileText, label: "Interview reports", value: data.reportCount.toLocaleString("en-IN"), hint: "from students who interviewed here" },
+                    ]}
+                />
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">Numbers show only past a minimum, so a small count never points to a person.</p>
+            </section>
+
+            {(c.industry || c.size || c.foundedYear || c.headquarters) && (
+                <section className="space-y-2" aria-label="Quick facts">
+                    <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Quick facts</h2>
+                    <dl className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white text-sm dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+                        {c.industry && <Fact label="Industry" value={c.industry} source={sources.industry} />}
+                        {c.size && <Fact label="Size" value={c.size} source={sources.size} />}
+                        {c.foundedYear && <Fact label="Founded" value={String(c.foundedYear)} />}
+                        {c.headquarters && <Fact label="Based in" value={c.headquarters} source={sources.locations} />}
+                    </dl>
+                </section>
+            )}
+        </aside>
+    )
+}
+
+/** About, Stack, Culture and Benefits: the full right column. */
+function OverviewTab({ data }: { data: CompanyPage }) {
+    const { company: c, sources } = data
     const hasProfile = !!(c.description || c.techStack.length > 0 || c.culture || c.benefits.length > 0)
     return (
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            <div className="min-w-0 space-y-8 lg:col-span-2">
-                {!hasProfile && (
-                    <Empty>
-                        {data.trust.kind === "unclaimed"
-                            ? `ShipItHQ hasn't gathered a profile for ${c.name} yet, and ${c.name} hasn't joined to write one.`
-                            : `${c.name} hasn't written its profile yet.`}{" "}
-                        Its <TabLink slug={c.slug} tab="jobs">open roles</TabLink> and <TabLink slug={c.slug} tab="practice">practice rounds</TabLink> are in the other tabs.
-                    </Empty>
-                )}
-                {c.description && <Block title="About" source={sources.description}><p className="whitespace-pre-line">{c.description}</p></Block>}
-                {c.techStack.length > 0 && (
-                    <Block title="Stack" source={sources.techStack}>
-                        <div className="flex flex-wrap gap-1.5">{c.techStack.map((t) => <span key={t} className="rounded-md border border-neutral-200 px-2 py-0.5 text-xs text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">{t}</span>)}</div>
-                    </Block>
-                )}
-                {c.culture && <Block title="Culture" source={sources.culture}><p className="whitespace-pre-line">{c.culture}</p></Block>}
-                {c.benefits.length > 0 && (
-                    <Block title="Benefits" source={sources.benefits}>
-                        <ul className="grid gap-1.5 sm:grid-cols-2">{c.benefits.map((b) => <li key={b} className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0" /> {b}</li>)}</ul>
-                    </Block>
-                )}
-            </div>
-
-            {/* Stays in view beside the scrolling page (plan/ui-forms UF-9). */}
-            <aside className="space-y-6 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
-                <section className="space-y-2" aria-label="Stats">
-                    <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Stats</h2>
-                    <StatBand
-                        cols={1}
-                        size="sm"
-                        items={[
-                            { icon: Users, label: "Practising", value: gated(stats.practising, (v) => v.toLocaleString("en-IN")), hint: stats.practising ? "students" : "Too few to show" },
-                            { icon: Send, label: "Results received", value: gated(stats.sends, (v) => v.toLocaleString("en-IN")), hint: stats.sends ? undefined : "Too few to show" },
-                            { icon: Timer, label: "Answers in", value: gated(stats.answersInDays, days), hint: stats.answersInDays ? "median, send to decision" : "Too few to show" },
-                            { icon: FileText, label: "Interview reports", value: data.reportCount.toLocaleString("en-IN"), hint: "from students who interviewed here" },
-                        ]}
-                    />
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400">Numbers show only past a minimum, so a small count never points to a person.</p>
-                </section>
-
-                {(c.industry || c.size || c.foundedYear || c.headquarters) && (
-                    <section className="space-y-2" aria-label="Quick facts">
-                        <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">Quick facts</h2>
-                        <dl className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white text-sm dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
-                            {c.industry && <Fact label="Industry" value={c.industry} source={sources.industry} />}
-                            {c.size && <Fact label="Size" value={c.size} source={sources.size} />}
-                            {c.foundedYear && <Fact label="Founded" value={String(c.foundedYear)} />}
-                            {c.headquarters && <Fact label="Based in" value={c.headquarters} source={sources.locations} />}
-                        </dl>
-                    </section>
-                )}
-                {c.linkedIn && (
-                    <a href={c.linkedIn} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-neutral-700 hover:underline dark:text-neutral-300">LinkedIn <ExternalLink className="h-3 w-3" /></a>
-                )}
-            </aside>
+        <div className="min-w-0 space-y-8">
+            {!hasProfile && (
+                <Empty>
+                    {data.trust.kind === "unclaimed"
+                        ? `ShipItHQ hasn't gathered a profile for ${c.name} yet, and ${c.name} hasn't joined to write one.`
+                        : `${c.name} hasn't written its profile yet.`}{" "}
+                    Its <TabLink slug={c.slug} tab="jobs">open roles</TabLink> and <TabLink slug={c.slug} tab="practice">practice rounds</TabLink> are in the other tabs.
+                </Empty>
+            )}
+            {c.description && <Block title="About" source={sources.description}><p className="whitespace-pre-line">{c.description}</p></Block>}
+            {c.techStack.length > 0 && (
+                <Block title="Stack" source={sources.techStack}>
+                    <div className="flex flex-wrap gap-1.5">{c.techStack.map((t) => <span key={t} className="rounded-md border border-neutral-200 px-2 py-0.5 text-xs text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">{t}</span>)}</div>
+                </Block>
+            )}
+            {c.culture && <Block title="Culture" source={sources.culture}><p className="whitespace-pre-line">{c.culture}</p></Block>}
+            {c.benefits.length > 0 && (
+                <Block title="Benefits" source={sources.benefits}>
+                    <ul className="grid gap-1.5 sm:grid-cols-2">{c.benefits.map((b) => <li key={b} className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0" /> {b}</li>)}</ul>
+                </Block>
+            )}
         </div>
     )
 }
