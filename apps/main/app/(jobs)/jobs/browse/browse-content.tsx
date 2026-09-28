@@ -1,274 +1,162 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import {
-    LayoutList, Search, Filter, ChevronDown,
-    Briefcase, Sparkles
-} from "lucide-react"
-import { Button } from "@repo/ui/components/ui/button"
-import { Input } from "@repo/ui/components/ui/input"
-import {
-    Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription
-} from "@repo/ui/components/ui/sheet"
+import { useCallback, useEffect, useOptimistic, useState, useTransition } from "react"
 import Link from "next/link"
-import { JobCard } from "../components/job-card"
-import { SkillGapModal } from "../components/skill-gap-modal"
-import { getForYouFeedJobs, toggleSaveJob, type FeedJobResult } from "@/actions/jobs"
+import { useRouter } from "next/navigation"
+import { Briefcase, Sparkles } from "lucide-react"
+import { Button } from "@repo/ui/components/ui/button"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
+import {
+    Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious,
+} from "@repo/ui/components/ui/pagination"
+import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
 import { toast } from "@repo/ui/components/ui/sonner"
-import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { toggleSaveJob, type BrowseFacets, type BrowseResult, type FeedJobResult } from "@/actions/jobs"
+import { BROWSE_PAGE_SIZE, activeFilterCount, browseQuery, jobMatches, type BrowseParams } from "@/lib/jobs/browse-params"
+import { JobCard } from "../components/job-card"
+import { JobDetailsSheet } from "../components/job-details-sheet"
+import { BrowseFilters } from "./browse-filters"
+import { BrowseListSkeleton } from "./loading"
 
-interface BrowseContentProps {
-    initialData: {
-        success: boolean
-        data?: {
-            jobs: FeedJobResult[]
-            pagination: {
-                page: number
-                limit: number
-                total: number
-                totalPages: number
-            }
-            isAuthenticated?: boolean
-        }
-        error?: string
-    }
-    isAuthenticated: boolean
-}
+/*
+ * Browse all jobs (plan/jobs-polish JP-22): the page is a column the height left under the
+ * jobs header. The header and the filters at the top, the list in its own ScrollArea (so no
+ * job scrolls up behind the filters), and the count with numbered pages pinned at the bottom.
+ * Filters, sort and page are the URL: a change replaces it and the server renders the page.
+ */
 
-export function BrowseContent({ initialData, isAuthenticated }: BrowseContentProps) {
-    const [jobs, setJobs] = useState<FeedJobResult[]>(
-        initialData.success && initialData.data ? initialData.data.jobs : []
-    )
-    const [loading, setLoading] = useState(false)
-    const [page, setPage] = useState(1)
-    const [hasMore, setHasMore] = useState(
-        initialData.success && initialData.data
-            ? initialData.data.pagination.page < initialData.data.pagination.totalPages
-            : false
-    )
-    const [total, setTotal] = useState(
-        initialData.success && initialData.data ? initialData.data.pagination.total : 0
-    )
-    const [searchQuery, setSearchQuery] = useState("")
-    const [isFilterOpen, setIsFilterOpen] = useState(false)
+export function BrowseContent({ params, result, facets, signedIn }: {
+    params: BrowseParams
+    result: BrowseResult | null
+    facets: BrowseFacets
+    signedIn: boolean
+}) {
+    const router = useRouter()
+    const [pending, startTransition] = useTransition()
+    // What the student just chose, shown at once; the URL's params once the server answers (JP-26).
+    const [shown, setShown] = useOptimistic(params)
+    const [jobs, setJobs] = useState<FeedJobResult[]>(result?.jobs ?? [])
+    useEffect(() => { setJobs(result?.jobs ?? []) }, [result])
+    // By id, so the sheet's Save follows the list after a toggle.
+    const [selectedId, setSelectedId] = useState<string | null>(null)
+    const selected = jobs.find((j) => j.id === selectedId) ?? null
 
-    // Modal state
-    const [selectedJob, setSelectedJob] = useState<FeedJobResult | null>(null)
-    const [showSkillGapModal, setShowSkillGapModal] = useState(false)
+    const go = useCallback((next: Partial<BrowseParams>, keepPage = false) => {
+        const merged = { ...shown, ...next, page: keepPage ? next.page ?? shown.page : 1 }
+        startTransition(() => {
+            setShown(merged)
+            router.replace(`/jobs/browse${browseQuery(merged, signedIn)}`, { scroll: false })
+        })
+    }, [shown, setShown, router, signedIn])
 
-    const handleSaveJob = useCallback(async (jobId: string) => {
-        if (!isAuthenticated) {
-            toast.info("Sign in to save jobs")
-            return
-        }
+    const onSave = useCallback(async (jobId: string) => {
+        if (!signedIn) { toast.info("Sign in to save jobs"); return }
+        const r = await toggleSaveJob(jobId)
+        if (!r.success) { toast.error("Couldn't save that job. Try again."); return }
+        setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, isSaved: r.saved ?? false } : j)))
+    }, [signedIn])
 
-        const result = await toggleSaveJob(jobId)
-        if (result.success) {
-            setJobs(prev => prev.map(j =>
-                j.id === jobId ? { ...j, isSaved: result.saved ?? false } : j
-            ))
-            toast.success(result.saved ? "Job saved!" : "Job removed from saved")
-        }
-    }, [isAuthenticated])
-
-    const handleViewDetails = useCallback((job: FeedJobResult) => {
-        setSelectedJob(job)
-        setShowSkillGapModal(true)
-    }, [])
-
-    const loadMore = useCallback(async () => {
-        if (loading || !hasMore) return
-
-        setLoading(true)
-        const result = await getForYouFeedJobs(page + 1, 20)
-
-        if (result.success && result.data) {
-            setJobs(prev => [...prev, ...result.data!.jobs])
-            setPage(result.data.pagination.page)
-            setHasMore(result.data.pagination.page < result.data.pagination.totalPages)
-            setTotal(result.data.pagination.total)
-        }
-        setLoading(false)
-    }, [loading, hasMore, page])
+    const total = result?.total ?? 0
+    const page = result?.page ?? 1
+    const totalPages = result?.totalPages ?? 1
+    const filtered = activeFilterCount(shown) > 0 || !!shown.q
+    // While the server works: a filter narrows the jobs already here; a page turn has no rows yet.
+    const turningPage = pending && shown.page !== params.page
+    const visible = pending ? jobs.filter((j) => jobMatches(j, shown)) : jobs
+    const from = total ? (page - 1) * BROWSE_PAGE_SIZE + 1 : 0
+    const to = Math.min(page * BROWSE_PAGE_SIZE, total)
 
     return (
-        // The control bar pins beneath the header, WITH space.
-        //
-        // Two earlier attempts got this wrong in opposite directions. First it was
-        // `sticky top-[85px]` - a hand-written offset that parked it flush under
-        // the header with no gap, so the two read as one tall stuck block. Then I
-        // removed the sticky entirely, and it scrolled away with the list.
-        //
-        // What Niraj asked for both times is the same thing: stay put, and have
-        // room around it. So it sticks, at the header's MEASURED height rather
-        // than a guessed one (`--jobs-header-h`, published by `header-offset.tsx`),
-        // and it is a floating toolbar - inset, rounded, its own border - rather
-        // than a full-bleed strip welded to the bar above. The gap is what stops
-        // it reading as stacked. See JB-17.
-        <div>
-            <div
-                className="sticky z-10 px-page pt-4"
-                style={{ top: "var(--jobs-header-h, 96px)" }}
-            >
-            <div className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-                {/* Title, search, filters and the mode toggle on ONE row from `lg`.
-                    They were three stacked rows before, which spent ~190px of a
-                    scrolling page on chrome. */}
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-3">
-                    <div className="flex min-w-0 shrink-0 items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
-                            <LayoutList className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0">
-                            <h2 className="truncate text-base font-semibold text-neutral-900 dark:text-white">
-                                Browse all jobs
-                            </h2>
-                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                {total} job{total !== 1 ? 's' : ''} available
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="relative min-w-0 flex-1">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500 dark:text-neutral-400" />
-                        <Input
-                            placeholder="Search jobs, companies, or skills..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="h-9 rounded-xl border-neutral-200 bg-neutral-50 pl-10 dark:border-neutral-800 dark:bg-neutral-900"
-                        />
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-9"
-                            onClick={() => setIsFilterOpen(true)}
-                        >
-                            <Filter className="mr-2 h-4 w-4" />
-                            Filters
+        <div className="page-frame flex h-[calc(var(--page-h,100dvh)-var(--jobs-header-h,56px))] min-h-[32rem] flex-col px-page pt-5">
+            <div className="shrink-0 space-y-4">
+                <PageHeader
+                    title="Browse all jobs"
+                    subtitle={filtered ? `${total} ${total === 1 ? "job matches" : "jobs match"} your search` : `${total} open ${total === 1 ? "job" : "jobs"}`}
+                    actions={
+                        <Button asChild variant="outline" size="sm" className="gap-1.5">
+                            <Link href="/jobs"><Sparkles className="h-3.5 w-3.5" /> Spark picks</Link>
                         </Button>
-                        <Button asChild variant="outline" size="sm" className="h-9 gap-2">
-                            <Link href="/jobs">
-                                <Sparkles className="h-4 w-4" />
-                                <span className="hidden sm:inline">Spark</span>
-                            </Link>
-                        </Button>
-                    </div>
-                </div>
-            </div>
+                    }
+                />
+                <BrowseFilters params={shown} facets={facets} signedIn={signedIn} onChange={(n) => go(n)} />
             </div>
 
-            <div className="px-page pt-5 pb-6">
-            <AnimatePresence mode="popLayout">
-                {jobs.length > 0 ? (
-                    <div className="space-y-4">
-                        {jobs.map((job, index) => (
-                            <JobCard
-                                key={job.id}
-                                job={job}
-                                onSave={handleSaveJob}
-                                onViewDetails={handleViewDetails}
-                                showMatchScore={isAuthenticated}
-                                index={index}
-                            />
-                        ))}
-                    </div>
-                ) : (
-                    <BrowseEmptyState />
-                )}
-            </AnimatePresence>
-
-            </div>
-
-            {/* PINNED to the bottom of the viewport, carrying both the count and
-                Load More.
-                They used to sit at the end of the list, so on a 12-job page you had
-                to scroll past everything to find out how many there were or to ask
-                for more. `sticky bottom-0` rather than `position: fixed`: fixed
-                would anchor to the VIEWPORT and slide under the sidebar and past
-                the page card's rounded edge, while sticky stays inside this column
-                and respects its width. It is the last child of the scrolling
-                content, so it pins while the list moves behind it. See JB-13. */}
-            {jobs.length > 0 && (
-                <div className="sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t border-neutral-200 bg-white px-page py-3 dark:border-neutral-800 dark:bg-neutral-950">
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                        Showing <span className="font-medium text-neutral-900 tabular-nums dark:text-white">{jobs.length}</span> of {total} jobs
-                    </p>
-                    {hasMore && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="shrink-0"
-                            onClick={loadMore}
-                            disabled={loading}
-                        >
-                            {loading ? (
-                                <InlineLoader size="sm" className="mr-2" />
-                            ) : (
-                                <ChevronDown className="mr-2 h-4 w-4" />
-                            )}
-                            Load more
-                        </Button>
+            <ScrollArea className="mt-4 min-h-0 flex-1" reflow>
+                <div className="space-y-3 pb-4" aria-busy={pending}>
+                    {turningPage ? (
+                        <BrowseListSkeleton />
+                    ) : !result ? (
+                        <Empty title="Couldn't load jobs" body="Something went wrong on our side. Try again in a moment." />
+                    ) : visible.length === 0 ? (
+                        pending ? <BrowseListSkeleton count={2} /> :
+                        filtered
+                            ? <Empty title="No jobs match" body="Try fewer filters or a shorter search." action={<Button variant="outline" size="sm" onClick={() => go({ q: "", where: [], type: [], exp: [], pay: null, posted: null, rounds: false, skill: [], company: [] })}>Clear search and filters</Button>} />
+                            : <Empty title="No jobs yet" body="There are no open postings right now. Follow companies to hear when they post." action={<Button asChild variant="outline" size="sm"><Link href="/companies">Explore companies</Link></Button>} />
+                    ) : (
+                        visible.map((job, i) => (
+                            <JobCard key={job.id} job={job} index={i} onSave={onSave} onViewDetails={(j) => setSelectedId(j.id)} showMatchScore={signedIn} />
+                        ))
                     )}
                 </div>
+            </ScrollArea>
+
+            {total > 0 && (
+                <footer className="flex shrink-0 flex-col items-center gap-2 border-t border-neutral-200 py-3 sm:flex-row sm:justify-between dark:border-neutral-800">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        <span className="font-medium tabular-nums text-neutral-900 dark:text-white">{from}-{to}</span> of <span className="tabular-nums">{total}</span>
+                    </p>
+                    {totalPages > 1 && <Pages page={page} totalPages={totalPages} href={(n) => `/jobs/browse${browseQuery({ ...params, page: n }, signedIn)}`} onGo={(n) => go({ page: n }, true)} />}
+                </footer>
             )}
 
-            {/* Skill Gap Modal */}
-            <SkillGapModal
-                job={selectedJob}
-                open={showSkillGapModal}
-                onClose={() => {
-                    setShowSkillGapModal(false)
-                    setSelectedJob(null)
-                }}
-            />
-
-            {/* Filter Sheet */}
-            <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-                <SheetContent className="w-full sm:max-w-md">
-                    <SheetHeader>
-                        <SheetTitle>Filter Jobs</SheetTitle>
-                        <SheetDescription>
-                            Narrow down your job search
-                        </SheetDescription>
-                    </SheetHeader>
-                    <div className="mt-6 space-y-6">
-                        <p className="text-neutral-500 dark:text-neutral-400 text-sm">Filter controls coming soon...</p>
-                    </div>
-                </SheetContent>
-            </Sheet>
+            <JobDetailsSheet job={selected} open={!!selected} onClose={() => setSelectedId(null)} onSave={onSave} />
         </div>
     )
 }
 
-function BrowseEmptyState() {
+/** 1 ... 4 5 6 ... 12: the first, the last, and the pages around this one. */
+function pageList(page: number, total: number): (number | "gap")[] {
+    const keep = new Set([1, total, page - 1, page, page + 1].filter((n) => n >= 1 && n <= total))
+    const out: (number | "gap")[] = []
+    ;[...keep].sort((a, b) => a - b).forEach((n, i, arr) => {
+        if (i > 0 && n - arr[i - 1]! > 1) out.push("gap")
+        out.push(n)
+    })
+    return out
+}
+
+function Pages({ page, totalPages, href, onGo }: { page: number; totalPages: number; href: (n: number) => string; onGo: (n: number) => void }) {
+    // Real links (middle-click opens a page in a new tab); a plain click stays in the app.
+    const link = (n: number) => ({
+        href: href(n),
+        onClick: (e: React.MouseEvent) => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); onGo(n) },
+    })
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-16 px-4"
-        >
-            <div className="w-20 h-20 bg-gradient-to-br from-neutral-100 to-neutral-50 dark:from-neutral-800 dark:to-neutral-900 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <Briefcase className="w-10 h-10 text-neutral-600 dark:text-neutral-400" />
-            </div>
-            <h3 className="text-xl font-semibold text-neutral-900 dark:text-white mb-2">
-                No jobs available
-            </h3>
-            <p className="text-neutral-500 dark:text-neutral-400 max-w-md mx-auto mb-6">
-                There are no job postings at the moment. Explore companies to follow, or ask us to add one you&apos;d like to see.
-            </p>
-            <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
-                <Button asChild variant="outline">
-                    <Link href="/companies">Explore Companies</Link>
-                </Button>
-                {/* plan/hiring-rounds HR-7 */}
-                <Button asChild variant="ghost">
-                    <Link href="/companies/request">Request a company</Link>
-                </Button>
-            </div>
-        </motion.div>
+        <Pagination className="mx-0 w-auto">
+            <PaginationContent>
+                <PaginationItem>
+                    <PaginationPrevious {...link(Math.max(1, page - 1))} aria-disabled={page === 1} className={page === 1 ? "pointer-events-none opacity-40" : undefined} />
+                </PaginationItem>
+                {pageList(page, totalPages).map((n, i) => (
+                    <PaginationItem key={`${n}-${i}`}>
+                        {n === "gap" ? <PaginationEllipsis /> : <PaginationLink {...link(n)} isActive={n === page}>{n}</PaginationLink>}
+                    </PaginationItem>
+                ))}
+                <PaginationItem>
+                    <PaginationNext {...link(Math.min(totalPages, page + 1))} aria-disabled={page === totalPages} className={page === totalPages ? "pointer-events-none opacity-40" : undefined} />
+                </PaginationItem>
+            </PaginationContent>
+        </Pagination>
+    )
+}
+
+function Empty({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
+    return (
+        <div className="flex flex-col items-center rounded-2xl border border-dashed border-neutral-300 px-6 py-14 text-center dark:border-neutral-700">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-200 dark:border-neutral-800"><Briefcase className="h-5 w-5 text-neutral-700 dark:text-neutral-300" /></span>
+            <p className="mt-3 font-medium text-neutral-900 dark:text-white">{title}</p>
+            <p className="mt-1 max-w-sm text-sm text-neutral-600 dark:text-neutral-400">{body}</p>
+            {action && <div className="mt-4">{action}</div>}
+        </div>
     )
 }

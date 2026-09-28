@@ -2,12 +2,9 @@
 
 import { motion } from "framer-motion"
 import {
-    MapPin, Clock, Briefcase, ChevronRight, Mic, TrendingUp, Users, CheckCircle2, Sparkles,
+    MapPin, ChevronRight, Mic, Users, CheckCircle2, Sparkles,
     UserCheck, Bookmark, BookmarkCheck, Target, Zap, Play
 } from "lucide-react"
-// Link imported for future use with job detail navigation
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import Link from "next/link"
 import { Button } from "@repo/ui/components/ui/button"
 import { CompanyMark } from "@repo/ui/components/ui/company-mark"
 import { Badge } from "@repo/ui/components/ui/badge"
@@ -161,79 +158,69 @@ export function JobCard({
         )
     }
 
+    const salary = job.salaryDisclosed ? formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency) : null
+    // One meta line, joined, truncating as a whole (plan/jobs-polish JP-24).
+    const meta = [
+        job.location || locationTypeLabels[job.locationType],
+        employmentTypeLabels[job.employmentType],
+        formatExperience(job.experienceMin, job.experienceMax),
+        salary,
+    ].filter(Boolean).join(" · ")
+    const SKILL_CAP = 5
+    const matched = job.matchedSkills.slice(0, SKILL_CAP)
+    const missing = job.missingSkills.slice(0, SKILL_CAP - matched.length)
+    const moreSkills = job.matchedSkills.length + job.missingSkills.length - matched.length - missing.length
+    const rounds = job.interviewProcess
+        ? [
+            `${job.interviewProcess.rounds.length} ${job.interviewProcess.rounds.length === 1 ? "round" : "rounds"}`,
+            job.interviewProcess.estimatedDurationWeeks ? `~${job.interviewProcess.estimatedDurationWeeks}w` : null,
+            hasMockInterview ? "Mock" : null,
+        ].filter(Boolean).join(" · ")
+        : null
+
     return (
+        // A light fade only: a paginated list of 10 re-renders on every page, so no long stagger.
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ delay: index * 0.05, duration: 0.3 }}
-            className="@container group bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 hover:shadow-xl hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer relative overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ delay: Math.min(index, 5) * 0.03, duration: 0.2 }}
+            className="@container group relative cursor-pointer rounded-2xl border border-neutral-200 bg-white p-4 transition-colors hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600"
             onClick={() => onViewDetails(job)}
         >
-            {/* Match score indicator bar */}
-            {/* The two upper branches were `from-neutral-900 to-neutral-900` - a
-                gradient between one colour and itself. And the bar was invisible in
-                dark mode, where `neutral-900` IS the card. Flat, and paired. */}
-            <div className={cn(
-                "absolute inset-x-0 top-0 h-1",
-                job.matchScore >= 70
-                    ? "bg-neutral-900 dark:bg-white"
-                    : "bg-neutral-300 dark:bg-neutral-600",
-            )} />
-
-            <div className="flex items-start gap-3 @lg:gap-4">
-                {/* Company Logo */}
-                <div className="h-11 w-11 @lg:w-14 @lg:h-14 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0 relative">
+            <div className="flex items-start gap-3">
+                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 @lg:h-12 @lg:w-12 dark:border-neutral-700 dark:bg-neutral-800">
                     {job.company.logoUrl ? (
-                        <Image
-                            src={job.company.logoUrl}
-                            alt={job.company.name}
-                            className="object-cover"
-                            fill
-                        />
+                        <Image src={job.company.logoUrl} alt={job.company.name} className="object-cover" fill />
                     ) : (
-                        <CompanyMark seed={job.company.id} name={job.company.name} fill size={56} className="rounded-none border-0" />
+                        <CompanyMark seed={job.company.id} name={job.company.name} fill size={48} className="rounded-none border-0" />
                     )}
                 </div>
 
-                <div className="flex-1 min-w-0">
-                    {/* Title and Match Score */}
-                    <div className="mb-2 flex flex-col gap-1.5 @lg:flex-row @lg:items-start @lg:justify-between @lg:gap-4">
-                        {/* Stacked in a narrow CARD (a phone, or sidebar and Harbor open, JP-14),
-                            so the title gets the whole width and the match badge sits under it. */}
-                        {/* min-w-0 down the chain, or a long title widens this column
-                            past the card and is cut at its edge instead of truncating
-                            (390px, plan/ui-pass UI-17). */}
-                        <div className="min-w-0">
-                            <div className="flex min-w-0 items-center gap-2 mb-0.5">
-                                <h3 className="min-w-0 text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors line-clamp-2 @lg:line-clamp-1">
-                                    {job.title}
-                                </h3>
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-3">
+                        <div className="min-w-0 flex-1">
+                            {/* min-w-0 down the chain, or a long title widens the column past the card (UI-17). */}
+                            <h3 className="line-clamp-2 min-w-0 text-base font-semibold text-neutral-900 @lg:line-clamp-1 dark:text-white">
+                                {job.title}
+                            </h3>
+                            <p className="flex min-w-0 items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-400">
+                                <span className="truncate">{job.company.name}</span>
                                 {job.isFollowingCompany && (
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger>
-                                                <Badge className="bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100 text-xs px-1.5 py-0">
-                                                    <UserCheck className="w-3 h-3 mr-0.5" />
-                                                    Following
-                                                </Badge>
-                                            </TooltipTrigger>
-                                            <TooltipContent>You follow this company</TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
+                                    <span className="inline-flex shrink-0 items-center gap-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                                        <UserCheck className="h-3 w-3" /> Following
+                                    </span>
                                 )}
-                            </div>
-                            <p className="truncate text-neutral-500 dark:text-neutral-400">{job.company.name}</p>
+                            </p>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex shrink-0 items-center gap-1">
                             {showMatchScore && (
                                 <TooltipProvider>
                                     <Tooltip>
-                                        <TooltipTrigger>
-                                            <Badge className={cn("font-semibold", getMatchScoreColor(job.matchScore))}>
-                                                <MatchIcon className="w-3.5 h-3.5 mr-1" />
-                                                {job.matchScore}%
-                                            </Badge>
+                                        <TooltipTrigger asChild>
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
+                                                <MatchIcon className="h-3 w-3" /> {job.matchScore}%
+                                            </span>
                                         </TooltipTrigger>
                                         <TooltipContent>
                                             <div className="text-sm">
@@ -244,155 +231,82 @@ export function JobCard({
                                     </Tooltip>
                                 </TooltipProvider>
                             )}
+                            {/* Always visible: hover-only hid it from keyboard and touch users. */}
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className={cn(
-                                    "shrink-0 rounded-xl transition-all",
-                                    job.isSaved
-                                        ? "text-neutral-900 dark:text-neutral-100 hover:text-neutral-800"
-                                        : "opacity-0 group-hover:opacity-100"
-                                )}
+                                aria-label={job.isSaved ? "Saved" : "Save job"}
+                                aria-pressed={job.isSaved}
+                                className="h-8 w-8 shrink-0 rounded-lg text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
                                 onClick={(e) => {
                                     e.stopPropagation()
                                     onSave(job.id)
                                 }}
                             >
-                                {job.isSaved ? <BookmarkCheck className="w-5 h-5 fill-current" /> : <Bookmark className="w-5 h-5" />}
+                                {job.isSaved ? <BookmarkCheck className="h-4 w-4 fill-current text-neutral-900 dark:text-white" /> : <Bookmark className="h-4 w-4" />}
                             </Button>
                         </div>
                     </div>
 
-                    {/* Job Details */}
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500 dark:text-neutral-400 mb-3">
-                        <div className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            <span>{job.location || locationTypeLabels[job.locationType]}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <Briefcase className="w-4 h-4" />
-                            <span>{employmentTypeLabels[job.employmentType]}</span>
-                        </div>
-                        {formatExperience(job.experienceMin, job.experienceMax) && (
-                            <div className="flex items-center gap-1">
-                                <Clock className="w-4 h-4" />
-                                <span>{formatExperience(job.experienceMin, job.experienceMax)}</span>
-                            </div>
-                        )}
-                        {job.salaryDisclosed && formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency) && (
-                            <div className="flex items-center gap-1 text-neutral-800 dark:text-neutral-100">
-                                <TrendingUp className="w-4 h-4" />
-                                <span>{formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)}</span>
-                            </div>
-                        )}
-                    </div>
+                    <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-sm text-neutral-600 dark:text-neutral-400">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{meta}</span>
+                    </p>
 
-                    {/* Skills */}
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                        {job.matchedSkills.slice(0, 4).map((skill, i) => (
-                            <Badge key={i} className="text-xs bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100">
-                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                {skill}
-                            </Badge>
-                        ))}
-                        {job.missingSkills.slice(0, 2).map((skill, i) => (
-                            <Badge key={i} variant="outline" className="text-xs text-neutral-500 dark:text-neutral-400">
-                                {skill}
-                            </Badge>
-                        ))}
-                        {(job.matchedSkills.length + job.missingSkills.length) > 6 && (
-                            <Badge variant="secondary" className="text-xs">
-                                +{(job.matchedSkills.length + job.missingSkills.length) - 6}
-                            </Badge>
-                        )}
-                    </div>
-
-                    {/* Interview Process and Competition */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            {job.interviewProcess ? (
-                                <div className="flex items-center gap-2 text-sm text-neutral-800 dark:text-neutral-100">
-                                    <CheckCircle2 className="w-4 h-4" />
-                                    <span>{job.interviewProcess.rounds.length} rounds</span>
-                                    {job.interviewProcess.estimatedDurationWeeks && (
-                                        <>
-                                            <span className="text-neutral-600 dark:text-neutral-400">•</span>
-                                            <span>~{job.interviewProcess.estimatedDurationWeeks}w</span>
-                                        </>
-                                    )}
-                                    {hasMockInterview && (
-                                        <>
-                                            <span className="text-neutral-600 dark:text-neutral-400">•</span>
-                                            <Mic className="w-4 h-4" />
-                                            <span>Mock</span>
-                                        </>
-                                    )}
-                                </div>
-                            ) : (
-                                <span className="text-sm text-neutral-600 dark:text-neutral-400">Interview process not disclosed</span>
-                            )}
-                            {job.company.hasTransparentProcess && (
-                                <Badge className="text-xs px-1.5 py-0 bg-neutral-100 text-neutral-700 dark:bg-neutral-800/30 dark:text-neutral-100">
-                                    Transparent
+                    {(matched.length > 0 || missing.length > 0) && (
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                            {matched.map((skill) => (
+                                <Badge key={`m-${skill}`} className="bg-neutral-100 text-xs text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
+                                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                                    {skill}
                                 </Badge>
-                            )}
+                            ))}
+                            {missing.map((skill) => (
+                                <Badge key={`x-${skill}`} variant="outline" className="text-xs text-neutral-600 dark:text-neutral-400">
+                                    {skill}
+                                </Badge>
+                            ))}
+                            {moreSkills > 0 && <Badge variant="outline" className="text-xs text-neutral-600 dark:text-neutral-400">+{moreSkills}</Badge>}
                         </div>
-                        <div className="flex items-center gap-3">
-                            {/* Practice Mock Interview Button */}
+                    )}
+
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-neutral-100 pt-3 text-xs text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
+                        {rounds ? (
+                            <span className="inline-flex items-center gap-1.5 text-neutral-800 dark:text-neutral-200">
+                                {hasMockInterview ? <Mic className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                {rounds}
+                            </span>
+                        ) : (
+                            <span>Interview process not disclosed</span>
+                        )}
+                        {job.hasApplied && (
+                            <span className="inline-flex items-center gap-1 font-medium text-neutral-900 dark:text-white">
+                                <CheckCircle2 className="h-3.5 w-3.5" /> Applied
+                            </span>
+                        )}
+                        <span className="ml-auto flex items-center gap-3">
                             {showPracticeButton && hasMockInterview && (
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-8 px-3 text-xs bg-neutral-50 dark:bg-neutral-800/20 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800/30"
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    if (onPractice) {
-                                                        onPractice(job)
-                                                    }
-                                                }}
-                                            >
-                                                <Play className="w-3 h-3 mr-1.5 fill-current" />
-                                                Practice
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <div className="text-sm">
-                                                <p className="font-medium">Practice Mock Interview</p>
-                                                <p className="text-neutral-600 dark:text-neutral-400">Prepare for this role with AI interviews</p>
-                                            </div>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 gap-1 px-2.5 text-xs"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        onPractice?.(job)
+                                    }}
+                                >
+                                    <Play className="h-3 w-3 fill-current" /> Practice
+                                </Button>
                             )}
-                            <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-                                <Users className="w-4 h-4" />
-                                <span>{job.applicationsCount}</span>
-                            </div>
-                        </div>
+                            <span className="inline-flex items-center gap-1 tabular-nums" title="Applicants">
+                                <Users className="h-3.5 w-3.5" /> {job.applicationsCount}
+                            </span>
+                        </span>
                     </div>
                 </div>
 
-                <ChevronRight className="mt-6 h-5 w-5 shrink-0 text-neutral-500 transition-colors group-hover:text-neutral-900 dark:text-neutral-400 dark:group-hover:text-white" />
+                <ChevronRight className="mt-3 hidden h-4 w-4 shrink-0 text-neutral-400 transition-colors group-hover:text-neutral-900 @lg:block dark:group-hover:text-white" />
             </div>
-
-            {/* IN FLOW, not `absolute bottom-0`.
-                It was absolutely positioned across the bottom of the card, so it
-                painted straight over the card's own last row - "Interview process
-                not disclosed" and the applicant count sat underneath it. A banner
-                that hides the content it is attached to is worse than no banner.
-                The negative margins pull it out to the card's edges; the card grows
-                to fit it. See JB-9. */}
-            {job.hasApplied && (
-                <div className="-mx-5 -mb-5 mt-4 border-t border-neutral-200 bg-neutral-50 px-5 py-2 dark:border-neutral-800 dark:bg-neutral-800/30">
-                    <span className="flex items-center gap-2 text-sm font-medium text-neutral-800 dark:text-neutral-100">
-                        <CheckCircle2 className="h-4 w-4" />
-                        You&apos;ve applied to this job
-                    </span>
-                </div>
-            )}
         </motion.div>
     )
 }

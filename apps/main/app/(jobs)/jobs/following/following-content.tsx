@@ -8,7 +8,7 @@ import {
 import { Button } from "@repo/ui/components/ui/button"
 import Link from "next/link"
 import { JobCard } from "../components/job-card"
-import { SkillGapModal } from "../components/skill-gap-modal"
+import { JobDetailsSheet } from "../components/job-details-sheet"
 import { getFollowingFeedJobs, toggleSaveJob, type FeedJobResult } from "@/actions/jobs"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
@@ -173,7 +173,7 @@ export function FollowingContent({ initialData, isAuthenticated }: FollowingCont
             )}
 
             {/* Skill Gap Modal */}
-            <SkillGapModal
+            <JobDetailsSheet
                 job={selectedJob}
                 open={showSkillGapModal}
                 onClose={() => {

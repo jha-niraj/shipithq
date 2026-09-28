@@ -20,6 +20,12 @@
 | JP-16 | Company cards: one shape, one meta line, a pinned footer | 16 | done 2026-09-29 (Chrome: companies page) |
 | JP-18 | Company page: the details column left, the tabs at the top of the right | 18 | done 2026-09-29 (Chrome: Overview and Practice; TabsNav gained a per-tab `scroll`) |
 | JP-19 | `PageHeader`: tabs shrink and scroll beside the title | 19 | done 2026-09-29 (typecheck; seen via the sweep) |
+| JP-21 | Browse: a real query with filters, sort and numbered pages, all in the URL | 21 | done 2026-09-29 (Chrome: Work type narrows 12 to 9 and 3, page 2, URL reproduces) |
+| JP-22 | Browse: page-frame width, header, toolbar outside a scrolling list, pagination pinned below | 21 | done 2026-09-29 (Chrome: page-frame width, list scrolls alone, pages pinned below) |
+| JP-23 | Browse: one dropdown per filter in a row, Clear all, no sheet | 21 | done 2026-09-29 (Chrome: dropdowns, Clear filter; sort beside the search) |
+| JP-24 | JobCard tidied (shared by Spark, Saved, Browse) | 21 | done 2026-09-29 (Chrome: Browse) |
+| JP-25 | Job details in a half-width sheet, with the whole job, shared buttons unstyled | 21 | done 2026-09-29 (Chrome: Browse; Saved and Following swapped by typecheck) |
+| JP-26 | Filters apply at once on the client, then the server confirms; fewer round trips per page | 21 | done 2026-09-29 (Chrome: Hybrid applied at once, server followed) |
 | JP-20 | Sweep main and hiring: tabs in the header row, the shared tabs, no restyling | 19 | done 2026-09-29 (Chrome: Referrals, Explore projects, company page; the rest by typecheck) |
 | JP-17 | The 404 page: an animated scene, centred, with the right way back | 17 | done 2026-09-29 (Chrome, dark theme, signed in; signed-out button by code) |
 
@@ -278,3 +284,69 @@ changed screens are listed in Outcomes.
 - Left: incidents `TopicTabs` (fits what fits, the rest under "More"; the shared tabs have no
   overflow mode yet: a new task if wanted), the workspace's closable editor tabs, and radio
   groups and list filters that aren't tabs.
+
+## Round 4: Browse all jobs (Niraj, 2026-09-29)
+The page took the full width, its search did nothing, "Filters" opened a sheet that said
+"coming soon", jobs peeked out above the pinned toolbar, and Load more was the only way on.
+Decisions: every filter group (work type, job type, experience, salary, posted within,
+practice rounds, skills, company); one dropdown per filter in a row; 10 per page with numbered
+pages; the shared JobCard, tidied.
+
+### JP-21 - The query
+**Files** `actions/jobs/feed.ts` (`browseJobs`, `browseFacets`), `lib/jobs/browse-params.ts`.
+**Steps** Params from the URL: `q` (title, company, skills; ilike), `where` (REMOTE, HYBRID,
+ONSITE), `type` (employment types), `exp` (0-1, 1-3, 3-5, 5+ by overlap with min/max), `pay`
+(minimum yearly salary; undisclosed drop out), `posted` (1, 7, 30 days by publishedAt),
+`rounds` (has a pipeline), `skill` and `company` (many), `sort` (match when signed in, newest,
+salary), `page`. Listed and public jobs only (`jobListed`). Signed in: match score, saved,
+applied, following, as the feed does. Facets: the skills and companies of listed jobs.
+**Edge cases** A page past the end goes to the last page; unknown values are ignored; an empty
+result says which filters to loosen.
+**Done when** each filter narrows the count on dev and the URL reproduces the view.
+
+### JP-22 - The page
+**Files** `app/(jobs)/jobs/browse/{page,browse-content,loading}.tsx`.
+**Steps** `page-frame` width. The page is a column the height left under the jobs header: the
+PageHeader (title, count) and the toolbar (search, filters, sort) at the top, the list in a
+ScrollArea filling the middle (so nothing scrolls under the toolbar), and the count with the
+pagination pinned at the bottom. The skeleton has the same three parts.
+**Done when** in Chrome no job shows above the toolbar at any scroll, and the pages step.
+
+### JP-23 - Filters
+**Files** `app/(jobs)/jobs/browse/browse-filters.tsx`.
+**Steps** A row of small buttons (Work type, Job type, Experience, Salary, Posted, Rounds,
+Skills, Company), each a Popover with checkboxes (Skills and Company searchable with Command),
+the chosen value shown on the button; Sort as a select; Clear all when anything is set. Search
+is debounced (300ms). Every change resets to page 1 and replaces the URL.
+**Done when** the row works with the keyboard and no sheet opens.
+
+### JP-24 - JobCard
+**Files** `app/(jobs)/jobs/components/job-card.tsx`.
+**Steps** Tighter spacing, one meta line that truncates, skills capped with "+n", the applied
+note as a quiet footer line, the match and save controls aligned. Spark and Saved keep working.
+**Done when** Browse, Spark and Saved show the tidied card in Chrome.
+
+### JP-25 - Job details sheet (Niraj, 2026-09-29)
+**Why** The details opened as a small dialog with restyled buttons, a radar icon for "match"
+and a red "May Not Be a Good Fit" pill; it said little about the job itself.
+**Files** `app/(jobs)/jobs/components/job-details-sheet.tsx` (new, replaces `skill-gap-modal.tsx`
+at its call sites: Browse, Saved, Following, Spark).
+**Steps** A right Sheet at 50% width on `lg` (full width below): the mark, title, company, the
+meta line and save; "Should you apply" as a StatBand (match, competition, applicants) with the
+reasons; skills you have and need; the description, requirements and responsibilities; the
+rounds (with pass marks and minutes when known); the company (industry, size, follow); and a
+footer pinned to the bottom with the shared Buttons, unstyled: Open the job, Practise the
+rounds (when it has rounds), Save. Monochrome: the verdict is neutral text, not a red pill.
+**Done when** Browse opens it at half width with every section filled for a seeded job.
+
+### JP-26 - Optimistic filters and a faster page
+**Why** A filter took seconds to show on dev: nothing changed until the server answered.
+**Steps** The filter state is `useOptimistic`: a click updates the buttons at once, and the
+jobs already on screen are filtered on the client by the same rules while the server fetches;
+a page turn shows the skeleton. `browseFacets` is cached (5 minutes); the count, the rows and
+the viewer's data run in parallel.
+**Done when** in Chrome, ticking Remote greys out the non-remote jobs instantly and the URL and
+count follow.
+
+- JP-25 left `app/(jobs)/jobs/components/skill-gap-modal.tsx` unused (every call site now opens
+  `JobDetailsSheet`); deleted 2026-09-29 with Niraj's approval.

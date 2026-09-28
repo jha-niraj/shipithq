@@ -14,7 +14,9 @@ import {
     projectsV2,
     jobListed,
 } from "@repo/db"
-import { eq, and, inArray, desc, count, ilike } from "drizzle-orm"
+import { eq, and, or, inArray, desc, count, ilike, gte, isNotNull, sql, type SQL } from "drizzle-orm"
+import { BROWSE_PAGE_SIZE, EXP_BANDS, PAY_FLOORS, POSTED_DAYS, type BrowseParams } from "@/lib/jobs/browse-params"
+import { unstable_cache } from "next/cache"
 import { catalogueWhere } from '@/lib/projects/catalogue'
 
 // Types for the feed
@@ -862,5 +864,123 @@ export async function getFeedStats() {
     } catch (error) {
         console.error("Error fetching feed stats:", error)
         return { success: false, error: "Failed to fetch stats" }
+    }
+}
+
+// ============================================
+// BROWSE ALL JOBS (plan/jobs-polish JP-21)
+// ============================================
+
+export interface BrowseResult {
+    jobs: FeedJobResult[]
+    total: number
+    page: number
+    totalPages: number
+}
+
+/**
+ * Browse all jobs with filters, sort and numbered pages. The filters come parsed from the
+ * URL (`parseBrowseParams`); within a group they OR (Remote or Hybrid), across groups they
+ * AND. "Best match" scores every filtered job as the feed does, so it sorts in memory; the
+ * other sorts page in SQL.
+ */
+export async function browseJobListings(p: BrowseParams): Promise<{ success: true; data: BrowseResult } | { success: false; error: string }> {
+    try {
+        const session = await getSession(headers())
+        const userId = session?.user?.id ?? null
+        const conds: SQL[] = [jobListed, eq(jobs.visibility, "PUBLIC")]
+        if (p.q) {
+            const like = `%${p.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`
+            conds.push(or(
+                ilike(jobs.title, like),
+                sql`exists (select 1 from "company" "q_co" where "q_co"."id" = ${jobs.companyId} and "q_co"."name" ilike ${like})`,
+                sql`${jobs.skillsRequired}::text ilike ${like}`,
+            )!)
+        }
+        if (p.where.length) conds.push(inArray(jobs.locationType, p.where))
+        if (p.type.length) conds.push(inArray(jobs.employmentType, p.type))
+        if (p.exp.length) {
+            conds.push(or(...p.exp.map((b) => {
+                const [lo, hi] = EXP_BANDS[b]
+                return sql`(coalesce(${jobs.experienceMin}, 0) <= ${hi} and coalesce(${jobs.experienceMax}, 99) >= ${lo})`
+            }))!)
+        }
+        if (p.pay) conds.push(sql`(${jobs.salaryDisclosed} and coalesce(${jobs.salaryMax}, ${jobs.salaryMin}, 0) >= ${PAY_FLOORS[p.pay]})`)
+        if (p.posted) conds.push(gte(jobs.publishedAt, new Date(Date.now() - POSTED_DAYS[p.posted] * 86_400_000)))
+        if (p.rounds) conds.push(isNotNull(jobs.interviewProcessId))
+        if (p.skill.length) {
+            conds.push(sql`exists (select 1 from jsonb_array_elements_text(${jobs.skillsRequired}) "s"(v) where lower("s".v) in (${sql.join(p.skill.map((s) => sql`${s}`), sql`, `)}))`)
+        }
+        if (p.company.length) conds.push(inArray(jobs.companyId, p.company))
+        const where = and(...conds)
+
+        const withCompany = { company: { columns: { id: true, name: true, logoUrl: true, industry: true, hasInterviewProcess: true } } } as const
+        const byMatch = p.sort === "match" && userId
+        const fetchRows = (page: number) => db.query.jobs.findMany({
+            where,
+            with: withCompany,
+            orderBy: p.sort === "salary"
+                ? [sql`coalesce(${jobs.salaryMax}, ${jobs.salaryMin}) desc nulls last`, desc(jobs.publishedAt)]
+                : [desc(jobs.featured), desc(jobs.publishedAt)],
+            ...(byMatch ? {} : { offset: (page - 1) * BROWSE_PAGE_SIZE, limit: BROWSE_PAGE_SIZE }),
+        })
+
+        // The count, the rows and the viewer's own lists in one round (JP-26); they don't depend on each other.
+        const empty: [string[], string[], string[], string[]] = [[], [], [], []]
+        const [[{ total } = { total: 0 }], firstRows, [userSkillsList, followedCompanyIds, savedJobIds, appliedJobIds]] = await Promise.all([
+            db.select({ total: count() }).from(jobs).where(where),
+            fetchRows(p.page),
+            userId
+                ? Promise.all([getUserSkills(userId), getUserFollowedCompanyIds(userId), getUserSavedJobIds(userId), getUserAppliedJobIds(userId)])
+                : Promise.resolve(empty),
+        ])
+        const totalPages = Math.max(1, Math.ceil(Number(total) / BROWSE_PAGE_SIZE))
+        const page = Math.min(p.page, totalPages)
+        // A page past the end (an old link, a narrower filter): the last page instead.
+        const rows = !byMatch && page !== p.page ? await fetchRows(page) : firstRows
+
+        let list = rows.map((job) => formatJobWithMatch(job, userSkillsList, savedJobIds, appliedJobIds, followedCompanyIds))
+        if (byMatch) {
+            list.sort((a, b) => (b.matchScore + (b.isFollowingCompany ? 5 : 0)) - (a.matchScore + (a.isFollowingCompany ? 5 : 0)))
+            list = list.slice((page - 1) * BROWSE_PAGE_SIZE, page * BROWSE_PAGE_SIZE)
+        }
+        // Rounds only for the page shown.
+        const processMap = await loadInterviewProcesses(rows.filter((r) => list.some((j) => j.id === r.id)))
+        list = list.map((j) => {
+            const row = rows.find((r) => r.id === j.id)
+            return { ...j, interviewProcess: processMap.get(row?.interviewProcessId ?? "") ?? null }
+        })
+        return { success: true, data: { jobs: list, total: Number(total), page, totalPages } }
+    } catch (error: unknown) {
+        console.error("browseJobListings:", error instanceof Error ? error.message : error)
+        return { success: false, error: "Couldn't load jobs. Try again." }
+    }
+}
+
+export interface BrowseFacets {
+    skills: { value: string; count: number }[]
+    companies: { id: string; name: string; count: number }[]
+}
+
+/** The skills and companies of listed jobs, most common first, for the Skills and Company filters. */
+export async function browseFacets(): Promise<BrowseFacets> {
+    return cachedFacets()
+}
+
+/** Five minutes is fresh enough for a filter list; it was re-queried on every filter click (JP-26). */
+const cachedFacets = unstable_cache(loadFacets, ["browse-facets"], { revalidate: 300 })
+
+async function loadFacets(): Promise<BrowseFacets> {
+    try {
+        const listed = and(jobListed, eq(jobs.visibility, "PUBLIC"))
+        const [skillRows, companyRows] = await Promise.all([
+            db.execute(sql`select lower(s.v) as value, count(*)::int as count from ${jobs}, jsonb_array_elements_text(${jobs.skillsRequired}) s(v) where ${listed} group by 1 order by 2 desc, 1 limit 80`),
+            db.select({ id: companies.id, name: companies.name, count: count() }).from(jobs).innerJoin(companies, eq(companies.id, jobs.companyId)).where(listed).groupBy(companies.id, companies.name).orderBy(desc(count()), companies.name).limit(80),
+        ])
+        const skillsOut = ((skillRows as unknown as { rows?: { value: string; count: number }[] }).rows ?? (skillRows as unknown as { value: string; count: number }[]))
+        return { skills: skillsOut.map((r) => ({ value: String(r.value), count: Number(r.count) })), companies: companyRows.map((r) => ({ ...r, count: Number(r.count) })) }
+    } catch (error: unknown) {
+        console.error("browseFacets:", error instanceof Error ? error.message : error)
+        return { skills: [], companies: [] }
     }
 }
