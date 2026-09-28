@@ -40,6 +40,11 @@ export const MODULE_META: Record<ModuleKey, ModuleMeta> = {
 
 export const RANGE_WORDS: Record<RangeKey, string> = { "30d": "the last 30 days", "90d": "the last 90 days", "1y": "the last year" };
 
+/** A label inside a sentence: lower-cased, except an acronym such as XP. */
+function words(label: string) {
+    return label.split(" ").map((w) => (w === w.toUpperCase() ? w : w.toLowerCase())).join(" ");
+}
+
 export const SECTION_CARD = "rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950";
 
 function ago(isoTime: string, now = Date.now()) {
@@ -127,7 +132,7 @@ export function ModuleSection({ summary, period, readOnly }: { summary: ModuleSu
     const meta = MODULE_META[summary.key];
     const counts = summary.lines.filter((l) => l.kind === "count");
     const caption = counts.length
-        ? counts.map((l) => `${(summary.periodTotals[l.key] ?? 0).toLocaleString("en")} ${l.label.toLowerCase()}`).join(" · ") + ` in ${period}`
+        ? counts.map((l) => { const n = summary.periodTotals[l.key] ?? 0; return `${n.toLocaleString("en")} ${words(n === 1 && l.one ? l.one : l.label)}` }).join(" · ") + ` in ${period}`
         : `${summary.lines.map((l) => l.label).join(", ")} in ${period}`;
 
     return (
@@ -150,7 +155,7 @@ export function ModuleSection({ summary, period, readOnly }: { summary: ModuleSu
                     ) : (
                         <>
                             <ul className="-mx-0 flex-1 space-y-0.5">
-                                {summary.items.map((item) => <ItemRow key={`${item.href}-${item.title}`} item={item} readOnly={readOnly} />)}
+                                {summary.items.map((item, i) => <ItemRow key={`${i}-${item.href}`} item={item} readOnly={readOnly} />)}
                             </ul>
                             {!readOnly && summary.total > summary.items.length && (
                                 <Link href={meta.seeAll} className="group mt-2 inline-flex items-center gap-1 self-start px-2 text-xs font-medium text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white">

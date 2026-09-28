@@ -2,6 +2,8 @@
 
 import LineChart, { Line } from "@repo/ui/components/charts/line-chart";
 import Grid from "@repo/ui/components/charts/grid";
+import XAxis from "@repo/ui/components/charts/x-axis";
+import { curveMonotoneX } from "@repo/ui/components/charts/curves";
 import { ChartTooltip } from "@repo/ui/components/charts/tooltip/chart-tooltip";
 import type { ChartLine, SeriesPoint } from "@repo/db/progress";
 
@@ -57,11 +59,12 @@ export default function TrendChart({ series, lines, previousKey, previousLabel =
         <div role="img" aria-label={label} className={className}>
         <LineChart data={data} aspectRatio={aspectRatio} margin={{ top: 12, right: 12, bottom: 28, left: 12 }}>
             <Grid horizontal numTicksRows={4} />
+            <XAxis numTicks={5} />
             {previousKey && (
-                <Line dataKey={previousKey} stroke="var(--chart-foreground-muted)" strokeWidth={1.5} dashFromIndex={0} dashArray="4,4" showHighlight={false} />
+                <Line dataKey={previousKey} curve={curveMonotoneX} stroke="var(--chart-foreground-muted)" strokeWidth={1.5} dashFromIndex={0} dashArray="4,4" showHighlight={false} />
             )}
             {lines.map((l, i) => (
-                <Line key={l.key} dataKey={l.key} stroke={STROKES[i] ?? STROKES[1]} strokeWidth={i === 0 ? 2.25 : 1.75} showMarkers={scoreOnly} />
+                <Line key={l.key} dataKey={l.key} curve={curveMonotoneX} stroke={STROKES[i] ?? STROKES[1]} strokeWidth={i === 0 ? 2.25 : 1.75} showMarkers={scoreOnly} />
             ))}
             <ChartTooltip
                 rows={(point) => [

@@ -71,8 +71,13 @@ export function BadgeMedal({ glyph, earned, animate = true, id, className }: Bad
                 <rect className="bm-sweep" x={20} y={-20} width={26} height={160} fill="white" opacity={0.18} />
               </g>
             )}
-            <g className="bm-glyph" transform="translate(60 60)">
-              <g fill="none" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" className="stroke-white dark:stroke-neutral-900">{glyph}</g>
+            {/* The translate and the pop-in on separate groups: the animation's CSS
+                transform would otherwise replace the SVG translate and pin the glyph to
+                the medal's top-left corner. */}
+            <g transform="translate(60 60)">
+              <g className="bm-glyph">
+                <g fill="none" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" className="stroke-white dark:stroke-neutral-900">{glyph}</g>
+              </g>
             </g>
           </>
         ) : (

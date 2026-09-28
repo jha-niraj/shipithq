@@ -264,3 +264,21 @@ one line. **Why** (Niraj, 2026-09-28): the installed
 the user's GitHub contributions in the same monochrome graph, cached for a day, with a link
 to their GitHub. Not connected: nothing (no nag). A failed fetch: the card says so, briefly.
 **Done when** a connected account sees its GitHub year and an unconnected one sees nothing.
+
+
+## Browser pass (2026-09-28, Chrome, signed in as jhaniraj45@gmail.com)
+
+Checked: the AI panel opens by default (a moment after load: the choice is read in the
+browser); Home's progress sections, range switch and badges; /badges; Settings > Reports;
+a report page; the badge glow following the pointer. Fixed in the pass:
+- The medal's glyph sat in the top-left corner on earned badges: the pop-in animation's CSS
+  transform replaced the SVG translate (the old Incidents medal had the same bug).
+- Charts rang below zero around a single spike (`curveNatural`): now `curveMonotoneX`, with
+  dates along the bottom (`XAxis`).
+- XP charts read the XP transactions while every headline reads the ledger, so the chart
+  showed 0 against 5,950: they read the ledger now.
+- "4.1666665%" progress, "1 tasks done", "0 xp": rounded, singular labels, acronyms kept.
+- A problem with two sessions (one per mode) was listed twice, with a duplicate React key;
+  unsolved problems showed "0/100": one row per problem, "In progress" until solved.
+Not seen: the badge toast (needs a newly earned badge) and the lead panel signed out (the
+mic route's 401 was checked on a dev server).

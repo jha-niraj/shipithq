@@ -25,6 +25,8 @@ export interface DayRange { from: string; to: string }
 export interface ChartLine {
     key: string
     label: string
+    /** The label for exactly one, in a caption ("1 task done"). */
+    one?: string
     /** A score line has a point only where something was scored; a count line is zero-filled. */
     kind: "count" | "score"
 }
@@ -149,6 +151,8 @@ async function rows<T>(ex: AnyDb, q: SQL): Promise<T[]> {
 }
 
 const n = (v: unknown) => Number(v ?? 0)
+/** "1 task done", "2 tasks done". */
+const pl = (v: unknown, one: string, many: string) => (n(v) === 1 ? one : many)
 const fmt = (v: number) => v.toLocaleString("en")
 const iso = (v: unknown) => (v instanceof Date ? v : new Date(String(v))).toISOString()
 const within = (col: SQL, r: DayRange) => sql`${col} >= ${r.from}::date and ${col} < (${r.to}::date + 1)`
@@ -164,7 +168,7 @@ function summary(key: ModuleKey, r: DayRange, lines: ChartLine[], data: Row[], r
 // ─── Modules ─────────────────────────────────────────────────────────────────
 
 export async function summarizeProjects(ex: AnyDb, userId: string, r: DayRange): Promise<ModuleSummary> {
-    const lines: ChartLine[] = [{ key: "tasks", label: "Tasks done", kind: "count" }]
+    const lines: ChartLine[] = [{ key: "tasks", label: "Tasks done", one: "Task done", kind: "count" }]
     const [counts] = await rows<{ active: number; finished: number; total: number; tasks: number }>(ex, sql`
         select count(*) filter (where status = 'IN_PROGRESS')::int as active,
                count(*) filter (where status in ('SUBMITTED','COMPLETED'))::int as finished,
@@ -177,7 +181,7 @@ export async function summarizeProjects(ex: AnyDb, userId: string, r: DayRange):
         where user_id = ${userId} and status = 'COMPLETED' and ${within(sql`completed_at`, r)}
         group by 1`)
     const items = await rows<{ slug: string; title: string; status: string; pct: number; done: number; all: number; at: string; score: number | null }>(ex, sql`
-        select p.slug, p.title, g.status, g.progress_percentage as pct, g.tasks_completed as done, g.total_tasks as all,
+        select p.slug, p.title, g.status, round(g.progress_percentage)::int as pct, g.tasks_completed as done, g.total_tasks as all,
                g.updated_at as at, g.total_score as score
         from user_project_v2_progress g join project_v2 p on p.id = g.project_id
         where g.user_id = ${userId}
@@ -186,7 +190,7 @@ export async function summarizeProjects(ex: AnyDb, userId: string, r: DayRange):
         numbers: [
             { label: "in progress", value: fmt(n(counts?.active)) },
             { label: "finished", value: fmt(n(counts?.finished)) },
-            { label: "tasks done", value: fmt(n(counts?.tasks)) },
+            { label: pl(counts?.tasks, "task done", "tasks done"), value: fmt(n(counts?.tasks)) },
         ],
         items: items.map((i) => ({
             title: i.title,
@@ -207,7 +211,7 @@ export async function summarizePractice(ex: AnyDb, userId: string, r: DayRange):
         { key: "started", label: "Started", kind: "count" },
     ]
     const [c] = await rows<{ solved: number; total: number; avg: number | null; xp: number }>(ex, sql`
-        select count(*) filter (where status = 'COMPLETED')::int as solved, count(*)::int as total,
+        select count(*) filter (where status = 'COMPLETED')::int as solved, count(distinct problem_id)::int as total,
                round(avg(best_score) filter (where status = 'COMPLETED'))::int as avg,
                coalesce(sum(xp_awarded), 0)::int as xp
         from practice_user_session where user_id = ${userId}`)
@@ -218,9 +222,14 @@ export async function summarizePractice(ex: AnyDb, userId: string, r: DayRange):
         select started_at::date::text, 'started', count(*)::int from practice_user_session
         where user_id = ${userId} and ${within(sql`started_at`, r)} group by 1`)
     const items = await rows<{ slug: string; title: string; module: string; difficulty: string; status: string; score: number | null; at: string }>(ex, sql`
-        select p.slug, p.title, s.module, p.difficulty, s.status, s.best_score as score, s.updated_at as at
-        from practice_user_session s join practice_problem p on p.id = s.problem_id
-        where s.user_id = ${userId} order by s.updated_at desc limit 5`)
+        select * from (
+            -- One row per problem (a problem can have a session per mode), its latest.
+            select distinct on (s.problem_id) p.slug, p.title, s.module, p.difficulty, s.status,
+                   case when s.status = 'COMPLETED' then s.best_score end as score, s.updated_at as at
+            from practice_user_session s join practice_problem p on p.id = s.problem_id
+            where s.user_id = ${userId}
+            order by s.problem_id, s.updated_at desc
+        ) x order by at desc limit 5`)
     return summary("practice", r, lines, data, {
         numbers: [
             { label: "solved", value: fmt(n(c?.solved)) },
@@ -277,8 +286,8 @@ export async function summarizeMock(ex: AnyDb, userId: string, r: DayRange): Pro
 
 export async function summarizePathfinder(ex: AnyDb, userId: string, r: DayRange): Promise<ModuleSummary> {
     const lines: ChartLine[] = [
-        { key: "steps", label: "Steps done", kind: "count" },
-        { key: "quizzes", label: "Quizzes", kind: "count" },
+        { key: "steps", label: "Steps done", one: "Step done", kind: "count" },
+        { key: "quizzes", label: "Quizzes", one: "Quiz", kind: "count" },
     ]
     const [c] = await rows<{ active: number; done: number; total: number; steps: number; notes: number }>(ex, sql`
         select count(*) filter (where g.status in ('ACTIVE','VERIFICATION'))::int as active,
@@ -296,17 +305,17 @@ export async function summarizePathfinder(ex: AnyDb, userId: string, r: DayRange
         select completed_at::date::text, 'quizzes', count(*)::int from pathfinder_quiz_attempt
         where user_id = ${userId} and completed_at is not null and ${within(sql`completed_at`, r)} group by 1`)
     const items = await rows<{ slug: string; title: string; status: string; pct: number; done: number; all: number; notes: number; at: string }>(ex, sql`
-        select g.slug, g.title, g.status, g.progress_percent as pct, g.completed_sub_goals as done, g.total_sub_goals as all,
+        select g.slug, g.title, g.status, round(g.progress_percent)::int as pct, g.completed_sub_goals as done, g.total_sub_goals as all,
                (select count(*)::int from pathfinder_sub_goal s where s.goal_id = g.id and s.studio_id is not null) as notes,
                coalesce(g.last_activity_at, g.updated_at) as at
         from pathfinder_goal g where g.user_id = ${userId}
         order by (g.status in ('ACTIVE','VERIFICATION')) desc, coalesce(g.last_activity_at, g.updated_at) desc limit 5`)
     return summary("pathfinder", r, lines, data, {
         numbers: [
-            { label: "active goals", value: fmt(n(c?.active)) },
+            { label: pl(c?.active, "active goal", "active goals"), value: fmt(n(c?.active)) },
             { label: "completed", value: fmt(n(c?.done)) },
-            { label: "steps done", value: fmt(n(c?.steps)) },
-            { label: "notes", value: fmt(n(c?.notes)) },
+            { label: pl(c?.steps, "step done", "steps done"), value: fmt(n(c?.steps)) },
+            { label: pl(c?.notes, "note", "notes"), value: fmt(n(c?.notes)) },
         ],
         items: items.map((i) => ({
             title: i.title,
@@ -323,7 +332,7 @@ export async function summarizePathfinder(ex: AnyDb, userId: string, r: DayRange
 
 export async function summarizeIncidents(ex: AnyDb, userId: string, r: DayRange): Promise<ModuleSummary> {
     const lines: ChartLine[] = [
-        { key: "answered", label: "Checks answered", kind: "count" },
+        { key: "answered", label: "Checks answered", one: "Check answered", kind: "count" },
         { key: "xp", label: "XP", kind: "count" },
     ]
     const [c] = await rows<{ cases: number; done: number; xp: number; reports: number }>(ex, sql`
@@ -348,8 +357,8 @@ export async function summarizeIncidents(ex: AnyDb, userId: string, r: DayRange)
         group by p.case_slug, c.title, c.topic order by max(p.created_at) desc limit 5`)
     return summary("incidents", r, lines, data, {
         numbers: [
-            { label: "cases completed", value: fmt(n(c?.done)) },
-            { label: "reports", value: fmt(n(c?.reports)) },
+            { label: pl(c?.done, "case completed", "cases completed"), value: fmt(n(c?.done)) },
+            { label: pl(c?.reports, "report", "reports"), value: fmt(n(c?.reports)) },
             { label: "XP", value: fmt(n(c?.xp)) },
         ],
         items: items.map((i) => ({
@@ -366,7 +375,7 @@ export async function summarizeIncidents(ex: AnyDb, userId: string, r: DayRange)
 
 export async function summarizeJobs(ex: AnyDb, userId: string, r: DayRange): Promise<ModuleSummary> {
     const lines: ChartLine[] = [
-        { key: "submitted", label: "Rounds submitted", kind: "count" },
+        { key: "submitted", label: "Rounds submitted", one: "Round submitted", kind: "count" },
         { key: "sent", label: "Results sent", kind: "count" },
     ]
     const [c] = await rows<{ runs: number; active: number; sent: number; saved: number; referrals: number }>(ex, sql`
@@ -395,9 +404,9 @@ export async function summarizeJobs(ex: AnyDb, userId: string, r: DayRange): Pro
         where h.user_id = ${userId} order by h.updated_at desc limit 5`)
     return summary("jobs", r, lines, data, {
         numbers: [
-            { label: "rounds in progress", value: fmt(n(c?.active)) },
+            { label: pl(c?.active, "round in progress", "rounds in progress"), value: fmt(n(c?.active)) },
             { label: "results sent", value: fmt(n(c?.sent)) },
-            { label: "referrals asked", value: fmt(n(c?.referrals)) },
+            { label: pl(c?.referrals, "referral asked", "referrals asked"), value: fmt(n(c?.referrals)) },
             { label: "saved", value: fmt(n(c?.saved)) },
         ],
         items: items.map((i) => ({
@@ -415,8 +424,8 @@ export async function summarizeJobs(ex: AnyDb, userId: string, r: DayRange): Pro
 
 export async function summarizeAiTools(ex: AnyDb, userId: string, r: DayRange): Promise<ModuleSummary> {
     const lines: ChartLine[] = [
-        { key: "resumes", label: "Resumes", kind: "count" },
-        { key: "letters", label: "Cover letters", kind: "count" },
+        { key: "resumes", label: "Resumes", one: "Resume", kind: "count" },
+        { key: "letters", label: "Cover letters", one: "Cover letter", kind: "count" },
     ]
     const [c] = await rows<{ resumes: number; letters: number; ats: number | null }>(ex, sql`
         select (select count(*)::int from resume_draft where user_id = ${userId}) as resumes,
@@ -438,8 +447,8 @@ export async function summarizeAiTools(ex: AnyDb, userId: string, r: DayRange): 
     const total = n(c?.resumes) + n(c?.letters)
     return summary("aiTools", r, lines, data, {
         numbers: [
-            { label: "resumes", value: fmt(n(c?.resumes)) },
-            { label: "cover letters", value: fmt(n(c?.letters)) },
+            { label: pl(c?.resumes, "resume", "resumes"), value: fmt(n(c?.resumes)) },
+            { label: pl(c?.letters, "cover letter", "cover letters"), value: fmt(n(c?.letters)) },
             { label: "best ATS score", value: c?.ats == null ? "-" : String(c.ats) },
         ],
         items: items.map((i) => ({
@@ -456,8 +465,8 @@ export async function summarizeAiTools(ex: AnyDb, userId: string, r: DayRange): 
 
 export async function summarizeKnowme(ex: AnyDb, userId: string, r: DayRange): Promise<ModuleSummary> {
     const lines: ChartLine[] = [
-        { key: "views", label: "Profile views", kind: "count" },
-        { key: "questions", label: "Questions asked", kind: "count" },
+        { key: "views", label: "Profile views", one: "Profile view", kind: "count" },
+        { key: "questions", label: "Questions asked", one: "Question asked", kind: "count" },
     ]
     const [p] = await rows<{ id: string; status: string; answered: number; visitors: number }>(ex, sql`
         select id, status, total_questions_answered as answered, total_visitors as visitors
@@ -494,8 +503,8 @@ export async function summarizeKnowme(ex: AnyDb, userId: string, r: DayRange): P
 
 export async function summarizeIdeas(ex: AnyDb, userId: string, r: DayRange): Promise<ModuleSummary> {
     const lines: ChartLine[] = [
-        { key: "posted", label: "Ideas posted", kind: "count" },
-        { key: "votes", label: "Votes cast", kind: "count" },
+        { key: "posted", label: "Ideas posted", one: "Idea posted", kind: "count" },
+        { key: "votes", label: "Votes cast", one: "Vote cast", kind: "count" },
     ]
     const [c] = await rows<{ posted: number; shipped: number; votes: number; upvotes: number }>(ex, sql`
         select count(*)::int as posted, count(*) filter (where status = 'COMPLETED')::int as shipped,
@@ -515,8 +524,8 @@ export async function summarizeIdeas(ex: AnyDb, userId: string, r: DayRange): Pr
         numbers: [
             { label: "posted", value: fmt(n(c?.posted)) },
             { label: "shipped", value: fmt(n(c?.shipped)) },
-            { label: "upvotes received", value: fmt(n(c?.upvotes)) },
-            { label: "votes cast", value: fmt(n(c?.votes)) },
+            { label: pl(c?.upvotes, "upvote received", "upvotes received"), value: fmt(n(c?.upvotes)) },
+            { label: pl(c?.votes, "vote cast", "votes cast"), value: fmt(n(c?.votes)) },
         ],
         items: items.map((i) => ({
             title: i.title,
@@ -544,23 +553,16 @@ export const SUMMARIZE: Record<ModuleKey, (ex: AnyDb, userId: string, r: DayRang
 
 // ─── XP ──────────────────────────────────────────────────────────────────────
 
-const PRACTICE_XP = sql`case p.difficulty when 'HARD' then 100 when 'MEDIUM' then 50 else 25 end`
-
 /**
- * XP per day from every source: the XP ledger (Pathfinder, incidents, feedback...), plus
- * practice, which pays by difficulty straight onto the user and never writes the ledger.
- * Signup and referral bonuses are left out: they are not work.
+ * XP per day from the activity ledger (plan/progress): every event records the XP it
+ * paid, so this is the same number the activity graph, the day sheet and a report's
+ * headline show. (It read the XP transactions before, which practice never writes, so the
+ * chart and the headlines disagreed.)
  */
 export async function xpRows(ex: AnyDb, userId: string, r: DayRange): Promise<Row[]> {
     return rows<Row>(ex, sql`
-        select d, 'xp' as k, sum(v)::int as v from (
-            select created_at::date::text as d, amount as v from xp_transaction
-            where user_id = ${userId} and amount > 0 and type <> 'SPEND' and ${within(sql`created_at`, r)}
-            union all
-            select s.completed_at::date::text, coalesce(nullif(s.xp_awarded, 0), ${PRACTICE_XP})
-            from practice_user_session s join practice_problem p on p.id = s.problem_id
-            where s.user_id = ${userId} and s.status = 'COMPLETED' and ${within(sql`s.completed_at`, r)}
-        ) x group by d`)
+        select date::text as d, 'xp' as k, total_xp_earned as v from daily_activity
+        where user_id = ${userId} and date >= ${r.from}::date and date <= ${r.to}::date and total_xp_earned > 0`)
 }
 
 export interface XpSummary {

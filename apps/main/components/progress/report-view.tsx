@@ -20,9 +20,9 @@ const PERIOD_WORD = { WEEKLY: "week", HALF_MONTHLY: "two weeks", MONTHLY: "month
 const PERIOD_CAPTION = { WEEKLY: "this week", HALF_MONTHLY: "these two weeks", MONTHLY: "this month" } as const;
 
 function change(v: number | null) {
-    if (v === null) return "nothing to compare with";
-    if (v === 0) return "same as the period before";
-    return `${v > 0 ? "+" : ""}${v}% vs the period before`;
+    if (v === null) return "none before";
+    if (v === 0) return "same as before";
+    return `${v > 0 ? "+" : ""}${v}% vs before`;
 }
 
 function minutes(m: number) {
