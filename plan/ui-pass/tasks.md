@@ -479,3 +479,81 @@ sizes or call sites use `rounded-full`.
 **Done when** `button.tsx` has no `rounded-xl`/`rounded-full`, a grep for
 `<Button[^>]*rounded-full` in `apps/main` is empty, and Home, profile and the resume
 hub look right in the browser.
+
+## UI-19 Line charts and the contribution graph as shared bases
+
+**Status:** built (2026-09-28); waiting on Niraj's look in the browser.
+
+**Why** (Niraj, 2026-09-28): "have this as base when we need to add the line charts"
+(`@ncdai/metrics-01`), and "use this for the contributions that we are showing on the
+home page" (`@ncdai/github-contributions`).
+
+**Files**
+- `packages/ui/src/components/charts/*` (the line chart and its helpers, from @bklit),
+  `metric.tsx`, `metrics-01.tsx` (the example card), `shimmering-text.tsx`.
+- `packages/ui/src/components/contribution-graph.tsx`, `github-contributions.tsx`,
+  `src/lib/get-cached-contributions.ts`.
+- `packages/ui/{components.json,package.json}`, `src/styles/globals.css`.
+- `apps/main/app/(main)/home/_components/activity-calendar.tsx`.
+
+**Steps, as done**
+1. `components.json`: the css path fixed (`src/styles/globals.css`); the `@ncdai` and
+   `@bklit` registries added.
+2. What the CLI got wrong, repaired: `src/...` imports made relative (apps resolve
+   `@repo/ui` through `exports`, where `src/` does not exist); `lib/utils.ts` restored
+   (it dropped `slugify`); `var(----` and self-referential `@theme` lines fixed; the
+   original `--chart-1` to `--chart-5` restored; `ui/tooltip.tsx` kept (the Base UI
+   `render` prop became `asChild`); `ui/spinner.tsx` removed (no spinners; it also
+   imported an unrelated npm package `cn`, removed with `radix-ui`); the fallback is a
+   Shimmer. `@types/d3-array` and `@types/d3-shape` added. Missing utilities
+   `no-scrollbar` and `scroll-fade-x` added.
+3. Palette: every new `--chart-*` token is chroma 0; chart defaults that pointed at
+   `--chart-1..5` (orange and friends) now use `--chart-line-primary` /
+   `--chart-line-secondary` / `--chart-foreground-muted`. Em dashes in the vendored
+   comments replaced.
+4. Home: `ActivityCalendar` draws with `ContributionGraph`. XP levels, the tooltip, the
+   day sheet on click (and Enter/Space), the streak and the skeleton are kept; the block
+   size is measured so a year fills the card (10 to 18px a block).
+
+**Edge cases** A new account (all days level 0) still shows a full, legible grid. Under
+about 690px of card width the graph scrolls sideways with faded edges. `motion` (v13,
+the charts) and `framer-motion` (v12, the rest) both stay; they do not share state.
+`github-contributions.tsx` needs `NEXT_PUBLIC_GITHUB_CONTRIBUTIONS_API_URL`, and is not
+used yet.
+
+**Done when** `tsc` is clean in `packages/ui` and `apps/main` (done 2026-09-28), and at
+1440px and 390px the Home activity card shows the full year, month labels, a working
+tooltip and day sheet, in both themes (Niraj).
+
+## UI-20 The glowing card and the badge card, as bases
+
+**Status:** built (2026-09-28); waiting on Niraj's look in the browser.
+
+**Why** (Niraj, 2026-09-28): "For the badge on the incidents and anywhere on the platform
+... creating this as base first inside the packages/ui ... so that later when we have to
+create the badge then we can use this as base" (`@ncdai/glow-card-grid`).
+
+**Files** `packages/ui/src/components/glow-card-grid.tsx` (`GlowCardGrid`, `GlowCard`),
+`packages/ui/src/components/badge-card.tsx` (`BadgeMedal`, `BadgeMedalStyles`,
+`BadgeGrid`, `BadgeCard`), `apps/main/components/incidents/badge-medal.tsx` (now only
+Incidents' glyphs), `apps/main/app/(main)/incidents/page.tsx`,
+`apps/main/content/incidents/badges.ts`, `apps/main/lib/incidents/stats.ts`.
+
+**Steps, as done**
+1. The CLI's import (`src/lib/utils`) made relative. `GlowCard` generalised: any `art`
+   and content, `glow={false}` for a flat card. Pointer tracking throttled to one frame and
+   off under reduced motion.
+2. `@container-size` needs Tailwind 4.2 (we have 4.1.18; the utility compiled to nothing),
+   and a size container on the card would stop it growing with its content. So the size
+   container is the absolute glow layer (`[container-type:size]`), which has the card's
+   size. Every other utility was compiled with 4.1.18 and checked.
+3. Monochrome (Niraj): the glow is the art's own light, ink and white. `BadgeGrid` tunes it:
+   brightening in dark mode, a darker, higher-contrast border in light mode.
+4. `BadgeCard`: earned glows, with "Earned <date>"; locked is flat and dashed, the medal an
+   outline, a progress bar where the rule has one. The medal moved from Incidents to
+   packages/ui.
+5. Incidents' Badges tab uses it, with earned dates and progress ("2 of 3 days").
+
+**Done when** `tsc` is clean in packages/ui and apps/main (done 2026-09-28), and in the
+browser an earned badge's border lights up where the pointer is in both themes, a locked
+one does not, and long descriptions are not cut off (Niraj).

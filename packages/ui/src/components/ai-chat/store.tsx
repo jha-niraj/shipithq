@@ -36,6 +36,12 @@ export interface AIPanelState {
 	isMaximized: boolean;
 	open: () => void;
 	close: () => void;
+	/**
+	 * Close without recording a choice: for code that closes the rail on the person's
+	 * behalf (signed out, leaving an incident case). `close()` is the person's own close
+	 * and is remembered; this is not, so the rail still opens by default next time.
+	 */
+	hide: () => void;
 	toggle: () => void;
 	setWidth: (width: number) => void;
 	toggleMaximized: () => void;
@@ -106,6 +112,7 @@ export function createAIPanelStore(name: string) {
 
 			open: () => set({ isOpen: true, closedByUser: false }),
 			close: () => set({ isOpen: false, isMaximized: false, closedByUser: true }),
+			hide: () => set({ isOpen: false, isMaximized: false }),
 			toggle: () => set((s) => ({ isOpen: !s.isOpen, closedByUser: s.isOpen, isMaximized: s.isOpen ? false : s.isMaximized })),
 			setWidth: (width) => set({ width: clampPanelWidth(width) }),
 			toggleMaximized: () => set((s) => ({ isMaximized: !s.isMaximized })),
@@ -232,13 +239,17 @@ export function createAIPanelStore(name: string) {
 			// there is nothing to import.
 			// v3: open by default, and 460 wide (plan/hiring-ui HU-1). A width still at an
 			// old default was never chosen, so it moves to the new one.
-			version: 3,
+			// v4: automatic closes (the signed-out guard, leaving an incident case) used to
+			// be saved as the person's choice, so the rail stopped opening by default after
+			// a sign-out (plan/home HOME-5). They use `hide()` now; the stored flag is
+			// cleared once.
+			version: 4,
 			migrate: (persisted, version) => {
 				const state = (persisted ?? {}) as { width?: number; sessions?: unknown; activeSessionId?: unknown; closedByUser?: boolean };
 				if (version < 3 && (state.width === undefined || PREVIOUS_DEFAULT_WIDTHS.includes(state.width))) {
 					state.width = AI_DEFAULT_WIDTH;
 				}
-				if (version < 3) state.closedByUser = false;
+				if (version < 4) state.closedByUser = false;
 				if (version < 2) {
 					delete state.sessions;
 					// A local id was never a server id.

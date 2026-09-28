@@ -41,6 +41,28 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    --chart-background: oklch(1 0 0);
+    --chart-foreground: oklch(0.145 0 0);
+    --chart-foreground-muted: oklch(0.55 0 0);
+    /* Monochrome lines (the palette rule): not --chart-1, which is orange. */
+    --chart-line-primary: oklch(0.205 0 0);
+    --chart-line-secondary: oklch(0.556 0 0);
+    --chart-crosshair: oklch(0.4 0 0);
+    --chart-grid: oklch(0.9 0 0);
+    --chart-brush-border: var(--chart-grid);
+    --chart-tooltip-background: oklch(0.21 0 0 / 0.8);
+    --chart-tooltip-foreground: oklch(0.985 0 0);
+    --chart-tooltip-muted: oklch(0.65 0 0);
+    --chart-marker-background: oklch(0.97 0 0);
+    --chart-marker-border: oklch(0.85 0 0);
+    --chart-marker-foreground: oklch(0.3 0 0);
+    --chart-label: oklch(0.45 0 0);
+    --chart-scale-01: oklch(0.98 0 0);
+    --chart-scale-02: oklch(0.92 0 0);
+    --chart-scale-03: oklch(0.82 0 0);
+    --chart-scale-04: oklch(0.68 0 0);
+    --chart-scale-05: oklch(0.55 0 0);
+    --chart-scale-pattern-color: oklch(0.96 0 0);
 }
 
 .dark {
@@ -76,6 +98,24 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(0.269 0 0);
     --sidebar-ring: oklch(0.439 0 0);
+    --chart-background: oklch(0.145 0 0);
+    --chart-line-primary: oklch(0.985 0 0);
+    --chart-line-secondary: oklch(0.556 0 0);
+    --chart-foreground: oklch(0.45 0 0);
+    --chart-foreground-muted: oklch(0.65 0 0);
+    --chart-crosshair: oklch(0.45 0 0);
+    --chart-grid: oklch(0.25 0 0);
+    --chart-brush-border: var(--chart-grid);
+    --chart-marker-background: oklch(0.25 0 0);
+    --chart-marker-border: oklch(0.4 0 0);
+    --chart-marker-foreground: oklch(0.9 0 0);
+    --chart-label: oklch(0.75 0 0);
+    --chart-scale-01: oklch(0.28 0 0);
+    --chart-scale-02: oklch(0.38 0 0);
+    --chart-scale-03: oklch(0.48 0 0);
+    --chart-scale-04: oklch(0.58 0 0);
+    --chart-scale-05: oklch(0.68 0 0);
+    --chart-scale-pattern-color: oklch(0.145 0 0);
 }
 
 /* ── Page gutter ────────────────────────────────────────────────────────────
@@ -167,6 +207,25 @@
        the build log for "Failed to download Bricolage Grotesque" before looking
        anywhere else. Self-hosting via next/font/local removes that failure mode. */
     --font-display-family: var(--font-display), var(--font-space-grotesk), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+    --color-line: color-mix(in oklab, var(--border) 64%, var(--background));
+    --color-chart-scale-pattern-color: var(--chart-scale-pattern-color);
+    --color-chart-scale-05: var(--chart-scale-05);
+    --color-chart-scale-04: var(--chart-scale-04);
+    --color-chart-scale-03: var(--chart-scale-03);
+    --color-chart-scale-02: var(--chart-scale-02);
+    --color-chart-scale-01: var(--chart-scale-01);
+    --color-chart-label: var(--chart-label);
+    --color-chart-marker-foreground: var(--chart-marker-foreground);
+    --color-chart-marker-border: var(--chart-marker-border);
+    --color-chart-marker-background: var(--chart-marker-background);
+    --color-chart-tooltip-muted: var(--chart-tooltip-muted);
+    --color-chart-tooltip-foreground: var(--chart-tooltip-foreground);
+    --color-chart-tooltip-background: var(--chart-tooltip-background);
+    --color-chart-grid: var(--chart-grid);
+    --color-chart-crosshair: var(--chart-crosshair);
+    --color-chart-foreground-muted: var(--chart-foreground-muted);
+    --color-chart-foreground: var(--chart-foreground);
+    --color-chart-background: var(--chart-background);
 }
 
 @layer base {
@@ -825,7 +884,6 @@ html[data-theme-transition] .theme-vt-glass {
     }
 }
 
-
 /* ── Typography ───────────────────────────────────────────────────────────────
    Every h1-h6 and the sidebar use the display face. h4-h6 were missing, so a
    card title or a small section label rendered in the body face while the h2
@@ -1235,7 +1293,6 @@ h1, h2, h3, h4, h5, h6,
     }
 }
 
-
 /* ── Razorpay Checkout backdrop ──────────────────────────────────────────────
    Checkout injects `.razorpay-container > .razorpay-backdrop` into OUR document
    and then sets its background from `theme.backdrop_color`, via
@@ -1296,7 +1353,6 @@ h1, h2, h3, h4, h5, h6,
         transition: none;
     }
 }
-
 
 /* ─────────────────────────────────────────────────────────────────────────────
    The auth form's controls (plan/auth AUTH-6; Niraj, 2026-09-26: the inputs and
@@ -1379,7 +1435,6 @@ h1, h2, h3, h4, h5, h6,
     .auth-form :is(button, a):active { transform: none; }
 }
 
-
 /* ─────────────────────────────────────────────────────────────────────────────
    Pointer cursor on everything clickable (Niraj, 2026-09-26: "on the buttons like
    tab, it needs to be a cursor pointer, add it in the base itself"). Tailwind v4's
@@ -1405,4 +1460,28 @@ h1, h2, h3, h4, h5, h6,
     [aria-disabled="true"] {
         cursor: not-allowed;
     }
+}
+
+@utility screen-line-top {
+    @apply relative before:absolute before:top-0 before:left-[-100vw] before:-z-1 before:h-px before:w-[200vw] before:bg-line;
+}
+
+@utility screen-line-bottom {
+    @apply relative after:absolute after:bottom-0 after:left-[-100vw] after:-z-1 after:h-px after:w-[200vw] after:bg-line;
+}
+
+@utility link-underline {
+    @apply underline decoration-current/30 decoration-1 underline-offset-3 transition-colors hover:decoration-current;
+}
+/* Scrolls without showing a bar (the contribution graph, plan/ui-pass UI-19). */
+@utility no-scrollbar {
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* Fades both horizontal edges of a scroller, so a clipped row reads as "more this way". */
+@utility scroll-fade-x {
+    mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
 }

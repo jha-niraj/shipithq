@@ -151,7 +151,8 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
         useLead.getState().setTab("lead")
         if (store.isOpen) return
         store.open()
-        return () => { if (useAIPanelStore.getState().isOpen) useAIPanelStore.getState().close() }
+        // `hide`, not `close`: leaving a case is not the reader turning the rail off.
+        return () => { if (useAIPanelStore.getState().isOpen) useAIPanelStore.getState().hide() }
     }, [desktop])
 
     useEffect(() => {

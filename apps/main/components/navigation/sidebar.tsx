@@ -46,7 +46,9 @@ export default function Sidebar({ primary }: { primary?: NavigationItem[] } = {}
     // reader. The assistant needs a session: signed out, its button goes to sign-in and
     // back, and a rail left open from an earlier session is closed.
     const pathname = usePathname()
-    const closeAI = useAIPanelStore((s) => s.close)
+    // `hide`, not `close`: this is not the person closing it, so it must not be
+    // remembered as their choice (plan/home HOME-5).
+    const closeAI = useAIPanelStore((s) => s.hide)
     const signedOut = !isPending && !userId
     // Except on an incident case: there the rail is the incident lead, which shows a
     // signed-out reader how to sign in to ask (plan/incidents INC-48, Niraj 2026-09-27).
