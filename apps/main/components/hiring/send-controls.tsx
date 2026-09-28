@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@repo/ui/components/ui/button"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { setStudentOutcome, withdrawSend } from "@/actions/hiring/send.action"
@@ -15,26 +16,30 @@ import { setStudentOutcome, withdrawSend } from "@/actions/hiring/send.action"
 
 export const OUTCOMES: Record<string, string> = { INTERVIEWING: "Interviewing", OFFER: "Offer", HIRED: "Hired", NOT_SELECTED: "Not selected" }
 
-/** Withdraw, with a Keep it / Withdraw confirm in place. */
+/** Withdraw, confirmed in a dialog first. */
 export function WithdrawButton({ sendId }: { sendId: string }) {
     const router = useRouter()
     const [confirm, setConfirm] = useState(false)
-    const [busy, setBusy] = useState(false)
     const withdraw = async () => {
-        setBusy(true)
         const r = await withdrawSend(sendId)
-        setBusy(false)
-        if (!r.success) { toast.error(r.error); return }
+        if (!r.success) { toast.error(r.error); throw new Error(r.error) }
         toast.success("Withdrawn. The company no longer sees it.")
-        setConfirm(false)
         router.refresh()
     }
-    if (!confirm) return <Button variant="outline" size="sm" onClick={() => setConfirm(true)}>Withdraw</Button>
     return (
-        <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setConfirm(false)} disabled={busy}>Keep it</Button>
-            <Button variant="outline" size="sm" onClick={() => void withdraw()} disabled={busy} className="gap-1.5">{busy && <InlineLoader size="sm" />} Withdraw</Button>
-        </div>
+        <>
+            <Button variant="outline" size="sm" onClick={() => setConfirm(true)}>Withdraw</Button>
+            <ConfirmDialog
+                open={confirm}
+                onOpenChange={setConfirm}
+                title="Withdraw your results?"
+                description="The company stops seeing your results for this role straight away and is told you withdrew. This cannot be undone."
+                confirmLabel="Withdraw"
+                cancelLabel="Keep it"
+                tone="danger"
+                onConfirm={withdraw}
+            />
+        </>
     )
 }
 

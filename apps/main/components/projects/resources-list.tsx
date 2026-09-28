@@ -18,6 +18,7 @@ import { formatDistanceToNow } from 'date-fns'
 import AddResourceSheet from './add-resource-sheet'
 import { HoverSelect } from './hover-select'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 
 const RESOURCE_TYPES = [
     { value: 'ALL', label: 'All Resources', icon: FileText },
@@ -145,6 +146,7 @@ export default function ResourcesList({ projectId, currentUserId, isCreator }: R
      * row sat there looking undeleted, and a failed vote was silent.
      */
     const [busyId, setBusyId] = useState<string | null>(null)
+    const [pendingDelete, setPendingDelete] = useState<string | null>(null)
 
     const handleToggleHelpful = async (resourceId: string) => {
         if (!currentUserId) {
@@ -171,7 +173,6 @@ export default function ResourcesList({ projectId, currentUserId, isCreator }: R
     }
 
     const handleDelete = async (resourceId: string) => {
-        if (!confirm('Are you sure you want to delete this resource?')) return
         if (busyId) return
         setBusyId(resourceId)
         try {
@@ -285,7 +286,7 @@ export default function ResourcesList({ projectId, currentUserId, isCreator }: R
                                         {resource.helpfulCount}
                                     </Button>
                                     {canDelete && (
-                                        <Button variant="ghost" size="sm" disabled={busy} aria-label="Delete this resource" onClick={() => handleDelete(resource.id)} className="h-7 w-7 p-0">
+                                        <Button variant="ghost" size="sm" disabled={busy} aria-label="Delete this resource" onClick={() => setPendingDelete(resource.id)} className="h-7 w-7 p-0">
                                             <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
                                     )}
@@ -295,6 +296,15 @@ export default function ResourcesList({ projectId, currentUserId, isCreator }: R
                     })}
                 </ul>
             )}
+            <ConfirmDialog
+                open={pendingDelete !== null}
+                onOpenChange={(open) => { if (!open) setPendingDelete(null) }}
+                title="Delete this resource?"
+                description="It is removed from this project for everyone. This cannot be undone."
+                confirmLabel="Delete"
+                tone="danger"
+                onConfirm={async () => { if (pendingDelete) await handleDelete(pendingDelete) }}
+            />
         </div>
     )
 }

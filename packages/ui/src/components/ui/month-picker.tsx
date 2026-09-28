@@ -47,9 +47,13 @@ function parseLocal(iso: string | undefined | null): Date | undefined {
     return new Date(year, month, 1)
 }
 
-/** A local Date -> `YYYY-MM-01`. Hand-formatted; `toISOString()` would shift the day. */
-function formatIso(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`
+/**
+ * A local Date -> `YYYY-MM-01` (or `YYYY-MM`, the shape `<input type="month">` produced).
+ * Hand-formatted; `toISOString()` would shift the day.
+ */
+function formatIso(d: Date, format: MonthPickerFormat): string {
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+    return format === "YYYY-MM" ? ym : `${ym}-01`
 }
 
 /** What the trigger shows. */
@@ -57,11 +61,22 @@ function label(d: Date): string {
     return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`
 }
 
+export type MonthPickerFormat = "YYYY-MM-01" | "YYYY-MM"
+
 export interface MonthPickerProps {
-    /** ISO date string. Only the year and month are read. */
+    /** ISO date string, or `YYYY-MM`. Only the year and month are read. */
     value?: string | null
-    /** Emits `YYYY-MM-01`, or `undefined` when cleared. */
+    /** Emits `YYYY-MM-01` (or `YYYY-MM`, see `format`), or `undefined` when cleared. */
     onChange: (value: string | undefined) => void
+    /**
+     * The shape `onChange` emits. `YYYY-MM-01` (the default, what the resume and profile
+     * store) or `YYYY-MM` (what a replaced `<input type="month">` held).
+     */
+    format?: MonthPickerFormat
+    /** Earliest selectable month, `YYYY-MM` (a full date is accepted; only Y and M are read). */
+    min?: string
+    /** Latest selectable month, `YYYY-MM` (a full date is accepted; only Y and M are read). */
+    max?: string
     placeholder?: string
     disabled?: boolean
     className?: string
@@ -77,10 +92,22 @@ export function MonthPicker({
     disabled,
     className,
     clearable = true,
+    format = "YYYY-MM-01",
+    min,
+    max,
     "aria-label": ariaLabel,
 }: MonthPickerProps) {
     const [open, setOpen] = React.useState(false)
     const selected = parseLocal(value)
+    const minMonth = parseLocal(min)
+    const maxMonth = parseLocal(max)
+    // The day grid is still a day grid, so the range is stated in days: from the first of
+    // the min month to the last of the max month (day 0 of the next month).
+    const lastOfMax = maxMonth ? new Date(maxMonth.getFullYear(), maxMonth.getMonth() + 1, 0) : undefined
+    const disabledDays = [
+        ...(minMonth ? [{ before: minMonth }] : []),
+        ...(lastOfMax ? [{ after: lastOfMax }] : []),
+    ]
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -128,19 +155,23 @@ export function MonthPicker({
                 <Calendar
                     mode="single"
                     selected={selected}
-                    defaultMonth={selected}
+                    defaultMonth={selected ?? (maxMonth && new Date() > maxMonth ? maxMonth : undefined)}
                     // Dropdowns rather than one-month-at-a-time arrows: a resume routinely
                     // reaches back years, and paging there by hand is the thing that makes
                     // a date picker feel broken.
                     captionLayout="dropdown"
-                    startMonth={new Date(1970, 0)}
-                    endMonth={new Date(new Date().getFullYear() + 10, 11)}
+                    startMonth={minMonth ?? new Date(1970, 0)}
+                    endMonth={maxMonth ?? new Date(new Date().getFullYear() + 10, 11)}
+                    disabled={disabledDays}
                     onSelect={(d) => {
-                        if (!d) return
+                        if (!d) {
+                            setOpen(false)
+                            return
+                        }
                         // Normalised to the first of the month: the day is never displayed,
                         // and storing whichever day happened to be clicked makes two equal
                         // months compare unequal.
-                        onChange(formatIso(new Date(d.getFullYear(), d.getMonth(), 1)))
+                        onChange(formatIso(new Date(d.getFullYear(), d.getMonth(), 1), format))
                         setOpen(false)
                     }}
                 />

@@ -16,6 +16,7 @@ import {
 import { Label } from '@repo/ui/components/ui/label'
 import { Slider } from '@repo/ui/components/ui/slider'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { TimePicker } from '@repo/ui/components/ui/time-picker'
 
 interface DailyStandupSheetProps {
     isOpen: boolean
@@ -332,11 +333,10 @@ export default function DailyStandupSheet({
                                     <Clock className="w-4 h-4 inline mr-2" />
                                     Preferred Time
                                 </Label>
-                                <input
-                                    type="time"
+                                <TimePicker
                                     value={standupTime}
-                                    onChange={(e) => setStandupTime(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white"
+                                    onChange={setStandupTime}
+                                    aria-label="Preferred time"
                                 />
                                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
                                     Choose a time that works best for you

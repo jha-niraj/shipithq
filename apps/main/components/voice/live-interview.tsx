@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Mic, MicOff, PhoneOff, RotateCcw, SendHorizontal } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { cn } from "@repo/ui/lib/utils"
@@ -136,6 +137,8 @@ function VoiceInterview({ voiceRef, config, initialTurns, ending, onHandIn, onTy
     const handIn = useCallback(async () => {
         if (handedIn.current) return
         handedIn.current = true
+        // Time up while the end dialog is open: it closes, the hand-in doesn't wait on it.
+        setConfirmEnd(false)
         setHandingIn(true)
         stopping.current = true
         await agent.current?.stop().catch(() => undefined)
@@ -236,19 +239,21 @@ function VoiceInterview({ voiceRef, config, initialTurns, ending, onHandIn, onTy
                         <Button variant="outline" onClick={toggleMute} className="gap-1.5" aria-pressed={muted}>
                             {muted ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />} {muted ? "Unmute" : "Mute"}
                         </Button>
-                        {confirmEnd ? (
-                            <>
-                                <Button variant="ghost" onClick={() => setConfirmEnd(false)}>Keep going</Button>
-                                <Button onClick={() => void handIn()} className="gap-1.5"><PhoneOff className="h-4 w-4" /> End and hand in</Button>
-                            </>
-                        ) : (
-                            <Button variant="outline" onClick={() => setConfirmEnd(true)} className="gap-1.5"><PhoneOff className="h-4 w-4" /> End</Button>
-                        )}
+                        <Button variant="outline" onClick={() => setConfirmEnd(true)} className="gap-1.5"><PhoneOff className="h-4 w-4" /> End</Button>
                     </div>
                 )}
                 {(state === "idle" || state === "error") && (connectedOnce || turns.length > 0) && !handingIn && (
                     <Button variant="ghost" onClick={() => void handIn()}>End and hand in</Button>
                 )}
+                <ConfirmDialog
+                    open={confirmEnd}
+                    onOpenChange={setConfirmEnd}
+                    title="End the interview?"
+                    description="The call ends and what you've said so far is handed in for scoring. You can't pick it up again."
+                    confirmLabel="End and hand in"
+                    cancelLabel="Keep going"
+                    onConfirm={() => { void handIn() }}
+                />
             </section>
             <aside className="flex min-h-0 flex-col border-t border-neutral-200 bg-neutral-50 lg:max-h-[calc(100dvh-3.5rem)] lg:border-l lg:border-t-0 dark:border-neutral-800 dark:bg-neutral-950">
                 <p className="border-b border-neutral-200 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-neutral-500 dark:border-neutral-800">Transcript</p>

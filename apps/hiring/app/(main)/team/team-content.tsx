@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
@@ -51,6 +52,7 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
     const [isPending, startTransition] = useTransition()
 
     const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+    const [pendingRemove, setPendingRemove] = useState<TeamMember | null>(null)
     const [inviteEmail, setInviteEmail] = useState("")
     // Invites carry one of the company's roles (plan/hiring-app HA-8). Only an
     // Owner may invite an Owner. Recruiter is the default when it exists.
@@ -121,8 +123,6 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
     }
 
     const handleRemoveMember = async (memberId: string) => {
-        if (!confirm("Are you sure you want to remove this team member?")) return
-
         startTransition(async () => {
             const result = await removeTeamMember(memberId)
             if (result.success) {
@@ -373,7 +373,7 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
                                                                 }
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem
-                                                                    onClick={() => handleRemoveMember(member.id)}
+                                                                    onClick={() => setPendingRemove(member)}
                                                                     className="text-rose-600 focus:text-rose-600"
                                                                 >
                                                                     <UserMinus className="w-4 h-4 mr-2" />
@@ -424,6 +424,15 @@ export function TeamContent({ initialMembers, initialInvites, stats, canManageTe
                     </motion.div>
                 )
             }
+            <ConfirmDialog
+                open={pendingRemove !== null}
+                onOpenChange={(open) => { if (!open) setPendingRemove(null) }}
+                title="Remove this team member?"
+                description={`${pendingRemove?.user.name || pendingRemove?.user.email || "They"} loses access to this company's hiring straight away. You can invite them again later.`}
+                confirmLabel="Remove"
+                tone="danger"
+                onConfirm={() => { if (pendingRemove) void handleRemoveMember(pendingRemove.id) }}
+            />
         </div>
     )
 }

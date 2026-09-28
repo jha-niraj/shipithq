@@ -12,6 +12,7 @@ import {
 } from '@repo/ui/components/ui/sheet'
 import { Button } from '@repo/ui/components/ui/button'
 import { Input } from '@repo/ui/components/ui/input'
+import { DateTimePicker, todayLocal } from '@repo/ui/components/ui/date-time-picker'
 import { Textarea } from '@repo/ui/components/ui/textarea'
 import { Label } from '@repo/ui/components/ui/label'
 import { Progress } from '@repo/ui/components/ui/progress'
@@ -743,10 +744,12 @@ export default function TeacherProjectGenerateSheet({
                                                                     <Calendar className="w-4 h-4" />
                                                                     Deadline (Optional)
                                                                 </Label>
-                                                                <Input
-                                                                    type="datetime-local"
+                                                                <DateTimePicker
                                                                     value={formData.deadline}
-                                                                    onChange={(e) => updateFormData('deadline', e.target.value)}
+                                                                    onChange={(v) => updateFormData('deadline', v ?? '')}
+                                                                    min={todayLocal()}
+                                                                    defaultTime="23:59"
+                                                                    aria-label="Deadline"
                                                                 />
                                                             </div>
                                                             <div className="space-y-2">

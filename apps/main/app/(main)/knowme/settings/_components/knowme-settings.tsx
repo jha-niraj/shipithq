@@ -32,6 +32,7 @@ import {
 } from "@/actions/(main)/knowme";
 import CodeEditor from "@/components/main/code-editor";
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog";
 import { absoluteUrl } from "@/lib/urls";
 
 interface KnowMeSettingsProps {
@@ -74,6 +75,8 @@ export default function KnowMeSettings({ profile, apiConfig, initialTab }: KnowM
     const [showApiKey, setShowApiKey] = useState(false);
     const [apiKeyCopied, setApiKeyCopied] = useState(false);
     const [apiEnabled, setApiEnabled] = useState(apiConfig?.apiEnabled || false);
+
+    const [confirmDelete, setConfirmDelete] = useState(false);
 
     // Loading states
     const [isSaving, setIsSaving] = useState(false);
@@ -162,10 +165,6 @@ export default function KnowMeSettings({ profile, apiConfig, initialTab }: KnowM
     };
 
     const handleDeleteProfile = async () => {
-        if (!confirm("Are you sure? This will delete your KnowMe profile and all associated data. This action cannot be undone.")) {
-            return;
-        }
-
         setIsDeleting(true);
         try {
             const result = await deleteKnowMeProfile();
@@ -632,7 +631,7 @@ export default function KnowMeSettings({ profile, apiConfig, initialTab }: KnowM
                                 </p>
                                 <Button
                                     variant="destructive"
-                                    onClick={handleDeleteProfile}
+                                    onClick={() => setConfirmDelete(true)}
                                     disabled={isDeleting}
                                     className="gap-2"
                                 >
@@ -645,6 +644,15 @@ export default function KnowMeSettings({ profile, apiConfig, initialTab }: KnowM
                                     }
                                     Delete Profile
                                 </Button>
+                                <ConfirmDialog
+                                    open={confirmDelete}
+                                    onOpenChange={setConfirmDelete}
+                                    title="Delete your KnowMe profile?"
+                                    description="Your KnowMe profile and all its data are deleted, and its public page stops working. This cannot be undone."
+                                    confirmLabel="Delete profile"
+                                    tone="danger"
+                                    onConfirm={handleDeleteProfile}
+                                />
                             </div>
                         </motion.div>
                     </TabsContent>

@@ -8,6 +8,7 @@ import {
     CheckCircle, LayoutGrid, List
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
@@ -62,6 +63,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
     const [search, setSearch] = useState("")
     const [statusFilter, setStatusFilter] = useState<string>("all")
     const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+    const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null)
     const [isPending, startTransition] = useTransition()
 
     const filteredJobs = jobs.filter(job => {
@@ -107,8 +109,6 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
     }
 
     const handleDelete = async (jobId: string) => {
-        if (!confirm("Are you sure you want to delete this job? This action cannot be undone.")) return
-
         startTransition(async () => {
             const result = await deleteJob(jobId)
             if (result.success) {
@@ -335,7 +335,7 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
-                                                        onClick={() => handleDelete(job.id)}
+                                                        onClick={() => setPendingDelete(job)}
                                                         disabled={isPending}
                                                         className="text-rose-600 focus:text-rose-600"
                                                     >
@@ -379,6 +379,15 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                     </motion.div>
                 )
             }
+            <ConfirmDialog
+                open={pendingDelete !== null}
+                onOpenChange={(open) => { if (!open) setPendingDelete(null) }}
+                title="Delete this job?"
+                description={`${pendingDelete?.title ? `"${pendingDelete.title}"` : "The job"} and its posting are deleted, and candidates can no longer see it. This cannot be undone.`}
+                confirmLabel="Delete job"
+                tone="danger"
+                onConfirm={() => { if (pendingDelete) void handleDelete(pendingDelete.id) }}
+            />
         </div>
     )
 }

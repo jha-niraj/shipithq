@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StudioViewer } from "./viewer/studio-viewer";
 import { AIInputPanel } from "./ui/ai-input-panel";
 import { Button } from "@repo/ui/components/ui/button";
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog";
 import {
 	ArrowLeft, MoreVertical, Trash2
 } from "lucide-react";
@@ -29,6 +30,7 @@ export function StudioContainer({
 	backUrl = "/studio",
 }: StudioContainerProps) {
 	const router = useRouter();
+	const [confirmDelete, setConfirmDelete] = useState(false);
 
 	// Initialize the Zustand store with the studio data
 	const initialize = useStudioStore((s) => s.initialize);
@@ -41,10 +43,6 @@ export function StudioContainer({
 	const displayStudio = storeStudio || studio;
 
 	const handleDelete = async () => {
-		if (!confirm("Are you sure you want to delete this studio? This action cannot be undone.")) {
-			return;
-		}
-
 		const result = await deleteStudio(displayStudio.id);
 		if (result.success) {
 			toast.success("Studio deleted");
@@ -113,7 +111,7 @@ export function StudioContainer({
 								</DropdownMenuItem>
 								<DropdownMenuSeparator />
 								<DropdownMenuItem
-									onClick={handleDelete}
+									onClick={() => setConfirmDelete(true)}
 									className="text-red-600 dark:text-red-400"
 								>
 									<Trash2 className="h-4 w-4 mr-2" />
@@ -121,6 +119,15 @@ export function StudioContainer({
 								</DropdownMenuItem>
 							</DropdownMenuContent>
 						</DropdownMenu>
+						<ConfirmDialog
+							open={confirmDelete}
+							onOpenChange={setConfirmDelete}
+							title="Delete this studio?"
+							description="The studio and all its steps are deleted. This cannot be undone."
+							confirmLabel="Delete studio"
+							tone="danger"
+							onConfirm={handleDelete}
+						/>
 					</div>
 				</div>
 			</div>

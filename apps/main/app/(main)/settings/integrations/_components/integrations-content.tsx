@@ -26,6 +26,7 @@ import {
     getGitHubProfile, disconnectGitHub, syncGitHubContributions
 } from '@/actions/(main)/user/integrations.action'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
 
 interface Connection {
@@ -89,6 +90,7 @@ export function IntegrationsContent({ socialConnections }: IntegrationsContentPr
     const [loading, setLoading] = useState(true)
     const [syncing, setSyncing] = useState(false)
     const [githubDisconnecting, setGithubDisconnecting] = useState(false)
+    const [confirmGithubDisconnect, setConfirmGithubDisconnect] = useState(false)
 
     useEffect(() => {
         loadGitHubProfile()
@@ -151,7 +153,6 @@ export function IntegrationsContent({ socialConnections }: IntegrationsContentPr
     }
 
     const handleDisconnectGitHub = async () => {
-        if (!confirm('Disconnect GitHub? Your contribution data will be preserved.')) return
         setGithubDisconnecting(true)
         try {
             const result = await disconnectGitHub()
@@ -224,7 +225,7 @@ export function IntegrationsContent({ socialConnections }: IntegrationsContentPr
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={handleDisconnectGitHub}
+                                    onClick={() => setConfirmGithubDisconnect(true)}
                                     disabled={githubDisconnecting}
                                     className="text-red-600 hover:text-red-700"
                                 >
@@ -344,6 +345,15 @@ export function IntegrationsContent({ socialConnections }: IntegrationsContentPr
                     })}
                 </CardContent>
             </Card>
+
+            <ConfirmDialog
+                open={confirmGithubDisconnect}
+                onOpenChange={setConfirmGithubDisconnect}
+                title="Disconnect GitHub?"
+                description="Contributions stop syncing from GitHub. The contribution data already here is kept, and you can connect again at any time."
+                confirmLabel="Disconnect"
+                onConfirm={handleDisconnectGitHub}
+            />
 
             <AlertDialog
                 open={confirmDialog.open}

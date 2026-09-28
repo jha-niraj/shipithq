@@ -17,6 +17,7 @@ import { Label } from '@repo/ui/components/ui/label'
 import { Textarea } from '@repo/ui/components/ui/textarea'
 import toast from '@repo/ui/components/ui/sonner'
 import { InlineLoader } from '@repo/ui/components/ui/inline-loader'
+import { ConfirmDialog } from '@repo/ui/components/ui/confirm-dialog'
 import { cn } from '@repo/ui/lib/utils'
 import { publishProject, startProject, submitProject } from '@/actions/(main)/projects/project.action'
 import type { ProjectDetailsClientProps, ProjectV2Sprint } from '@/types/project'
@@ -587,43 +588,35 @@ function CopyCommand({ text }: { text: string }) {
 }
 
 /*
- * "Make public" (PJ-18). One way, so it asks first - in place, not in a browser
- * confirm() dialog - and says what it does where the button is.
+ * "Make public" (PJ-18). One way, so it asks first in a dialog that says what it does.
  */
 function MakePublicButton({ projectId }: { projectId: string }) {
     const router = useRouter()
     const [confirming, setConfirming] = useState(false)
-    const [busy, setBusy] = useState(false)
 
     const publish = async () => {
-        setBusy(true)
         const result = await publishProject(projectId)
-        setBusy(false)
         if (result.success) {
             toast.success('Your project is public.')
             router.refresh()
         } else {
             toast.error(result.error || 'Could not publish')
-            setConfirming(false)
         }
     }
 
-    if (!confirming) {
-        return (
+    return (
+        <>
             <Button variant="outline" className="w-full gap-2" onClick={() => setConfirming(true)}>
                 <Globe className="h-4 w-4" /> Make public
             </Button>
-        )
-    }
-    return (
-        <div className="space-y-2 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                Others will see the sprints and tasks as they are now and can enrol in their own copy. Anything you add later stays yours. This cannot be undone.
-            </p>
-            <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => setConfirming(false)} disabled={busy}>Cancel</Button>
-                <Button size="sm" className="flex-1" onClick={publish} disabled={busy}>{busy ? <InlineLoader size="sm" /> : 'Publish'}</Button>
-            </div>
-        </div>
+            <ConfirmDialog
+                open={confirming}
+                onOpenChange={setConfirming}
+                title="Make this project public?"
+                description="Others will see the sprints and tasks as they are now and can enrol in their own copy. Anything you add later stays yours. This cannot be undone."
+                confirmLabel="Publish"
+                onConfirm={publish}
+            />
+        </>
     )
 }
