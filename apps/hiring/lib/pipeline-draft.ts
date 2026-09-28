@@ -70,6 +70,7 @@ export function normalisePipelineDraft(raw: unknown, fallbackName: string): Norm
                 timeLimitMinutes: clamp(x.timeLimitMinutes, 10, 90, t === "APTITUDE" ? 25 : t.startsWith("VOICE_") ? 20 : 45),
                 drawCount: t === "APTITUDE" ? clamp(x.drawCount, 10, 25, 20) : 1,
                 cooldownHours: 24,
+                reviewMode: "FULL",
                 responseMode: t.startsWith("VOICE_") ? "EITHER" : "TYPED",
                 rubric: voice.rubric,
                 mockKnowledgeBase: voice.mockKnowledgeBase,

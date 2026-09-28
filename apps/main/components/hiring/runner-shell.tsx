@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { X } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 import { cn } from "@repo/ui/lib/utils"
 import type { RunnerAttempt } from "@/actions/hiring/run.action"
 
@@ -67,15 +68,18 @@ export function RunnerShell({ attempt, remaining, answered, total, onExit, child
                     )}
                     {showProgress && <span className="hidden text-sm tabular-nums text-neutral-500 sm:inline dark:text-neutral-400">{answered ?? 0}/{total}</span>}
                     {onExit && (
-                        confirmExit ? (
-                            <div className="flex items-center gap-1.5">
-                                <span className="hidden text-xs text-neutral-600 md:inline dark:text-neutral-300">The timer keeps running.</span>
-                                <Button size="sm" variant="ghost" onClick={() => setConfirmExit(false)}>Stay</Button>
-                                <Button size="sm" variant="outline" onClick={onExit}>Leave</Button>
-                            </div>
-                        ) : (
+                        <>
                             <Button size="sm" variant="ghost" className="gap-1" onClick={() => setConfirmExit(true)} aria-label="Exit the round"><X className="h-4 w-4" /> Exit</Button>
-                        )
+                            <ConfirmDialog
+                                open={confirmExit}
+                                onOpenChange={setConfirmExit}
+                                title="Leave the round?"
+                                description="Your answers are saved, but the timer keeps running while you're away. Come back before it ends, or what's saved is handed in."
+                                confirmLabel="Leave"
+                                cancelLabel="Stay"
+                                onConfirm={onExit}
+                            />
+                        </>
                     )}
                 </div>
                 {showProgress && (

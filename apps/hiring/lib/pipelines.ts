@@ -78,6 +78,7 @@ export async function pipelineReadiness(processId: string): Promise<string[]> {
             timeLimitMinutes: r.timeLimitMinutes ?? r.durationMinutes ?? 0,
             drawCount: r.drawCount,
             cooldownHours: r.cooldownHours,
+            reviewMode: r.reviewMode,
             responseMode: r.responseMode,
             rubric: Array.isArray(r.rubric) ? (r.rubric as RoundDraft["rubric"]) : null,
             mockKnowledgeBase: r.mockKnowledgeBase,

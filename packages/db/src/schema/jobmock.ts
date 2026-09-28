@@ -47,6 +47,13 @@ export const poolItemStatusEnum = pgEnum("pool_item_status", ["LIVE", "DRAFT"]);
 export const roundGateModeEnum = pgEnum("round_gate_mode", ["HARD", "ADVISORY"]);
 /** How a voice round may be answered (HR-16). */
 export const roundResponseModeEnum = pgEnum("round_response_mode", ["VOICE", "TYPED", "EITHER"]);
+
+/**
+ * What a student sees once a round is scored (plan/jobs-polish JP-10), set by whoever owns
+ * the pipeline: the score only, the score and which answers were right, or everything
+ * (the right answers and their explanations).
+ */
+export const roundReviewModeEnum = pgEnum("round_review_mode", ["SCORE", "RIGHT_WRONG", "FULL"]);
 /** What a round's pool item points at (HR-11). */
 export const roundPoolItemKindEnum = pgEnum("round_pool_item_kind", ["PRACTICE_PROBLEM", "APTITUDE_QUESTION", "DESIGN_PROMPT"]);
 
@@ -159,6 +166,8 @@ export const interviewRounds = pgTable(
         /** For AI-scored rounds: the criteria and weights the score is given against. */
         rubric: jsonb("rubric"),
         responseMode: roundResponseModeEnum("response_mode").notNull().default("EITHER"),
+        /** After scoring, what the student may see (JP-10). ShipItHQ's practice rounds: FULL. */
+        reviewMode: roundReviewModeEnum("review_mode").notNull().default("FULL"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at")
             .notNull()

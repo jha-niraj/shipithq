@@ -5,7 +5,9 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, ArrowRight, Check, CircleAlert, X } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { cn } from "@repo/ui/lib/utils"
 import { finishScoring, saveAttempt, submitAttempt, type RunnerAttempt } from "@/actions/hiring/run.action"
@@ -99,8 +101,9 @@ function AptitudeRunner({ attempt }: { attempt: RunnerAttempt }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [attempt.id, answers, submitting, router])
 
-    // The server's clock; at zero, hand in what's there.
-    const remaining = useRoundClock(attempt, () => void submit())
+    // The server's clock; at zero, hand in what's there (an open "Submit?" dialog closes first:
+    // the hand-in never waits on it).
+    const remaining = useRoundClock(attempt, () => { setConfirmSubmit(false); void submit() })
 
     useEffect(() => {
         const onVis = () => { if (document.visibilityState === "hidden") { signals.current.tabLeaves++; pending.current.tabLeaves++ } }
@@ -114,7 +117,6 @@ function AptitudeRunner({ attempt }: { attempt: RunnerAttempt }) {
         if (i < 0 || i >= questions.length) return
         recordTime()
         setIndex(i)
-        setConfirmSubmit(false)
     }, [questions.length, recordTime])
     const choose = useCallback((qid: string, option: number) => setAnswers((a) => ({ ...a, [qid]: option })), [])
 
@@ -149,79 +151,126 @@ function AptitudeRunner({ attempt }: { attempt: RunnerAttempt }) {
     return (
         <Shell attempt={attempt} remaining={remaining} answered={answered} total={questions.length} onExit={() => void exit()}>
             {q ? (
-                <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
-                    <div className="mb-4 flex items-center justify-between gap-3 text-sm text-neutral-500 dark:text-neutral-400">
-                        <span>Question {index + 1} of {questions.length}</span>
-                        <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-xs dark:border-neutral-700">{SECTION[q.section] ?? q.section}</span>
-                    </div>
-                    <p className="whitespace-pre-line text-lg leading-relaxed text-neutral-900 dark:text-white">{q.prompt}</p>
-
-                    <div role="radiogroup" aria-label={`Answers to question ${index + 1}`} className="mt-6 grid gap-2.5">
-                        {q.options.map((o, i) => {
-                            const picked = answers[q.id] === i
-                            return (
-                                <button
-                                    key={i}
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={picked}
-                                    onClick={() => choose(q.id, i)}
-                                    className={cn(
-                                        "flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
-                                        picked ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-200 bg-white hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600",
-                                    )}
-                                >
-                                    <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-medium", picked ? "border-white/40 dark:border-neutral-900/30" : "border-neutral-300 text-neutral-600 dark:border-neutral-600 dark:text-neutral-300")}>{LETTERS[i]}</span>
-                                    <span className="text-sm sm:text-base">{o}</span>
-                                </button>
-                            )
-                        })}
-                    </div>
-
-                    <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-                        <Button variant="outline" onClick={() => go(index - 1)} disabled={index === 0} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Previous</Button>
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400" aria-live="polite">
-                            {saving === "saving" ? "Saving" : saving === "saved" ? "Saved" : saving === "error" ? "Not saved: check your connection" : ""}
-                        </span>
-                        {index < questions.length - 1 ? (
-                            <Button onClick={() => go(index + 1)} className="gap-1.5">Next <ArrowRight className="h-4 w-4" /></Button>
-                        ) : confirmSubmit ? (
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-neutral-600 dark:text-neutral-300">{unanswered > 0 ? `${unanswered} unanswered. Submit anyway?` : "Submit your answers?"}</span>
-                                <Button variant="ghost" onClick={() => setConfirmSubmit(false)} disabled={submitting}>Keep going</Button>
-                                <Button onClick={() => void submit()} disabled={submitting} className="gap-1.5">{submitting && <InlineLoader size="sm" />} Submit</Button>
-                            </div>
-                        ) : (
-                            <Button onClick={() => setConfirmSubmit(true)} className="gap-1.5">Submit</Button>
-                        )}
-                    </div>
-
-                    <nav aria-label="Questions" className="mt-10 border-t border-neutral-200 pt-6 dark:border-neutral-800">
-                        <div className="flex flex-wrap gap-1.5">
-                            {questions.map((qq, i) => (
-                                <button
-                                    key={qq.id}
-                                    type="button"
-                                    onClick={() => go(i)}
-                                    aria-label={`Question ${i + 1}${answers[qq.id] !== undefined ? ", answered" : ""}`}
-                                    aria-current={i === index ? "step" : undefined}
-                                    className={cn(
-                                        "h-8 w-8 rounded-lg border text-xs font-medium tabular-nums",
-                                        answers[qq.id] !== undefined ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-200 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300",
-                                        i === index && "ring-2 ring-neutral-400 ring-offset-2 ring-offset-neutral-50 dark:ring-neutral-500 dark:ring-offset-neutral-950",
-                                    )}
-                                >
-                                    {i + 1}
-                                </button>
-                            ))}
+                // The question and its options on the left; the question grid, counts and Submit in a
+                // sticky column on the right (plan/jobs-polish JP-8).
+                <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start">
+                    <div className="min-w-0">
+                        <div className="mb-4 flex items-center justify-between gap-3 text-sm text-neutral-500 dark:text-neutral-400">
+                            <span>Question {index + 1} of {questions.length}</span>
+                            <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-xs dark:border-neutral-700">{SECTION[q.section] ?? q.section}</span>
                         </div>
-                        <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">Keys: 1 to 4 (or A to D) to answer, arrow keys to move. Leaving the tab is recorded.</p>
-                    </nav>
+                        <PromptText text={q.prompt} className="text-lg" />
+
+                        <div role="radiogroup" aria-label={`Answers to question ${index + 1}`} className="mt-6 grid gap-2.5 sm:grid-cols-2">
+                            {q.options.map((o, i) => {
+                                const picked = answers[q.id] === i
+                                return (
+                                    <button
+                                        key={i}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={picked}
+                                        onClick={() => choose(q.id, i)}
+                                        className={cn(
+                                            "flex h-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+                                            picked ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-200 bg-white hover:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-600",
+                                        )}
+                                    >
+                                        <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-medium", picked ? "border-white/40 dark:border-neutral-900/30" : "border-neutral-300 text-neutral-600 dark:border-neutral-600 dark:text-neutral-300")}>{LETTERS[i]}</span>
+                                        <span className="text-sm sm:text-base">{o}</span>
+                                    </button>
+                                )
+                            })}
+                        </div>
+
+                        <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+                            <Button variant="outline" onClick={() => go(index - 1)} disabled={index === 0} className="gap-1.5"><ArrowLeft className="h-4 w-4" /> Previous</Button>
+                            <span className="text-xs text-neutral-500 dark:text-neutral-400" aria-live="polite">
+                                {saving === "saving" ? "Saving" : saving === "saved" ? "Saved" : saving === "error" ? "Not saved: check your connection" : ""}
+                            </span>
+                            {index < questions.length - 1
+                                ? <Button onClick={() => go(index + 1)} className="gap-1.5">Next <ArrowRight className="h-4 w-4" /></Button>
+                                : <Button onClick={() => setConfirmSubmit(true)} disabled={submitting} className="gap-1.5">{submitting && <InlineLoader size="sm" />} Submit</Button>}
+                        </div>
+                    </div>
+
+                    <aside className="rounded-2xl border border-neutral-200 bg-white p-4 lg:sticky lg:top-20 dark:border-neutral-800 dark:bg-neutral-900">
+                        <nav aria-label="Questions">
+                            <p className="mb-3 text-xs font-medium text-neutral-500 dark:text-neutral-400">{questions.length} questions</p>
+                            <div className="grid grid-cols-5 gap-1.5">
+                                {questions.map((qq, i) => (
+                                    <button
+                                        key={qq.id}
+                                        type="button"
+                                        onClick={() => go(i)}
+                                        aria-label={`Question ${i + 1}${answers[qq.id] !== undefined ? ", answered" : ""}`}
+                                        aria-current={i === index ? "step" : undefined}
+                                        className={cn(
+                                            "h-9 rounded-lg border text-xs font-medium tabular-nums",
+                                            answers[qq.id] !== undefined ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-200 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300",
+                                            i === index && "ring-2 ring-neutral-400 ring-offset-2 ring-offset-white dark:ring-neutral-500 dark:ring-offset-neutral-900",
+                                        )}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                ))}
+                            </div>
+                        </nav>
+                        <dl className="mt-4 grid grid-cols-2 gap-2 border-t border-neutral-200 pt-4 text-center dark:border-neutral-800">
+                            <div><dd className="text-lg font-semibold tabular-nums text-neutral-900 dark:text-white">{answered}</dd><dt className="text-xs text-neutral-500">answered</dt></div>
+                            <div><dd className="text-lg font-semibold tabular-nums text-neutral-900 dark:text-white">{unanswered}</dd><dt className="text-xs text-neutral-500">left</dt></div>
+                        </dl>
+                        <Button onClick={() => setConfirmSubmit(true)} disabled={submitting} className="mt-4 w-full gap-1.5">{submitting && <InlineLoader size="sm" />} Submit answers</Button>
+                        <p className="mt-3 text-xs leading-5 text-neutral-500 dark:text-neutral-400">Keys: 1 to 4 (or A to D) to answer, arrow keys to move. Leaving the tab is recorded.</p>
+                    </aside>
+
+                    <ConfirmDialog
+                        open={confirmSubmit}
+                        onOpenChange={setConfirmSubmit}
+                        title={unanswered > 0 ? `Submit with ${unanswered} unanswered?` : "Submit your answers?"}
+                        description={unanswered > 0
+                            ? "Unanswered questions count as wrong. Once submitted, the round is scored and can't be changed."
+                            : "The round is scored straight away and your answers can't be changed after."}
+                        confirmLabel="Submit"
+                        cancelLabel="Keep going"
+                        onConfirm={submit}
+                    />
                 </div>
             ) : (
                 <p className="py-24 text-center text-neutral-600 dark:text-neutral-400">This attempt has no questions.</p>
             )}
         </Shell>
+    )
+}
+
+/**
+ * A question's text laid out as it was written (JP-8): its lines kept, a line ending in a
+ * colon ("Conclusions:") as a label, and numbered lines ("I.", "II.", "1.", "a)") as an
+ * indented list.
+ */
+const LIST_LINE = /^\s*((?:[IVX]+|\d+|[a-hA-H])[.)])\s+(.*)$/
+export function PromptText({ text, className }: { text: string; className?: string }) {
+    const lines = text.split(/\r?\n/).map((l) => l.trimEnd()).filter((l, i, all) => l !== "" || (i > 0 && all[i - 1] !== ""))
+    return (
+        <div className={cn("space-y-1.5 leading-relaxed text-neutral-900 dark:text-white", className)}>
+            {lines.map((line, i) => {
+                const item = LIST_LINE.exec(line)
+                if (item) {
+                    return (
+                        <p key={i} className="flex gap-2 pl-4">
+                            <span className="shrink-0 font-medium tabular-nums text-neutral-500 dark:text-neutral-400">{item[1]}</span>
+                            <span>{item[2]}</span>
+                        </p>
+                    )
+                }
+                if (line === "") return <div key={i} className="h-1" />
+                // Words straight before a colon ("Statements:"), never an analogy's " : ".
+                const label = /^([A-Za-z][A-Za-z ()/-]{1,38}[A-Za-z)]):\s*(.*)$/.exec(line)
+                if (label && !label[2]) return <p key={i} className="pt-1 text-sm font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{label[1]}</p>
+                if (label) return <p key={i}><span className="font-medium">{label[1]}:</span> {label[2]}</p>
+                return <p key={i}>{line}</p>
+            })}
+        </div>
     )
 }
 
@@ -241,26 +290,61 @@ function Result({ attempt }: { attempt: RunnerAttempt }) {
         )
     }
     const passed = r.score >= attempt.passMark
-    const right = r.breakdown?.filter((b) => b.right).length ?? 0
     const rubric = r.rubric
     const dsa = r.dsa
+    const breakdown = r.breakdown
+    const right = breakdown?.filter((b) => b.right).length ?? 0
+    const unanswered = breakdown?.filter((b) => b.chosen === null).length ?? 0
+    const wrong = (breakdown?.length ?? 0) - right - unanswered
+    const minutes = attempt.timeTakenSec !== null ? `${Math.floor(attempt.timeTakenSec / 60)}m ${String(attempt.timeTakenSec % 60).padStart(2, "0")}s` : null
+    const hasDetail = Boolean(rubric || dsa || breakdown || attempt.voice || attempt.roundType === "SYSTEM_DESIGN")
+
     return (
         <Shell attempt={attempt} remaining={null} answered={0} total={0} onExit={null}>
-            <div className="mx-auto w-full max-w-3xl px-4 py-10">
-                <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-center dark:border-neutral-800 dark:bg-neutral-900">
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Your score</p>
-                    <p className={cn("mt-1 text-5xl font-semibold tabular-nums", passed ? "text-emerald-700 dark:text-emerald-400" : "text-neutral-900 dark:text-white")}>{r.score}</p>
-                    <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">
-                        {rubric ? "Scored by AI against the rubric." : dsa ? `${dsa.reduce((n, d) => n + d.passed, 0)} of ${dsa.reduce((n, d) => n + d.total, 0)} tests passed.` : `${right} of ${r.breakdown?.length ?? 0} right.`} Pass mark {attempt.passMark}.{" "}
-                        {attempt.gateMode === "HARD"
-                            ? passed ? "You've cleared this round; the next one is open." : "Below the mark, so the next round stays locked. You can retake after the cool-down."
-                            : "This round is advisory: it's shown to the company and never blocks you."}
-                    </p>
-                    <Button asChild className="mt-5"><Link href={attempt.backHref}>Back to the rounds</Link></Button>
-                </div>
+            {/* The result on the left, sticky; everything asked on the right, scrolling (JP-9). */}
+            <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start">
+                <aside className="space-y-4 lg:sticky lg:top-20">
+                    <div className="rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">Your score</p>
+                        <p className={cn("mt-1 text-5xl font-semibold tabular-nums", passed ? "text-emerald-700 dark:text-emerald-400" : "text-neutral-900 dark:text-white")}>{r.score}</p>
+                        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">Pass mark {attempt.passMark}</p>
+                        <p className={cn(
+                            "mt-3 rounded-lg px-3 py-2 text-sm",
+                            attempt.gateMode !== "HARD" ? "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+                                : passed ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300",
+                        )}>
+                            {attempt.gateMode === "HARD"
+                                ? passed ? "Cleared. The next round is open." : "Below the mark, so the next round stays locked. Retake free after the cool-down, or try again now for the round's credits."
+                                : "Advisory: shown to the company, never blocks you."}
+                        </p>
+                        <dl className="mt-4 space-y-2 border-t border-neutral-200 pt-4 text-sm dark:border-neutral-800">
+                            {breakdown && (
+                                <>
+                                    <Stat label="Right" value={right} />
+                                    <Stat label="Wrong" value={wrong} />
+                                    <Stat label="Unanswered" value={unanswered} />
+                                </>
+                            )}
+                            {dsa && <Stat label="Tests passed" value={`${dsa.reduce((n, d) => n + d.passed, 0)} of ${dsa.reduce((n, d) => n + d.total, 0)}`} />}
+                            {rubric && <Stat label="Scored by" value="AI, against the rubric" />}
+                            {minutes && <Stat label="Time taken" value={minutes} />}
+                        </dl>
+                        <Button asChild className="mt-5 w-full"><Link href={attempt.backHref}>Back to the rounds</Link></Button>
+                    </div>
+                    {r.reviewMode !== "FULL" && (
+                        <p className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs leading-5 text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+                            {r.reviewMode === "SCORE"
+                                ? "Whoever set this round shows the score only, so the questions and answers stay private."
+                                : "Whoever set this round shows which answers were right, not the correct answers."}
+                        </p>
+                    )}
+                </aside>
 
+                {hasDetail && (
+                    <ScrollArea className="min-w-0 lg:h-[calc(100dvh-7.5rem)]" viewportClassName="lg:pr-3">
+                        <div className="space-y-8 pb-4">
                 {rubric && (
-                    <section aria-label="Rubric" className="mt-8 space-y-3">
+                    <section aria-label="Rubric" className="space-y-3">
                         {rubric.summary && <p className="rounded-xl border border-neutral-200 bg-white p-4 text-sm leading-relaxed text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200">{rubric.summary}</p>}
                         <ul className="space-y-3">
                             {rubric.criteria.map((c) => (
@@ -280,17 +364,17 @@ function Result({ attempt }: { attempt: RunnerAttempt }) {
                     </section>
                 )}
 
-                {attempt.roundType === "SYSTEM_DESIGN" && <DesignSubmission attempt={attempt} />}
+                            {attempt.roundType === "SYSTEM_DESIGN" && <DesignSubmission attempt={attempt} />}
 
-                {attempt.voice && (
-                    <section aria-label="Transcript" className="mt-8">
+                            {attempt.voice && (
+                    <section aria-label="Transcript" className="">
                         <p className="text-xs font-medium uppercase tracking-wider text-neutral-500">Transcript{attempt.voice.mode === "TYPED" ? " (typed)" : ""}</p>
                         <TranscriptPane turns={attempt.voice.turns} className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-950" empty="No transcript." />
                     </section>
                 )}
 
-                {dsa && (
-                    <ol aria-label="Problems" className="mt-8 space-y-3">
+                            {dsa && (
+                    <ol aria-label="Problems" className="space-y-3">
                         {dsa.map((d, i) => {
                             const code = ((attempt.responses.code ?? {}) as Record<string, { code?: unknown }>)[d.problemId]?.code
                             const samples = d.cases.filter((c) => !c.hidden)
@@ -325,32 +409,60 @@ function Result({ attempt }: { attempt: RunnerAttempt }) {
                     </ol>
                 )}
 
-                {r.breakdown && (
-                    <ol className="mt-8 space-y-3">
-                        {r.breakdown.map((b, i) => {
-                            const q = attempt.questions.find((x) => x.id === b.questionId)
-                            if (!q) return null
-                            return (
-                                <li key={b.questionId} className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-                                    <div className="mb-2 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-                                        <span className={cn("inline-flex h-5 w-5 items-center justify-center rounded-full", b.right ? "bg-emerald-600 text-white dark:bg-emerald-500" : "bg-rose-600 text-white dark:bg-rose-500")}>
-                                            {b.right ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                                        </span>
-                                        Question {i + 1} · {SECTION[q.section] ?? q.section}
-                                    </div>
-                                    <p className="whitespace-pre-line text-sm text-neutral-900 dark:text-white">{q.prompt}</p>
-                                    <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">
-                                        {b.chosen === null ? "Not answered. " : b.right ? "" : `You chose ${LETTERS[b.chosen]}. `}
-                                        Answer: <span className="font-medium">{LETTERS[b.correctIndex]}. {q.options[b.correctIndex]}</span>
-                                    </p>
-                                    {r.explanations?.[b.questionId] && <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{r.explanations[b.questionId]}</p>}
-                                </li>
-                            )
-                        })}
-                    </ol>
+                            {breakdown && (
+                                <ol aria-label="Your answers" className="space-y-3">
+                                    {breakdown.map((b, i) => {
+                                        const q = attempt.questions.find((x) => x.id === b.questionId)
+                                        if (!q) return null
+                                        return (
+                                            <li key={b.questionId} className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                                                <div className="mb-2 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                                                    <span className={cn("inline-flex h-5 w-5 items-center justify-center rounded-full", b.right ? "bg-emerald-600 text-white dark:bg-emerald-500" : "bg-rose-600 text-white dark:bg-rose-500")}>
+                                                        {b.right ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                                    </span>
+                                                    Question {i + 1} · {SECTION[q.section] ?? q.section}
+                                                    {b.chosen === null && <span className="ml-1">· not answered</span>}
+                                                </div>
+                                                <PromptText text={q.prompt} className="text-sm" />
+                                                <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                                                    {q.options.map((o, oi) => {
+                                                        const chosen = b.chosen === oi
+                                                        const correct = b.correctIndex === oi
+                                                        return (
+                                                            <li key={oi} className={cn(
+                                                                "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+                                                                correct ? "border-emerald-600 bg-emerald-50 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-200"
+                                                                    : chosen ? "border-rose-600 bg-rose-50 text-rose-900 dark:border-rose-500 dark:bg-rose-950/40 dark:text-rose-200"
+                                                                        : "border-neutral-200 text-neutral-700 dark:border-neutral-800 dark:text-neutral-300",
+                                                            )}>
+                                                                <span className="font-medium">{LETTERS[oi]}</span>
+                                                                <span className="min-w-0 flex-1">{o}</span>
+                                                                {chosen && <span className="shrink-0 text-xs">Your answer</span>}
+                                                                {correct && !chosen && <span className="shrink-0 text-xs">Correct</span>}
+                                                            </li>
+                                                        )
+                                                    })}
+                                                </ul>
+                                                {r.explanations?.[b.questionId] && <p className="mt-3 whitespace-pre-line text-sm text-neutral-600 dark:text-neutral-400">{r.explanations[b.questionId]}</p>}
+                                            </li>
+                                        )
+                                    })}
+                                </ol>
+                            )}
+                        </div>
+                    </ScrollArea>
                 )}
             </div>
         </Shell>
+    )
+}
+
+function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+    return (
+        <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-neutral-500 dark:text-neutral-400">{label}</dt>
+            <dd className="font-medium tabular-nums text-neutral-900 dark:text-white">{value}</dd>
+        </div>
     )
 }
 

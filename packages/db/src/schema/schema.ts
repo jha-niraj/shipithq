@@ -206,6 +206,8 @@ export const activityTypeEnum = pgEnum("activity_type", [
     "COVER_LETTER_CREATED",
     "KNOWME_ACTIVATED",
     "IDEA_VOTED",
+    // A real interview reported (plan/jobs-polish JP-11).
+    "INTERVIEW_REPORTED",
 ]);
 
 export const learnDifficultyEnum = pgEnum("learn_difficulty", [

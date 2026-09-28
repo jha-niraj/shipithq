@@ -40,6 +40,8 @@ export interface RoundDraft {
     timeLimitMinutes: number
     drawCount: number
     cooldownHours: number
+    /** After scoring, what a candidate sees (plan/jobs-polish JP-10). */
+    reviewMode: "SCORE" | "RIGHT_WRONG" | "FULL"
     responseMode: "VOICE" | "TYPED" | "EITHER"
     /** Voice rounds: what the answer is scored against. */
     rubric: RubricCriterion[] | null
@@ -132,6 +134,7 @@ export function roundProblems(r: RoundDraft, poolSize: number | null): string[] 
     const inRange = (v: number, lo: number, hi: number) => Number.isFinite(v) && v >= lo && v <= hi
     if (!inRange(r.timeLimitMinutes, L.timeLimitMinutes.min, L.timeLimitMinutes.max)) p.push(`The time limit is ${L.timeLimitMinutes.min} to ${L.timeLimitMinutes.max} minutes.`)
     if (!inRange(r.cooldownHours, L.cooldownHours.min, L.cooldownHours.max)) p.push(`The cool-down is ${L.cooldownHours.min} to ${L.cooldownHours.max} hours.`)
+    if (!["SCORE", "RIGHT_WRONG", "FULL"].includes(r.reviewMode)) p.push("Choose what a candidate sees after scoring.")
     const pooled = (POOLED_TYPES as readonly string[]).includes(r.roundType)
     if (pooled) {
         if (r.drawCount < L.drawCount.min || r.drawCount > L.drawCount.max || !Number.isInteger(r.drawCount)) p.push(`Draw ${L.drawCount.min} to ${L.drawCount.max} questions.`)

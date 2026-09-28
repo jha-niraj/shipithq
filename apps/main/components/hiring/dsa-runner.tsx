@@ -11,6 +11,7 @@ import { CasesPanel } from "@/app/(main)/practice/_components/workspace/cases-pa
 import { runRoundCode, saveAttempt, submitAttempt, type RunnerAttempt } from "@/actions/hiring/run.action"
 import { LANGUAGE_LABELS } from "@/lib/practice/starters"
 import type { PracticeJudgeResult } from "@/types/practice"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 import { RunnerShell, useRoundClock } from "./runner-shell"
 
 /*
@@ -70,7 +71,7 @@ export function DsaRunner({ attempt }: { attempt: RunnerAttempt }) {
         router.refresh()
     }, [attempt.id, submitting, router])
 
-    const remaining = useRoundClock(attempt, () => void submit())
+    const remaining = useRoundClock(attempt, () => { setConfirm(false); void submit() })
 
     useEffect(() => {
         const onVis = () => { if (document.visibilityState === "hidden") pending.current.tabLeaves++ }
@@ -153,15 +154,16 @@ export function DsaRunner({ attempt }: { attempt: RunnerAttempt }) {
                             <span className="hidden text-xs text-neutral-500 sm:inline dark:text-neutral-400" aria-live="polite">
                                 {saving === "saving" ? "Saving" : saving === "saved" ? "Saved" : saving === "error" ? "Not saved" : ""}
                             </span>
-                            {confirm ? (
-                                <>
-                                    <span className="hidden text-xs text-neutral-600 md:inline dark:text-neutral-300">{untouched > 0 ? `${untouched} not started.` : "Hand in all problems?"}</span>
-                                    <Button size="sm" variant="ghost" onClick={() => setConfirm(false)} disabled={submitting}>Keep going</Button>
-                                    <Button size="sm" onClick={() => void submit()} disabled={submitting}>Submit</Button>
-                                </>
-                            ) : (
-                                <Button size="sm" onClick={() => setConfirm(true)}>Submit</Button>
-                            )}
+                            <Button size="sm" onClick={() => setConfirm(true)} disabled={submitting}>Submit</Button>
+                            <ConfirmDialog
+                                open={confirm}
+                                onOpenChange={setConfirm}
+                                title={untouched > 0 ? `Hand in with ${untouched} not started?` : "Hand in all problems?"}
+                                description="Every problem is run against the hidden tests and scored. Your code can't be changed after."
+                                confirmLabel="Submit"
+                                cancelLabel="Keep going"
+                                onConfirm={submit}
+                            />
                         </div>
                     </div>
                     <div className="min-h-0 flex-1" onPasteCapture={() => { pending.current.pastes++ }}>

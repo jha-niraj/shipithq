@@ -8,6 +8,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, CircleAlert, GripVertical, Plus, Save, T
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Textarea } from "@repo/ui/components/ui/textarea"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { NumberTextInput } from "@repo/ui/components/ui/number-text-input"
 import { StickyAside } from "@repo/ui/components/ui/sticky-action-bar"
@@ -84,6 +85,7 @@ function newRound(t: V1RoundType): EditRound {
         timeLimitMinutes: t === "APTITUDE" ? 25 : isVoice(t) ? 20 : 45,
         drawCount: t === "APTITUDE" ? 20 : 1,
         cooldownHours: 24,
+        reviewMode: "FULL",
         responseMode: isVoice(t) ? "EITHER" : "TYPED",
         rubric: voice ? voice.rubric.map((c) => ({ ...c })) : null,
         mockKnowledgeBase: voice?.kb ?? null,
@@ -126,6 +128,8 @@ export function PipelineBuilder({ pipeline, defaultPoolSizes }: { pipeline: Pipe
     const [adding, setAdding] = useState(false)
     const [saving, setSaving] = useState(false)
     const [confirmDelete, setConfirmDelete] = useState(false)
+    /** Where a click with unsaved changes was going, while the "leave?" dialog is open. */
+    const [leaveTo, setLeaveTo] = useState<string | null>(null)
     const [jobsUsing] = useState(pipeline.jobsUsing)
     // A job's copy with candidates' runs forks on save, so its id can change.
     const [pipelineId, setPipelineId] = useState(pipeline.id)
@@ -152,10 +156,10 @@ export function PipelineBuilder({ pipeline, defaultPoolSizes }: { pipeline: Pipe
         const onClick = (e: MouseEvent) => {
             const a = (e.target as HTMLElement | null)?.closest("a[href]") as HTMLAnchorElement | null
             if (!a || a.target === "_blank" || e.metaKey || e.ctrlKey) return
-            if (!window.confirm("You have unsaved changes to this pipeline. Leave without saving?")) {
-                e.preventDefault()
-                e.stopPropagation()
-            }
+            // Ask in a dialog (plan/jobs-polish JP-2), and go there only if they say so.
+            e.preventDefault()
+            e.stopPropagation()
+            setLeaveTo(a.getAttribute("href"))
         }
         window.addEventListener("beforeunload", onUnload)
         document.addEventListener("click", onClick, true)
@@ -347,18 +351,30 @@ export function PipelineBuilder({ pipeline, defaultPoolSizes }: { pipeline: Pipe
                                     <Button onClick={() => void save()} disabled={!canSave} className="flex-1 gap-1.5">
                                         {saving ? <InlineLoader size="sm" /> : <Save className="h-4 w-4" />} Save pipeline
                                     </Button>
-                                    {!job && !confirmDelete && (
+                                    {!job && (
                                         <Button variant="outline" size="icon" onClick={() => setConfirmDelete(true)} aria-label="Delete pipeline"><Trash2 className="h-4 w-4" /></Button>
                                     )}
                                 </div>
-                                {!job && confirmDelete && (
-                                    <div className="flex items-center gap-2">
-                                        <Button variant="outline" size="sm" className="flex-1 border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400" onClick={() => void destroy()}>
-                                            Delete for good
-                                        </Button>
-                                        <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>Keep</Button>
-                                    </div>
-                                )}
+                                <ConfirmDialog
+                                    open={confirmDelete}
+                                    onOpenChange={setConfirmDelete}
+                                    title="Delete this pipeline?"
+                                    description="Its rounds and question pools go with it. This can't be undone."
+                                    confirmLabel="Delete for good"
+                                    cancelLabel="Keep"
+                                    tone="danger"
+                                    onConfirm={destroy}
+                                />
+                                <ConfirmDialog
+                                    open={leaveTo !== null}
+                                    onOpenChange={(o) => { if (!o) setLeaveTo(null) }}
+                                    title="Leave without saving?"
+                                    description="Your changes to this pipeline are lost if you leave now."
+                                    confirmLabel="Leave"
+                                    cancelLabel="Stay"
+                                    tone="danger"
+                                    onConfirm={() => { const to = leaveTo; setLeaveTo(null); if (to) { setBaseline(snapshot(name, description, rounds)); window.setTimeout(() => router.push(to), 0) } }}
+                                />
                             </>
                         ) : (
                             <p className="text-xs text-neutral-500 dark:text-neutral-400">You can view this pipeline; changing it needs pipeline access.</p>
@@ -588,6 +604,16 @@ function RoundEditor({ round: r, index, problems, pool, defaultPoolSizes, editab
                             {[...new Set([...COOLDOWNS, ...(Number.isNaN(r.cooldownHours) ? [] : [r.cooldownHours])])].sort((a, b) => a - b).map((h) => (
                                 <SelectItem key={h} value={String(h)}>{cooldownLabel(h)}</SelectItem>
                             ))}
+                        </SelectContent>
+                    </Select>
+                </Field>
+                <Field label="After scoring, show" hint="What a candidate sees about their attempt once it is scored." htmlFor={id("review")}>
+                    <Select value={r.reviewMode} onValueChange={(v) => onChange({ reviewMode: v as RoundDraft["reviewMode"] })} disabled={!editable}>
+                        <SelectTrigger id={id("review")} className="w-full sm:w-72"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="SCORE">The score only</SelectItem>
+                            <SelectItem value="RIGHT_WRONG">The score and which answers were right</SelectItem>
+                            <SelectItem value="FULL">Everything: the right answers and explanations</SelectItem>
                         </SelectContent>
                     </Select>
                 </Field>

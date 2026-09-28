@@ -12,7 +12,7 @@ import {
 } from "@repo/db"
 import { reserveCredits, releaseCredits } from "@/lib/credits/hold"
 import { priceOf } from "@/lib/credits/pricing"
-import { roundStates, type RoundState } from "@/lib/hiring/round-state"
+import { attemptPrice, roundStates, type RoundState } from "@/lib/hiring/round-state"
 import {
     PRICE_FOR, RUNNABLE_TYPES, closeAttempt, closeIfExpired, drawItems, mergeIntegrity, scoreAptitude, scoreSubmitted,
     type AptitudeBreakdownItem, type DrawnItem,
@@ -237,7 +237,12 @@ export async function getImportRounds(importId: string): Promise<Result<RoundsOv
  * Start (or return) the student's run, then an attempt at `roundId`. Returns
  * the attempt to open in the runner.
  */
-export async function startRound(input: { jobSlug: string } | { companySlug: string; processId: string } | { importId: string }, roundId: string): Promise<Result<{ attemptId: string }>> {
+export async function startRound(
+    input: { jobSlug: string } | { companySlug: string; processId: string } | { importId: string },
+    roundId: string,
+    /** "Try now": start during the cool-down, paying the round's price (JP-7). */
+    opts: { skipCooldown?: boolean } = {},
+): Promise<Result<{ attemptId: string }>> {
     const uid = await userId()
     if (!uid) return { success: false, error: "Sign in to take the rounds.", code: "UNAUTHORIZED" }
     try {
@@ -290,7 +295,8 @@ export async function startRound(input: { jobSlug: string } | { companySlug: str
             .find((s) => s.roundId === roundId)!
         if (state.status === "in_progress" && state.liveAttemptId) return { success: true, data: { attemptId: state.liveAttemptId } }
         if (state.status === "locked") return { success: false, error: "Clear the round before this one first." }
-        if (state.status === "cooling_down" || (state.status === "cleared" && !state.canRetake)) {
+        // Cooling down: refused unless the student chose to skip the wait and pay (JP-7).
+        if ((state.status === "cooling_down" || (state.status === "cleared" && !state.canRetake)) && !(opts.skipCooldown && state.availableAt)) {
             const when = state.availableAt?.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
             return { success: false, error: `You can try this round again${when ? ` from ${when}` : " later"}.`, code: "COOLING_DOWN" }
         }
@@ -303,7 +309,9 @@ export async function startRound(input: { jobSlug: string } | { companySlug: str
         })
         if (!drawn) return { success: false, error: "This round doesn't have enough questions yet. The company has been told." }
         const attemptId = crypto.randomUUID()
-        const price = PRICE_FOR[round.roundType] ? priceOf(PRICE_FOR[round.roundType]!) : 0
+        // Decided here from the state, never by the client (JP-7): first attempt and "Try now"
+        // pay; a retake after the cool-down is free.
+        const price = attemptPrice(state, PRICE_FOR[round.roundType] ? priceOf(PRICE_FOR[round.roundType]!) : 0)
         if (price > 0) {
             const hold = await reserveCredits({ userId: uid, amount: price, reason: `Hiring round: ${round.title}`, holdId: attemptId })
             if (!hold.ok) return { success: false, error: hold.code === "INSUFFICIENT_CREDITS" ? `This round costs ${price} credits; you have ${hold.available ?? 0}.` : hold.error, code: hold.code }
@@ -359,9 +367,17 @@ export interface RunnerAttempt {
     problems: DsaProblem[]
     runsLeft: number
     responses: Record<string, unknown>
+    /** Seconds from start to hand-in, once handed in (the results screen, JP-9). */
+    timeTakenSec: number | null
     result: {
         score: number | null
-        breakdown: AptitudeBreakdownItem[] | null
+        /**
+         * What the round's owner lets the student see after scoring (plan/jobs-polish JP-10).
+         * Enforced here: under SCORE there is no breakdown; under RIGHT_WRONG it has no
+         * correct answers (`correctIndex` null) and no explanations.
+         */
+        reviewMode: "SCORE" | "RIGHT_WRONG" | "FULL"
+        breakdown: (Omit<AptitudeBreakdownItem, "correctIndex"> & { correctIndex: number | null })[] | null
         explanations?: Record<string, string>
         rubric?: DesignRubricResult | null
         dsa?: DsaBreakdownItem[] | null
@@ -457,13 +473,17 @@ export async function getRunnerAttempt(attemptId: string): Promise<Result<Runner
                 voice,
                 runsLeft: Math.max(0, DSA_RUNS_PER_ATTEMPT - (attempt.integrity.judgeRuns ?? 0)),
                 responses: attempt.responses,
+                timeTakenSec: attempt.submittedAt ? Math.max(0, Math.round((attempt.submittedAt.getTime() - attempt.startedAt.getTime()) / 1000)) : null,
                 result: attempt.status === "SCORED" || attempt.status === "NOT_SCORED"
                     ? {
                         score: attempt.score,
-                        breakdown: attempt.status === "SCORED" && round.roundType === "APTITUDE" ? (attempt.breakdown as AptitudeBreakdownItem[]) : null,
-                        explanations,
-                        rubric: (attempt.aiRubricResult as DesignRubricResult | null) ?? null,
-                        dsa: attempt.status === "SCORED" && round.roundType === "DSA" ? (attempt.breakdown as DsaBreakdownItem[]) : null,
+                        reviewMode: round.reviewMode,
+                        breakdown: attempt.status === "SCORED" && round.roundType === "APTITUDE" && round.reviewMode !== "SCORE"
+                            ? (attempt.breakdown as AptitudeBreakdownItem[]).map((b) => ({ ...b, correctIndex: round.reviewMode === "FULL" ? b.correctIndex : null }))
+                            : null,
+                        explanations: round.reviewMode === "FULL" ? explanations : undefined,
+                        rubric: round.reviewMode === "SCORE" ? null : (attempt.aiRubricResult as DesignRubricResult | null) ?? null,
+                        dsa: attempt.status === "SCORED" && round.roundType === "DSA" && round.reviewMode !== "SCORE" ? (attempt.breakdown as DsaBreakdownItem[]) : null,
                         notScoredReason: attempt.status === "NOT_SCORED" ? String((attempt.breakdown as { notScored?: unknown } | null)?.notScored ?? "") : undefined,
                     }
                     : null,

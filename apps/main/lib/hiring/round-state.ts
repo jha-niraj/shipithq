@@ -6,6 +6,10 @@
  * a HARD round is cleared by a score at or above its pass mark, an ADVISORY
  * round by any scored attempt. A round can be retaken once its cool-down has
  * passed, to improve on it; each retake draws a new set.
+ *
+ * Price (plan/jobs-polish JP-7; Niraj, 2026-09-28): the first attempt costs the round's
+ * price; a retake after the cool-down is free; "Try now" during the cool-down skips the
+ * wait for the round's price. See `attemptPrice`.
  */
 
 export type RoundStatus =
@@ -51,6 +55,8 @@ export interface RoundState {
     canRetake: boolean
     /** Cleared at some point, even while a retake is running. */
     isCleared: boolean
+    /** Has a finished attempt (scored or handed in): the next one is a retake. */
+    hasFinished: boolean
 }
 
 const cleared = (r: StateRound, best: number | null, scoredAny: boolean) =>
@@ -91,6 +97,7 @@ export function roundStates(rounds: StateRound[], attempts: StateAttempt[], now:
             availableAt: cooling ? availableAt : null,
             canRetake: status === "cleared" && !cooling && !live,
             isCleared,
+            hasFinished: finished.length > 0,
         })
         // The next round opens only when this one is cleared.
         open = open && isCleared
@@ -101,4 +108,15 @@ export function roundStates(rounds: StateRound[], attempts: StateAttempt[], now:
 /** A run is complete when every round has been cleared (a retake in progress doesn't undo that). */
 export function runComplete(states: RoundState[]): boolean {
     return states.length > 0 && states.every((s) => s.isCleared)
+}
+
+/**
+ * What starting an attempt now costs (JP-7). A first attempt pays the round's price; a
+ * retake is free once the cool-down has passed; skipping the cool-down ("Try now") pays the
+ * price. An attempt that couldn't be scored was refunded and doesn't count as finished, so
+ * the next one is a first attempt again.
+ */
+export function attemptPrice(state: RoundState, price: number): number {
+    if (!state.hasFinished) return price
+    return state.availableAt ? price : 0
 }

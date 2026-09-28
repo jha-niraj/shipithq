@@ -10,6 +10,7 @@ import { toast } from "@repo/ui/components/ui/sonner"
 import { useTheme } from "@repo/ui/components/themeprovider"
 import { cn } from "@repo/ui/lib/utils"
 import { saveAttempt, submitAttempt, type RunnerAttempt } from "@/actions/hiring/run.action"
+import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 import { RunnerShell, useRoundClock } from "./runner-shell"
 
 /*
@@ -65,7 +66,7 @@ export function DesignRunner({ attempt }: { attempt: RunnerAttempt }) {
         router.refresh()
     }, [attempt.id, submitting, router])
 
-    const remaining = useRoundClock(attempt, () => void submit())
+    const remaining = useRoundClock(attempt, () => { setConfirm(false); void submit() })
 
     useEffect(() => {
         const onVis = () => { if (document.visibilityState === "hidden") pending.current.tabLeaves++ }
@@ -128,14 +129,16 @@ export function DesignRunner({ attempt }: { attempt: RunnerAttempt }) {
                             <span className="hidden text-xs text-neutral-500 sm:inline dark:text-neutral-400" aria-live="polite">
                                 {saving === "saving" ? "Saving" : saving === "saved" ? "Saved" : saving === "error" ? "Not saved" : ""}
                             </span>
-                            {confirm ? (
-                                <>
-                                    <Button size="sm" variant="ghost" onClick={() => setConfirm(false)}>Keep going</Button>
-                                    <Button size="sm" onClick={() => void submit()}>Submit for scoring</Button>
-                                </>
-                            ) : (
-                                <Button size="sm" onClick={() => setConfirm(true)}>Submit</Button>
-                            )}
+                            <Button size="sm" onClick={() => setConfirm(true)} disabled={submitting}>Submit</Button>
+                            <ConfirmDialog
+                                open={confirm}
+                                onOpenChange={setConfirm}
+                                title="Submit for scoring?"
+                                description="Your diagram and written answer are scored against the rubric. They can't be changed after."
+                                confirmLabel="Submit for scoring"
+                                cancelLabel="Keep going"
+                                onConfirm={submit}
+                            />
                         </div>
                     </div>
                     <div className={cn("relative min-h-[28rem] flex-1", tab !== "diagram" && "hidden")}>

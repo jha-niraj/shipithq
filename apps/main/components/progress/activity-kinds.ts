@@ -53,6 +53,7 @@ export const KIND: Record<string, { label: string; icon: LucideIcon }> = {
     COVER_LETTER_CREATED: { label: "Cover letter", icon: FileText },
     KNOWME_ACTIVATED: { label: "KnowMe", icon: Users },
     IDEA_VOTED: { label: "Ideas", icon: Lightbulb },
+    INTERVIEW_REPORTED: { label: "Interview report", icon: FileText },
     FEEDBACK_SUBMITTED: { label: "Ideas", icon: Lightbulb },
 };
 
