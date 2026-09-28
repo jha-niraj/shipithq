@@ -173,6 +173,12 @@ const PUBLIC_PREFIXES = [
 	// Incidents cases (plan/incidents INC-1): readable signed out. Every action on
 	// the page asks for sign-in itself, and the progress actions check the session.
 	'/incidents/',
+	// A progress report its owner shared (plan/progress PRG-8). The page finds the
+	// report by its random token and 404s when sharing is off; `/reports/<id>`, the
+	// owner's own view, stays behind the gate.
+	'/reports/s/',
+	// Turning progress reports off from an email: a confirm page, no sign-in (PRG-10).
+	'/unsubscribe/',
 ]
 
 /**
@@ -255,9 +261,11 @@ const apiRoutes = [
 	// the tab before verify runs. The route authenticates itself by HMAC on the
 	// raw body; a session would be meaningless here.
 	'/api/payments/webhook',
-	// The incident lead's speech-to-text (plan/incidents INC-48). Signed-out asking is
-	// open for testing (INC-52); the route itself decides who may use it.
+	// The incident lead's speech-to-text (plan/incidents INC-48). The route checks the
+	// session itself and answers 401 (INC-52): a redirect here would break the mic.
 	'/api/incidents/transcribe',
+	// Progress reports off by the email's token, and mail clients' one-click (PRG-10).
+	'/api/reports/unsubscribe',
 ]
 
 const PRODUCTION_ORIGIN = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://www.shipithq.com'

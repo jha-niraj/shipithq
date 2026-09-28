@@ -9,7 +9,8 @@ import { INCIDENT_TOPICS, INCIDENT_UPCOMING, topicLabel, type IncidentTopicId } 
 import { INCIDENT_BADGES } from "@/content/incidents/badges"
 import { CaseArt } from "@/components/incidents/case-art"
 import { TopicScene, TopicSceneStyles } from "@/components/incidents/topic-scene"
-import { BadgeMedal, BadgeMedalStyles, type BadgeGlyph } from "@/components/incidents/badge-medal"
+import { BadgeCard, BadgeGrid, BadgeMedalStyles } from "@repo/ui/components/badge-card"
+import { INCIDENT_GLYPHS, glyphFor } from "@/components/incidents/badge-medal"
 import { IndexTabs, TopicTabs } from "@/components/incidents/index-tabs"
 import { listLiveCases, type CaseSummary } from "@/lib/incidents/catalog"
 import { loadIncidentStats, type IncidentStats } from "@/lib/incidents/stats"
@@ -36,8 +37,6 @@ const CASE_SCENES: Record<string, () => React.ReactNode> = {
     "the-demo-that-died-at-30-seconds": () => <CaseArt className="w-full" />,
 }
 
-const GLYPH = (key: string): BadgeGlyph =>
-    key === "first-case" ? "siren" : key === "called-it" ? "target" : key === "sharp-eye" ? "eye" : key === "on-call" ? "flame" : "topic"
 
 export default async function IncidentsIndexPage({ searchParams }: { searchParams: Promise<{ tab?: string; topic?: string }> }) {
     const sp = await searchParams
@@ -87,19 +86,24 @@ export default async function IncidentsIndexPage({ searchParams }: { searchParam
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
                 {stats ? `${earned} of ${INCIDENT_BADGES.length} earned.` : "Sign in to earn badges as you play."} Each is earned once, and kept.
             </p>
-            <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {/* The shared badge base (plan/ui-pass UI-20): earned ones glow where the pointer is. */}
+            <BadgeGrid className="mt-6">
                 {INCIDENT_BADGES.map((b) => {
                     const on = stats?.badges.includes(b.key) ?? false
                     return (
-                        <li key={b.key} className={cn("group flex flex-col items-center rounded-2xl border p-5 text-center transition-colors", on ? "border-neutral-900/10 bg-white dark:border-white/10 dark:bg-neutral-950" : "border-dashed border-neutral-200 dark:border-neutral-800")}>
-                            <BadgeMedal glyph={GLYPH(b.key)} earned={on} className="size-24" />
-                            <p className={cn("mt-3 text-[14.5px] font-semibold leading-snug", on ? "text-neutral-900 dark:text-white" : "text-neutral-500 dark:text-neutral-400")}>{b.title}</p>
-                            <p className="mt-1 text-[12.5px] leading-5 text-neutral-500 dark:text-neutral-400">{b.description}</p>
-                            {on && <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-neutral-900 px-2 py-0.5 font-mono text-[10.5px] text-white dark:bg-white dark:text-neutral-900"><Check className="size-3" aria-hidden /> Earned</span>}
-                        </li>
+                        <BadgeCard
+                            key={b.key}
+                            id={`incident-${b.key}`}
+                            glyph={INCIDENT_GLYPHS[glyphFor(b.key)]}
+                            title={b.title}
+                            description={b.description}
+                            earned={on}
+                            earnedAt={stats?.badgeDates[b.key] ?? null}
+                            progress={!on && stats && b.progress ? b.progress(stats.facts) : null}
+                        />
                     )
                 })}
-            </ul>
+            </BadgeGrid>
         </section>
     )
 

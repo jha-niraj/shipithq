@@ -1,26 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, Flame } from "lucide-react";
 import {
-    Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-} from "@repo/ui/components/ui/tooltip";
+    ContributionGraph, ContributionGraphBlock, ContributionGraphCalendar,
+    ContributionGraphFooter, ContributionGraphLegend, ContributionGraphTotalCount,
+    type Activity,
+} from "@repo/ui/components/contribution-graph";
 import { cn } from "@repo/ui/lib/utils";
 import ActivityDaySheet from "./activity-day-sheet";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The year-long contribution grid on /home.
+// The year-long activity grid on /home, drawn with the shared ContributionGraph
+// (packages/ui, from @ncdai/github-contributions; Niraj, 2026-09-28: "use this for
+// the contributions that we are showing on the home page").
 //
-// ONE CSS grid holds everything: a label column plus one column per week, a
-// month-label row plus seven day rows. Every cell is placed explicitly, so the
-// day labels, the month labels and the squares cannot drift out of line the way
-// they did when they were three separate flex rows (padding cells had no width,
-// the top rows started late and the grid looked sheared, and month names were
-// squeezed into one-week slots and truncated to "A…").
-//
-// The cells fill the card's width and stay square. The legend uses its own
-// fixed 12px swatches; it used to share the cell class, which is `w-full`, and
-// rendered five squares the width of the card.
+// The graph is an SVG with fixed block sizes. The card is as wide as the page, so
+// the block size is measured from the card: the year fills the width, as the old
+// CSS grid did, between 10px and 18px a block. Below 10px it scrolls sideways.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ActivityData {
@@ -29,21 +26,22 @@ interface ActivityData {
     activitiesCount: number;
 }
 
-type Day = { date: Date; xp: number; count: number };
+type Day = Activity & { xp: number; day: Date };
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const DAY_LABELS: Record<number, string> = { 1: "Mon", 3: "Wed", 5: "Fri" };
 const DAYS = 365;
+const MARGIN = 3;
+const WEEKS = 53;
 
-// Monotonic in BOTH themes: each level is visibly further from the card
-// surface than the one before. Level 0 still reads as a cell, not a hole.
-const LEVEL_CLASS = [
-    "bg-neutral-100 dark:bg-neutral-800",
-    "bg-neutral-300 dark:bg-neutral-700",
-    "bg-neutral-500 dark:bg-neutral-500",
-    "bg-neutral-700 dark:bg-neutral-300",
-    "bg-neutral-900 dark:bg-neutral-100",
-] as const;
+// Monotonic in BOTH themes: each level is visibly further from the card surface
+// than the one before. Level 0 still reads as a cell, not a hole. Overrides the
+// graph's own muted fills (same data-level variants, so tailwind-merge drops them).
+const LEVELS = cn(
+    'data-[level="0"]:fill-neutral-100 dark:data-[level="0"]:fill-neutral-800',
+    'data-[level="1"]:fill-neutral-300 dark:data-[level="1"]:fill-neutral-700',
+    'data-[level="2"]:fill-neutral-500 dark:data-[level="2"]:fill-neutral-500',
+    'data-[level="3"]:fill-neutral-700 dark:data-[level="3"]:fill-neutral-300',
+    'data-[level="4"]:fill-neutral-900 dark:data-[level="4"]:fill-neutral-100',
+);
 
 function levelFor(xp: number): number {
     if (xp <= 0) return 0;
@@ -53,78 +51,59 @@ function levelFor(xp: number): number {
     return 4;
 }
 
+/** yyyy-mm-dd in local time: the graph parses dates as local days. */
+function isoDay(d: Date) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function formatDate(date: Date) {
     return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
-/** Days of the last year, padded at the front so column 0 starts on a Sunday. */
-function buildWeeks(data: ActivityData[]): { weeks: Array<Array<Day | null>>; days: Day[] } {
-    const byDay = new Map(data.map((d) => [new Date(d.date).toDateString(), d]));
+/** Every day of the last year, today last, with its XP and level. */
+function buildDays(data: ActivityData[]): Day[] {
+    // A stored day is a yyyy-mm-dd string: keep it as that day, never as UTC midnight
+    // (which lands on the day before anywhere west of UTC).
+    const byDay = new Map(data.map((d) => [typeof d.date === "string" ? d.date.slice(0, 10) : isoDay(new Date(d.date)), d]));
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const days: Day[] = [];
     for (let i = DAYS - 1; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        const a = byDay.get(date.toDateString());
-        days.push({ date, xp: a?.totalXp ?? 0, count: a?.activitiesCount ?? 0 });
+        const day = new Date(today);
+        day.setDate(today.getDate() - i);
+        const a = byDay.get(isoDay(day));
+        const xp = a?.totalXp ?? 0;
+        days.push({ date: isoDay(day), day, xp, count: a?.activitiesCount ?? 0, level: levelFor(xp) });
     }
-    const cells: Array<Day | null> = [...Array<null>(days[0]!.date.getDay()).fill(null), ...days];
-    const weeks: Array<Array<Day | null>> = [];
-    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-    return { weeks, days };
+    return days;
 }
 
-/**
- * Month labels: one per month, on the column of the week containing the 1st,
- * spanning three columns so the whole name fits. A label within three columns
- * of the previous one (a partial first month) is skipped rather than overlapped.
- */
-function monthLabels(weeks: Array<Array<Day | null>>): Array<{ col: number; label: string }> {
-    const out: Array<{ col: number; label: string }> = [];
-    weeks.forEach((week, w) => {
-        const first = week.find((d) => d && d.date.getDate() === 1);
-        const lead = w === 0 ? week.find((d) => d) : undefined;
-        const day = first ?? lead;
-        if (!day) return;
-        const prev = out[out.length - 1];
-        if (prev && w - prev.col < 3) {
-            // A real 1st-of-month beats the partial leading month it collides with.
-            if (first && prev.col === 0) out.pop();
-            else return;
-        }
-        out.push({ col: w, label: MONTHS[day.date.getMonth()]! });
-    });
-    return out;
-}
-
-function gridTemplate(weekCount: number): React.CSSProperties {
-    return {
-        gridTemplateColumns: `auto repeat(${weekCount}, minmax(0, 1fr))`,
-        gridTemplateRows: "auto repeat(7, auto)",
-    };
+/** The block size that makes a year fill `width`, clamped to 10 to 18px. */
+function useBlockSize() {
+    const ref = useRef<HTMLDivElement>(null);
+    const [size, setSize] = useState(12);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const measure = () => {
+            const fit = Math.floor((el.clientWidth + MARGIN) / WEEKS) - MARGIN;
+            setSize(Math.max(10, Math.min(18, fit)));
+        };
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+    return { ref, size };
 }
 
 // Same surface as the Home module cards (plan/home HOME-2).
 const CARD = "h-full rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950";
-const GRID = "grid min-w-[640px] gap-[3px]";
-const LABEL = "text-[11px] leading-none text-neutral-600 dark:text-neutral-400";
-
-function Legend() {
-    return (
-        <div className={cn("mt-4 flex items-center justify-end gap-1.5", LABEL)}>
-            <span className="mr-1">Less</span>
-            {LEVEL_CLASS.map((c, i) => (
-                <span key={i} className={cn("h-3 w-3 rounded-[3px]", c)} />
-            ))}
-            <span className="ml-1">More</span>
-        </div>
-    );
-}
+const TEXT = "text-xs text-neutral-600 dark:text-neutral-400";
 
 function Header({ streak }: { streak: number | null }) {
     return (
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900/10 dark:bg-white/10">
                     <CalendarDays className="h-4 w-4 text-neutral-900 dark:text-neutral-100" />
@@ -142,25 +121,35 @@ function Header({ streak }: { streak: number | null }) {
     );
 }
 
-/** Day-of-week labels in column 1, rows 2 to 8. */
-function DayLabels() {
+function Legend({ size }: { size: number }) {
     return (
-        <>
-            {[0, 1, 2, 3, 4, 5, 6].map((d) => (
-                <span key={d} className={cn(LABEL, "flex items-center pr-2")} style={{ gridColumn: 1, gridRow: d + 2 }}>
-                    {DAY_LABELS[d] ?? ""}
-                </span>
-            ))}
-        </>
+        <ContributionGraphLegend className={TEXT}>
+            {({ level }) => (
+                <svg width={size} height={size} aria-hidden>
+                    <rect className={LEVELS} data-level={level} width={size} height={size} rx={2} ry={2} />
+                </svg>
+            )}
+        </ContributionGraphLegend>
     );
 }
 
 export default function ActivityCalendar({ data }: { data: ActivityData[] }) {
-    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [sheetOpen, setSheetOpen] = useState(false);
+    const { ref, size } = useBlockSize();
+    // One tooltip for the whole graph, placed over the hovered (or focused) day.
+    // A Radix Tooltip per day never opened: its trigger does not take an SVG <g>.
+    const [hover, setHover] = useState<{ day: Day; x: number; y: number } | null>(null);
+    const show = (day: Day, el: Element) => {
+        const box = ref.current?.getBoundingClientRect();
+        const r = el.getBoundingClientRect();
+        if (!box) return;
+        const x = r.left + r.width / 2 - box.left;
+        setHover({ day, x: Math.max(96, Math.min(box.width - 96, x)), y: r.top - box.top });
+    };
 
-    const { weeks, days } = useMemo(() => buildWeeks(data), [data]);
-    const months = useMemo(() => monthLabels(weeks), [weeks]);
+    const days = useMemo(() => buildDays(data), [data]);
+    const byDate = useMemo(() => new Map(days.map((d) => [d.date, d])), [days]);
 
     // Consecutive active days ending today, or yesterday when today is still empty.
     const streak = useMemo(() => {
@@ -173,67 +162,79 @@ export default function ActivityCalendar({ data }: { data: ActivityData[] }) {
     }, [days]);
 
     const active = days.filter((d) => d.xp > 0).length;
+    const totalXp = days.reduce((sum, d) => sum + d.xp, 0);
+    const open = (day: string) => {
+        setSelectedDate(day);
+        setSheetOpen(true);
+    };
 
     return (
         <>
             <div className={CARD}>
                 <Header streak={streak} />
-                <TooltipProvider delayDuration={100}>
-                    <div className="overflow-x-auto pb-1">
-                        {/* CSS fade, not framer `initial={{ opacity: 0 }}`: that inline style is
-                            in the server HTML and kept the grid invisible until hydration
-                            (plan/home HOME-1). */}
-                        <div
-                            className={cn(GRID, "animate-in fade-in-0 duration-300 [animation-fill-mode:both] motion-reduce:animate-none")}
-                            style={gridTemplate(weeks.length)}
-                            role="grid"
-                            aria-label={`Activity over the last year: ${active} active day${active === 1 ? "" : "s"}`}
+                <div ref={ref} className="relative animate-in fade-in-0 duration-300 [animation-fill-mode:both] motion-reduce:animate-none">
+                    <ContributionGraph data={days} blockSize={size} blockMargin={MARGIN} blockRadius={2} fontSize={12} className="mx-auto">
+                        <ContributionGraphCalendar
+                            title={`Activity over the last year: ${active} active day${active === 1 ? "" : "s"}`}
+                            className="text-neutral-600 dark:text-neutral-400"
                         >
-                            {months.map((m) => (
-                                <span
-                                    key={`${m.col}-${m.label}`}
-                                    className={cn(LABEL, "pb-1.5 whitespace-nowrap")}
-                                    style={{ gridColumn: `${m.col + 2} / span 3`, gridRow: 1 }}
-                                >
-                                    {m.label}
-                                </span>
-                            ))}
-                            <DayLabels />
-                            {weeks.map((week, w) =>
-                                week.map((day, d) => {
-                                    const place = { gridColumn: w + 2, gridRow: d + 2 };
-                                    if (!day) return <span key={`${w}-${d}`} style={place} aria-hidden />;
-                                    return (
-                                        <Tooltip key={`${w}-${d}`}>
-                                            <TooltipTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSelectedDate(day.date);
-                                                        setSheetOpen(true);
-                                                    }}
-                                                    style={place}
-                                                    aria-label={`${formatDate(day.date)}: ${day.xp > 0 ? `${day.xp} XP` : "no activity"}`}
-                                                    className={cn(
-                                                        "aspect-square w-full cursor-pointer rounded-[3px] transition-transform hover:scale-125 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-neutral-900 dark:focus-visible:outline-neutral-100",
-                                                        LEVEL_CLASS[levelFor(day.xp)],
-                                                    )}
-                                                />
-                                            </TooltipTrigger>
-                                            <TooltipContent side="top" className="text-xs">
-                                                <p className="font-medium">{formatDate(day.date)}</p>
-                                                <p className="text-muted-foreground">
-                                                    {day.xp > 0 ? `${day.xp} XP, ${day.count} ${day.count === 1 ? "activity" : "activities"}` : "No activity"}
-                                                </p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    );
-                                }),
-                            )}
+                            {({ activity, dayIndex, weekIndex }) => {
+                                const day = byDate.get(activity.date);
+                                if (!day) return null;
+                                const label = `${formatDate(day.day)}: ${day.xp > 0 ? `${day.xp} XP` : "no activity"}`;
+                                return (
+                                    <ContributionGraphBlock
+                                        activity={activity}
+                                        dayIndex={dayIndex}
+                                        weekIndex={weekIndex}
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-label={`${label}. Open the full day.`}
+                                        onPointerEnter={(e) => show(day, e.currentTarget)}
+                                        onPointerLeave={() => setHover(null)}
+                                        onFocus={(e) => show(day, e.currentTarget)}
+                                        onBlur={() => setHover(null)}
+                                        onClick={() => open(day.date)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" || e.key === " ") {
+                                                e.preventDefault();
+                                                open(day.date);
+                                            }
+                                        }}
+                                        className={cn(LEVELS, "cursor-pointer outline-none focus-visible:stroke-neutral-900 focus-visible:stroke-2 dark:focus-visible:stroke-neutral-100", hover?.day.date === day.date && "stroke-neutral-900 stroke-1 dark:stroke-neutral-100")}
+                                    />
+                                );
+                            }}
+                        </ContributionGraphCalendar>
+                        <ContributionGraphFooter className="mt-2 items-center">
+                            <ContributionGraphTotalCount>
+                                {() => (
+                                    <span className={TEXT}>
+                                        {active} active day{active === 1 ? "" : "s"}, {totalXp.toLocaleString("en")} XP in the last year
+                                    </span>
+                                )}
+                            </ContributionGraphTotalCount>
+                            <Legend size={Math.min(size, 12)} />
+                        </ContributionGraphFooter>
+                    </ContributionGraph>
+                    {hover && (
+                        <div
+                            role="tooltip"
+                            className="pointer-events-none absolute z-20 w-max max-w-48 -translate-x-1/2 -translate-y-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs shadow-md dark:border-neutral-800 dark:bg-neutral-900"
+                            style={{ left: hover.x, top: hover.y - 6 }}
+                        >
+                            <p className="font-medium text-neutral-900 dark:text-neutral-100">{formatDate(hover.day.day)}</p>
+                            <p className="mt-0.5 text-neutral-600 dark:text-neutral-400">
+                                {hover.day.xp > 0
+                                    ? `${hover.day.xp} XP from ${hover.day.count} ${hover.day.count === 1 ? "activity" : "activities"}`
+                                    : "No activity"}
+                            </p>
+                            <p className="mt-1.5 border-t border-neutral-200 pt-1.5 text-[11px] text-neutral-500 dark:border-neutral-800 dark:text-neutral-500">
+                                Click to see the full day
+                            </p>
                         </div>
-                    </div>
-                </TooltipProvider>
-                <Legend />
+                    )}
+                </div>
             </div>
 
             <ActivityDaySheet open={sheetOpen} onOpenChange={setSheetOpen} date={selectedDate} />
@@ -242,30 +243,28 @@ export default function ActivityCalendar({ data }: { data: ActivityData[] }) {
 }
 
 /**
- * The same card, grid and legend with inert cells, so the loading state has the
- * real height at every width and the page does not reflow when data arrives.
+ * The same card and graph with every day empty, so the loading state has the real
+ * height at every width and the page does not reflow when data arrives.
  */
 export function ActivityCalendarSkeleton() {
-    const { weeks } = buildWeeks([]);
+    const days = useMemo(() => buildDays([]), []);
+    const { ref, size } = useBlockSize();
     return (
         <div className={CARD} aria-busy aria-label="Loading activity">
             <Header streak={null} />
-            <div className="overflow-hidden pb-1">
-                <div className={cn(GRID, "animate-pulse")} style={gridTemplate(weeks.length)}>
-                    <span className={cn(LABEL, "pb-1.5")} style={{ gridColumn: "2 / span 3", gridRow: 1 }}>&nbsp;</span>
-                    <DayLabels />
-                    {weeks.map((week, w) =>
-                        week.map((day, d) => (
-                            <span
-                                key={`${w}-${d}`}
-                                style={{ gridColumn: w + 2, gridRow: d + 2 }}
-                                className={day ? "aspect-square w-full rounded-[3px] bg-neutral-100 dark:bg-neutral-800" : undefined}
-                            />
-                        )),
-                    )}
-                </div>
+            <div ref={ref} className="animate-pulse">
+                <ContributionGraph data={days} blockSize={size} blockMargin={MARGIN} blockRadius={2} fontSize={12} className="mx-auto">
+                    <ContributionGraphCalendar title="Loading activity" className="text-neutral-600 dark:text-neutral-400">
+                        {({ activity, dayIndex, weekIndex }) => (
+                            <ContributionGraphBlock activity={activity} dayIndex={dayIndex} weekIndex={weekIndex} className={LEVELS} />
+                        )}
+                    </ContributionGraphCalendar>
+                    <ContributionGraphFooter className="mt-2 items-center">
+                        <span className={TEXT}>&nbsp;</span>
+                        <Legend size={Math.min(size, 12)} />
+                    </ContributionGraphFooter>
+                </ContributionGraph>
             </div>
-            <Legend />
         </div>
     );
 }

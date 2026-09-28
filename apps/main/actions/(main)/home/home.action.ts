@@ -8,12 +8,13 @@ import {
     userProjectV2Progress,
     studios,
     pathfinderGoals,
+    pathfinderSubGoals,
     activityEntries,
     dailyActivities,
     mockVoiceSession,
     userStats,
 } from "@repo/db";
-import { eq, and, gte, desc, asc } from "drizzle-orm";
+import { eq, and, gte, desc, asc, inArray } from "drizzle-orm";
 
 // ─── Monthly trend helpers ───────────────────────────────────────────────────
 // The dashboard charts are all "last 6 months, one point per month". Rather than
@@ -291,7 +292,18 @@ export async function getHomeData() {
         }));
 
         // Normalize studios to include _count shape for client compatibility
-        const normalizedStudios = recentStudios.map(s => ({
+        // A study space is a Pathfinder step's notes; there is no /studio page, so it
+        // opens on its goal's Notes tab at that step (plan/home HOME-9). A space with
+        // no goal has nowhere to open and is left out.
+        const studioLinks = recentStudios.length
+            ? await db.select({ studioId: pathfinderSubGoals.studioId, subGoalId: pathfinderSubGoals.id, goalSlug: pathfinderGoals.slug })
+                .from(pathfinderSubGoals)
+                .innerJoin(pathfinderGoals, eq(pathfinderGoals.id, pathfinderSubGoals.goalId))
+                .where(and(eq(pathfinderGoals.userId, userId), inArray(pathfinderSubGoals.studioId, recentStudios.map((s) => s.id))))
+            : [];
+        const linkFor = new Map(studioLinks.map((l) => [l.studioId, `/pathfinder/${l.goalSlug}?tab=notes&topic=${l.subGoalId}`]));
+        const normalizedStudios = recentStudios.filter((s) => linkFor.has(s.id)).map(s => ({
+            href: linkFor.get(s.id)!,
             id: s.id,
             slug: s.slug,
             title: s.title,
@@ -401,7 +413,9 @@ export async function getHomeData() {
     }
 }
 
-// Get activities for a specific date (used by the activity calendar day view)
+// Get activities for a specific date (used by the activity calendar day view).
+// `dateStr` is the graph's own yyyy-mm-dd, sent as is: parsing it into a Date and back
+// shifted it by a day in any timezone ahead of UTC (plan/home HOME-4).
 export async function getActivitiesByDate(dateStr: string) {
     try {
         const session = await getSession(headers());
@@ -409,9 +423,10 @@ export async function getActivitiesByDate(dateStr: string) {
             return { success: false, error: "Not authenticated", data: [] };
         }
 
-        const date = new Date(dateStr);
-        date.setHours(0, 0, 0, 0);
-        const dateOnly = date.toISOString().split('T')[0]!;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            return { success: false, error: "Bad date", data: [] };
+        }
+        const dateOnly = dateStr;
 
         const dailyActivity = await db.query.dailyActivities.findFirst({
             where: and(
@@ -436,6 +451,7 @@ export async function getActivitiesByDate(dateStr: string) {
             title: a.title,
             description: a.description,
             xpEarned: a.xpEarned,
+            timeSpent: a.timeSpent,
             createdAt: a.createdAt,
         }));
 

@@ -1,4 +1,5 @@
 import "server-only"
+import { loadEarnedBadges } from "@/lib/badges/load"
 
 /**
  * Reading a profile for someone other than its owner (plan/profile PRF-8).
@@ -64,6 +65,9 @@ export interface PublicProfile {
     linkedinUrl: string | null
     twitterUrl: string | null
     socialLinks: { id: string; platform: string; url: string; label: string | null }[]
+    /** Earned badges, newest first, at most 12 (plan/badges BDG-6); `badgeCount` is all of them. */
+    badges: import("@/lib/badges/load").BadgeView[]
+    badgeCount: number
     experiences: {
         id: string; companyName: string; companyLogo: string | null; companyWebsite: string | null
         roleTitle: string; description: string | null; bulletPoints: string[]
@@ -224,11 +228,16 @@ export async function loadPublicProfile(username: string, viewerId: string | nul
             : Promise.resolve(undefined),
     ])
 
+    // Earned badges only: a stranger never sees locked ones (plan/badges BDG-6).
+    const earnedBadges = await loadEarnedBadges(user.id)
+
     return {
         status: "ok",
         isOwn,
         isFollowing,
         profile: {
+            badges: earnedBadges.slice(0, 12),
+            badgeCount: earnedBadges.length,
             id: user.id,
             profileId: profileRow?.id ?? null,
             name: user.name,

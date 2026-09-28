@@ -105,3 +105,13 @@ export function onboardingUrlFor(callback: string | null | undefined): string {
 		? `/onboarding?callbackUrl=${encodeURIComponent(callback)}`
 		: "/onboarding";
 }
+
+/** A progress report, for its owner (plan/progress PRG-8). */
+export function progressReportUrl(id: string): string {
+    return absoluteUrl(`/reports/${encodeURIComponent(id)}`);
+}
+
+/** A progress report its owner shared, by its token; opens signed out (PRG-8). */
+export function progressReportShareUrl(token: string): string {
+    return absoluteUrl(`/reports/s/${encodeURIComponent(token)}`);
+}

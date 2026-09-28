@@ -12,6 +12,8 @@
  */
 
 import Link from "next/link"
+import { BadgeTiles } from "@/components/badges/badge-tiles"
+import { BADGE_MODULES } from "@repo/db/badges"
 import {
     ArrowUpRight, Briefcase, Code2, FileText, FolderGit2, Globe, Mail, MapPin, Users,
 } from "lucide-react"
@@ -192,6 +194,16 @@ export function OnePager({ p, isOwn, signedIn, isFollowing, shareUrl }: OnePager
                             />
                         ))}
                     </ol>
+                </Section>
+            )}
+
+            {p.badges.length > 0 && (
+                <Section title="Badges" count={p.badgeCount}>
+                    {/* Earned badges only (plan/badges BDG-6); they light up under the pointer. */}
+                    <BadgeTiles badges={p.badges} showProgress={false} eyebrow={(b) => BADGE_MODULES.find((m) => m.key === b.module)?.label ?? ""} />
+                    {p.badgeCount > p.badges.length && (
+                        <p className="mt-3 text-xs text-neutral-500">And {p.badgeCount - p.badges.length} more.</p>
+                    )}
                 </Section>
             )}
 

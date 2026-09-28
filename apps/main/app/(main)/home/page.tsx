@@ -7,15 +7,23 @@ import { getHomeData } from "@/actions/(main)/home/home.action";
 import HomeDashboard, { type PickUpItem } from "./_components/home-dashboard";
 import ActivityCalendar from "./_components/activity-calendar";
 import { ActivityCalendarSkeleton } from "./_components/skeletons";
+import ProgressSections from "./_components/progress-sections";
+import { BadgesSection } from "./_components/badges-section";
+import { GitHubActivity, GitHubCalendarSkeleton, connectedGitHub } from "./_components/github-activity";
+import { parseRange } from "@repo/db/progress";
 
 export const metadata = {
     title: "Home | ShipItHQ",
     description: "Your personalized learning dashboard",
 };
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
+    const range = parseRange((await searchParams).range);
     const session = await getSession(headers());
     if (!session?.user?.id) redirect("/signin");
+    // GitHub contributions only for a connected account (plan/home HOME-10); asked up
+    // front so an unconnected account never sees a skeleton for a card that won't come.
+    const githubUser = await connectedGitHub(session.user.id);
 
     const homeDataResult = await getHomeData();
 
@@ -54,7 +62,7 @@ export default async function HomePage() {
             kind: "studio",
             title: s.title,
             detail: `${s._count.quizzes} quizzes · ${s._count.flashcardDecks} decks`,
-            href: `/studio/${s.slug || s.id}`,
+            href: s.href,
         })),
     ].slice(0, 3);
 
@@ -65,6 +73,21 @@ export default async function HomePage() {
                 <Suspense fallback={<ActivityCalendarSkeleton />}>
                     <ActivityCalendar data={activityCalendar} />
                 </Suspense>
+                {githubUser && (
+                    <div className="mt-4">
+                        <Suspense fallback={<GitHubCalendarSkeleton />}>
+                            <GitHubActivity username={githubUser} />
+                        </Suspense>
+                    </div>
+                )}
+                {/* Every module, chart plus list (plan/home HOME-7, HOME-8). */}
+                <div className="mt-6">
+                    <ProgressSections userId={session.user.id} range={range} />
+                </div>
+                {/* Badges (plan/badges BDG-5). */}
+                <div className="mt-8">
+                    <BadgesSection userId={session.user.id} />
+                </div>
             </div>
         </div>
     );

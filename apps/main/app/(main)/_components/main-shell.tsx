@@ -7,6 +7,7 @@ import Sidebar from '@/components/common/mainsidebar';
 import { SidebarProvider } from '@/components/common/sidebarprovider';
 import { ShellFrame } from '@repo/ui/components/shell/shell-frame';
 import { SignInPromptHost } from '@/components/auth/sign-in-prompt';
+import { BadgeToaster } from '@/components/badges/badge-toaster';
 import {
     WifiOff, RotateCcw
 } from 'lucide-react';
@@ -42,6 +43,8 @@ const MainContent = ({ children }: { children: React.ReactNode }) => {
             </ShellFrame>
             {/* "Sign in to do this", openable from anywhere in the shell (components/auth/sign-in-prompt). */}
             <SignInPromptHost />
+            {/* "Badge earned" toasts, once each (plan/badges BDG-8). */}
+            <BadgeToaster />
 
             <Script
                 src="https://checkout.razorpay.com/v1/checkout.js"
