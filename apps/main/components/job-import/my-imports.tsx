@@ -32,7 +32,7 @@ function when(iso: string) {
 export function MyImports({ items, title = "Your imports", empty = "Jobs you import show here, with where each one is." }: { items: MyImport[]; title?: string; empty?: string }) {
     const shown = items.filter((i) => i.state !== "cancelled")
     return (
-        <section aria-labelledby="my-imports" className="rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+        <section aria-labelledby="my-imports" className="@container rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
             <div className="flex items-baseline justify-between gap-2 border-b border-neutral-200 px-5 py-3 dark:border-neutral-800">
                 <h2 id="my-imports" className="text-sm font-semibold text-neutral-900 dark:text-white">{title}</h2>
                 <span className="text-xs tabular-nums text-neutral-500 dark:text-neutral-400">{shown.length}</span>
@@ -55,7 +55,7 @@ export function MyImports({ items, title = "Your imports", empty = "Jobs you imp
                                             {i.company ? `${i.company} · ` : ""}<span className={cn(s.strong && "font-medium text-neutral-900 dark:text-white")}>{s.label}</span> · {when(i.at)}
                                         </p>
                                     </div>
-                                    <span className="hidden shrink-0 items-center gap-1 text-xs font-medium text-neutral-700 sm:inline-flex dark:text-neutral-300">
+                                    <span className="hidden shrink-0 items-center gap-1 text-xs font-medium text-neutral-700 @md:inline-flex dark:text-neutral-300">
                                         {s.action} <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                                     </span>
                                 </Link>

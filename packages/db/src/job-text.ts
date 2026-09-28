@@ -47,7 +47,8 @@ export function unwrapJobText(raw: string): string {
  * and a " - <Location>" tail, else the text's first line. Empty where nothing was found.
  */
 export function guessJobFacts(pageTitle: string, text: string, companyHint?: string | null): { title: string; company: string; location: string } {
-    const raw = (pageTitle ?? "").replace(/\s*\|\s*(LinkedIn|Indeed|Glassdoor|Naukri|Wellfound)[^|]*$/i, "").trim()
+    // Long dashes in a page title ("Acme \u2014 Pune") read as the plain " - " separator.
+    const raw = (pageTitle ?? "").replace(/\s*\|\s*(LinkedIn|Indeed|Glassdoor|Naukri|Wellfound)[^|]*$/i, "").replace(/\s+[\u2012-\u2015]\s+/g, " - ").trim()
     const hiring = /^(.+?)\s+hiring\s+(.+?)(?:\s+in\s+(.+))?$/i.exec(raw)
     let title = "", company = "", location = ""
     if (hiring) {

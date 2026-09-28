@@ -24,6 +24,8 @@ Build in order.
 | JI-16 | "Your imports" on the import page | done 2026-09-28 |
 | JI-17 | Imports on the profile: the owner's list and count; the public count | done 2026-09-28 (owner list checked in Chrome; public count by typecheck) |
 | JI-18 | Remove the temporary fetch-only switch | done 2026-09-28 |
+| JI-19 | One wizard on /jobs/import: the same four steps from paste to build, the import as `?id=` | done 2026-09-29 (Chrome: paste to review on one page, `?id=` set, old address redirects) |
+| JI-20 | "Your imports" as a right rail beside the form | done 2026-09-29 (Chrome, 1512px) |
 
 ## JI-1 - Schema
 **Why** One row per imported job, shared across students, with its state.
@@ -393,3 +395,38 @@ profile: the count only. **Done when** both show for Niraj's account.
 
 ### JI-18 - Remove the fetch-only switch
 The review step replaces it: delete `JOB_IMPORT_FETCH_ONLY` from the worker and `.dev.vars`.
+
+
+## Round 3 (Niraj, 2026-09-28)
+Two pages showed two different step lists (/jobs/import: Paste, Check, Design, Practise;
+/jobs/import/[id]: Read, Review, Build, Practise), and the [id] page put its header above
+both columns, so the step content started low. Decisions: the wizard lives on /jobs/import
+with the import as `?id=`; a built job's rounds keep /jobs/import/[id] (shared links); the
+first screen gets "Your imports" as a right rail.
+
+### JI-19 - One wizard
+**Why** One flow, one list of steps, no page change between pasting and checking.
+**Files** `app/(jobs)/jobs/import/page.tsx`, `app/(jobs)/jobs/import/[id]/page.tsx`,
+`components/job-import/{import-form,import-progress (ImportWizard),import-review}.tsx`, the
+two `loading.tsx`.
+**Steps** The page reads `?id=`. Left column: the back link (when an id is set), the title
+and subtitle, then the one stepper (Paste the job, Check what we read, Build the rounds,
+Practise). Right column: the step's content at full height - the form (no id), reading
+skeleton, review, paste-the-text, building progress, failed or duplicate. Starting an
+import replaces the URL with `?id=` (no new page). /jobs/import/[id] for anything not
+READY redirects to `/jobs/import?id=`; READY stays the rounds page. Practise, once READY,
+links to /jobs/import/[id].
+**Edge cases** An id that isn't the viewer's (private) or doesn't exist: the form with a
+note. A public import someone else built, still building: the progress, read-only. The
+back button from `?id=` returns to the empty form. Duplicate: link to theirs.
+**Done when** in Chrome, pasting a link on /jobs/import shows the reading skeleton and then
+the review on the same page with `?id=` in the address, the left stepper advancing, and
+/jobs/import/<draft id> redirects there.
+
+### JI-20 - Your imports as a right rail
+**Why** The form left the right half of a wide screen empty.
+**Files** `app/(jobs)/jobs/import/page.tsx`, `components/job-import/my-imports.tsx`.
+**Steps** On `xl` and wider, with no id: steps, form and a sticky "Your imports" column; below
+`xl` the list sits under the form. With an id, no rail (the review needs the width).
+**Edge cases** No imports: a one-line empty state in the rail. Long titles truncate.
+**Done when** at 1512px wide the form and the list sit side by side with no empty half.

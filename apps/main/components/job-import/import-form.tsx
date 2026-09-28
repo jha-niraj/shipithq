@@ -21,7 +21,8 @@ import { importJob, type ImportAllowance } from "@/actions/(main)/jobs/import.ac
 const isLink = (v: string) => /^https?:\/\/\S+$/i.test(v.trim())
 
 /** `initialText`: a posting to start from (an interview-prep goal's, JI-8). */
-export function ImportForm({ allowance, company, initialText }: { allowance: ImportAllowance; company?: string; initialText?: string }) {
+/** `onStarted`: the wizard stays on the page and takes the import's id (JI-19); without it, the import's page opens. */
+export function ImportForm({ allowance, company, initialText, onStarted }: { allowance: ImportAllowance; company?: string; initialText?: string; onStarted?: (importId: string) => void }) {
     const router = useRouter()
     // A one-line link box by default; the text area only when the posting itself is pasted
     // (plan/jobs-polish JP-4). A posting pasted into the link box switches it over.
@@ -42,7 +43,9 @@ export function ImportForm({ allowance, company, initialText }: { allowance: Imp
             toast.error(r.error)
             return
         }
-        router.push(r.data.kind === "on_platform" ? r.data.href : `/jobs/import/${r.data.importId}`)
+        if (r.data.kind === "on_platform") { router.push(r.data.href); return }
+        if (onStarted) onStarted(r.data.importId)
+        else router.push(`/jobs/import?id=${r.data.importId}`)
     }
 
     return (
