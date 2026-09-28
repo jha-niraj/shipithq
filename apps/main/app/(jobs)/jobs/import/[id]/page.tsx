@@ -2,7 +2,7 @@ import Link from "next/link"
 import { headers } from "next/headers"
 import { ArrowLeft, CircleDashed } from "lucide-react"
 import { getSession } from "@repo/auth"
-import { getImport } from "@/actions/(main)/jobs/import.action"
+import { getImport, getImportAllowance } from "@/actions/(main)/jobs/import.action"
 import { getImportRounds } from "@/actions/hiring/run.action"
 import { RoundsOverviewView } from "@/components/hiring/rounds-overview"
 import { ImportProgress } from "@/components/job-import/import-progress"
@@ -14,8 +14,9 @@ export const dynamic = "force-dynamic"
 export const metadata = { title: "Practise a job | ShipItHQ" }
 
 /**
- * One imported job (plan/job-import JI-7): its progress while it's built, then
- * its rounds, practised in order. The link stays the same throughout.
+ * One imported job (plan/job-import JI-7, JI-14): read, the student's review, its
+ * progress while it's built, then its rounds, practised in order. The link stays
+ * the same throughout.
  */
 export default async function ImportedJobPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -28,14 +29,14 @@ export default async function ImportedJobPage({ params }: { params: Promise<{ id
             </div>
         )
     }
-    if (imp.data.status !== "READY") return <ImportProgress initial={imp.data} />
+    if (imp.data.status !== "READY") return <ImportProgress initial={imp.data} allowance={await getImportAllowance()} />
 
     const [rounds, referral] = await Promise.all([
         getImportRounds(id),
         // Referrals need a company on ShipItHQ (CMP-4); a job still under review has none.
         imp.data.companyId ? getReferralAvailability({ importedJobId: id }) : null,
     ])
-    if (!rounds.success) return <ImportProgress initial={imp.data} />
+    if (!rounds.success) return <ImportProgress initial={imp.data} allowance={await getImportAllowance()} />
     const skipped = imp.data.notPractisable
     const ctx = rounds.data.context
     // Filed against the company, or the request while it's under review (CMP-1).

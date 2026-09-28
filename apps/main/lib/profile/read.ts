@@ -16,7 +16,7 @@ import { loadEarnedBadges } from "@/lib/badges/load"
  */
 import {
     db, users, userProfiles, portfolioProjects, skills, workExperiences, userEducations,
-    socialLinks, certifications, follow, resumeDraft,
+    socialLinks, certifications, follow, resumeDraft, importedJobs,
 } from "@repo/db"
 import { and, asc, desc, eq, sql } from "drizzle-orm"
 import { calculateLevelFromXp, lifetimeXp } from "@/lib/levels"
@@ -34,6 +34,8 @@ export interface ProfileStats {
     skills: number
     followers: number
     following: number
+    /** Jobs this student imported and built, ready to practise (plan/job-import JI-17). A count only; the list is the owner's. */
+    jobsImported: number
 }
 
 export interface PublicProfile {
@@ -109,12 +111,13 @@ export async function profileStats(userId: string, opts: { includePrivateProject
         // Case-insensitive until the PRF-7 backfill has run everywhere.
         : and(eq(portfolioProjects.userId, userId), sql`upper(${portfolioProjects.visibility}) = 'PUBLIC'`)
 
-    const [projects, skillRows, followers, following, xp] = await Promise.all([
+    const [projects, skillRows, followers, following, xp, imported] = await Promise.all([
         db.select({ n: sql<number>`count(*)` }).from(portfolioProjects).where(projectWhere),
         db.select({ n: sql<number>`count(*)` }).from(skills).where(eq(skills.userId, userId)),
         db.select({ n: sql<number>`count(*)` }).from(follow).where(eq(follow.followingId, userId)),
         db.select({ n: sql<number>`count(*)` }).from(follow).where(eq(follow.followerId, userId)),
         db.query.users.findFirst({ where: eq(users.id, userId), columns: { totalXp: true, currentXp: true } }),
+        db.select({ n: sql<number>`count(*)` }).from(importedJobs).where(and(eq(importedJobs.ownerId, userId), eq(importedJobs.status, "READY"))),
     ])
 
     const total = lifetimeXp(xp ?? {})
@@ -137,6 +140,7 @@ export async function profileStats(userId: string, opts: { includePrivateProject
         skills: count(skillRows),
         followers: count(followers),
         following: count(following),
+        jobsImported: count(imported),
     }
 }
 

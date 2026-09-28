@@ -40,3 +40,31 @@ export function unwrapJobText(raw: string): string {
         return (heading || headings.has(l)) && i > 0 ? `\n${l}` : l
     }).join("\n").trim()
 }
+
+/**
+ * A posting's title, company and location read without AI (JI-13), for the student to check:
+ * LinkedIn's "<Company> hiring <Title> in <Location> | LinkedIn", else "<Title> at <Company>"
+ * and a " - <Location>" tail, else the text's first line. Empty where nothing was found.
+ */
+export function guessJobFacts(pageTitle: string, text: string, companyHint?: string | null): { title: string; company: string; location: string } {
+    const raw = (pageTitle ?? "").replace(/\s*\|\s*(LinkedIn|Indeed|Glassdoor|Naukri|Wellfound)[^|]*$/i, "").trim()
+    const hiring = /^(.+?)\s+hiring\s+(.+?)(?:\s+in\s+(.+))?$/i.exec(raw)
+    let title = "", company = "", location = ""
+    if (hiring) {
+        company = hiring[1]!.trim(); title = hiring[2]!.trim(); location = (hiring[3] ?? "").trim()
+    } else if (/^(careers?|jobs?|home|join us|work with us)\b/i.test(raw)) {
+        // A site's generic page title ("Careers | Acme"): the company is after the bar, the
+        // role comes from the posting itself below.
+        company = raw.split(/\s*\|\s*/)[1]?.trim() ?? ""
+    } else if (raw) {
+        const [head, tail] = raw.split(/\s+-\s+/, 2)
+        const at = /^(.+?)\s+at\s+(.+)$/i.exec(head ?? "")
+        title = (at ? at[1] : head)?.trim() ?? ""
+        company = at?.[2]?.trim() ?? ""
+        location = tail?.trim() ?? ""
+    }
+    if (!title) title = (unwrapJobText(text).split("\n").find((l) => l.trim()) ?? "").trim()
+    if (companyHint) company = companyHint
+    const cap = (s: string, n: number) => s.replace(/\s+/g, " ").slice(0, n)
+    return { title: cap(title, 120), company: cap(company, 120), location: cap(location, 120) }
+}

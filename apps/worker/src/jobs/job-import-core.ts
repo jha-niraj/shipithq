@@ -18,7 +18,7 @@ export const SCRAPE_TIMEOUT_MS = 25_000
 export const MODEL_TIMEOUT_MS = 25_000
 
 export type PageRead =
-    | { ok: true; text: string; title: string; companyGuess: string; via: "firecrawl" | "exa" }
+    | { ok: true; text: string; title: string; rawTitle: string; companyGuess: string; via: "firecrawl" | "exa" }
     | { ok: false; reason: string }
 
 /**
@@ -73,7 +73,7 @@ function accept(raw: string, title: string, via: "firecrawl" | "exa"): PageRead 
     // Cleaning took almost everything: the layout wasn't what it looked like, so keep the raw text.
     // Sentences broken across lines joined again (the student reads this, and so does the model).
     const text = unwrapJobText(cleaned.length < 200 ? raw : cleaned).slice(0, MAX_JOB_TEXT)
-    return { ok: true, text, title: cleanJobTitle(title), companyGuess: companyFromTitle(title), via }
+    return { ok: true, text, title: cleanJobTitle(title), rawTitle: title, companyGuess: companyFromTitle(title), via }
 }
 
 // ── The extract ──────────────────────────────────────────────────────────────

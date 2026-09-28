@@ -42,7 +42,7 @@ export function ProfileEditorSkeleton() {
                         <Shimmer className="h-3 w-10" />
                     </div>
                     <div className="space-y-1 p-2">
-                        {Array.from({ length: 8 }).map((_, i) => (
+                        {Array.from({ length: 9 }).map((_, i) => (
                             <div key={i} className="flex h-8 items-center px-2.5">
                                 <Shimmer className="h-3.5 w-24" delay={i * 0.04} />
                             </div>

@@ -37,8 +37,10 @@ import { ProjectSheet } from "@/components/profile/sheets/project-sheet";
 import { EditProfileSheet, type EditProfileTab } from "@/components/profile/sheets/edit-profile-sheet";
 import {
     CareerPane, EducationPane, ExperiencePane, IdentityPane, LinksPane, ProjectsPane, SkillsPane,
-    SECTIONS, sectionStatus, type OwnProfile, type SectionId,
+    PROFILE_SECTIONS, SECTIONS, sectionStatus, type OwnProfile, type SectionId,
 } from "./profile-editor/sections";
+import { ImportsPane } from "./profile-editor/imports-pane";
+import { listMyImports, type MyImport } from "@/actions/(main)/jobs/import.action";
 import { ProfileEditorSkeleton } from "./profile-editor/skeleton";
 import { ResumePane } from "./profile-editor/resume-pane";
 
@@ -62,6 +64,7 @@ export default function ProfileClient() {
 
     const [profile, setProfile] = useState<OwnProfile | null>(null);
     const [stats, setStats] = useState<ProfileStats | null>(null);
+    const [imports, setImports] = useState<MyImport[] | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [editing, setEditing] = useState<Editing>(null);
     const [shareOpen, setShareOpen] = useState(false);
@@ -69,7 +72,8 @@ export default function ProfileClient() {
 
     const load = useCallback(async () => {
         try {
-            const [p, s] = await Promise.all([getOwnProfile(), getUserProfileStats()]);
+            const [p, s, mine] = await Promise.all([getOwnProfile(), getUserProfileStats(), listMyImports(100)]);
+            setImports(mine);
             if (!p.success || !p.user) {
                 setError(p.error || "Could not load your profile");
                 return;
@@ -131,8 +135,8 @@ export default function ProfileClient() {
     }
     if (!profile) return <ProfileEditorSkeleton />;
 
-    const status = sectionStatus(profile);
-    const complete = SECTIONS.filter((s) => status[s.id].done).length;
+    const status = sectionStatus(profile, imports?.filter((i) => i.state !== "cancelled").length ?? 0);
+    const complete = PROFILE_SECTIONS.filter((s) => status[s.id].done).length;
     const hrefFor = (id: SectionId) => (id === "identity" ? pathname : `${pathname}?section=${id}`);
     const username = profile.username ?? "";
 
@@ -163,7 +167,7 @@ export default function ProfileClient() {
                     <div className="sticky top-0">
                         <div className="flex h-11 items-center justify-between border-b border-neutral-200 px-4 dark:border-neutral-800">
                             <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Profile</span>
-                            <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{complete} of {SECTIONS.length}</span>
+                            <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">{complete} of {PROFILE_SECTIONS.length}</span>
                         </div>
                         <ul className="p-2">
                             {SECTIONS.map((s) => {
@@ -219,6 +223,7 @@ export default function ProfileClient() {
                     {section === "links" && <LinksPane p={profile} onChanged={refresh} />}
                     {section === "resume" && <ResumePane onChanged={refresh} />}
                     {section === "career" && <CareerPane p={profile} onEdit={() => setEditing({ kind: "profile", tab: "career" })} />}
+                    {section === "imports" && <ImportsPane items={imports} />}
                 </main>
             </div>
 

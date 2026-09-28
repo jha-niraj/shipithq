@@ -1,6 +1,7 @@
 import { and, count, eq, inArray, isNull, ne, or, sql } from "drizzle-orm"
 import { modelFor, type AiTask } from "@repo/ai"
 import { exaSearch } from "@repo/exa"
+import { guessJobFacts, unwrapJobText } from "@repo/db/job-text"
 import { activityKey, recordActivity } from "@repo/db/activity"
 import { companyLoops, pickLoop, roleGroupOf } from "@repo/db/company-loop"
 import { BEHAVIOURAL_KNOWLEDGE, BEHAVIOURAL_RUBRIC, CULTURE_KNOWLEDGE, CULTURE_RUBRIC, PLATFORM_COOLDOWN_HOURS, POOL_TO_DRAW_RATIO } from "@repo/db/hiring-defaults"
@@ -52,7 +53,11 @@ type CompanyLink = "company" | "request" | "requested" | "ambiguous" | "unlinked
  * text (and the company name) onto the row.
  */
 
-export interface JobImportInput { importId: string }
+export interface JobImportInput {
+    importId: string
+    /** Build (JI-15): the student checked the text; skip the read and go to the model. */
+    build?: boolean
+}
 export interface JobImportState { round?: number; rounds?: number; processId?: string }
 
 const LABEL: Record<string, string> = {
@@ -102,7 +107,12 @@ export class JobImport extends SteppedJob<JobImportInput, JobImportState> {
     protected async runStep(name: string, ctx: StepContext<JobImportInput, JobImportState>): Promise<StepOutcome<JobImportState>> {
         const id = ctx.input.importId
         switch (name) {
-            case "fetch": return this.fetchStep(id, ctx.state)
+            case "fetch":
+                if (ctx.input.build) {
+                    await this.setRow(id, { status: "EXTRACTING", step: "Reading the job", error: null })
+                    return { state: ctx.state, next: "extract", progress: 15 }
+                }
+                return this.fetchStep(id, ctx.state)
             case "extract": return this.extractStep(id, ctx.state)
             case "company": return this.companyStep(id, ctx.userId, ctx.state)
             case "plan": return this.planStep(id, ctx.state)
@@ -112,12 +122,17 @@ export class JobImport extends SteppedJob<JobImportInput, JobImportState> {
         }
     }
 
-    /** Read the link, unless the text is already on the row (pasted, or after a resume). */
+    /**
+     * Read the link, then stop for the student to check it (JI-13): no model runs until they
+     * build (JI-15, which starts this job again at "extract"). Text already on the row (pasted
+     * after the page couldn't be read) goes to review the same way.
+     */
     private async fetchStep(id: string, state: JobImportState): Promise<StepOutcome<JobImportState>> {
         const row = await this.row(id)
         if (row.sourceText?.trim()) {
-            await this.setRow(id, { status: "EXTRACTING", step: "Reading the job", error: null })
-            return { state, next: "extract", progress: 15 }
+            const text = unwrapJobText(row.sourceText).slice(0, MAX_JOB_TEXT)
+            await this.setRow(id, { status: "REVIEW", step: null, error: null, sourceText: text, readText: row.readText ?? row.sourceText, facts: row.facts ?? guessJobFacts("", text, row.companyNameHint) })
+            return { state, next: null, progress: 100, label: "Read. Waiting for the student's check" }
         }
         if (!row.sourceUrl) {
             await this.setRow(id, { status: "NEEDS_TEXT", step: null, error: "Paste the job's text and the company name." })
@@ -129,27 +144,28 @@ export class JobImport extends SteppedJob<JobImportInput, JobImportState> {
             await this.setRow(id, { status: "NEEDS_TEXT", step: null, error: page.reason })
             return { state, wait: "Waiting for the job's text" }
         }
+        const text = page.text.slice(0, MAX_JOB_TEXT)
         await this.setRow(id, {
-            status: "EXTRACTING",
-            step: "Reading the job",
-            sourceText: page.text.slice(0, MAX_JOB_TEXT),
+            status: "REVIEW",
+            step: null,
+            readText: text,
+            sourceText: text,
             // A company named in the page title ("Role at Acme") is a hint; the student's own wins.
             companyNameHint: row.companyNameHint ?? (page.companyGuess || null),
+            facts: guessJobFacts(page.rawTitle, text, row.companyNameHint),
         })
-        // TEMPORARY, local only (Niraj, 2026-09-28: "disconnect the openai function for now and
-        // see how firecrawl does"): with JOB_IMPORT_FETCH_ONLY=1 in .dev.vars the import stops
-        // here, showing what was read, and never calls the model. Remove with the flag.
-        if (this.env.JOB_IMPORT_FETCH_ONLY === "1") {
-            await this.setRow(id, { status: "FAILED", step: null, error: `Fetch only (testing): read ${page.text.length.toLocaleString("en")} characters from the page; the AI step is switched off, so no rounds were built. What was read is below.` })
-            return { state, next: null, progress: 100, label: "Fetched (AI step off)" }
-        }
-        return { state, next: "extract", progress: 15 }
+        return { state, next: null, progress: 100, label: "Read. Waiting for the student's check" }
     }
 
     /** Model call 1, to the strict schema; a malformed reply is retried once. */
     private async extractStep(id: string, state: JobImportState): Promise<StepOutcome<JobImportState>> {
         const row = await this.row(id)
-        const text = row.sourceText ?? ""
+        // The student's own check of the title, company and location (JI-14) leads, as facts.
+        const f = row.facts
+        const confirmed = f && (f.title || f.company || f.location)
+            ? `The candidate checked these against the posting: title "${f.title}", company "${f.company}", location "${f.location || "not given"}". Use them.\n\n`
+            : ""
+        const text = `${confirmed}${row.sourceText ?? ""}`
         let check: ReturnType<typeof validateExtract> | null = null
         for (let attempt = 0; attempt < 2; attempt++) {
             const raw = await chatJSON({

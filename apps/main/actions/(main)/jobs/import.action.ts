@@ -1,11 +1,12 @@
 "use server"
 
-import { and, count, eq, gte, ne } from "drizzle-orm"
+import { and, count, desc, eq, gte, inArray, isNotNull, isNull, ne, or } from "drizzle-orm"
 import { getSession } from "@repo/auth"
 import { headers } from "next/headers"
 import { db, backgroundJobs, importedJobs, isTerminalJobStatus, jobs, pathfinderGoals, users } from "@repo/db"
 import { companyFromTitle } from "@repo/exa/job-page"
 import { jobUrlHash, normaliseJobUrl } from "@repo/db/job-import-url"
+import { guessJobFacts, unwrapJobText } from "@repo/db/job-text"
 import { startBackgroundJob } from "@/actions/(main)/workers/jobs.action"
 import { jobHoldId, releaseCredits, settleCredits } from "@/lib/credits/hold"
 import { priceOf } from "@/lib/credits/pricing"
@@ -16,8 +17,10 @@ import { issueWorkerToken } from "@/lib/workers/token"
  * "Practise any job" (plan/job-import JI-6): a pasted link or text becomes an
  * `imported_job`, built by the `job_import` worker job into a pipeline.
  *
- * The decisions are in plan/job-import/overview.md (Visibility and cost): a
- * public import is free, 3 new ones in a rolling 24 hours; a private one holds
+ * Every import starts as its student's private draft: the page is read (or the paste
+ * cleaned) and waits at REVIEW for them to check and edit it, free and uncounted
+ * (JI-13). Build applies the decisions in plan/job-import/overview.md (Visibility
+ * and cost): a public build is free, 3 in a rolling 24 hours; a private one holds
  * 15 credits, settled at READY and refunded if it fails; practising an import
  * that already exists is free. A job already on ShipItHQ goes straight to its
  * own rounds.
@@ -28,6 +31,8 @@ const PUBLIC_IMPORTS_PER_DAY = 3
 const DAY_MS = 86_400_000
 const MIN_TEXT = 200
 const MAX_TEXT = 20_000
+/** The error a draft keeps when someone else's build of the same job came first: `DUPLICATE:<their id>`. */
+const DUPLICATE = "DUPLICATE:"
 
 type Result<T> = { success: true; data: T } | { success: false; error: string; code?: string }
 
@@ -58,6 +63,13 @@ export interface ImportView {
     isOwner: boolean
     /** Waiting for the posting's text: this viewer may paste it. */
     canResume: boolean
+    /** Title, company and location as read, then as the student corrected them (JI-14). */
+    facts: { title: string; company: string; location: string } | null
+    /** Still the student's draft: not built yet (JI-15). */
+    draft: boolean
+    /** Someone's build of the same job came first; practise that one. */
+    duplicateOf: string | null
+    updatedAt: string
 }
 
 async function currentUserId(): Promise<string | null> {
@@ -78,13 +90,14 @@ function onPlatformSlug(normalised: string): string | null {
 const normaliseText = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase()
 
 /**
- * Start an import, or return the one that already exists. Pass a link, or the
- * posting's text with the company's name.
+ * Start an import as the student's own draft (JI-13), or return one that already
+ * exists. Pass a link, or the posting's text with the company's name. Nothing is
+ * charged or counted here: the page is read (or the paste cleaned) and waits at
+ * REVIEW for the student to check it; `buildImport` is where the cap and credits apply.
  */
-export async function importJob(input: { url?: string; text?: string; companyName?: string; visibility: "PUBLIC" | "PRIVATE" }): Promise<Result<ImportOutcome>> {
+export async function importJob(input: { url?: string; text?: string; companyName?: string }): Promise<Result<ImportOutcome>> {
     const userId = await currentUserId()
     if (!userId) return { success: false, error: "Sign in to practise a job.", code: "UNAUTHORIZED" }
-    const visibility: "PUBLIC" | "PRIVATE" = input.visibility === "PRIVATE" ? "PRIVATE" : "PUBLIC"
 
     let sourceUrl: string | null = null
     let sourceText: string | null = null
@@ -109,60 +122,31 @@ export async function importJob(input: { url?: string; text?: string; companyNam
     }
 
     try {
-        // Already imported publicly: anyone practises it free, private or not. A failed one is imported again.
-        const [pub] = await db.select({ id: importedJobs.id, status: importedJobs.status }).from(importedJobs)
-            .where(and(eq(importedJobs.urlHash, hash), eq(importedJobs.visibility, "PUBLIC"))).limit(1)
-        if (pub && pub.status !== "FAILED") return { success: true, data: { kind: "import", importId: pub.id, existing: true } }
+        // Already built publicly: anyone practises it free. A failed one can be imported again.
+        const [pub] = await db.select({ id: importedJobs.id }).from(importedJobs)
+            .where(and(eq(importedJobs.urlHash, hash), eq(importedJobs.visibility, "PUBLIC"), ne(importedJobs.status, "FAILED"))).limit(1)
+        if (pub) return { success: true, data: { kind: "import", importId: pub.id, existing: true } }
 
-        // A second click on the same private import.
-        if (visibility === "PRIVATE") {
-            const [mine] = await db.select({ id: importedJobs.id }).from(importedJobs)
-                .where(and(eq(importedJobs.urlHash, hash), eq(importedJobs.ownerId, userId), eq(importedJobs.visibility, "PRIVATE"), ne(importedJobs.status, "FAILED"))).limit(1)
-            if (mine) return { success: true, data: { kind: "import", importId: mine.id, existing: true } }
-        } else {
-            // Rolling 24 hours; a failed import doesn't count, since it cost nothing.
-            const [{ made } = { made: 0 }] = await db.select({ made: count() }).from(importedJobs).where(and(
-                eq(importedJobs.ownerId, userId), eq(importedJobs.visibility, "PUBLIC"), ne(importedJobs.status, "FAILED"),
-                gte(importedJobs.createdAt, new Date(Date.now() - DAY_MS)),
-            ))
-            if (Number(made) >= PUBLIC_IMPORTS_PER_DAY) {
-                return {
-                    success: false,
-                    code: "DAILY_LIMIT",
-                    error: `You've imported ${PUBLIC_IMPORTS_PER_DAY} public jobs in the last 24 hours. Import this one privately for ${priceOf("job_import_private")} credits, or come back later.`,
-                }
-            }
+        // The student's own draft or private build of the same job: back to where they were.
+        const [mine] = await db.select({ id: importedJobs.id }).from(importedJobs)
+            .where(and(eq(importedJobs.ownerId, userId), ne(importedJobs.status, "FAILED"), or(eq(importedJobs.draftHash, hash), and(eq(importedJobs.urlHash, hash), eq(importedJobs.visibility, "PRIVATE")))))
+            .orderBy(desc(importedJobs.createdAt)).limit(1)
+        if (mine) return { success: true, data: { kind: "import", importId: mine.id, existing: true } }
+
+        // A draft is private and unhashed until Build, so two students checking the same link never collide.
+        const base = { sourceUrl, companyNameHint, visibility: "PRIVATE" as const, ownerId: userId, cost: 0, draftHash: hash, urlHash: null, step: null, error: null }
+        if (sourceText) {
+            // Pasted: nothing to read, so straight to the student's check (JI-13).
+            const text = unwrapJobText(sourceText).slice(0, MAX_TEXT)
+            const [row] = await db.insert(importedJobs).values({ ...base, status: "REVIEW", readText: sourceText, sourceText: text, facts: guessJobFacts("", text, companyNameHint) })
+                .returning({ id: importedJobs.id })
+            return { success: true, data: { kind: "import", importId: row!.id, existing: false } }
         }
-
-        const cost = visibility === "PRIVATE" ? priceOf("job_import_private") : 0
-        const fields = { sourceUrl, sourceText, companyNameHint, visibility, ownerId: userId, cost, status: "QUEUED" as const, step: null, error: null }
-        let importId: string
-        if (pub && visibility === "PUBLIC") {
-            // The failed public row is reused, since its link can only have one public row.
-            const [again] = await db.update(importedJobs).set({
-                ...fields, extracted: null, plan: null, companyId: null, companyRequestId: null, processId: null, backgroundJobId: null, createdAt: new Date(), updatedAt: new Date(),
-            }).where(and(eq(importedJobs.id, pub.id), eq(importedJobs.status, "FAILED"))).returning({ id: importedJobs.id })
-            if (!again) return { success: true, data: { kind: "import", importId: pub.id, existing: true } }
-            importId = again.id
-        } else {
-            const [row] = await db.insert(importedJobs).values({ ...fields, urlHash: hash }).onConflictDoNothing().returning({ id: importedJobs.id })
-            if (!row) {
-                // A double click (private: the owner's live import) or someone else a moment ago (public): that one.
-                const [theirs] = await db.select({ id: importedJobs.id }).from(importedJobs)
-                    .where(and(eq(importedJobs.urlHash, hash), visibility === "PRIVATE"
-                        ? and(eq(importedJobs.visibility, "PRIVATE"), eq(importedJobs.ownerId, userId), ne(importedJobs.status, "FAILED"))
-                        : eq(importedJobs.visibility, "PUBLIC"))).limit(1)
-                return theirs ? { success: true, data: { kind: "import", importId: theirs.id, existing: true } } : { success: false, error: "Could not start the import. Try again." }
-            }
-            importId = row.id
-        }
-
-        const job = await startBackgroundJob("job_import", { importId }, cost ? { cost, reason: "Private job import" } : {})
+        const [row] = await db.insert(importedJobs).values({ ...base, status: "QUEUED" }).returning({ id: importedJobs.id })
+        const importId = row!.id
+        const job = await startBackgroundJob("job_import", { importId }, {})
         if (!job.success || !job.jobId) {
             await db.update(importedJobs).set({ status: "FAILED", error: job.error ?? "Could not start the import", updatedAt: new Date() }).where(eq(importedJobs.id, importId))
-            if (job.code === "INSUFFICIENT_CREDITS") {
-                return { success: false, code: job.code, error: `A private import costs ${cost} credits and you have ${job.available ?? 0}. Import it publicly for free instead.` }
-            }
             return { success: false, error: job.error ?? "Could not start the import. Try again." }
         }
         await db.update(importedJobs).set({ backgroundJobId: job.jobId, updatedAt: new Date() }).where(eq(importedJobs.id, importId))
@@ -170,6 +154,139 @@ export async function importJob(input: { url?: string; text?: string; companyNam
     } catch (error: unknown) {
         console.error("importJob:", error instanceof Error ? error.message : error)
         return { success: false, error: "Could not start the import. Try again." }
+    }
+}
+
+export interface ImportFacts { title: string; company: string; location: string }
+
+/** Autosave of the review step (JI-14): the owner's own draft, while it waits at REVIEW. */
+export async function saveImportReview(importId: string, input: { facts: ImportFacts; text: string }): Promise<Result<{ savedAt: string }>> {
+    const userId = await currentUserId()
+    if (!userId) return { success: false, error: "Sign in to continue.", code: "UNAUTHORIZED" }
+    const clip = (s: string) => (s ?? "").replace(/\s+/g, " ").trim().slice(0, 120)
+    const facts = { title: clip(input.facts.title), company: clip(input.facts.company), location: clip(input.facts.location) }
+    try {
+        const [row] = await db.update(importedJobs).set({ facts, sourceText: (input.text ?? "").slice(0, MAX_TEXT), updatedAt: new Date() })
+            .where(and(eq(importedJobs.id, importId), eq(importedJobs.ownerId, userId), eq(importedJobs.status, "REVIEW")))
+            .returning({ at: importedJobs.updatedAt })
+        if (!row) return { success: false, error: "This job isn't waiting for your check any more.", code: "NOT_REVIEW" }
+        return { success: true, data: { savedAt: row.at.toISOString() } }
+    } catch (error: unknown) {
+        console.error("saveImportReview:", error instanceof Error ? error.message : error)
+        return { success: false, error: "Couldn't save your edits. They're still here; try again." }
+    }
+}
+
+/** "Read the page again" (JI-14): the owner's draft of a link goes back through the read. Free. */
+export async function rereadImport(importId: string): Promise<Result<{ importId: string }>> {
+    const userId = await currentUserId()
+    if (!userId) return { success: false, error: "Sign in to continue.", code: "UNAUTHORIZED" }
+    try {
+        const [row] = await db.update(importedJobs).set({ status: "QUEUED", step: "Reading the job", error: null, sourceText: null, readText: null, facts: null, updatedAt: new Date() })
+            .where(and(eq(importedJobs.id, importId), eq(importedJobs.ownerId, userId), isNull(importedJobs.builtAt), isNotNull(importedJobs.sourceUrl), inArray(importedJobs.status, ["REVIEW", "NEEDS_TEXT"])))
+            .returning({ id: importedJobs.id, jobId: importedJobs.backgroundJobId })
+        if (!row) return { success: false, error: "Only a link you haven't built yet can be read again." }
+        // A read left waiting for pasted text is replaced by the new one.
+        if (row.jobId) await db.update(backgroundJobs).set({ status: "failed", error: "Read again" }).where(and(eq(backgroundJobs.jobId, row.jobId), eq(backgroundJobs.status, "waiting")))
+        const job = await startBackgroundJob("job_import", { importId }, {})
+        if (!job.success || !job.jobId) {
+            await db.update(importedJobs).set({ status: "NEEDS_TEXT", step: null, error: "Couldn't read the page again just now. Paste the text instead." }).where(eq(importedJobs.id, importId))
+            return { success: false, error: job.error ?? "Couldn't read the page again. Try again." }
+        }
+        await db.update(importedJobs).set({ backgroundJobId: job.jobId }).where(eq(importedJobs.id, importId))
+        return { success: true, data: { importId } }
+    } catch (error: unknown) {
+        console.error("rereadImport:", error instanceof Error ? error.message : error)
+        return { success: false, error: "Couldn't read the page again. Try again." }
+    }
+}
+
+/** A unique-index clash from Postgres (a public build of the same link won the race). */
+const isUniqueViolation = (e: unknown) => {
+    const err = e as { code?: string; cause?: { code?: string } } | null
+    return err?.code === "23505" || err?.cause?.code === "23505"
+}
+
+/**
+ * Build (JI-15): the student checked the text; now the cap or the credits apply and the
+ * model runs. The draft's hash becomes the import's `url_hash`, so a public build is the
+ * one shared import of that link. Someone else built it publicly first: the student goes
+ * there, free, and this draft is kept as a duplicate pointing at it.
+ */
+export async function buildImport(importId: string, visibility: "PUBLIC" | "PRIVATE"): Promise<Result<ImportOutcome>> {
+    const userId = await currentUserId()
+    if (!userId) return { success: false, error: "Sign in to continue.", code: "UNAUTHORIZED" }
+    const vis: "PUBLIC" | "PRIVATE" = visibility === "PRIVATE" ? "PRIVATE" : "PUBLIC"
+    try {
+        const row = await db.query.importedJobs.findFirst({ where: and(eq(importedJobs.id, importId), eq(importedJobs.ownerId, userId)) })
+        if (!row) return { success: false, error: "That import doesn't exist.", code: "NOT_FOUND" }
+        if (row.status !== "REVIEW") return { success: true, data: { kind: "import", importId, existing: true } }
+        const text = (row.sourceText ?? "").trim()
+        if (text.length < MIN_TEXT) return { success: false, error: "The posting is too short to build from. Add the role, what you'd do and what they ask for." }
+        const company = row.facts?.company?.trim() ?? ""
+        if (company.length < 2) return { success: false, error: "Add the company's name." }
+        const hash = row.draftHash ?? await jobUrlHash(`text:${normaliseText(`${company} ${text}`)}`)
+
+        const [pub] = await db.select({ id: importedJobs.id }).from(importedJobs)
+            .where(and(eq(importedJobs.urlHash, hash), eq(importedJobs.visibility, "PUBLIC"), ne(importedJobs.status, "FAILED"))).limit(1)
+        const duplicateOf = async (id: string): Promise<Result<ImportOutcome>> => {
+            await db.update(importedJobs).set({ status: "FAILED", error: `${DUPLICATE}${id}`, updatedAt: new Date() }).where(eq(importedJobs.id, importId))
+            return { success: true, data: { kind: "import", importId: id, existing: true } }
+        }
+        if (pub) return duplicateOf(pub.id)
+
+        if (vis === "PUBLIC") {
+            const [{ made } = { made: 0 }] = await db.select({ made: count() }).from(importedJobs).where(and(
+                eq(importedJobs.ownerId, userId), eq(importedJobs.visibility, "PUBLIC"), ne(importedJobs.status, "FAILED"),
+                gte(importedJobs.builtAt, new Date(Date.now() - DAY_MS)),
+            ))
+            if (Number(made) >= PUBLIC_IMPORTS_PER_DAY) {
+                return {
+                    success: false,
+                    code: "DAILY_LIMIT",
+                    error: `You've built ${PUBLIC_IMPORTS_PER_DAY} public jobs in the last 24 hours. Build this one privately for ${priceOf("job_import_private")} credits, or come back later.`,
+                }
+            }
+            // A failed public build of the link holds the one public slot: free it.
+            await db.update(importedJobs).set({ urlHash: null }).where(and(eq(importedJobs.urlHash, hash), eq(importedJobs.visibility, "PUBLIC"), eq(importedJobs.status, "FAILED")))
+        } else {
+            const [mine] = await db.select({ id: importedJobs.id }).from(importedJobs)
+                .where(and(eq(importedJobs.urlHash, hash), eq(importedJobs.ownerId, userId), eq(importedJobs.visibility, "PRIVATE"), ne(importedJobs.status, "FAILED"))).limit(1)
+            if (mine) return duplicateOf(mine.id)
+        }
+
+        const cost = vis === "PRIVATE" ? priceOf("job_import_private") : 0
+        let claimed: { id: string } | undefined
+        try {
+            // Guarded on REVIEW, so a double click builds once.
+            ;[claimed] = await db.update(importedJobs).set({
+                visibility: vis, cost, urlHash: hash, builtAt: new Date(), companyNameHint: company,
+                status: "QUEUED", step: "Reading the job", error: null, updatedAt: new Date(),
+            }).where(and(eq(importedJobs.id, importId), eq(importedJobs.status, "REVIEW"))).returning({ id: importedJobs.id })
+        } catch (e: unknown) {
+            if (!isUniqueViolation(e)) throw e
+            // Someone else's public build of the link landed a moment ago.
+            const [theirs] = await db.select({ id: importedJobs.id }).from(importedJobs)
+                .where(and(eq(importedJobs.urlHash, hash), eq(importedJobs.visibility, "PUBLIC"))).limit(1)
+            if (theirs) return duplicateOf(theirs.id)
+            throw e
+        }
+        if (!claimed) return { success: true, data: { kind: "import", importId, existing: true } }
+
+        const job = await startBackgroundJob("job_import", { importId, build: true }, cost ? { cost, reason: "Private job import" } : {})
+        if (!job.success || !job.jobId) {
+            // Back to the student's check, uncharged and uncounted.
+            await db.update(importedJobs).set({ visibility: "PRIVATE", cost: 0, urlHash: null, builtAt: null, status: "REVIEW", step: null, error: null, updatedAt: new Date() }).where(eq(importedJobs.id, importId))
+            if (job.code === "INSUFFICIENT_CREDITS") {
+                return { success: false, code: job.code, error: `A private build costs ${cost} credits and you have ${job.available ?? 0}. Build it publicly for free instead.` }
+            }
+            return { success: false, error: job.error ?? "Could not start building. Try again." }
+        }
+        await db.update(importedJobs).set({ backgroundJobId: job.jobId, updatedAt: new Date() }).where(eq(importedJobs.id, importId))
+        return { success: true, data: { kind: "import", importId, existing: false } }
+    } catch (error: unknown) {
+        console.error("buildImport:", error instanceof Error ? error.message : error)
+        return { success: false, error: "Could not start building. Try again." }
     }
 }
 
@@ -189,7 +306,7 @@ export async function getImportAllowance(): Promise<ImportAllowance> {
     const [[{ made } = { made: 0 }], [me]] = await Promise.all([
         db.select({ made: count() }).from(importedJobs).where(and(
             eq(importedJobs.ownerId, userId), eq(importedJobs.visibility, "PUBLIC"), ne(importedJobs.status, "FAILED"),
-            gte(importedJobs.createdAt, new Date(Date.now() - DAY_MS)),
+            gte(importedJobs.builtAt, new Date(Date.now() - DAY_MS)),
         )),
         db.select({ credits: users.credits }).from(users).where(eq(users.id, userId)),
     ])
@@ -274,6 +391,10 @@ export async function getImport(importId: string): Promise<Result<ImportView>> {
                 progress,
                 isOwner,
                 canResume: row.status === "NEEDS_TEXT" && (isOwner || row.visibility === "PUBLIC"),
+                facts: row.facts ?? null,
+                draft: !row.builtAt && Boolean(row.draftHash),
+                duplicateOf: row.error?.startsWith(DUPLICATE) ? row.error.slice(DUPLICATE.length) : null,
+                updatedAt: row.updatedAt.toISOString(),
             },
         }
     } catch (error: unknown) {
@@ -335,19 +456,20 @@ export async function resumeImport(importId: string, input: { text: string; comp
 }
 
 /**
- * Give up on an import waiting for its text. Its owner only; a private one's
- * credits come back. The waiting job is left idle and is never resumed.
+ * Give up on an import waiting for its text, or on a draft not built yet (JI-14's
+ * "Discard"). Its owner only; a private one's credits come back. A waiting job is
+ * left idle and is never resumed.
  */
 export async function cancelImport(importId: string): Promise<Result<{ importId: string }>> {
     const userId = await currentUserId()
     if (!userId) return { success: false, error: "Sign in to continue.", code: "UNAUTHORIZED" }
     try {
         const [row] = await db.update(importedJobs).set({ status: "FAILED", step: null, error: "Cancelled", updatedAt: new Date() })
-            .where(and(eq(importedJobs.id, importId), eq(importedJobs.ownerId, userId), eq(importedJobs.status, "NEEDS_TEXT")))
+            .where(and(eq(importedJobs.id, importId), eq(importedJobs.ownerId, userId), or(eq(importedJobs.status, "NEEDS_TEXT"), and(eq(importedJobs.status, "REVIEW"), isNull(importedJobs.builtAt)))))
             .returning({ jobId: importedJobs.backgroundJobId, cost: importedJobs.cost })
-        if (!row) return { success: false, error: "Only an import waiting for its text can be cancelled." }
+        if (!row) return { success: false, error: "Only an import waiting for its text, or one you haven't built, can be cancelled." }
         if (row.jobId) {
-            await db.update(backgroundJobs).set({ status: "failed", error: "Cancelled" }).where(eq(backgroundJobs.jobId, row.jobId))
+            await db.update(backgroundJobs).set({ status: "failed", error: "Cancelled" }).where(and(eq(backgroundJobs.jobId, row.jobId), eq(backgroundJobs.status, "waiting")))
             if (row.cost > 0) await releaseCredits(jobHoldId(row.jobId), "import cancelled")
         }
         return { success: true, data: { importId } }
@@ -355,4 +477,53 @@ export async function cancelImport(importId: string): Promise<Result<{ importId:
         console.error("cancelImport:", error instanceof Error ? error.message : error)
         return { success: false, error: "Could not cancel the import." }
     }
+}
+
+export interface MyImport {
+    id: string
+    title: string
+    company: string
+    /** What the list says: the student's next move or where the build is. */
+    state: "reading" | "review" | "needs_text" | "building" | "ready" | "failed" | "duplicate" | "cancelled"
+    visibility: "PUBLIC" | "PRIVATE"
+    href: string
+    at: string
+}
+
+/** A row's place in the student's list (JI-16). */
+function importState(r: { status: string; error: string | null }): MyImport["state"] {
+    if (r.status === "FAILED") return r.error?.startsWith(DUPLICATE) ? "duplicate" : r.error === "Cancelled" ? "cancelled" : "failed"
+    if (r.status === "QUEUED" || r.status === "FETCHING") return "reading"
+    if (r.status === "REVIEW") return "review"
+    if (r.status === "NEEDS_TEXT") return "needs_text"
+    if (r.status === "READY") return "ready"
+    return "building"
+}
+
+/**
+ * The viewer's own imports, newest first (JI-16, JI-17): drafts included, so one left
+ * mid-review can be picked up where it was.
+ */
+export async function listMyImports(limit = 30): Promise<MyImport[]> {
+    const userId = await currentUserId()
+    if (!userId) return []
+    const rows = await db.select({
+        id: importedJobs.id, status: importedJobs.status, error: importedJobs.error, visibility: importedJobs.visibility,
+        facts: importedJobs.facts, extracted: importedJobs.extracted, hint: importedJobs.companyNameHint, sourceUrl: importedJobs.sourceUrl,
+        updatedAt: importedJobs.updatedAt,
+    }).from(importedJobs).where(eq(importedJobs.ownerId, userId)).orderBy(desc(importedJobs.updatedAt)).limit(Math.min(Math.max(limit, 1), 100))
+    return rows.map((r) => {
+        const state = importState(r)
+        let host = ""
+        try { host = r.sourceUrl ? new URL(r.sourceUrl).hostname.replace(/^www\./, "") : "" } catch { /* not a URL */ }
+        return {
+            id: r.id,
+            title: r.extracted?.title || r.facts?.title || (host ? `A job on ${host}` : "A pasted job"),
+            company: r.extracted?.company.name || r.facts?.company || r.hint || "",
+            state,
+            visibility: r.visibility,
+            href: `/jobs/import/${state === "duplicate" ? r.error!.slice(DUPLICATE.length) : r.id}`,
+            at: r.updatedAt.toISOString(),
+        }
+    })
 }

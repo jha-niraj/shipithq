@@ -17,6 +17,13 @@ Build in order.
 | JI-9 | Company side: imported jobs and pipelines, adopt, edit or replace | done 2026-09-26 (browser check is Niraj's) |
 | JI-10 | Prove it end to end on dev | not started |
 | JI-11 | The plan step reads the company's reported loop (CMP-2) | code done 2026-09-26; the live plan waits on OpenAI credits (with JI-10) |
+| JI-12 | Schema: a review step between reading and building | done 2026-09-28 |
+| JI-13 | Read stage: every import stops for review, free and uncounted | done 2026-09-28 |
+| JI-14 | The review step: a one-page wizard, editable facts, the posting in a rich editor, autosave | done 2026-09-28 |
+| JI-15 | Build: the cap and credits apply here; the draft becomes the shared import | in progress (public claim verified; private charge and a full build wait on model credit) |
+| JI-16 | "Your imports" on the import page | done 2026-09-28 |
+| JI-17 | Imports on the profile: the owner's list and count; the public count | done 2026-09-28 (owner list checked in Chrome; public count by typecheck) |
+| JI-18 | Remove the temporary fetch-only switch | done 2026-09-28 |
 
 ## JI-1 - Schema
 **Why** One row per imported job, shared across students, with its state.
@@ -334,3 +341,55 @@ found ten defects; each was checked against the code and fixed, then tested:
 Suites re-run after the fixes: referrals 31/31 and caps 3/3, JI-7 14/14, JI-8 5/5,
 JI-9 11/11 and 5/5, CMP-1b 18/18, CMP-1d 12/12, CMP-2b 6/6, CMP-2e 7/7, the pure checks
 27/27 and 11/11.
+
+
+## Review before building (Niraj, 2026-09-28)
+
+"There should be a step between scraping and calling an AI model ... first scrape and let
+the user see the data and let them edit there itself ... then the AI step." Decisions (all
+Niraj's, asked 2026-09-28): a one-page wizard; editable title, company and location; a
+"Your imports" list; autosave; pasted text is reviewed too; the daily cap and the private
+credits apply at Build; the profile shows the owner a count and list and the public a
+count only; until Build an import is its importer's private draft, and at Build it becomes
+the shared public one (someone else's build of the same link first: the student goes to
+theirs, free).
+
+### JI-12 - Schema
+Status `REVIEW` joins the enum (the existing `FETCHING` is the read); `draft_hash` (the link's hash, set while a
+draft, moved to `url_hash` at Build so drafts never collide); `facts` jsonb
+`{ title, company, location }` (read without AI, edited by the student); `read_text` (what
+the page gave, kept as read; `source_text` becomes the student's edited text); `built_at`.
+**Done when** the migration previews exactly this and applies on dev.
+
+### JI-13 - Read stage
+`importJob` makes a draft (no cap check, no charge). A link: the worker's job runs only the
+fetch and ends at `REVIEW` with `read_text`, `source_text` (cleaned) and `facts` filled from
+the page's title and company guess. Pasted text: `REVIEW` at once, cleaned, company from the
+form. A page that can't be read: `NEEDS_TEXT` as today. **Done when** a link import on dev
+ends at REVIEW with the text and facts, and no credits or cap were touched.
+
+### JI-14 - The review step
+`/jobs/import/[id]`: a stepper (Read, Review, Build, Practise) on the left; on Review the
+fields (job title, company, location) and the posting in the Tiptap editor (headings,
+bullets, bold kept), autosaved (debounced, "Saved" shown), "Read the page again", and "Looks
+right, build the rounds" (public or private, with the price). Only the owner edits; anyone
+else sees the import's state. **Done when** edits survive a reload and the back button.
+
+### JI-15 - Build
+`buildImport(id, visibility)`: the public cap or private credits apply now; the draft's hash
+becomes `url_hash` (a public build already there for the link: go there free, keep the draft
+as a duplicate); the worker job starts at `extract` with the edited text, and the facts go to
+the model as the student's corrections. **Done when** Build on dev charges once (private) or
+counts once (public), and a second build of the same link lands on the first.
+
+### JI-16 - Your imports
+Under the form on /jobs/import: the student's imports, newest first, with status (needs
+review, building, ready, couldn't read) and Continue. **Done when** a draft left mid-review
+shows with Continue and opens where it was.
+
+### JI-17 - Profile
+/profile (the owner's editor): "Jobs you imported", the count and the list. The public
+profile: the count only. **Done when** both show for Niraj's account.
+
+### JI-18 - Remove the fetch-only switch
+The review step replaces it: delete `JOB_IMPORT_FETCH_ONLY` from the worker and `.dev.vars`.

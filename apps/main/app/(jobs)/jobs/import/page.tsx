@@ -1,10 +1,12 @@
 import { PageHeader } from "@repo/ui/components/ui/page-header"
-import { getImportAllowance } from "@/actions/(main)/jobs/import.action"
+import { getImportAllowance, listMyImports } from "@/actions/(main)/jobs/import.action"
 import { cn } from "@repo/ui/lib/utils"
 import { ImportForm } from "@/components/job-import/import-form"
+import { MyImports } from "@/components/job-import/my-imports"
 
 const STEPS = [
-    { title: "Paste the job", body: "Its link, or the posting's text. LinkedIn links often need the text pasted instead." },
+    { title: "Paste the job", body: "Its link, or the posting's text. We read it for free." },
+    { title: "Check what we read", body: "Fix the title, company or any of the text before anything is built." },
     { title: "We design its interview", body: "The rounds the company is likely to run, each with a pass mark, in the order they'd come." },
     { title: "Practise round by round", body: "Clear a round to open the next. Your results stay yours until you choose to send them." },
 ]
@@ -14,7 +16,7 @@ export const metadata = { title: "Practise any job | ShipItHQ" }
 
 /** Paste a job from anywhere and practise its interview, round by round (plan/job-import JI-7). */
 export default async function ImportJobPage({ searchParams }: { searchParams: Promise<{ company?: string }> }) {
-    const [{ company }, allowance] = await Promise.all([searchParams, getImportAllowance()])
+    const [{ company }, allowance, mine] = await Promise.all([searchParams, getImportAllowance(), listMyImports()])
     return (
         <div className="page-frame space-y-6 px-page py-6">
             <PageHeader
@@ -41,8 +43,11 @@ export default async function ImportJobPage({ searchParams }: { searchParams: Pr
                         ))}
                     </ol>
                 </aside>
-                <div className="rounded-2xl border border-neutral-200 bg-white p-5 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
-                    <ImportForm allowance={allowance} company={company?.slice(0, 120)} />
+                <div className="min-w-0 space-y-6">
+                    <div className="rounded-2xl border border-neutral-200 bg-white p-5 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
+                        <ImportForm allowance={allowance} company={company?.slice(0, 120)} />
+                    </div>
+                    {allowance.signedIn && <MyImports items={mine} />}
                 </div>
             </div>
         </div>

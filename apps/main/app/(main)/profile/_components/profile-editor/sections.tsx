@@ -36,11 +36,15 @@ export const SECTIONS = [
     { id: "links", label: "Links" },
     { id: "resume", label: "Resume" },
     { id: "career", label: "Career goals" },
+    /** Not part of the profile's completeness: what the student imported (plan/job-import JI-17). */
+    { id: "imports", label: "Jobs imported" },
 ] as const
 export type SectionId = (typeof SECTIONS)[number]["id"]
+/** The sections the "n of m" completeness counts. */
+export const PROFILE_SECTIONS = SECTIONS.filter((s) => s.id !== "imports")
 
 /** What each section counts, and whether it is "done" for the completion tick. */
-export function sectionStatus(p: OwnProfile): Record<SectionId, { count?: number; done: boolean }> {
+export function sectionStatus(p: OwnProfile, importsCount = 0): Record<SectionId, { count?: number; done: boolean }> {
     const links = [p.githubUrl, p.linkedinUrl, p.twitterUrl].filter(Boolean).length
     return {
         identity: { done: !!(p.name && (p.userProfile?.tagline || p.occupation) && p.bio && p.image) },
@@ -51,6 +55,7 @@ export function sectionStatus(p: OwnProfile): Record<SectionId, { count?: number
         links: { count: links, done: links > 0 },
         resume: { done: !!p.hasResume },
         career: { done: (p.careerGoals?.length ?? 0) > 0 },
+        imports: { count: importsCount, done: importsCount > 0 },
     }
 }
 

@@ -98,8 +98,6 @@ export type Env = {
 	 * starts it, no user dispatches it, so it is not in `JOB_BINDINGS`.
 	 */
 	PROGRESS_REPORTS: DurableObjectNamespace
-	/** TEMPORARY, local only: "1" stops a job import after the fetch (job-import.ts). */
-	JOB_IMPORT_FETCH_ONLY?: string
 	/** The app's public origin, for the links in report emails. */
 	APP_URL?: string
 	/** Resend, for report emails; read by @repo/email through process.env. */

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Check, CircleAlert, RotateCcw } from "lucide-react"
+import { ArrowLeft, ArrowRight, Check, CircleAlert, RotateCcw } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { Input } from "@repo/ui/components/ui/input"
@@ -13,12 +13,16 @@ import { Textarea } from "@repo/ui/components/ui/textarea"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { cn } from "@repo/ui/lib/utils"
 import { unwrapJobText } from "@repo/db/job-text"
-import { cancelImport, getImport, resumeImport, type ImportView } from "@/actions/(main)/jobs/import.action"
+import { Shimmer } from "@repo/ui/components/skeleton-kit"
+import { cancelImport, getImport, resumeImport, type ImportAllowance, type ImportView } from "@/actions/(main)/jobs/import.action"
+import { ImportReview } from "./import-review"
 
 /*
- * An import on its way (plan/job-import JI-7): the steps from the row's status,
- * polled every 2 seconds; the paste form when the link couldn't be read; the
- * reason when it failed. At READY the page re-renders as the job's rounds.
+ * An import on its way (plan/job-import JI-7, JI-14): a stepper on the left (Read,
+ * Review, Build, Practise) and the current step on the right. Reading and building
+ * are polled every 2 seconds; review waits for the student; the paste form shows
+ * when the link couldn't be read; the reason when it failed. At READY the page
+ * re-renders as the job's rounds.
  */
 
 const POLL_MS = 2000
@@ -26,16 +30,30 @@ const POLL_MS = 2000
 type StepKey = "read" | "company" | "plan" | "rounds"
 const ORDER: StepKey[] = ["read", "company", "plan", "rounds"]
 
-/** Which step a status is on. */
+/** Which build step a status is on. */
 const STEP_OF: Record<string, StepKey> = {
     QUEUED: "read", FETCHING: "read", NEEDS_TEXT: "read", EXTRACTING: "read",
     COMPANY: "company", PLANNING: "plan", ROUNDS: "rounds",
 }
 
-export function ImportProgress({ initial }: { initial: ImportView }) {
+const WIZARD = [
+    { title: "Read", body: "We read the link, or clean up your paste." },
+    { title: "Review", body: "You check it and fix anything wrong. No AI yet." },
+    { title: "Build", body: "We design its interview as rounds with pass marks." },
+    { title: "Practise", body: "Clear a round to open the next." },
+]
+
+/** Where the wizard is: a draft reads (0) then waits for review (1); a build is 2. */
+function wizardAt(v: ImportView): number {
+    if (v.status === "READY") return 3
+    if (!v.draft) return 2
+    return v.status === "REVIEW" ? 1 : 0
+}
+
+export function ImportProgress({ initial, allowance }: { initial: ImportView; allowance: ImportAllowance }) {
     const router = useRouter()
     const [view, setView] = useState(initial)
-    const waiting = view.status === "NEEDS_TEXT"
+    const waiting = view.status === "NEEDS_TEXT" || view.status === "REVIEW"
     const finished = view.status === "READY" || view.status === "FAILED"
 
     useEffect(() => {
@@ -47,7 +65,7 @@ export function ImportProgress({ initial }: { initial: ImportView }) {
             if (r.success) {
                 setView(r.data)
                 if (r.data.status === "READY") { router.refresh(); return }
-                if (r.data.status === "FAILED" || r.data.status === "NEEDS_TEXT") return
+                if (r.data.status === "FAILED" || r.data.status === "NEEDS_TEXT" || r.data.status === "REVIEW") return
             }
             setTimeout(() => void tick(), POLL_MS)
         }
@@ -63,6 +81,9 @@ export function ImportProgress({ initial }: { initial: ImportView }) {
         if (k === "plan") return done ? "Planned the rounds" : "Planning the rounds"
         return done ? "Built the rounds" : (view.status === "ROUNDS" && view.step) || "Building the rounds"
     }
+    const reading = view.draft && (view.status === "QUEUED" || view.status === "FETCHING")
+    const step = wizardAt(view)
+    const title = view.title ?? (view.facts?.title || null)
 
     return (
         <div className="page-frame space-y-5 px-page py-6">
@@ -70,44 +91,108 @@ export function ImportProgress({ initial }: { initial: ImportView }) {
                 <ArrowLeft className="h-4 w-4" /> Practise any job
             </Link>
             <PageHeader
-                title={view.title ?? "Building your rounds"}
-                subtitle={view.title
-                    ? `${view.companyName ?? "The company"} · ${view.visibility === "PRIVATE" ? "private, only you see it" : "public, any student can practise it"}`
-                    : "Reading the posting and designing its interview as rounds. This usually takes under a minute; you can leave and come back."}
+                title={view.draft ? (step === 1 ? "Check the job" : "Reading the job") : title ?? "Building your rounds"}
+                subtitle={view.draft
+                    ? step === 1
+                        ? "This is what we read. Fix anything that's off, then build the rounds. Nothing is charged until you build."
+                        : "Reading the posting. You'll check it before anything is built."
+                    : title
+                        ? `${view.companyName ?? "The company"} · ${view.visibility === "PRIVATE" ? "private, only you see it" : "public, any student can practise it"}`
+                        : "Designing its interview as rounds. This usually takes under a minute; you can leave and come back."}
             />
 
-            {waiting ? (
-                <NeedsText view={view} onChange={setView} />
-            ) : view.status === "FAILED" ? (
-                <div className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-                    <p className="flex items-start gap-2 font-medium text-neutral-900 dark:text-white"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {view.error === "Cancelled" ? "You cancelled this import." : "We couldn't build this one."}</p>
-                    {view.error && view.error !== "Cancelled" && <p className="text-sm text-neutral-700 dark:text-neutral-300">{view.error}</p>}
-                    {view.visibility === "PRIVATE" && view.isOwner && <p className="text-sm text-neutral-600 dark:text-neutral-400">Your credits were refunded.</p>}
-                    <Button asChild variant="outline" size="sm" className="gap-1.5"><Link href="/jobs/import"><RotateCcw className="h-3.5 w-3.5" /> Try another link or paste the text</Link></Button>
-                </div>
-            ) : (
-                <ol className="space-y-2 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900" aria-live="polite">
-                    {ORDER.map((k, i) => {
-                        const done = i < at
-                        const active = i === at
-                        return (
-                            <li key={k} className={cn("flex items-center gap-3 text-sm", done || active ? "text-neutral-900 dark:text-white" : "text-neutral-400 dark:text-neutral-500")}>
-                                <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full border", done ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-300 dark:border-neutral-700")}>
-                                    {done ? <Check className="h-3.5 w-3.5" /> : active ? <InlineLoader size="sm" label={label(k, false)} /> : <span className="text-[11px]">{i + 1}</span>}
-                                </span>
-                                {label(k, done)}
-                            </li>
-                        )
-                    })}
-                    <li className="pt-2">
-                        <div className="h-1.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
-                            <div className="h-full rounded-full bg-neutral-900 transition-all duration-700 dark:bg-white" style={{ width: `${Math.max(5, view.progress)}%` }} />
-                        </div>
-                    </li>
-                </ol>
-            )}
+            <div className="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start">
+                <aside className="lg:sticky lg:top-4" aria-label="Steps">
+                    <ol className="relative flex gap-4 overflow-x-auto no-scrollbar lg:flex-col lg:gap-6">
+                        {WIZARD.map((w, i) => {
+                            const done = i < step
+                            const active = i === step && view.status !== "FAILED"
+                            return (
+                                <li key={w.title} className="relative flex shrink-0 gap-3" aria-current={active ? "step" : undefined}>
+                                    {i < WIZARD.length - 1 && <span aria-hidden className="absolute top-8 bottom-[-1.5rem] left-[13px] hidden w-px bg-neutral-200 lg:block dark:bg-neutral-800" />}
+                                    <span className={cn(
+                                        "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
+                                        done || active ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-300 bg-white text-neutral-600 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-400",
+                                    )}>{done ? <Check className="h-3.5 w-3.5" /> : i + 1}</span>
+                                    <span className="pt-0.5">
+                                        <span className={cn("block text-sm font-medium", done || active ? "text-neutral-900 dark:text-white" : "text-neutral-600 dark:text-neutral-400")}>{w.title}</span>
+                                        <span className="mt-1 hidden text-xs leading-5 text-neutral-600 lg:block dark:text-neutral-400">{w.body}</span>
+                                    </span>
+                                </li>
+                            )
+                        })}
+                    </ol>
+                </aside>
 
-            {view.sourceText && <ReadFromPage text={unwrapJobText(view.sourceText)} url={view.sourceUrl} />}
+                <div className="min-w-0 max-w-4xl space-y-5">
+                    {view.duplicateOf ? (
+                        <div className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+                            <p className="font-medium text-neutral-900 dark:text-white">This job was already built</p>
+                            <p className="text-sm text-neutral-700 dark:text-neutral-300">Someone built the same job first, so you practise theirs for free. Nothing was charged.</p>
+                            <Button asChild size="sm" className="gap-1.5"><Link href={`/jobs/import/${view.duplicateOf}`}>Open its rounds <ArrowRight className="h-3.5 w-3.5" /></Link></Button>
+                        </div>
+                    ) : view.status === "REVIEW" && view.isOwner ? (
+                        <ImportReview view={view} allowance={allowance} onChange={setView} />
+                    ) : view.status === "NEEDS_TEXT" ? (
+                        <NeedsText view={view} onChange={setView} />
+                    ) : view.status === "FAILED" ? (
+                        <div className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+                            <p className="flex items-start gap-2 font-medium text-neutral-900 dark:text-white"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {view.error === "Cancelled" ? "You cancelled this import." : "We couldn't build this one."}</p>
+                            {view.error && view.error !== "Cancelled" && <p className="text-sm text-neutral-700 dark:text-neutral-300">{view.error}</p>}
+                            {view.visibility === "PRIVATE" && view.isOwner && !view.draft && <p className="text-sm text-neutral-600 dark:text-neutral-400">Your credits were refunded.</p>}
+                            <Button asChild variant="outline" size="sm" className="gap-1.5"><Link href="/jobs/import"><RotateCcw className="h-3.5 w-3.5" /> Try another link or paste the text</Link></Button>
+                        </div>
+                    ) : reading ? (
+                        <ReadingSkeleton />
+                    ) : (
+                        <ol className="space-y-2 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900" aria-live="polite">
+                            {ORDER.map((k, i) => {
+                                const done = i < at
+                                const active = i === at
+                                return (
+                                    <li key={k} className={cn("flex items-center gap-3 text-sm", done || active ? "text-neutral-900 dark:text-white" : "text-neutral-400 dark:text-neutral-500")}>
+                                        <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full border", done ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-300 dark:border-neutral-700")}>
+                                            {done ? <Check className="h-3.5 w-3.5" /> : active ? <InlineLoader size="sm" label={label(k, false)} /> : <span className="text-[11px]">{i + 1}</span>}
+                                        </span>
+                                        {label(k, done)}
+                                    </li>
+                                )
+                            })}
+                            <li className="pt-2">
+                                <div className="h-1.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+                                    <div className="h-full rounded-full bg-neutral-900 transition-all duration-700 dark:bg-white" style={{ width: `${Math.max(5, view.progress)}%` }} />
+                                </div>
+                            </li>
+                        </ol>
+                    )}
+
+                    {view.sourceText && !(view.status === "REVIEW" && view.isOwner) && !reading && !view.duplicateOf && <ReadFromPage text={unwrapJobText(view.sourceText).replace(/\*\*/g, "")} url={view.sourceUrl} />}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+/** The page is being read: the review step's shape, so nothing jumps when it lands. */
+function ReadingSkeleton() {
+    return (
+        <div className="space-y-5" aria-busy="true" aria-live="polite">
+            <div className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300"><InlineLoader size="sm" label="Reading the job" /> Reading the job. This takes a few seconds.</div>
+            <div className="rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+                <div className="space-y-2 border-b border-neutral-200 px-5 py-3 dark:border-neutral-800"><Shimmer className="h-4 w-36" /><Shimmer className="h-3 w-72" /></div>
+                <div className="grid gap-4 px-5 py-4 sm:grid-cols-3">
+                    {[0, 1, 2].map((i) => <div key={i} className="space-y-1.5"><Shimmer className="h-3 w-16" /><Shimmer className="h-9 w-full rounded-md" /></div>)}
+                </div>
+            </div>
+            <div className="rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+                <div className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-800"><Shimmer className="h-8 w-56 rounded-md" /></div>
+                <div className="space-y-3 px-5 py-4">
+                    <Shimmer className="h-4 w-40" />
+                    {["w-11/12", "w-full", "w-5/6", "w-full", "w-2/3"].map((w, i) => <Shimmer key={i} className={cn("h-3", w)} delay={i * 0.04} />)}
+                    <Shimmer className="mt-4 h-4 w-32" />
+                    {["w-5/6", "w-11/12", "w-3/5"].map((w, i) => <Shimmer key={i} className={cn("h-3", w)} delay={i * 0.04} />)}
+                </div>
+            </div>
         </div>
     )
 }

@@ -3,19 +3,18 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowRight, FileText, Globe, Link2, Lock } from "lucide-react"
+import { ArrowRight, FileText, Link2 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { Input } from "@repo/ui/components/ui/input"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { toast } from "@repo/ui/components/ui/sonner"
-import { cn } from "@repo/ui/lib/utils"
 import { importJob, type ImportAllowance } from "@/actions/(main)/jobs/import.action"
 
 /*
- * The paste form (plan/job-import JI-7): a link or the posting's text, public
- * (free, 3 a day) or private (15 credits). Text needs the company's name; a
- * link doesn't, since it's read from the page.
+ * The paste form (plan/job-import JI-7, JI-13): a link or the posting's text. It
+ * only starts the read; the student checks the result and chooses public or
+ * private at Build (JI-15). Text needs the company's name; a link doesn't.
  */
 
 /** A single token starting with http(s) is a link; anything else is the posting's text. */
@@ -29,20 +28,17 @@ export function ImportForm({ allowance, company, initialText }: { allowance: Imp
     const [mode, setMode] = useState<"link" | "text">(initialText ? "text" : "link")
     const [value, setValue] = useState(initialText ?? "")
     const [companyName, setCompanyName] = useState(company ?? "")
-    const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">(allowance.publicLeft > 0 ? "PUBLIC" : "PRIVATE")
     const [busy, setBusy] = useState(false)
     // What is sent follows the mode: a link box only sends a link; the text area, text.
     const link = mode === "link" && isLink(value)
     const text = mode === "text" && value.trim().length > 0
-    const canAffordPrivate = allowance.credits >= allowance.privatePrice
-    const ready = allowance.signedIn && (link || (text && companyName.trim().length >= 2)) && (visibility === "PUBLIC" ? allowance.publicLeft > 0 : canAffordPrivate)
+    const ready = allowance.signedIn && (link || (text && companyName.trim().length >= 2))
 
     const submit = async () => {
         setBusy(true)
-        const r = await importJob(link ? { url: value.trim(), visibility } : { text: value, companyName, visibility })
+        const r = await importJob(link ? { url: value.trim() } : { text: value, companyName })
         if (!r.success) {
             setBusy(false)
-            if (r.code === "DAILY_LIMIT") setVisibility("PRIVATE")
             toast.error(r.error)
             return
         }
@@ -106,65 +102,17 @@ export function ImportForm({ allowance, company, initialText }: { allowance: Imp
                 </div>
             )}
 
-            <fieldset className="space-y-2">
-                <legend className="text-sm font-medium text-neutral-900 dark:text-white">Who can practise it</legend>
-                <div role="radiogroup" className="grid gap-2 sm:grid-cols-2">
-                    <Choice
-                        selected={visibility === "PUBLIC"}
-                        disabled={allowance.signedIn && allowance.publicLeft === 0}
-                        onSelect={() => setVisibility("PUBLIC")}
-                        icon={<Globe className="h-4 w-4" />}
-                        title="Public · free"
-                        body={allowance.signedIn
-                            ? allowance.publicLeft > 0
-                                ? `Any student can practise it too. ${allowance.publicLeft} of ${allowance.publicPerDay} left in the last 24 hours.`
-                                : `You've used ${allowance.publicPerDay} in the last 24 hours. Try again later, or import privately.`
-                            : `Any student can practise it too. ${allowance.publicPerDay} a day.`}
-                    />
-                    <Choice
-                        selected={visibility === "PRIVATE"}
-                        disabled={allowance.signedIn && !canAffordPrivate}
-                        onSelect={() => setVisibility("PRIVATE")}
-                        icon={<Lock className="h-4 w-4" />}
-                        title={`Private · ${allowance.privatePrice} credits`}
-                        body={allowance.signedIn
-                            ? canAffordPrivate
-                                ? `Only you see it. Refunded if we can't build it. You have ${allowance.credits} credits.`
-                                : `Only you see it. You have ${allowance.credits} credits.`
-                            : "Only you see it. Refunded if we can't build it."}
-                    />
-                </div>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    Building the rounds is the only charge; each round then costs what every practice round does. A job someone already imported publicly is free to practise.
-                </p>
-            </fieldset>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                Reading is free. You&apos;ll check what we read and fix anything before the rounds are built; that&apos;s where you choose public or private.
+            </p>
 
             {allowance.signedIn ? (
                 <Button type="submit" disabled={!ready || busy} className="gap-1.5">
-                    {busy ? <InlineLoader size="sm" /> : <ArrowRight className="h-4 w-4" />} Build the rounds
+                    {busy ? <InlineLoader size="sm" /> : <ArrowRight className="h-4 w-4" />} {link || mode === "link" ? "Read the job" : "Check the text"}
                 </Button>
             ) : (
                 <Button asChild><Link href={`/signin?callbackUrl=${encodeURIComponent("/jobs/import")}`}>Sign in to practise a job</Link></Button>
             )}
         </form>
-    )
-}
-
-function Choice({ selected, disabled, onSelect, icon, title, body }: { selected: boolean; disabled: boolean; onSelect: () => void; icon: React.ReactNode; title: string; body: string }) {
-    return (
-        <button
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            disabled={disabled}
-            onClick={onSelect}
-            className={cn(
-                "flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-                selected ? "border-neutral-900 bg-neutral-50 dark:border-white dark:bg-neutral-800" : "border-neutral-200 hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600",
-            )}
-        >
-            <span className="flex items-center gap-1.5 text-sm font-medium text-neutral-900 dark:text-white">{icon} {title}</span>
-            <span className="text-xs text-neutral-600 dark:text-neutral-400">{body}</span>
-        </button>
     )
 }

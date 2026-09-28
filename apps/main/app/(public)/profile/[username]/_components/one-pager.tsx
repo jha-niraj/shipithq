@@ -15,7 +15,7 @@ import Link from "next/link"
 import { BadgeTiles } from "@/components/badges/badge-tiles"
 import { BADGE_MODULES } from "@repo/db/badges"
 import {
-    ArrowUpRight, Briefcase, Code2, FileText, FolderGit2, Globe, Mail, MapPin, Users,
+    ArrowUpRight, Briefcase, Code2, FileSearch, FileText, FolderGit2, Globe, Mail, MapPin, Users,
 } from "lucide-react"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { cn } from "@repo/ui/lib/utils"
@@ -115,7 +115,7 @@ export function OnePager({ p, isOwn, signedIn, isFollowing, shareUrl }: OnePager
 
             <StatBand
                 size="sm"
-                cols={4}
+                cols={5}
                 items={[
                     { icon: FolderGit2, label: "Projects", value: p.projects.length ? String(p.projects.length) : "0" },
                     {
@@ -127,6 +127,7 @@ export function OnePager({ p, isOwn, signedIn, isFollowing, shareUrl }: OnePager
                     },
                     { icon: Code2, label: "Skills", value: String(p.skills.length) },
                     { icon: Users, label: "Followers", value: String(p.stats.followers) },
+                    { icon: FileSearch, label: "Jobs imported", value: String(p.stats.jobsImported) },
                 ]}
             />
 

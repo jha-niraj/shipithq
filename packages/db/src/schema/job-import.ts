@@ -17,6 +17,8 @@ export const importedJobVisibilityEnum = pgEnum("imported_job_visibility", ["PUB
 export const importedJobStatusEnum = pgEnum("imported_job_status", [
     "QUEUED",
     "FETCHING",
+    /** Read, waiting for the student to check and edit it before any AI runs (JI-13). */
+    "REVIEW",
     /** The link couldn't be read: waiting for the student to paste the text and the company name. */
     "NEEDS_TEXT",
     "EXTRACTING",
@@ -77,8 +79,19 @@ export const importedJobs = pgTable(
         sourceUrl: text("source_url"),
         /** sha-256 of the normalised URL: the dedup key for public imports. */
         urlHash: text("url_hash"),
-        /** The posting's text: pasted, or read from the link. Capped at the call site. */
+        /** The posting's text: pasted, or read from the link, then as the student edited it. */
         sourceText: text("source_text"),
+        /** What the page gave, as read, before the student's edits (JI-12). */
+        readText: text("read_text"),
+        /**
+         * The link's hash while this is a draft (JI-12): moved to `url_hash` at Build, so two
+         * students reviewing the same link never collide on the public unique index.
+         */
+        draftHash: text("draft_hash"),
+        /** Title, company and location: read from the page without AI, then the student's. */
+        facts: jsonb("facts").$type<{ title: string; company: string; location: string }>(),
+        /** When the student clicked Build (JI-15). */
+        builtAt: timestamp("built_at"),
         /** The company name the student typed with pasted text (the needs-text form). */
         companyNameHint: text("company_name_hint"),
         visibility: importedJobVisibilityEnum("visibility").notNull().default("PUBLIC"),
