@@ -4,9 +4,8 @@ import { useState, useTransition } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
     Plus,
-    Search, Filter, Building2, Users, MapPin,
-    CheckCircle2, Briefcase, Star, Heart,
-    Mic, LayoutGrid, LayoutList, X
+    ArrowRight, BadgeCheck, CheckCircle2, Search, Filter, Building2, ListChecks,
+    Heart, LayoutGrid, LayoutList, X
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
@@ -20,10 +19,9 @@ import {
 import { Checkbox } from "@repo/ui/components/ui/checkbox"
 import { Label } from "@repo/ui/components/ui/label"
 import Link from "next/link"
-import { CompanyTrustBadge } from "@/components/companies/trust-badge"
+import { CompanyMark } from "@repo/ui/components/ui/company-mark"
+import { cn } from "@repo/ui/lib/utils"
 import { companyTrust } from "@/lib/company-trust"
-import Image from "next/image"
-import { useRouter } from "next/navigation"
 import { followCompany, unfollowCompany } from "@/actions/companies"
 import toast from "@repo/ui/components/ui/sonner"
 
@@ -76,7 +74,6 @@ export function CompaniesContent({
     featuredCompanies,
     followedCompanyIds = []
 }: CompaniesContentProps) {
-    const router = useRouter()
     const [companies] = useState<Company[]>(initialCompanies)
     const [searchQuery, setSearchQuery] = useState("")
     const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -146,21 +143,6 @@ export function CompaniesContent({
         }
         return true
     })
-
-    const getCardClasses = (featured: boolean) => {
-        const base = "group relative rounded-2xl p-5 border transition-all h-full hover:shadow-lg"
-        if (featured) {
-            return `${base} bg-gradient-to-br from-neutral-50 to-neutral-100/50 dark:from-neutral-900 dark:to-neutral-800/50 border-neutral-200 dark:border-neutral-700`
-        }
-        return `${base} bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700`
-    }
-
-    const getFollowButtonClasses = (isFollowed: boolean) => {
-        if (isFollowed) {
-            return "absolute top-3 right-3 h-8 w-8 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 transition-all"
-        }
-        return "absolute top-3 right-3 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-all"
-    }
 
     return (
         <div className="min-h-full p-6 lg:p-8">
@@ -272,92 +254,12 @@ export function CompaniesContent({
             {/* Featured Companies */}
             {featuredCompanies.length > 0 && !searchQuery && selectedIndustries.length === 0 && (
                 <div className="mb-10">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Star className="w-5 h-5 text-neutral-900 dark:text-neutral-100" />
-                        <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
-                            Featured Companies
-                        </h2>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Featured</h2>
+                    {/* Columns by the grid's own width, not the screen's: the sidebar and Harbor narrow it. */}
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-4">
                         {featuredCompanies.slice(0, 6).map((company, index) => (
-                            <motion.div
-                                key={company.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                className={getCardClasses(true)}
-                            >
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={getFollowButtonClasses(followedIds.has(company.id))}
-                                    onClick={(e) => handleFollow(company.id, e)}
-                                >
-                                    <Heart className={followedIds.has(company.id) ? "w-4 h-4 fill-current" : "w-4 h-4"} />
-                                </Button>
-
-                                <Link href={`/companies/${company.slug}`}>
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-14 h-14 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0 relative">
-                                            {company.logoUrl && companyTrust(company.claimStatus, company.verificationStatus).showLogo ? (
-                                                <Image src={company.logoUrl} alt={company.name} fill className="object-cover" />
-                                            ) : (
-                                                <Building2 className="w-7 h-7 text-neutral-600 dark:text-neutral-400" />
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            {/* min-w-0 on the outer wrapper bounds ITS width, but this row is a
-                                                nested flex context one level deeper - the h3 is a flex item of
-                                                THIS row (alongside the verified badge), so it needs its own
-                                                min-w-0 or the ancestor's does nothing. Same for the headquarters
-                                                row below. See docs/responsiveness.md section 2. */}
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="min-w-0 flex-1 truncate font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors">
-                                                    {company.name}
-                                                </h3>
-                                            </div>
-                                            {company.industry && (
-                                                <p className="text-sm text-neutral-500 dark:text-neutral-400">{company.industry}</p>
-                                            )}
-                                            <CompanyTrustBadge compact className="mt-1.5" claimStatus={company.claimStatus} verificationStatus={company.verificationStatus} companyName={company.name} />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-4 mt-4 text-sm text-neutral-500 dark:text-neutral-400">
-                                        {company.headquarters && (
-                                            <div className="flex min-w-0 items-center gap-1">
-                                                <MapPin className="w-4 h-4 shrink-0" />
-                                                <span className="min-w-0 truncate">{company.headquarters}</span>
-                                            </div>
-                                        )}
-                                        <div className="flex items-center gap-1">
-                                            <Briefcase className="w-4 h-4" />
-                                            <span>{company.activeJobsCount} jobs</span>
-                                        </div>
-                                    </div>
-
-                                    {company.hasTransparentProcess && (
-                                        <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800">
-                                            <div className="flex items-center gap-2 text-xs text-neutral-800 dark:text-neutral-100">
-                                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                                <span>Transparent Interview Process</span>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-7 text-xs rounded-lg gap-1"
-                                                onClick={(e) => {
-                                                    e.preventDefault()
-                                                    e.stopPropagation()
-                                                    router.push(`/companies/${company.slug}#roles`)
-                                                }}
-                                            >
-                                                <Mic className="w-3 h-3" />
-                                                Practice
-                                            </Button>
-                                        </div>
-                                    )}
-                                </Link>
+                            <motion.div key={company.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }} className="h-full">
+                                <CompanyCard company={company} featured followed={followedIds.has(company.id)} onFollow={(e) => handleFollow(company.id, e)} />
                             </motion.div>
                         ))}
                     </div>
@@ -378,7 +280,7 @@ export function CompaniesContent({
                 <AnimatePresence mode="popLayout">
                     {filteredCompanies.length > 0 ? (
                         <div className={viewMode === "grid" 
-                            ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                            ? "grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-4"
                             : "space-y-4"
                         }>
                             {filteredCompanies.map((company, index) => (
@@ -388,86 +290,9 @@ export function CompaniesContent({
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
                                     transition={{ delay: index * 0.02 }}
-                                    className={getCardClasses(false)}
+                                    className="h-full"
                                 >
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className={getFollowButtonClasses(followedIds.has(company.id))}
-                                        onClick={(e) => handleFollow(company.id, e)}
-                                    >
-                                        <Heart className={followedIds.has(company.id) ? "w-4 h-4 fill-current" : "w-4 h-4"} />
-                                    </Button>
-
-                                    <Link href={`/companies/${company.slug}`}>
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0 relative">
-                                                {company.logoUrl && companyTrust(company.claimStatus, company.verificationStatus).showLogo ? (
-                                                    <Image src={company.logoUrl} alt={company.name} fill className="object-cover" />
-                                                ) : (
-                                                    <Building2 className="w-6 h-6 text-neutral-600 dark:text-neutral-400" />
-                                                )}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="min-w-0 flex-1 truncate font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors">
-                                                        {company.name}
-                                                    </h3>
-                                                </div>
-                                                {company.industry && (
-                                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">{company.industry}</p>
-                                                )}
-                                                <CompanyTrustBadge compact className="mt-1.5" claimStatus={company.claimStatus} verificationStatus={company.verificationStatus} companyName={company.name} />
-                                            </div>
-                                        </div>
-
-                                        {company.description && viewMode === "list" && (
-                                            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-3 line-clamp-2">
-                                                {company.description}
-                                            </p>
-                                        )}
-
-                                        <div className="flex items-center gap-4 mt-4 text-sm text-neutral-500 dark:text-neutral-400">
-                                            {company.headquarters && (
-                                                <div className="flex min-w-0 items-center gap-1">
-                                                    <MapPin className="w-4 h-4 shrink-0" />
-                                                    <span className="min-w-0 truncate">{company.headquarters}</span>
-                                                </div>
-                                            )}
-                                            <div className="flex items-center gap-1">
-                                                <Briefcase className="w-4 h-4" />
-                                                <span>{company.activeJobsCount} jobs</span>
-                                            </div>
-                                            {company.companySize && (
-                                                <div className="flex items-center gap-1">
-                                                    <Users className="w-4 h-4" />
-                                                    <span>{company.companySize}</span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {company.hasTransparentProcess && (
-                                            <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800">
-                                                <div className="flex items-center gap-2 text-xs text-neutral-800 dark:text-neutral-100">
-                                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                                    <span>Transparent Interview Process</span>
-                                                </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-7 text-xs rounded-lg gap-1"
-                                                    onClick={(e) => {
-                                                        e.preventDefault()
-                                                        e.stopPropagation()
-                                                        router.push(`/companies/${company.slug}#roles`)
-                                                    }}
-                                                >
-                                                    <Mic className="w-3 h-3" />
-                                                    Practice
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </Link>
+                                    <CompanyCard company={company} list={viewMode === "list"} followed={followedIds.has(company.id)} onFollow={(e) => handleFollow(company.id, e)} />
                                 </motion.div>
                             ))}
                         </div>
@@ -561,5 +386,85 @@ export function CompaniesContent({
                 </SheetContent>
             </Sheet>
         </div>
+    )
+}
+
+/**
+ * One company card for the featured and the full grids (plan/jobs-polish JP-16): the mark,
+ * the name with a small verified tick, the industry, one meta line that truncates as a whole,
+ * and a footer pinned to the bottom. Every card in a row is the same height (`h-full`). The
+ * name is the card's link, stretched over it, so Follow and Practise stay real buttons and
+ * links rather than controls nested inside an anchor.
+ */
+function CompanyCard({ company, featured = false, list = false, followed, onFollow }: {
+    company: Company
+    featured?: boolean
+    list?: boolean
+    followed: boolean
+    onFollow: (e: React.MouseEvent) => void
+}) {
+    const trust = companyTrust(company.claimStatus, company.verificationStatus)
+    const meta = [
+        company.headquarters,
+        `${company.activeJobsCount} ${company.activeJobsCount === 1 ? "job" : "jobs"}`,
+        company.companySize ? `${company.companySize} people` : null,
+    ].filter(Boolean).join(" · ")
+    return (
+        <article className={cn(
+            "group relative flex h-full flex-col rounded-2xl border bg-white transition-colors dark:bg-neutral-900",
+            featured ? "border-neutral-300 dark:border-neutral-700" : "border-neutral-200 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700",
+        )}>
+            <div className="flex flex-1 flex-col gap-4 p-5">
+                <div className="flex items-start gap-3.5">
+                    <CompanyMark seed={company.id} name={company.name} logoUrl={trust.showLogo ? company.logoUrl : null} size={48} />
+                    <div className="min-w-0 flex-1 pr-8">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                            <h3 className="min-w-0 truncate font-semibold text-neutral-900 dark:text-white">
+                                <Link href={`/companies/${company.slug}`} className="outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-neutral-900 dark:focus-visible:after:ring-white">
+                                    {company.name}
+                                </Link>
+                            </h3>
+                            {trust.kind === "verified" && (
+                                <BadgeCheck className="h-4 w-4 shrink-0 text-neutral-900 dark:text-white" aria-label="Verified" role="img">
+                                    <title>{trust.explain(company.name)}</title>
+                                </BadgeCheck>
+                            )}
+                        </div>
+                        <p className="truncate text-sm text-neutral-600 dark:text-neutral-400">
+                            {company.industry ?? (trust.kind === "unclaimed" ? "Not claimed yet" : trust.kind === "unverified" ? "Not verified yet" : "Company")}
+                        </p>
+                    </div>
+                </div>
+                {list && company.description && (
+                    <p className="line-clamp-2 text-sm text-neutral-600 dark:text-neutral-400">{company.description}</p>
+                )}
+                <p className="mt-auto truncate text-xs text-neutral-600 dark:text-neutral-400" title={meta}>{meta}</p>
+            </div>
+            <div className="flex h-11 items-center justify-between gap-3 border-t border-neutral-200 px-5 dark:border-neutral-800">
+                {company.hasTransparentProcess ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300" title="The company publishes its interview rounds">
+                        <ListChecks className="h-3.5 w-3.5" /> Open process
+                    </span>
+                ) : (
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">{trust.kind === "verified" ? "Rounds not published yet" : "Practice only"}</span>
+                )}
+                <Link href={`/companies/${company.slug}?tab=practice`} className="relative z-10 inline-flex items-center gap-1 text-xs font-medium text-neutral-900 hover:underline underline-offset-2 dark:text-white">
+                    Practise <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+            </div>
+            <Button
+                variant="ghost"
+                size="icon"
+                aria-label={followed ? `Unfollow ${company.name}` : `Follow ${company.name}`}
+                aria-pressed={followed}
+                className={cn(
+                    "absolute right-3 top-3 z-10 h-8 w-8 rounded-full transition-opacity",
+                    followed ? "bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900" : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100",
+                )}
+                onClick={onFollow}
+            >
+                <Heart className={followed ? "h-4 w-4 fill-current" : "h-4 w-4"} />
+            </Button>
+        </article>
     )
 }

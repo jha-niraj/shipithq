@@ -7,6 +7,7 @@ import {
     BadgeCheck, Briefcase, Building2, Calendar, Camera, ExternalLink, Globe, ImagePlus, MapPin, Pencil, Trash2, Users,
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { CompanyMark } from "@repo/ui/components/ui/company-mark"
 import { Input } from "@repo/ui/components/ui/input"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { NumberTextInput } from "@repo/ui/components/ui/number-text-input"
@@ -187,7 +188,7 @@ function Logo({ data }: { data: CompanyPageData }) {
             <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-sm sm:h-32 sm:w-32 dark:border-neutral-900 dark:bg-neutral-800">
                 {data.logoUrl
                     ? <img src={data.logoUrl} alt={`${data.name} logo`} className="h-full w-full object-contain" />
-                    : <span className="text-2xl font-semibold text-neutral-500 sm:text-3xl dark:text-neutral-300">{initials(data.name)}</span>}
+                    : <CompanyMark seed={data.id} name={data.name} fill size={96} className="rounded-none border-0" />}
             </div>
             {data.canEdit && (
                 <>

@@ -1,7 +1,8 @@
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, ArrowRight, Building2, Check, ClipboardPaste, Clock, ExternalLink, FileText, Globe, Lock, MapPin, Send, Timer, Users } from "lucide-react"
+import { ArrowLeft, ArrowRight, Check, ClipboardPaste, Clock, ExternalLink, FileText, Globe, Lock, MapPin, Send, Timer, Users } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { CompanyMark } from "@repo/ui/components/ui/company-mark"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { cn } from "@repo/ui/lib/utils"
 import { CompanyTrustBadge } from "@/components/companies/trust-badge"
@@ -53,7 +54,7 @@ export function CompanyPageView({ data, tab }: { data: CompanyPage; tab: Company
                 {/* Header: name, logo only if claimed, the label, domain, size, locations, follow. */}
                 <header className="flex flex-col gap-4 sm:flex-row sm:items-start">
                     <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900">
-                        {c.logoUrl ? <Image src={c.logoUrl} alt="" fill className="object-cover" /> : <Building2 className="h-7 w-7 text-neutral-500 dark:text-neutral-400" />}
+                        {c.logoUrl ? <Image src={c.logoUrl} alt="" fill className="object-cover" /> : <CompanyMark seed={c.id} name={c.name} fill size={64} className="rounded-none border-0" />}
                     </div>
                     <div className="min-w-0 flex-1 space-y-2">
                         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -208,13 +209,15 @@ function JobsTab({ data }: { data: CompanyPage }) {
                     ) : (
                         <ul className="space-y-2.5">
                             {data.imported.map((j) => (
-                                <li key={j.id} className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900">
+                                <li key={j.id} className="@container rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+<div className="flex flex-col items-start gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
                                     <div className="min-w-0">
                                         <p className="flex items-center gap-1.5 font-medium text-neutral-900 dark:text-white">{j.title}{j.private && <Lock className="h-3.5 w-3.5 text-neutral-400" aria-label="Private: only you see it" />}</p>
                                         <p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">{[j.level ? LEVEL[j.level] : null, j.location, `${j.rounds} rounds`, j.minutes ? `about ${duration(j.minutes)}` : null].filter(Boolean).join(" · ")}</p>
                                     </div>
                                     <Button asChild size="sm" variant="outline" className="shrink-0"><Link href={`/jobs/import/${j.id}`}>Practise</Link></Button>
-                                </li>
+                                </div>
+</li>
                             ))}
                         </ul>
                     )}
@@ -243,26 +246,30 @@ function PracticeTab({ data }: { data: CompanyPage }) {
                 ) : (
                     <ul className="space-y-2.5">
                         {practice.map((p) => (
-                            <li key={p.id} className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900">
+                            <li key={p.id} className="@container rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+<div className="flex flex-col items-start gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
                                 <div className="min-w-0">
                                     <p className="font-medium text-neutral-900 dark:text-white">{p.name}</p>
                                     <p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">{p.rounds.length} rounds · about {duration(p.minutes)} · {p.rounds.map((r) => ROUND_TYPE_LABEL[r.type] ?? r.type).join(", ")}</p>
                                 </div>
                                 <Button asChild size="sm" variant="outline" className="shrink-0"><Link href={`/companies/${c.slug}/rounds/${p.id}`}>Practise</Link></Button>
-                            </li>
+                            </div>
+</li>
                         ))}
                     </ul>
                 )}
             </section>
 
             {!data.suspended && (
-                <section aria-label="Paste a job" className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900">
+                <section aria-label="Paste a job" className="@container rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
+<div className="flex flex-col items-start gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
                     <div className="min-w-0">
                         <h2 className="font-medium text-neutral-900 dark:text-white">Paste a job to practise its real rounds</h2>
                         <p className="mt-0.5 text-sm text-neutral-600 dark:text-neutral-400">Found a {c.name} posting? Paste the link or the text and ShipItHQ builds rounds from what it asks for.</p>
                     </div>
                     <PasteButton name={c.name} />
-                </section>
+                </div>
+</section>
             )}
         </div>
     )
@@ -295,8 +302,8 @@ function InterviewsTab({ data }: { data: CompanyPage }) {
                 </Empty>
             )}
             {loops.ready.map((g) => (
-                <div key={`${g.roleFamily}-${g.level}`} className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div key={`${g.roleFamily}-${g.level}`} className="@container space-y-3 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                    <div className="flex flex-col items-start gap-2 @xl:flex-row @xl:items-start @xl:justify-between">
                         <div>
                             <p className="font-medium text-neutral-900 dark:text-white">{REPORT_ROLE_FAMILY_LABEL[g.roleFamily as ReportRoleFamily] ?? g.roleFamily} · {REPORT_LEVEL_LABEL[g.level as ReportLevel] ?? g.level}</p>
                             <p className="text-sm text-neutral-500 dark:text-neutral-400">{g.recent} {g.recent === 1 ? "report" : "reports"} in the last year{g.total > g.recent ? `, ${g.total} in all` : ""}</p>
@@ -355,8 +362,8 @@ function PasteButton({ name }: { name: string }) {
 function RoleRow({ role, practiceOnly }: { role: PageRole; practiceOnly: string | null }) {
     const cta = role.mine === "sent" ? "Sent" : role.mine === "started" ? "Continue" : "Start"
     return (
-        <li className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <li className="@container rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="flex flex-col items-start gap-3 @xl:flex-row @xl:items-start @xl:justify-between">
                 <div className="min-w-0">
                     <Link href={`/jobs/${role.slug}`} className="font-medium text-neutral-900 hover:underline dark:text-white">{role.title}</Link>
                     <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-neutral-600 dark:text-neutral-400">

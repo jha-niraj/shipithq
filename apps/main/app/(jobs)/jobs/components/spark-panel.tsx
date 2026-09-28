@@ -4,10 +4,11 @@ import Image from "next/image"
 import Link from "next/link"
 import type { ReactNode } from "react"
 import {
-    ArrowUpRight, Briefcase, Building2, CalendarDays, Check, ChevronDown, ChevronUp,
+    ArrowUpRight, Briefcase, CalendarDays, Check, ChevronDown, ChevronUp,
     FileText, ListOrdered, Play, RotateCcw, Sparkles, Bookmark, X,
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { CompanyMark } from "@repo/ui/components/ui/company-mark"
 import { cn } from "@repo/ui/lib/utils"
 import type { FeedJobResult } from "@/actions/jobs"
 
@@ -80,7 +81,7 @@ export function SparkPanel({ job, position, total, canPrev, canNext, onPrev, onN
                 <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800">
                     {job.company.logoUrl
                         ? <Image src={job.company.logoUrl} alt="" fill sizes="44px" className="object-cover" />
-                        : <Building2 className="h-5 w-5 text-neutral-500 dark:text-neutral-400" />}
+                        : <CompanyMark seed={job.company.id} name={job.company.name} fill size={44} className="rounded-none border-0" />}
                 </div>
                 <div className="min-w-0 flex-1">
                     <h2 className="line-clamp-2 text-base font-semibold leading-snug text-neutral-900 sm:text-lg dark:text-white">

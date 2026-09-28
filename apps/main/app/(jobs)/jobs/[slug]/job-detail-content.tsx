@@ -6,9 +6,10 @@ import {
     ArrowLeft, MapPin, Clock, ExternalLink, Mic, CheckCircle2,
     ChevronRight, Play, Heart, Share2, Flag, TrendingUp, Users, FileText,
     Phone, Layout, MessageSquare, Star, Calendar, Globe,
-    Award, Zap, Target, BookOpen, Code, Building2, LucideIcon
+    Award, Zap, Target, BookOpen, Code, LucideIcon
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { CompanyMark } from "@repo/ui/components/ui/company-mark"
 import { ReportDialog } from "@repo/ui/components/moderation/report-dialog"
 import { reportJob } from "@/actions/moderation.action"
 import { Badge } from "@repo/ui/components/ui/badge"
@@ -260,7 +261,7 @@ export function JobDetailContent({ job, referral = null }: JobDetailContentProps
                                             fill
                                         />
                                     ) : (
-                                        <Building2 className="w-10 h-10 text-neutral-600 dark:text-neutral-400" />
+                                        <CompanyMark seed={job.company.id} name={job.company.name} fill size={80} className="rounded-none border-0" />
                                     )
                                 }
                             </div>
@@ -602,10 +603,12 @@ export function JobDetailContent({ job, referral = null }: JobDetailContentProps
                                                 })
                                             }
                                         </div>
-                                        <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900/40">
+                                        <div className="@container mt-8 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-800 dark:bg-neutral-900/40">
+<div className="flex flex-col items-start gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
                                             <p className="text-sm text-neutral-700 dark:text-neutral-300">Each round has a time limit and draws fresh questions. You can retake a round after its cool-down.</p>
                                             <Button asChild className="shrink-0 gap-2"><Link href={`/jobs/${job.slug}/rounds`}><Play className="h-4 w-4" /> Take the rounds</Link></Button>
                                         </div>
+</div>
                                     </div>
                                 ) : (
                                     <div className="p-8 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-center">
@@ -678,7 +681,7 @@ export function JobDetailContent({ job, referral = null }: JobDetailContentProps
                                             job.company.logoUrl ? (
                                                 <Image src={job.company.logoUrl} alt={job.company.name} fill className="object-cover" />
                                             ) : (
-                                                <Building2 className="w-6 h-6 text-neutral-600 dark:text-neutral-400" />
+                                                <CompanyMark seed={job.company.id} name={job.company.name} fill size={48} className="rounded-none border-0" />
                                             )
                                         }
                                     </div>

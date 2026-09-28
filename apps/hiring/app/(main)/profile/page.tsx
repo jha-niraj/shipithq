@@ -10,6 +10,7 @@ import {
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@repo/ui/components/ui/button"
+import { CompanyMark } from "@repo/ui/components/ui/company-mark"
 import { Input } from "@repo/ui/components/ui/input"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { PageHeader } from "@repo/ui/components/ui/page-header"
@@ -193,7 +194,7 @@ export default function ProfilePage() {
                         {companyDetails && (
                             <Link href="/company" className="absolute bottom-3 right-3 flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-xs font-medium text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white">
                                 <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800">
-                                    {companyDetails.logoUrl ? <img src={companyDetails.logoUrl} alt="" className="h-full w-full object-contain" /> : <Building2 className="h-3.5 w-3.5" />}
+                                    {companyDetails.logoUrl ? <img src={companyDetails.logoUrl} alt="" className="h-full w-full object-contain" /> : <CompanyMark seed={companyDetails.id} name={companyDetails.name} fill size={24} className="rounded-none border-0" />}
                                 </span>
                                 {companyDetails.name}
                             </Link>

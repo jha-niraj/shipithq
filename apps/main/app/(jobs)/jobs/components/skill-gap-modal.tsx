@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react"
 import {
-    Building2, Target, CheckCircle2, AlertCircle, GraduationCap,
+    Target, CheckCircle2, AlertCircle, GraduationCap,
     ArrowRight, ExternalLink, Award, Swords, Users
 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
+import { CompanyMark } from "@repo/ui/components/ui/company-mark"
 import { Badge } from "@repo/ui/components/ui/badge"
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
@@ -78,7 +79,7 @@ export function SkillGapModal({ job, open, onClose }: SkillGapModalProps) {
                             {job.company.logoUrl ? (
                                 <Image src={job.company.logoUrl} alt={job.company.name} fill className="object-cover" />
                             ) : (
-                                <Building2 className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+                                <CompanyMark seed={job.company.id} name={job.company.name} fill size={40} className="rounded-none border-0" />
                             )}
                         </div>
                         <div>

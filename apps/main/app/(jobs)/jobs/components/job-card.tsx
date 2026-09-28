@@ -2,14 +2,14 @@
 
 import { motion } from "framer-motion"
 import {
-    MapPin, Clock, Briefcase, Building2,
-    ChevronRight, Mic, TrendingUp, Users, CheckCircle2, Sparkles,
+    MapPin, Clock, Briefcase, ChevronRight, Mic, TrendingUp, Users, CheckCircle2, Sparkles,
     UserCheck, Bookmark, BookmarkCheck, Target, Zap, Play
 } from "lucide-react"
 // Link imported for future use with job detail navigation
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import Link from "next/link"
 import { Button } from "@repo/ui/components/ui/button"
+import { CompanyMark } from "@repo/ui/components/ui/company-mark"
 import { Badge } from "@repo/ui/components/ui/badge"
 import {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger
@@ -125,7 +125,7 @@ export function JobCard({
                                 fill
                             />
                         ) : (
-                            <Building2 className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+                            <CompanyMark seed={job.company.id} name={job.company.name} fill size={40} className="rounded-none border-0" />
                         )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -167,7 +167,7 @@ export function JobCard({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ delay: index * 0.05, duration: 0.3 }}
-            className="group bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 hover:shadow-xl hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer relative overflow-hidden"
+            className="@container group bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 hover:shadow-xl hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer relative overflow-hidden"
             onClick={() => onViewDetails(job)}
         >
             {/* Match score indicator bar */}
@@ -181,9 +181,9 @@ export function JobCard({
                     : "bg-neutral-300 dark:bg-neutral-600",
             )} />
 
-            <div className="flex items-start gap-3 sm:gap-4">
+            <div className="flex items-start gap-3 @lg:gap-4">
                 {/* Company Logo */}
-                <div className="h-11 w-11 sm:w-14 sm:h-14 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0 relative">
+                <div className="h-11 w-11 @lg:w-14 @lg:h-14 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden shrink-0 relative">
                     {job.company.logoUrl ? (
                         <Image
                             src={job.company.logoUrl}
@@ -192,21 +192,21 @@ export function JobCard({
                             fill
                         />
                     ) : (
-                        <Building2 className="h-5 w-5 sm:w-7 sm:h-7 text-neutral-600 dark:text-neutral-400" />
+                        <CompanyMark seed={job.company.id} name={job.company.name} fill size={56} className="rounded-none border-0" />
                     )}
                 </div>
 
                 <div className="flex-1 min-w-0">
                     {/* Title and Match Score */}
-                    <div className="mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                        {/* Stacked on a phone, so the title gets the whole width and the
-                            match badge sits under it. */}
+                    <div className="mb-2 flex flex-col gap-1.5 @lg:flex-row @lg:items-start @lg:justify-between @lg:gap-4">
+                        {/* Stacked in a narrow CARD (a phone, or sidebar and Harbor open, JP-14),
+                            so the title gets the whole width and the match badge sits under it. */}
                         {/* min-w-0 down the chain, or a long title widens this column
                             past the card and is cut at its edge instead of truncating
                             (390px, plan/ui-pass UI-17). */}
                         <div className="min-w-0">
                             <div className="flex min-w-0 items-center gap-2 mb-0.5">
-                                <h3 className="min-w-0 text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors line-clamp-2 sm:line-clamp-1">
+                                <h3 className="min-w-0 text-lg font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-800 dark:group-hover:text-neutral-100 transition-colors line-clamp-2 @lg:line-clamp-1">
                                     {job.title}
                                 </h3>
                                 {job.isFollowingCompany && (
