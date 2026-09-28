@@ -55,7 +55,7 @@ Build in order. Browser checks are Niraj's.
 | INC-49 | Follow along: paragraph to visual part, lit and scrolled to | built 2026-09-27, browser check Niraj |
 | INC-50 | Terms: underlined, explained by the lead, Pathfinder in a new tab | built 2026-09-27; model call blocked by dev OpenAI credits |
 | INC-51 | Rewrite the case: for the ear, hook then reveal, visuals that build | done 2026-09-27, listen-through Niraj |
-| INC-52 | Put the sign-in barrier back on asking the lead (removed for testing, 2026-09-27) | not started, before launch |
+| INC-52 | Put the sign-in barrier back on asking the lead (removed for testing, 2026-09-27) | built (2026-09-28) |
 | INC-53 | Case sidebar: an accordion, one row per chapter, the current one open | built 2026-09-28, browser check Niraj |
 | INC-54 | Index: topic filter in the URL, easy to find a case by topic | built 2026-09-28 (a case shows under `topic` + `alsoIn`) |
 | INC-55 | Simulator engine: scenario schema, rules, `lanes` and `traffic` views | done 2026-09-28 |
@@ -700,7 +700,7 @@ Decisions and "done when" (7 to 10) are in `overview.md`, "Runs and the run repo
   - TEMPORARY: `askLead` and `explainTerm` work signed out and without a run, not kept and not capped, so Niraj can test by typing. Signed in, the cap and the run still apply. See INC-52.
 
 ### INC-52 Sign-in barrier back on asking
-- [ ] Status: not started. Removed on purpose for testing (2026-09-27).
+- [x] Status: built (2026-09-28). `askLead` returns AUTH signed out and applies the 20-a-day cap to everyone; `explainTerm` signed out gives the glossary line with no model call or voice; `/api/incidents/transcribe` answers 401 signed out (checked on a dev server); the panel shows a "Sign in to ask the lead" card instead of the composer, and an AUTH answer opens the sign-in prompt. The panel's look signed out waits for Niraj's check.
 - **Why:** signed out, asking is uncapped, so anyone can spend model calls.
 - **Files:** `actions/(main)/incidents/narration.action.ts` (`askLead`, `explainTerm`), `lead-panel.tsx` (the signed-out composer: a "Sign in to ask" card).
 - **Done when:** signed out, a direct `askLead` call returns code AUTH, and the panel shows the sign-in card.

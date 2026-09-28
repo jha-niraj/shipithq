@@ -9,6 +9,8 @@ import toast from "@repo/ui/components/ui/sonner"
 import { cn } from "@repo/ui/lib/utils"
 import { useDictation } from "@/hooks/useDictation"
 import { useAIPanelStore } from "@/app/store/aiPanelStore"
+import { useSession } from "@repo/auth/client"
+import { openSignInPrompt } from "@/components/auth/sign-in-prompt"
 import { useLead, type LeadTurn } from "./store"
 
 /**
@@ -29,6 +31,9 @@ const ORB_COLORS: [string, string] = ["#d4d4d4", "#737373"]
 export function LeadPanel() {
     const lead = useLead()
     const close = useAIPanelStore((s) => s.close)
+    // Asking needs an account (INC-52); signed out, the composer is a sign-in card.
+    const { data: session, isPending } = useSession()
+    const signedOut = !isPending && !session?.user
     const [draft, setDraft] = useState("")
     const pending = useRef("")
     const dictation = useDictation({ onText: (t) => { pending.current = t; setDraft(t) }, endpoint: "/api/incidents/transcribe" })
@@ -108,7 +113,9 @@ export function LeadPanel() {
                 <div className="space-y-3 p-3">
                     {lead.thread.length === 0 && !lead.asking && (
                         <p className="px-1 py-8 text-center text-[13px] leading-6 text-neutral-500 dark:text-neutral-400">
-                            Ask about this part of the case, or tell me your reasoning and I&apos;ll push on it. Type, or tap the mic. I answer out loud.
+                            {signedOut
+                                ? "Sign in and you can ask about this part of the case, or tell me your reasoning and I'll push on it. I answer out loud."
+                                : "Ask about this part of the case, or tell me your reasoning and I'll push on it. Type, or tap the mic. I answer out loud."}
                         </p>
                     )}
                     {lead.thread.map((t) => t.who === "you"
@@ -124,6 +131,19 @@ export function LeadPanel() {
                 </div>
             </ScrollArea>
 
+            {signedOut ? (
+                <div className="shrink-0 border-t border-neutral-200 p-3 dark:border-neutral-800">
+                    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60">
+                        <p className="text-[13px] font-medium text-neutral-900 dark:text-white">Sign in to ask the lead</p>
+                        <p className="mt-0.5 text-[12px] leading-5 text-neutral-600 dark:text-neutral-400">Reading and listening stay free. Asking is for accounts, up to 20 questions a day.</p>
+                        <button type="button"
+                            onClick={() => openSignInPrompt({ callback: window.location.pathname, eyebrow: "The incident lead", title: "Sign in to ask the lead", body: "The lead answers your questions out loud and pushes on your reasoning. You come straight back to this chapter." })}
+                            className="mt-2.5 inline-flex h-8 items-center rounded-lg bg-neutral-900 px-3 text-[12px] font-medium text-white dark:bg-white dark:text-neutral-900">
+                            Sign in
+                        </button>
+                    </div>
+                </div>
+            ) : (
             <form onSubmit={(e) => { e.preventDefault(); void send() }} className="flex shrink-0 items-end gap-2 border-t border-neutral-200 p-3 dark:border-neutral-800">
                 <ScrollArea className="min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white focus-within:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-950" viewportClassName="max-h-[168px]">
                     <textarea ref={box} value={draft} onChange={(e) => { pending.current = ""; setDraft(e.target.value) }} rows={1} placeholder="Ask, or explain your thinking..."
@@ -139,6 +159,7 @@ export function LeadPanel() {
                     <ArrowUp className="size-4" />
                 </button>
             </form>
+            )}
         </div>
     )
 }

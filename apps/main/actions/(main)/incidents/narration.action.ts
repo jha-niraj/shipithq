@@ -21,7 +21,7 @@ import { addRunEvent } from "@/lib/incidents/run"
  *
  * Narration and questions read aloud are free and work signed out (reading is free);
  * they are cached, so each is paid for once. Asking the lead is a model call: signed
- * in, 20 a day.
+ * in, 20 a day (INC-52). A term's explanation signed out is the glossary line only.
  */
 
 const ASKS_PER_DAY = 20
@@ -68,16 +68,13 @@ export async function askLead(slug: string, stepTitle: string, question: string)
     const brief = incidentBrief(slug)
     if (!brief) return { success: false, error: "Unknown case." }
 
-    // TEMPORARY (Niraj, 2026-09-27, "remove this sign-in barrier on the AI chat only so that
-    // I can test it"): signed out and without a recorded run, asking works but is not kept
-    // or capped. Signed in, the daily cap applies and the run keeps it. Put the barrier back
-    // before launch: plan/incidents INC-52.
-    if (uid) {
-        const day = new Date(); day.setUTCHours(0, 0, 0, 0)
-        const today = await db.select({ id: incidentProgress.id }).from(incidentProgress)
-            .where(and(eq(incidentProgress.userId, uid), eq(incidentProgress.kind, "ask"), like(incidentProgress.itemId, "ask:%"), gte(incidentProgress.createdAt, day)))
-        if (today.length >= ASKS_PER_DAY) return { success: false, error: `That's ${ASKS_PER_DAY} questions today. ShipItHQ AI can keep going.`, code: "CAP" }
-    }
+    // Asking is a model call: signed in only, 20 a day (plan/incidents INC-52; the
+    // barrier was off for testing from 2026-09-27 to 2026-09-28).
+    if (!uid) return { success: false, error: "Sign in to ask the lead.", code: "AUTH" }
+    const day = new Date(); day.setUTCHours(0, 0, 0, 0)
+    const today = await db.select({ id: incidentProgress.id }).from(incidentProgress)
+        .where(and(eq(incidentProgress.userId, uid), eq(incidentProgress.kind, "ask"), like(incidentProgress.itemId, "ask:%"), gte(incidentProgress.createdAt, day)))
+    if (today.length >= ASKS_PER_DAY) return { success: false, error: `That's ${ASKS_PER_DAY} questions today. ShipItHQ AI can keep going.`, code: "CAP" }
 
     try {
         const key = process.env.OPENAI_API_KEY
@@ -100,12 +97,10 @@ export async function askLead(slug: string, stepTitle: string, question: string)
         const body = (await res.json()) as { choices?: { message?: { content?: string } }[] }
         const answer = (body.choices?.[0]?.message?.content ?? "").trim().slice(0, 1800)
         if (!answer) throw new Error("empty answer")
-        if (uid) {
-            const itemId = `ask:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`
-            await db.insert(incidentProgress).values({ userId: uid, caseSlug: slug, kind: "ask", itemId, value: q.slice(0, 500) })
-            // The question with the lead's answer, for the report (INC-35).
-            await addRunEvent(uid, slug, "ask", itemId, { question: q.slice(0, 600), answer, stepTitle: stepTitle.slice(0, 120) })
-        }
+        const itemId = `ask:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`
+        await db.insert(incidentProgress).values({ userId: uid, caseSlug: slug, kind: "ask", itemId, value: q.slice(0, 500) })
+        // The question with the lead's answer, for the report (INC-35).
+        await addRunEvent(uid, slug, "ask", itemId, { question: q.slice(0, 600), answer, stepTitle: stepTitle.slice(0, 120) })
         const spoken = await speak(answer)
         return { success: true, answer, audio: spoken.success ? spoken.url : null }
     } catch (error: unknown) {
@@ -130,6 +125,9 @@ export async function explainTerm(slug: string, termKey: string): Promise<Explai
     if (!c || !entry || !brief) return { success: false, error: "Unknown term." }
 
     const link = await pathLinkFor(uid, slug, entry.pathTopic)
+    // Signed out: the glossary's own line, with no model call and no voice (INC-52). The
+    // spoken explanation is for signed-in readers, like asking.
+    if (!uid) return { success: true, text: `${entry.term}. ${entry.definition} Sign in and the lead explains it properly, out loud.`, audio: null, link }
     const cacheKey = `incidents/terms/${slug}-${termKey}-${createHash("sha256").update(entry.term + entry.definition).digest("hex").slice(0, 12)}.txt`
     let text = await readCached(cacheKey)
     if (!text) {

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server"
+import { getSession } from "@repo/auth"
 import { MAX_CLIP_BYTES, transcribe } from "@repo/sarvamai/speech"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -7,10 +8,10 @@ import { MAX_CLIP_BYTES, transcribe } from "@repo/sarvamai/speech"
 // Speech to text for asking the incident lead by voice (plan/incidents INC-48): the
 // same shape as /api/practice/voice/transcribe, the whole clip so far in, its words out.
 //
-// TEMPORARY: no session required, so Niraj can test signed out (2026-09-27). The
-// practice route needs a session, and a signed-out POST to it was redirected to
-// /signin, which is the "Failed to find Server Action" 500. Put the check back with
-// INC-52 before launch.
+// Signed in only (INC-52): asking is, so its microphone is too. The route answers 401
+// itself rather than leaving it to the middleware, whose redirect to /signin is what
+// broke the mic before (a POST redirected to a page is the "Failed to find Server
+// Action" 500), so it stays in the middleware's API pass-through.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const runtime = "nodejs"
@@ -20,6 +21,8 @@ const json = (status: number, body: unknown) =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
 
 export async function POST(request: NextRequest) {
+    const session = await getSession(request.headers)
+    if (!session?.user?.id) return json(401, { error: "Sign in to ask the lead." })
     let audio: File | null = null
     try {
         const form = await request.formData()

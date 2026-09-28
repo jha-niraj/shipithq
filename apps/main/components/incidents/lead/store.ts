@@ -2,6 +2,7 @@
 
 import { create } from "zustand"
 import toast from "@repo/ui/components/ui/sonner"
+import { openSignInPrompt } from "@/components/auth/sign-in-prompt"
 import { askLead, explainTerm, narrationFor } from "@/actions/(main)/incidents/narration.action"
 
 /**
@@ -178,7 +179,9 @@ export const useLead = create<LeadStore>((set, get) => ({
         set({ asking: false })
         if (!r.success) {
             set((s) => ({ thread: s.thread.filter((t) => t.id !== mine.id) }))
-            if (r.code === "RUN") requireRun?.(); else toast.error(r.error)
+            if (r.code === "RUN") requireRun?.()
+            else if (r.code === "AUTH") openSignInPrompt({ callback: window.location.pathname, eyebrow: "The incident lead", title: "Sign in to ask the lead", body: "The lead answers your questions out loud and pushes on your reasoning. It needs an account; you come straight back to this chapter." })
+            else toast.error(r.error)
             return
         }
         const turn: LeadTurn = { id: `lead-${Date.now()}`, who: "lead", text: r.answer, audio: r.audio }
