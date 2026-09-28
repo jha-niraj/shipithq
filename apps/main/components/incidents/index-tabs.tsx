@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { cn } from "@repo/ui/lib/utils"
+import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
 
 /**
  * The Incidents index's tabs (plan/incidents INC-12): Cases and Badges on the right of
@@ -21,37 +22,6 @@ function setParam(key: string, value: string | null) {
     window.history.replaceState(null, "", url)
 }
 
-export function Segmented<T extends string>({ value, options, onChange, label, className }: {
-    value: T
-    options: { id: T; label: string; count?: number }[]
-    onChange: (v: T) => void
-    label: string
-    className?: string
-}) {
-    const reduced = useReducedMotion()
-    return (
-        <div role="tablist" aria-label={label} className={cn("inline-flex rounded-xl border border-neutral-200 bg-white p-1 dark:border-neutral-800 dark:bg-neutral-950", className)}>
-            {options.map((o) => {
-                const on = o.id === value
-                return (
-                    <button
-                        key={o.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={on}
-                        onClick={() => onChange(o.id)}
-                        className={cn("relative flex h-8 items-center gap-2 whitespace-nowrap rounded-lg px-3.5 text-sm font-medium transition-colors", on ? "text-white dark:text-neutral-900" : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white")}
-                    >
-                        {on && <motion.span layoutId={`seg-${label}`} transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 36 }} className="absolute inset-0 rounded-lg bg-neutral-900 dark:bg-white" />}
-                        <span className="relative">{o.label}</span>
-                        {o.count !== undefined && <span className={cn("relative font-mono text-[10.5px] tabular-nums", on ? "text-white/70 dark:text-neutral-900/60" : "text-neutral-400")}>{o.count}</span>}
-                    </button>
-                )
-            })}
-        </div>
-    )
-}
-
 /** Header tabs: the header itself is passed in, the tabs sit on its right. */
 export function IndexTabs({ header, cases, badges, initial, badgeCount }: { header: ReactNode; cases: ReactNode; badges: ReactNode; initial: "cases" | "badges"; badgeCount: string }) {
     const [tab, setTab] = useState(initial)
@@ -60,7 +30,13 @@ export function IndexTabs({ header, cases, badges, initial, badgeCount }: { head
         <>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 {header}
-                <Segmented label="Incidents" value={tab} onChange={change} options={[{ id: "cases", label: "Cases" }, { id: "badges", label: `Badges ${badgeCount}` }]} />
+                {/* The shared tabs, unstyled (CLAUDE.md tabs rule, plan/jobs-polish JP-20). */}
+                <Tabs value={tab} onValueChange={(v) => change(v as "cases" | "badges")}>
+                    <TabsList variant="segmented" size="sm" fit aria-label="Incidents">
+                        <TabsTrigger value="cases">Cases</TabsTrigger>
+                        <TabsTrigger value="badges">Badges<span className="ml-1.5 tabular-nums opacity-60">{badgeCount}</span></TabsTrigger>
+                    </TabsList>
+                </Tabs>
             </div>
             <AnimatePresence mode="wait" initial={false}>
                 <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>

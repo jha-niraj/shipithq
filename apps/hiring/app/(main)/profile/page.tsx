@@ -171,10 +171,19 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="page-frame space-y-5 px-page py-6">
+        // One Tabs root around the page so the list can sit in the header row, right of the
+        // title (CLAUDE.md, Niraj 2026-09-29), with the panels further down.
+        <Tabs defaultValue="personal" className="page-frame space-y-5 px-page py-6">
             <PageHeader
                 title="Profile"
                 subtitle="Your details, your company and what you can do here."
+                tabs={
+                    <TabsList variant="segmented" fit aria-label="Profile">
+                        <TabsTrigger value="personal" icon={<User />}>Personal info</TabsTrigger>
+                        <TabsTrigger value="company" icon={<Building2 />}>Company</TabsTrigger>
+                        <TabsTrigger value="permissions" icon={<Shield />}>Permissions</TabsTrigger>
+                    </TabsList>
+                }
             />
             <div className="space-y-5">
                 <motion.div
@@ -254,30 +263,6 @@ export default function ProfilePage() {
                         </div>
                     </div>
                 </motion.div>
-                <Tabs defaultValue="personal" className="w-full">
-                    <TabsList className="w-full justify-start bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl mb-6 flex-wrap h-auto gap-1">
-                        <TabsTrigger
-                            value="personal"
-                            className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-sm cursor-pointer"
-                        >
-                            <User className="w-4 h-4 mr-2" />
-                            Personal info
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="company"
-                            className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-sm cursor-pointer"
-                        >
-                            <Building2 className="w-4 h-4 mr-2" />
-                            Company
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="permissions"
-                            className="rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800 data-[state=active]:shadow-sm cursor-pointer"
-                        >
-                            <Shield className="w-4 h-4 mr-2" />
-                            Permissions
-                        </TabsTrigger>
-                    </TabsList>
                     <TabsContent value="personal">
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
@@ -509,8 +494,7 @@ export default function ProfilePage() {
                             }
                         </motion.div>
                     </TabsContent>
-                </Tabs>
             </div>
-        </div>
+        </Tabs>
     )
 }

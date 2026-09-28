@@ -8,6 +8,7 @@ import { Button } from "@repo/ui/components/ui/button"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { Input } from "@repo/ui/components/ui/input"
 import { PageHeader } from "@repo/ui/components/ui/page-header"
+import { TabsNav } from "@repo/ui/components/ui/tabs"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { cn } from "@repo/ui/lib/utils"
 import {
@@ -29,15 +30,12 @@ export function ReferralsView({ tab, mine, state, inbox }: { tab: "mine" | "refe
     const tabs = [["mine", "Your requests", "/jobs/referrals"], ["referring", "Referring", "/jobs/referrals?tab=referring"]] as const
     return (
         <div className="page-frame space-y-6 px-page py-6">
-            <PageHeader title="Referrals" subtitle="Ask a verified employee to refer you, or refer students for your own company." />
-            <nav aria-label="Referrals" className="inline-flex rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-800">
-                {tabs.map(([v, label, href]) => (
-                    <Link key={v} href={href} aria-current={tab === v ? "page" : undefined}
-                        className={cn("rounded-md px-4 py-1.5 text-sm font-medium", tab === v ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "text-neutral-600 dark:text-neutral-300")}>
-                        {label}
-                    </Link>
-                ))}
-            </nav>
+            {/* Tabs on the right of the title, the shared TabsNav (plan/jobs-polish JP-20). */}
+            <PageHeader
+                title="Referrals"
+                subtitle="Ask a verified employee to refer you, or refer students for your own company."
+                tabs={<TabsNav aria-label="Referrals" items={tabs.map(([v, label, href]) => ({ href, label, active: tab === v }))} />}
+            />
             {tab === "mine" ? <MyRequests rows={mine} /> : <Referring state={state} inbox={inbox} />}
         </div>
     )

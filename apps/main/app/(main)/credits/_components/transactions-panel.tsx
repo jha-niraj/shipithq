@@ -11,6 +11,7 @@ import { Badge } from "@repo/ui/components/ui/badge"
 import {
 	Tabs, TabsContent, TabsList, TabsTrigger
 } from "@repo/ui/components/ui/tabs"
+import { PageHeader } from '@repo/ui/components/ui/page-header'
 import { Button } from "@repo/ui/components/ui/button"
 import {
 	Receipt, ArrowUpRight, ArrowDownLeft, Calendar, Clock, ExternalLink,
@@ -410,6 +411,15 @@ export default function TransactionsPage({ embedded = false }: { embedded?: bool
 		)
 	}
 
+	// The shared tabs, segmented, unstyled (CLAUDE.md tabs rule).
+	const tabList = (
+		<TabsList variant="segmented" size="sm" fit>
+			<TabsTrigger value="transactions" icon={<CreditCard />}>Usage</TabsTrigger>
+			<TabsTrigger value="purchases" icon={<Receipt />}>Purchases</TabsTrigger>
+			<TabsTrigger value="referrals" icon={<Gift />}>Referrals</TabsTrigger>
+		</TabsList>
+	)
+
 	return (
 		<Shell>
 			{/* This wrapper HAS to be a flex column when embedded, and it was a bare
@@ -419,71 +429,57 @@ export default function TransactionsPage({ embedded = false }: { embedded?: bool
 				never got a bounded height to scroll inside. One unstyled div, three
 				levels of correct flex classes doing nothing. */}
 			<div className={embedded ? 'flex min-h-0 flex-1 flex-col' : undefined}>
-				{/* Page Header */}
-				<div
-					className={cn(
-						'flex flex-col sm:flex-row sm:items-end justify-between gap-6',
-						// 48px of air under the header is right on a full page and far
-						// too much in a 520px panel, where it pushed the tabs a third of
-						// the way down.
-						embedded ? 'shrink-0 mb-4' : 'mb-12'
-					)}
-				>
-					<motion.div
-						initial={enter}
-						animate={{ opacity: 1, y: 0 }}
-					>
-						<h1 className={cn(
-							'font-bold tracking-tight text-neutral-900 dark:text-white',
-							embedded ? 'text-lg mb-0.5' : 'text-4xl mb-2'
-						)}>
-							Transaction History
-						</h1>
-						<p className={cn(
-							'text-neutral-600 dark:text-neutral-400',
-							embedded ? 'text-xs' : 'font-light'
-						)}>
-							Track your credit purchases, spending, and transfers
-						</p>
-					</motion.div>
-					<motion.div
-						initial={enterFade}
-						animate={{ opacity: 1 }}
-						transition={embedded ? { duration: 0 } : { delay: 0.15 }}
-					>
-						<Button
-							onClick={fetchData}
-							disabled={refreshing}
-							variant="outline"
-							size={embedded ? 'sm' : 'default'}
-							className="cursor-pointer gap-2 border-neutral-200 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
-						>
-							{refreshing ? <InlineLoader size="sm" /> : <RefreshCw className="h-4 w-4" />}
-							Refresh
-						</Button>
-					</motion.div>
-				</div>
-
-				{/* Tabs */}
 				{/* `?tab=referrals` opens straight onto that tab, which is what the sidebar's
 					Referrals entry links to. `defaultValue` rather than a controlled `value`:
 					the param picks the STARTING tab and then the user is free to switch, which
-					is the behaviour you want from a deep link. */}
+					is the behaviour you want from a deep link.
+
+					The Tabs root wraps the header so, on the page, the list sits in
+					PageHeader's tabs slot: title left, tabs, then Refresh, one row (CLAUDE.md
+					tabs rule, plan/jobs-polish JP-20). In the 520px panel there is no room
+					for that row, so the compact header keeps the tabs under it. */}
 				<Tabs
 					defaultValue={initialTab}
 					className={embedded ? 'flex min-h-0 flex-1 flex-col gap-4' : 'space-y-6'}
 				>
-					{/* No className on the list or the triggers: the shared TabsList already
-						draws the surface and the sliding pill, and per-trigger backgrounds under
-						it made three things animate for one click. The wrapper only keeps the
-						strip from shrinking in the embedded flex column. */}
-					<div className="shrink-0">
-						<TabsList size={embedded ? 'sm' : 'default'}>
-							<TabsTrigger value="transactions" icon={<CreditCard />}>Usage</TabsTrigger>
-							<TabsTrigger value="purchases" icon={<Receipt />}>Purchases</TabsTrigger>
-							<TabsTrigger value="referrals" icon={<Gift />}>Referrals</TabsTrigger>
-						</TabsList>
-					</div>
+					{embedded ? (
+						<>
+							<div className="flex shrink-0 items-end justify-between gap-6">
+								<div>
+									<h1 className="mb-0.5 text-lg font-bold tracking-tight text-neutral-900 dark:text-white">Transaction History</h1>
+									<p className="text-xs text-neutral-600 dark:text-neutral-400">Track your credit purchases, spending, and transfers</p>
+								</div>
+								<Button
+									onClick={fetchData}
+									disabled={refreshing}
+									variant="outline"
+									size={embedded ? 'sm' : 'default'}
+									className="cursor-pointer gap-2 border-neutral-200 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+								>
+									{refreshing ? <InlineLoader size="sm" /> : <RefreshCw className="h-4 w-4" />}
+									Refresh
+								</Button>
+							</div>
+							<div className="shrink-0">{tabList}</div>
+						</>
+					) : (
+						<PageHeader
+							className="mb-6"
+							title="Transaction History"
+							subtitle="Track your credit purchases, spending, and transfers"
+							tabs={tabList}
+							actions={<Button
+									onClick={fetchData}
+									disabled={refreshing}
+									variant="outline"
+									size={embedded ? 'sm' : 'default'}
+									className="cursor-pointer gap-2 border-neutral-200 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+								>
+									{refreshing ? <InlineLoader size="sm" /> : <RefreshCw className="h-4 w-4" />}
+									Refresh
+								</Button>}
+						/>
+					)}
 
 					{/* ── Usage ──
 						Spends and grants. The SCROLL REGION in embedded mode: `min-h-0`

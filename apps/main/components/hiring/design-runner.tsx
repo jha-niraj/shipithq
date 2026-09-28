@@ -9,6 +9,7 @@ import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { useTheme } from "@repo/ui/components/themeprovider"
 import { cn } from "@repo/ui/lib/utils"
+import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
 import { saveAttempt, submitAttempt, type RunnerAttempt } from "@/actions/hiring/run.action"
 import { ConfirmDialog } from "@repo/ui/components/ui/confirm-dialog"
 import { RunnerShell, useRoundClock } from "./runner-shell"
@@ -117,14 +118,13 @@ export function DesignRunner({ attempt }: { attempt: RunnerAttempt }) {
 
                 <section className="flex min-w-0 flex-col">
                     <div className="flex items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 py-2 dark:border-neutral-800 dark:bg-neutral-950">
-                        <div role="tablist" aria-label="Your answer" className="inline-flex rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-700">
-                            {(["diagram", "answer"] as const).map((t) => (
-                                <button key={t} role="tab" type="button" aria-selected={tab === t} onClick={() => setTab(t)}
-                                    className={cn("rounded-md px-3 py-1 text-sm font-medium", tab === t ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "text-neutral-600 dark:text-neutral-300")}>
-                                    {t === "diagram" ? "Diagram" : "Written answer"}
-                                </button>
-                            ))}
-                        </div>
+                        {/* The shared tabs, unstyled (CLAUDE.md tabs rule, plan/jobs-polish JP-20). */}
+                        <Tabs value={tab} onValueChange={(v) => setTab(v as "diagram" | "answer")}>
+                            <TabsList variant="segmented" size="sm" fit aria-label="Your answer">
+                                <TabsTrigger value="diagram">Diagram</TabsTrigger>
+                                <TabsTrigger value="answer">Written answer</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
                         <div className="flex items-center gap-2">
                             <span className="hidden text-xs text-neutral-500 sm:inline dark:text-neutral-400" aria-live="polite">
                                 {saving === "saving" ? "Saving" : saving === "saved" ? "Saved" : saving === "error" ? "Not saved" : ""}

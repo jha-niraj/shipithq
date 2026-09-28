@@ -235,6 +235,17 @@ secret and only needs a redeploy.
   A rotating ring is the one loading affordance every product uses, which
   makes it the one that says nothing about this one - and at button size it is
   a grey smudge.
+- **Tabs sit on the right of the page header, in the same row as the title** (Niraj,
+  2026-09-29). Title and subtitle on the left, the tabs to their right, then any action
+  buttons at the far right: one row, never a title row and then a tab row. Use
+  `PageHeader`'s `tabs` and `actions` slots, not a hand-placed row. Below `sm` the tabs drop
+  under the title and scroll sideways. A page whose left column holds the entity's details
+  (a company, a job) puts its tabs at the top of the right column instead.
+- **Tabs are the shared ones, unstyled.** `TabsNav` (tabs that are links, one per route or
+  `?tab=`) or `Tabs` / `TabsList` / `TabsTrigger` (panels on one page) from
+  `@repo/ui/components/ui/tabs`, in the default `segmented` look. No underline tabs, no
+  hand-built `role="tab"` rows, and no `className` restyling a trigger or list; if a tab needs
+  something the component lacks, add it to the component.
 - **Headline numbers use `StatBand`** from `@repo/ui/components/ui/stat-band`, with
   `StatBandSkeleton` (same `count`, `cols`, `size`) in the loading state. Never write a
   local `StatCard` / `StatTile` / `MiniStat` or an inline grid of number cards. Read

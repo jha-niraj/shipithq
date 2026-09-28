@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import {
 	Plus, ArrowRight, Code2, Trophy, Play, CheckCircle2, Search,
 } from "lucide-react"
+import { PageHeader } from "@repo/ui/components/ui/page-header"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import {
@@ -172,23 +173,37 @@ export default function MyProjectsPage({ embedded = false }: { embedded?: boolea
 							<ArrowRight className="w-4 h-4" />
 							<span>My Projects - {totalProjects}</span>
 						</div>
-						<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-							<div>
-								{/* text-xl, the scale PageHeader uses. This was
-								    text-4xl md:text-5xl, one of five scales in the app
-								    for the same element. */}
-								<h1 className="text-xl font-semibold text-neutral-900 dark:text-white">
-									My Projects
-								</h1>
-								<p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-									Manage your AI-generated projects and track your progress
-								</p>
-							</div>
-							<Button size="sm" onClick={() => setGenerateOpen(true)}>
-								<Plus className="mr-1.5 h-4 w-4" />
-								Generate a project
-							</Button>
-						</div>
+						{/* Title left, the view tabs beside it, Generate last: one row (CLAUDE.md, tabs
+						    rule; plan/jobs-polish JP-20). The strip drives a filter, so there is no
+						    TabsContent; segmented, size sm, fit, as every header's tabs are. */}
+						<PageHeader
+							title="My Projects"
+							subtitle="Manage your AI-generated projects and track your progress"
+							tabs={
+								<Tabs value={activeTab} onValueChange={setActiveTab}>
+										<TabsList variant="segmented" size="sm" fit>
+											<TabsTrigger value="all">
+												All Projects ({projects.length})
+											</TabsTrigger>
+											<TabsTrigger value="in-progress">
+												In Progress ({projects.filter((p: UserProjectWithProgress) => p.progress?.[0]?.status === "IN_PROGRESS").length})
+											</TabsTrigger>
+											<TabsTrigger value="completed">
+												Completed ({projects.filter((p: UserProjectWithProgress) => p.progress?.[0]?.status === "COMPLETED").length})
+											</TabsTrigger>
+											<TabsTrigger value="submissions">
+												Submissions ({projects.filter((p: UserProjectWithProgress) => p._count && p._count.submissions > 0).length})
+											</TabsTrigger>
+										</TabsList>
+									</Tabs>
+							}
+							actions={
+								<Button size="sm" onClick={() => setGenerateOpen(true)}>
+									<Plus className="mr-1.5 h-4 w-4" />
+									Generate a project
+								</Button>
+							}
+						/>
 					</motion.div>
 					)}
 					{
@@ -213,33 +228,6 @@ export default function MyProjectsPage({ embedded = false }: { embedded?: boolea
 						) : null
 					}
 
-					{/*
-					  * Props, not classes (plan/projects, PJ-9).
-					  *
-					  * This was `<TabsList className="">` with no props at all, which
-					  * is the default card variant: `w-full` with `flex-1` triggers,
-					  * so four labels stretched across the whole page and read as a
-					  * banner. `segmented size="sm" fit` is the same call the tabs in
-					  * the page header make, which is why those look like they belong.
-					  * There is no TabsContent here - the strip drives a filter - so
-					  * the quieter affordance is also the honest one.
-					  */}
-					<Tabs value={activeTab} onValueChange={setActiveTab}>
-						<TabsList variant="segmented" size="sm" fit>
-							<TabsTrigger value="all">
-								All Projects ({projects.length})
-							</TabsTrigger>
-							<TabsTrigger value="in-progress">
-								In Progress ({projects.filter((p: UserProjectWithProgress) => p.progress?.[0]?.status === "IN_PROGRESS").length})
-							</TabsTrigger>
-							<TabsTrigger value="completed">
-								Completed ({projects.filter((p: UserProjectWithProgress) => p.progress?.[0]?.status === "COMPLETED").length})
-							</TabsTrigger>
-							<TabsTrigger value="submissions">
-								Submissions ({projects.filter((p: UserProjectWithProgress) => p._count && p._count.submissions > 0).length})
-							</TabsTrigger>
-						</TabsList>
-					</Tabs>
 					<motion.div
 						className="space-y-4"
 						initial={{ opacity: 0, y: 20 }}

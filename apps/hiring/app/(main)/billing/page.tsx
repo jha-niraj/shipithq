@@ -574,15 +574,10 @@ export default function BillingPage() {
                 transition={{ delay: 0.3 }}
             >
                 <Tabs defaultValue="invoices" className="w-full">
-                    <TabsList className="bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
-                        <TabsTrigger value="invoices" className="data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900">
-                            <Receipt className="h-4 w-4 mr-2" />
-                            Invoices
-                        </TabsTrigger>
-                        <TabsTrigger value="payments" className="data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900">
-                            <CreditCard className="h-4 w-4 mr-2" />
-                            Payments
-                        </TabsTrigger>
+                    {/* A section's own switch, so it stays with the section; the shared tabs, unstyled. */}
+                    <TabsList variant="segmented" size="sm" fit aria-label="Transactions">
+                        <TabsTrigger value="invoices" icon={<Receipt />}>Invoices</TabsTrigger>
+                        <TabsTrigger value="payments" icon={<CreditCard />}>Payments</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="invoices" className="mt-4">

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from 'next/navigation'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
+import { PageHeader } from '@repo/ui/components/ui/page-header'
 import { Button } from '@repo/ui/components/ui/button'
 import { Badge } from '@repo/ui/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
@@ -591,31 +592,35 @@ export function ResumeHub({ drafts: initialDrafts, templates, links, initialOrig
 
     return (
         <div className="mx-auto w-full max-w-6xl pb-16">
-            {/* ── Header ── */}
-            <div className="flex flex-col gap-4 pt-8 pb-6 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">Resume Builder</h1>
-                    <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                        Build, import and tailor resumes. The default one is what Harbor, your AI, reads.
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="cursor-pointer" onClick={() => setImportOpen(true)}>
-                        <Sparkles className="mr-1.5 size-3.5" /> Import with AI
-                    </Button>
-                    <Button size="sm" className="cursor-pointer" onClick={() => setSheetOpen(true)}>
-                        <Plus className="mr-1.5 size-3.5" /> New resume
-                    </Button>
-                </div>
-            </div>
-
+            {/* Title left, My resumes / Templates beside it, the buttons last: one row
+                (CLAUDE.md tabs rule, plan/jobs-polish JP-20). The Tabs root wraps the
+                header so its list can sit in PageHeader's slot. */}
             <Tabs defaultValue="resumes">
-                <div className="flex flex-col gap-3 border-b border-neutral-200 pb-3 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800">
-                    <TabsList variant="segmented" size="sm" fit>
-                        <TabsTrigger value="resumes">My resumes</TabsTrigger>
-                        <TabsTrigger value="templates">Templates</TabsTrigger>
-                    </TabsList>
-                    {drafts.length > 0 && (
+                <PageHeader
+                    className="pt-8 pb-6"
+                    title="Resume Builder"
+                    subtitle="Build, import and tailor resumes. The default one is what Harbor, your AI, reads."
+                    tabs={
+                        <TabsList variant="segmented" size="sm" fit>
+                            <TabsTrigger value="resumes">My resumes</TabsTrigger>
+                            <TabsTrigger value="templates">Templates</TabsTrigger>
+                        </TabsList>
+                    }
+                    actions={
+                        <>
+                            <Button variant="outline" size="sm" className="cursor-pointer" onClick={() => setImportOpen(true)}>
+                                <Sparkles className="mr-1.5 size-3.5" /> Import with AI
+                            </Button>
+                            <Button size="sm" className="cursor-pointer" onClick={() => setSheetOpen(true)}>
+                                <Plus className="mr-1.5 size-3.5" /> New resume
+                            </Button>
+                        </>
+                    }
+                />
+
+                {/* The origin filter: a filter over the list, so it stays under the header. */}
+                {drafts.length > 0 && (
+                    <div className="border-b border-neutral-200 pb-3 dark:border-neutral-800">
                         <Tabs value={activeFilter} onValueChange={(v) => chooseFilter(v as Filter)}>
                             <div className="max-w-full overflow-x-auto [scrollbar-width:none]">
                                 <TabsList variant="segmented" size="sm" fit aria-label="Filter by origin">
@@ -628,8 +633,8 @@ export function ResumeHub({ drafts: initialDrafts, templates, links, initialOrig
                                 </TabsList>
                             </div>
                         </Tabs>
-                    )}
-                </div>
+                    </div>
+                )}
 
                 {/* ── My resumes ── */}
                 <TabsContent value="resumes" className="mt-6">

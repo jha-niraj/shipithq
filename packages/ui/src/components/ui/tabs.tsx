@@ -187,10 +187,8 @@ export type TabsListProps = React.ComponentPropsWithoutRef<typeof TabsPrimitive.
 	 */
 	fit?: boolean
 	/**
-	 * `card` (default) keeps the bordered container. `segmented` removes it entirely.
-	 *
-	 * Reach for `segmented` in a header or a filter row, where the tabs sit among other controls
-	 * and a second bordered box just adds a frame around a frame.
+	 * `segmented` (default, the product's tab look: CLAUDE.md, Niraj 2026-09-29) or `card`, the
+	 * bordered container, kept for the few places that pass it on purpose.
 	 */
 	variant?: TabsVariant
 }
@@ -202,7 +200,7 @@ export type TabsListProps = React.ComponentPropsWithoutRef<typeof TabsPrimitive.
 const TabsList = React.forwardRef<
 	React.ElementRef<typeof TabsPrimitive.List>,
 	TabsListProps
->(({ className, size = "default", fit = false, variant = "card", ...props }, ref) => {
+>(({ className, size = "default", fit = false, variant = "segmented", ...props }, ref) => {
 	const parent = React.useContext(TabsContext)
 	// The list, not the root, decides size, fit and variant - a page can have two lists with
 	// different shapes. Re-providing here rather than threading props down keeps TabsTrigger's
@@ -221,7 +219,13 @@ const TabsList = React.forwardRef<
 			{...props}
 		/>
 	)
-	return ctx ? <TabsContext.Provider value={ctx}>{list}</TabsContext.Provider> : list
+	// A list that hugs its labels (`fit`) is the header kind: in `PageHeader`'s tab slot it
+	// scrolls sideways when there's no room, as `TabsNav` does (plan/jobs-polish JP-20). A
+	// full-width list already shrinks to its container, so it stays as it is.
+	const body = fit
+		? <ScrollArea orientation="horizontal" className="min-w-0 max-w-full">{list}</ScrollArea>
+		: list
+	return ctx ? <TabsContext.Provider value={ctx}>{body}</TabsContext.Provider> : body
 })
 TabsList.displayName = TabsPrimitive.List.displayName
 
@@ -357,6 +361,8 @@ export interface TabsNavItem {
 	/** The caller decides, from its own pathname: nested routes differ per section. */
 	active: boolean
 	icon?: React.ReactNode
+	/** `false` keeps the scroll position on the switch (tabs in `?tab=` below a header). Default true, as `<Link>`. */
+	scroll?: boolean
 }
 
 /**
@@ -402,6 +408,7 @@ function TabsNav({
 					<Link
 						key={item.href}
 						href={item.href}
+						scroll={item.scroll}
 						aria-current={item.active ? "page" : undefined}
 						data-state={item.active ? "active" : "inactive"}
 						className={cn(tabsTriggerClass(size, fit, variant), "shrink-0")}

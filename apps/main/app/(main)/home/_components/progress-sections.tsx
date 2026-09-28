@@ -1,11 +1,11 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { TrendingDown, TrendingUp, Zap } from "lucide-react";
 import { db } from "@repo/db";
 import {
     MODULE_ORDER, SUMMARIZE, rangeFor, summarizeXp, type ModuleKey, type RangeKey,
 } from "@repo/db/progress";
 import { Shimmer } from "@repo/ui/components/skeleton-kit";
+import { TabsNav } from "@repo/ui/components/ui/tabs";
 import { cn } from "@repo/ui/lib/utils";
 import { ModuleSection, ModuleSectionSkeleton, RANGE_WORDS, SECTION_CARD } from "@/components/progress/module-section";
 import TrendChart from "@/components/progress/trend-chart";
@@ -23,25 +23,17 @@ const RANGES: { key: RangeKey; label: string }[] = [
 ];
 
 export function RangeSwitch({ range }: { range: RangeKey }) {
+    // The shared tabs (CLAUDE.md); `scroll: false` so changing the range doesn't jump to the top.
     return (
-        <nav aria-label="Chart range" className="inline-flex rounded-lg border border-neutral-200 bg-white p-0.5 dark:border-neutral-800 dark:bg-neutral-950">
-            {RANGES.map((r) => (
-                <Link
-                    key={r.key}
-                    href={r.key === "90d" ? "/home" : `/home?range=${r.key}`}
-                    scroll={false}
-                    aria-current={r.key === range ? "true" : undefined}
-                    className={cn(
-                        "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                        r.key === range
-                            ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-                            : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white",
-                    )}
-                >
-                    {r.label}
-                </Link>
-            ))}
-        </nav>
+        <TabsNav
+            aria-label="Chart range"
+            items={RANGES.map((r) => ({
+                href: r.key === "90d" ? "/home" : `/home?range=${r.key}`,
+                label: r.label,
+                active: r.key === range,
+                scroll: false,
+            }))}
+        />
     );
 }
 

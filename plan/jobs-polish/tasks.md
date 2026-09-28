@@ -18,6 +18,9 @@
 | JP-14 | Cards with a side action reflow by their own width (apps/main sweep) | 14 | done 2026-09-29 (rounds card checked in Chrome at phone width; sweep list in Outcomes) |
 | JP-15 | `CompanyMark`: 16 animated marks for companies without a logo, used everywhere | 15 | done 2026-09-29 (Chrome: companies page) |
 | JP-16 | Company cards: one shape, one meta line, a pinned footer | 16 | done 2026-09-29 (Chrome: companies page) |
+| JP-18 | Company page: the details column left, the tabs at the top of the right | 18 | done 2026-09-29 (Chrome: Overview and Practice; TabsNav gained a per-tab `scroll`) |
+| JP-19 | `PageHeader`: tabs shrink and scroll beside the title | 19 | done 2026-09-29 (typecheck; seen via the sweep) |
+| JP-20 | Sweep main and hiring: tabs in the header row, the shared tabs, no restyling | 19 | done 2026-09-29 (Chrome: Referrals, Explore projects, company page; the rest by typecheck) |
 | JP-17 | The 404 page: an animated scene, centred, with the right way back | 17 | done 2026-09-29 (Chrome, dark theme, signed in; signed-out button by code) |
 
 ## JP-1 - Shell headers line up
@@ -231,3 +234,47 @@ matching button, checked in Chrome.
 - **JP-15** `packages/ui/src/components/ui/company-mark.tsx` (16 marks, FNV-1a of the id) used on
   the companies list, company page, job cards, job detail, skill-gap modal, spark panel, and the
   hiring app's company page and profile chip. Order is load-bearing (COMPANY-MARK.md).
+
+## Round 3 (Niraj, 2026-09-29)
+Rule added to CLAUDE.md (Conventions): tabs on the right of the header row, title left, actions
+after the tabs; the shared tabs in the `segmented` look, never restyled.
+
+### JP-18 - Company page layout
+**Why** The header, a full-width underline tab row, then the content: three bands before any
+content, and the tabs weren't the product's tabs.
+**Files** `app/(jobs)/companies/[slug]/_components/company-page.tsx`, its `loading.tsx`.
+**Steps** Two columns on `lg`: left (about 20rem, sticky) the mark, name, verified, the one-line
+trust note, website / size / location, Follow and the other actions, then Stats and Quick facts
+(moved out of Overview). Right, from the top: `TabsNav` (Overview, Jobs, Practice, Interviews,
+with counts) and the tab's content below. Below `lg`, the details stack first and the tabs follow.
+**Done when** in Chrome the tabs are the first thing in the right column, each tab's content
+fills it, and the skeleton matches.
+
+### JP-19 - PageHeader tabs
+**Files** `packages/ui/src/components/ui/page-header.tsx`.
+**Steps** The tab slot shrinks (`min-w-0`) and its `TabsNav` scrolls; the actions never shrink;
+the title keeps at least a readable width and truncates.
+**Done when** a header with six tabs and a button at 900px wide keeps one row with the tabs
+scrolling.
+
+### JP-20 - The sweep
+**Files** every apps/main and apps/hiring screen with tabs (about 30).
+**Steps** Tabs in a separate row under a title move into `PageHeader`'s `tabs` slot (or the top
+of the right column, per the rule). Underline or hand-built tabs become `TabsNav` / `Tabs`.
+`className` overrides on `TabsList` / `TabsTrigger` / `TabsNav` that restyle them are removed
+(layout-only classes on the wrapper may stay). Tabs inside a dialog, sheet or card stay where
+they are but use the shared component.
+**Done when** grep finds no underline tab rows or restyled triggers in main and hiring, and the
+changed screens are listed in Outcomes.
+
+## Outcomes, round 3 (2026-09-29)
+- Shared: `TabsNav` items take `scroll` (false keeps the position); `TabsList` defaults to
+  `segmented` (was `card`; no caller passed `card`), and a `fit` list scrolls sideways in a
+  horizontal ScrollArea; `PageHeader`'s tab slot shrinks, its actions don't.
+- apps/main: company page (JP-18, actions right of the tabs), Referrals, Explore projects
+  (mine), resume hub, KnowMe settings, credits transactions, explore browse pane, incidents
+  index tabs, DSA and design runners, Home range switch.
+- apps/hiring: pipelines list, company page (`scroll: false`), profile, billing, jobs list/grid.
+- Left: incidents `TopicTabs` (fits what fits, the rest under "More"; the shared tabs have no
+  overflow mode yet: a new task if wanted), the workspace's closable editor tabs, and radio
+  groups and list filters that aren't tabs.

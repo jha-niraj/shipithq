@@ -32,17 +32,21 @@ export function PageHeader({
     className?: string
 }) {
     return (
-        <header className={cn("flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between", className)}>
-            <div className="min-w-0">
+        <header className={cn("flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6", className)}>
+            {/* The title keeps a readable width; it truncates before it wraps. */}
+            <div className="min-w-0 sm:min-w-[10rem] sm:shrink">
                 <h1 className="truncate text-xl font-semibold tracking-tight text-neutral-900 dark:text-white">{title}</h1>
                 {subtitle && (
                     <p className="mt-0.5 truncate text-sm text-neutral-600 dark:text-neutral-400">{subtitle}</p>
                 )}
             </div>
             {(tabs || actions) && (
-                <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-                    {tabs}
-                    {actions}
+                // The tabs shrink and scroll sideways (TabsNav does); the buttons never shrink
+                // (plan/jobs-polish JP-19). Before, the whole group was `shrink-0` and long tabs
+                // ran off the edge.
+                <div className="flex min-w-0 items-center gap-2 sm:justify-end">
+                    {tabs && <div className="min-w-0">{tabs}</div>}
+                    {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
                 </div>
             )}
         </header>

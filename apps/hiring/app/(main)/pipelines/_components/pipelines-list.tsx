@@ -9,6 +9,7 @@ import { Input } from "@repo/ui/components/ui/input"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { PageHeader } from "@repo/ui/components/ui/page-header"
+import { TabsNav } from "@repo/ui/components/ui/tabs"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { cn } from "@repo/ui/lib/utils"
 import { createPipeline, draftPipelineWithAI } from "@/actions/pipelines/pipeline-builder.action"
@@ -63,6 +64,21 @@ export function PipelinesList({ tab, pipelines, templates, canManage, aiDraftsLe
             <PageHeader
                 title="Pipelines"
                 subtitle="The rounds a candidate takes for a job, with a pass mark for each. Every job uses one."
+                // Tabs on the right of the header row (CLAUDE.md, Niraj 2026-09-29): the shared TabsNav.
+                tabs={
+                    <TabsNav
+                        aria-label="Pipelines"
+                        items={([
+                            { key: "yours", label: "Your pipelines", count: pipelines.length },
+                            { key: "templates", label: "ShipItHQ templates", count: templates.length },
+                            ...(importedCount > 0 ? [{ key: "imported", label: "Imported by students", count: importedCount }] : []),
+                        ] as { key: PipelinesTab; label: string; count: number }[]).map((t) => ({
+                            href: t.key === "yours" ? "/pipelines" : `/pipelines?tab=${t.key}`,
+                            active: tab === t.key,
+                            label: <>{t.label}<span className="ml-1.5 text-xs tabular-nums opacity-60">{t.count}</span></>,
+                        }))}
+                    />
+                }
                 actions={canManage ? (
                     // One control in two halves: the AI draft first (the quicker start), then an empty pipeline.
                     <div className="inline-flex overflow-hidden rounded-lg border border-neutral-900 dark:border-white" role="group" aria-label="Make a pipeline">
@@ -78,19 +94,6 @@ export function PipelinesList({ tab, pipelines, templates, canManage, aiDraftsLe
                 ) : undefined}
             />
 
-            <nav aria-label="Pipelines" className="flex gap-1 border-b border-neutral-200 dark:border-neutral-800">
-                {([
-                    { key: "yours", label: "Your pipelines", count: pipelines.length },
-                    { key: "templates", label: "ShipItHQ templates", count: templates.length },
-                    ...(importedCount > 0 ? [{ key: "imported", label: "Imported by students", count: importedCount }] : []),
-                ] as { key: PipelinesTab; label: string; count: number }[]).map((t) => (
-                    <Link key={t.key} href={t.key === "yours" ? "/pipelines" : `/pipelines?tab=${t.key}`} aria-current={tab === t.key ? "page" : undefined}
-                        className={cn("-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium", tab === t.key ? "border-neutral-900 text-neutral-900 dark:border-white dark:text-white" : "border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white")}>
-                        {t.label}
-                        <span className="rounded-full bg-neutral-100 px-1.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">{t.count}</span>
-                    </Link>
-                ))}
-            </nav>
 
             <StatBand
                 cols={3}

@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { TabsNav } from "@repo/ui/components/ui/tabs"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Code2, Search, Target } from "lucide-react"
@@ -68,26 +69,28 @@ export function BrowsePane({ rows, facets, filters, counts }: {
         <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
                 {/* Who made it: the one real difference between the old two tabs. */}
-                <Segmented label="Made by">
-                    {(["all", "shipithq", "community"] as const).map((made) => (
-                        <SegmentLink key={made} href={withParam(current, "made", made)} active={filters.made === made}>
-                            {MADE_LABEL[made]}
-                            <span className="tabular-nums opacity-60">{counts[made]}</span>
-                        </SegmentLink>
-                    ))}
-                </Segmented>
-
-                <Segmented label="How to browse">
-                    {([
+                {/* The shared TabsNav, unstyled (CLAUDE.md tabs rule, plan/jobs-polish JP-20);
+                    these were a hand-drawn copy of its segmented look. */}
+                <TabsNav
+                    aria-label="Made by"
+                    items={(["all", "shipithq", "community"] as const).map((made) => ({
+                        href: withParam(current, "made", made),
+                        active: filters.made === made,
+                        label: <>{MADE_LABEL[made]}<span className="ml-1.5 tabular-nums opacity-60">{counts[made]}</span></>,
+                    }))}
+                />
+                <TabsNav
+                    aria-label="How to browse"
+                    items={([
                         { value: "technology", label: "By stack", icon: Code2 },
                         { value: "problem", label: "Problem first", icon: Target },
-                    ] as const).map(({ value, label, icon: Icon }) => (
-                        <SegmentLink key={value} href={withParam(current, "mode", value)} active={filters.mode === value}>
-                            <Icon className="h-3.5 w-3.5" aria-hidden />
-                            {label}
-                        </SegmentLink>
-                    ))}
-                </Segmented>
+                    ] as const).map(({ value, label, icon: Icon }) => ({
+                        href: withParam(current, "mode", value),
+                        active: filters.mode === value,
+                        icon: <Icon className="h-3.5 w-3.5" />,
+                        label,
+                    }))}
+                />
 
                 <form action="/projects/explore" method="get" className="relative ml-auto min-w-[14rem] flex-1 sm:max-w-xs" role="search">
                     {/* Only what differs from the defaults, so the URL stays as short as a link's. */}
@@ -167,31 +170,6 @@ function Empty({ filters, filtered }: { filters: BrowseFilters; filtered: boolea
                 {community ? "Browse ShipItHQ's projects" : "Clear the filters"}
             </Link>
         </div>
-    )
-}
-
-function Segmented({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div className="inline-flex rounded-xl bg-neutral-100/70 p-0.5 dark:bg-neutral-800/50" role="group" aria-label={label}>
-            {children}
-        </div>
-    )
-}
-
-function SegmentLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
-    return (
-        <Link
-            href={href}
-            aria-current={active ? "true" : undefined}
-            className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                active
-                    ? "bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-900/5 dark:bg-neutral-700 dark:text-white dark:ring-white/10"
-                    : "text-neutral-600 hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-700/40",
-            )}
-        >
-            {children}
-        </Link>
     )
 }
 

@@ -14,6 +14,7 @@ import { NumberTextInput } from "@repo/ui/components/ui/number-text-input"
 import { OptionSelect } from "@repo/ui/components/ui/option-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@repo/ui/components/ui/sheet"
+import { TabsNav } from "@repo/ui/components/ui/tabs"
 import { TagInput } from "@repo/ui/components/ui/tag-input"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { toast } from "@repo/ui/components/ui/sonner"
@@ -25,8 +26,8 @@ import { publicJobUrl } from "@/lib/urls"
 
 /*
  * The company page (plan/hiring-ui HU-11, Niraj 2026-09-28: "like LinkedIn"): a wide
- * cover, the logo overlapping it, the name, tagline and facts, then tabs below the
- * header. Editors change the cover and logo in place and the details in a sheet;
+ * cover, the logo overlapping it, the name, tagline and facts with the tabs on the
+ * right of that row. Editors change the cover and logo in place and the details in a sheet;
  * everything else is read-only. Tabs are links (?tab=), so each one is shareable.
  */
 
@@ -70,7 +71,10 @@ export function CompanyPage({ data, tab, options }: { data: CompanyPageData; tab
                             )}
                         </div>
                     </div>
-                    <div className="mt-3">
+                    {/* Name and facts on the left, the tabs on the right of the same row
+                        (CLAUDE.md, Niraj 2026-09-29): the shared TabsNav, not underline links. */}
+                    <div className="mt-3 flex flex-col gap-4 pb-5 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="min-w-0">
                         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">
                             {data.name}
                             {data.verified && <BadgeCheck className="h-5 w-5 text-neutral-900 dark:text-white" aria-label="Verified by ShipItHQ" />}
@@ -82,26 +86,18 @@ export function CompanyPage({ data, tab, options }: { data: CompanyPageData; tab
                             {facts.map((f, i) => <span key={f} className="inline-flex items-center gap-2">{i > 0 && <span aria-hidden>·</span>}{f}</span>)}
                             {data.jobs.length > 0 && <span className="inline-flex items-center gap-2">{facts.length > 0 && <span aria-hidden>·</span>}{data.jobs.length} open {data.jobs.length === 1 ? "job" : "jobs"}</span>}
                         </p>
+                        </div>
+                        <TabsNav
+                            aria-label="Company"
+                            className="lg:max-w-[60%]"
+                            items={tabs.map((t) => ({
+                                href: t.key === "about" ? `/c/${data.slug}` : `/c/${data.slug}?tab=${t.key}`,
+                                active: tab === t.key,
+                                scroll: false,
+                                label: <>{t.label}{t.count !== undefined && <span className="ml-1.5 text-xs tabular-nums opacity-60">{t.count}</span>}</>,
+                            }))}
+                        />
                     </div>
-
-                    {/* The tabs, below the header as on LinkedIn */}
-                    <nav aria-label="Company" className="mt-5 flex gap-1 overflow-x-auto">
-                        {tabs.map((t) => (
-                            <Link
-                                key={t.key}
-                                href={t.key === "about" ? `/c/${data.slug}` : `/c/${data.slug}?tab=${t.key}`}
-                                scroll={false}
-                                aria-current={tab === t.key ? "page" : undefined}
-                                className={cn(
-                                    "inline-flex shrink-0 items-center gap-2 border-b-2 px-3 pb-3 pt-1 text-sm font-medium transition-colors",
-                                    tab === t.key ? "border-neutral-900 text-neutral-900 dark:border-white dark:text-white" : "border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white",
-                                )}
-                            >
-                                {t.label}
-                                {t.count !== undefined && <span className="rounded-full bg-neutral-100 px-1.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">{t.count}</span>}
-                            </Link>
-                        ))}
-                    </nav>
                 </div>
             </header>
 

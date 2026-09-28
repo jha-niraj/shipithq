@@ -13,6 +13,7 @@ import { Input } from "@repo/ui/components/ui/input"
 import { Badge } from "@repo/ui/components/ui/badge"
 import { StatBand } from "@repo/ui/components/ui/stat-band"
 import { PageHeader } from "@repo/ui/components/ui/page-header"
+import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
     DropdownMenuSeparator, DropdownMenuTrigger
@@ -194,24 +195,13 @@ export function JobsContent({ initialJobs, stats, interviewProcesses: _interview
                         <SelectItem value="CLOSED">Closed</SelectItem>
                     </SelectContent>
                 </Select>
-                <div className="flex gap-1 p-1 bg-neutral-100 dark:bg-neutral-900 rounded-xl">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className={`rounded-lg ${viewMode === "list" ? "bg-white dark:bg-neutral-800 shadow-sm" : ""}`}
-                        onClick={() => setViewMode("list")}
-                    >
-                        <List className="w-4 h-4" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className={`rounded-lg ${viewMode === "grid" ? "bg-white dark:bg-neutral-800 shadow-sm" : ""}`}
-                        onClick={() => setViewMode("grid")}
-                    >
-                        <LayoutGrid className="w-4 h-4" />
-                    </Button>
-                </div>
+                {/* List or grid: the shared segmented control, not a hand-built one (CLAUDE.md tabs rule). */}
+                <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "list" | "grid")}>
+                    <TabsList variant="segmented" size="sm" fit aria-label="View">
+                        <TabsTrigger value="list" aria-label="List" icon={<List />} />
+                        <TabsTrigger value="grid" aria-label="Grid" icon={<LayoutGrid />} />
+                    </TabsList>
+                </Tabs>
             </div>
 
             {

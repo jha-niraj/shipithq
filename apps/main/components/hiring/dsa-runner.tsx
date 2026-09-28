@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@repo/ui/components/ui/button"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { cn } from "@repo/ui/lib/utils"
+import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
 import CodeEditor from "@/components/main/code-editor"
 import { MarkdownRenderer } from "@/components/common/markdown-renderer"
 import { CasesPanel } from "@/app/(main)/practice/_components/workspace/cases-panel"
@@ -117,14 +118,18 @@ export function DsaRunner({ attempt }: { attempt: RunnerAttempt }) {
             <div className="grid grid-cols-1 lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                 <aside className="flex min-h-0 flex-col border-b border-neutral-200 bg-white lg:border-b-0 lg:border-r dark:border-neutral-800 dark:bg-neutral-950">
                     {problems.length > 1 && (
-                        <div role="tablist" aria-label="Problems" className="flex gap-1 border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
-                            {problems.map((p, i) => (
-                                <button key={p.id} role="tab" type="button" aria-selected={i === active} onClick={() => setActive(i)}
-                                    className={cn("flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium", i === active ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800")}>
-                                    Problem {i + 1}
-                                    {edited(p.id) && <span aria-label="edited" className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />}
-                                </button>
-                            ))}
+                        // The shared tabs, unstyled (CLAUDE.md tabs rule, plan/jobs-polish JP-20).
+                        <div className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
+                            <Tabs value={String(active)} onValueChange={(v) => setActive(Number(v))}>
+                                <TabsList variant="segmented" size="sm" fit aria-label="Problems">
+                                    {problems.map((p, i) => (
+                                        <TabsTrigger key={p.id} value={String(i)}>
+                                            Problem {i + 1}
+                                            {edited(p.id) && <span aria-label="edited" className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />}
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
+                            </Tabs>
                         </div>
                     )}
                     <div className="min-h-0 flex-1 overflow-y-auto p-5">

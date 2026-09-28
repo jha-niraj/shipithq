@@ -11,6 +11,7 @@ import {
     Clock, ExternalLink, CalendarDays, Activity, Gauge
 } from "lucide-react";
 import { Button } from "@repo/ui/components/ui/button";
+import { PageHeader } from "@repo/ui/components/ui/page-header";
 import { Input } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";
 import { Textarea } from "@repo/ui/components/ui/textarea";
@@ -183,37 +184,26 @@ export default function KnowMeSettings({ profile, apiConfig, initialTab }: KnowM
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-5xl">
-            <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-8"
-            >
-                <div className="flex items-center gap-4 mb-4">
-                    <Link href="/knowme">
-                        <Button variant="ghost" size="icon" >
-                            <ArrowLeft className="w-5 h-5" />
-                        </Button>
-                    </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold text-neutral-900 dark:text-white flex items-center gap-3">
-                            <Settings className="w-6 h-6" />
-                            KnowMe Settings
-                        </h1>
-                        <p className="text-neutral-500 dark:text-neutral-400 text-sm">
-                            Configure your AI assistant
-                        </p>
-                    </div>
-                </div>
-            </motion.div>
+            {/* Title left, the tabs beside it: one row (CLAUDE.md tabs rule, plan/jobs-polish
+                JP-20). The Tabs root wraps the header so its list can sit in PageHeader's slot;
+                segmented, size sm, fit, as every header's tabs are. */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <div className="mb-8">
-                    <TabsList>
-                        <TabsTrigger value="data" icon={<Database />}>Data Sources</TabsTrigger>
-                        <TabsTrigger value="privacy" icon={<Shield />}>Privacy</TabsTrigger>
-                        <TabsTrigger value="api" icon={<Key />}>API</TabsTrigger>
-                        <TabsTrigger value="customize" icon={<Bot />}>Customize</TabsTrigger>
-                    </TabsList>
-                </div>
+                <Link href="/knowme" className="mb-4 inline-flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
+                    <ArrowLeft className="h-4 w-4" /> KnowMe
+                </Link>
+                <PageHeader
+                    className="mb-8"
+                    title="KnowMe Settings"
+                    subtitle="Configure your AI assistant"
+                    tabs={
+                        <TabsList variant="segmented" size="sm" fit>
+                            <TabsTrigger value="data" icon={<Database />}>Data Sources</TabsTrigger>
+                            <TabsTrigger value="privacy" icon={<Shield />}>Privacy</TabsTrigger>
+                            <TabsTrigger value="api" icon={<Key />}>API</TabsTrigger>
+                            <TabsTrigger value="customize" icon={<Bot />}>Customize</TabsTrigger>
+                        </TabsList>
+                    }
+                />
                 <AnimatePresence mode="wait">
                     <TabsContent value="data" asChild>
                         <motion.div
