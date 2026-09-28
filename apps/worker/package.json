@@ -19,6 +19,7 @@
 		"@paralleldrive/cuid2": "^2.2.2",
 		"@repo/ai": "workspace:*",
 		"@repo/db": "workspace:*",
+		"@repo/email": "workspace:*",
 		"@repo/exa": "workspace:*",
 		"@repo/firecrawl": "workspace:*",
 		"@repo/sarvamai": "workspace:*",

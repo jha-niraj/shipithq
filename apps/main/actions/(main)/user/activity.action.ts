@@ -2,19 +2,9 @@
 
 import { getSession } from '@repo/auth';
 import { headers } from 'next/headers';
-import { db, dailyActivities, activityEntries, users } from '@repo/db';
+import { db, dailyActivities, activityEntries } from '@repo/db';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
-
-export interface ActivityData {
-    type: "REFERRAL_BONUS" | "SIGNUP" | "FEEDBACK_SUBMITTED" | "REWARD_RECEIVED" | "STARTED_INTERVIEW" | "CREDIT_SHARED" | "CREDIT_RECEIVED" | "CREATED_PEER_TO_PEER_MOCK_INTERVIEW" | "DAILY_QUIZ_COMPLETED" | "COMPLETED_MOCK_INTERVIEW" | "COMPLETED_PRACTICE_SESSION" | "PROJECT_SUBMISSION" | "LEARN_COMPLETED" | "STUDIO_CREATED" | "STUDIO_UPDATED" | "JOINED_SPACE" | "POSTED_IN_SPACE" | "COMMENTED_IN_SPACE" | "COMPLETED_SPACE_STEP" | "CONTRIBUTED_TO_OPEN_SOURCE" | "FOLLOWING_USER" | "COMPLETED_DAILY_CHALLENGE" | "COMPLETED_GOAL_DAY" | "SHARED_ACHIEVEMENT" | "PATHFINDER_GOAL_COMPLETED" | "ASSESSMENT_PASSED" | "PATHFINDER_GOAL_STARTED";
-    title: string;
-    description?: string;
-    xpEarned?: number;
-    creditsEarned?: number;
-    timeSpent?: number; // in minutes
-    metadata?: Record<string, any>;
-}
 
 export interface DailyActivitySummary {
     date: Date;
@@ -44,101 +34,9 @@ export interface StreakInfo {
     streakDates: Date[];
 }
 
-// Track a new activity for the current user
-export async function trackActivity(activityData: ActivityData) {
-    try {
-        const session = await getSession(headers());
-        if (!session?.user?.id) {
-            return { success: false, error: 'User not authenticated' };
-        }
-
-        // Use local date to avoid timezone issues
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        // Format as YYYY-MM-DD for the date column
-        const todayStr = today.toISOString().split('T')[0]!;
-
-        // Get existing daily activity record
-        const existingDaily = await db.query.dailyActivities.findFirst({
-            where: and(
-                eq(dailyActivities.userId, session.user.id),
-                eq(dailyActivities.date, todayStr)
-            )
-        });
-
-        let dailyActivityId: string;
-
-        if (existingDaily) {
-            // Update existing record
-            await db.update(dailyActivities).set({
-                hasActivity: true,
-                totalXpEarned: sql`${dailyActivities.totalXpEarned} + ${activityData.xpEarned || 0}`,
-                totalCreditsEarned: sql`${dailyActivities.totalCreditsEarned} + ${activityData.creditsEarned || 0}`,
-                totalTimeSpent: sql`${dailyActivities.totalTimeSpent} + ${activityData.timeSpent || 0}`,
-                activitiesCount: sql`${dailyActivities.activitiesCount} + 1`,
-                isStreakDay: true,
-                updatedAt: new Date(),
-            }).where(eq(dailyActivities.id, existingDaily.id));
-            dailyActivityId = existingDaily.id;
-        } else {
-            // Create new daily activity record
-            const [newDaily] = await db.insert(dailyActivities).values({
-                userId: session.user.id,
-                date: todayStr,
-                hasActivity: true,
-                totalXpEarned: activityData.xpEarned || 0,
-                totalCreditsEarned: activityData.creditsEarned || 0,
-                totalTimeSpent: activityData.timeSpent || 0,
-                activitiesCount: 1,
-                isStreakDay: true,
-            }).returning();
-            dailyActivityId = newDaily!.id;
-        }
-
-        // Create activity entry
-        const [activityEntry] = await db.insert(activityEntries).values({
-            userId: session.user.id,
-            dailyActivityId,
-            activityType: activityData.type,
-            title: activityData.title,
-            description: activityData.description,
-            xpEarned: activityData.xpEarned || 0,
-            creditsEarned: activityData.creditsEarned || 0,
-            timeSpent: activityData.timeSpent || 0,
-            metadata: activityData.metadata,
-        }).returning();
-
-        // Update user XP and credits if provided
-        if (activityData.xpEarned || activityData.creditsEarned) {
-            await db.update(users).set({
-                ...(activityData.xpEarned ? {
-                    currentXp: sql`${users.currentXp} + ${activityData.xpEarned}`,
-                    totalXp: sql`${users.totalXp} + ${activityData.xpEarned}`,
-                } : {}),
-                ...(activityData.creditsEarned ? {
-                    credits: sql`${users.credits} + ${activityData.creditsEarned}`,
-                } : {}),
-            }).where(eq(users.id, session.user.id));
-        }
-
-        // Update streak information
-        await updateUserStreak(session.user.id);
-
-        return {
-            success: true,
-            data: {
-                activityId: activityEntry!.id,
-                dailyActivityId
-            }
-        };
-    } catch (error) {
-        console.error('Error tracking activity:', error);
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Failed to track activity'
-        };
-    }
-}
+// Recording lives in `recordActivity` (@repo/db/activity, plan/progress PRG-2), called
+// by server code at each completion. The `trackActivity` action that was here could be
+// called from any browser and added XP; it had no callers and is gone.
 
 // Get daily activity summary for a specific date
 export async function getDailyActivitySummary(date: Date): Promise<DailyActivitySummary | null> {
@@ -356,16 +254,6 @@ export async function getUserStreak(): Promise<{ success: boolean; data?: Streak
     }
 }
 
-// Update user streak (called after tracking activity)
-async function updateUserStreak(userId: string) {
-    try {
-        // This is handled by the trackActivity function
-        // The streak calculation is done in getUserStreak
-        console.log('Streak updated for user:', userId);
-    } catch (error) {
-        console.error('Error updating user streak:', error);
-    }
-}
 
 // Calculate longest streak from dates array
 function calculateLongestStreak(dates: Date[]): number {

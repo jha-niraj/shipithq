@@ -18,7 +18,7 @@ export default async function RunReportPage({ params }: { params: Promise<{ slug
     const data = await loadOwnReport(userId, slug, runId)
     if (!data) notFound()
     // The first report on a case earns XP, once (INC-42).
-    await awardReportXp(userId, slug)
+    await awardReportXp(userId, slug, runId)
     return <ReportView data={data} owner chapterSteps={chapterSteps(slug)} />
 }
 

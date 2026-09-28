@@ -10,6 +10,7 @@ import {
 import { sendReferralRequestEmail, sendReferrerCodeEmail } from "@/lib/emails/referrer"
 import { getR2SignedUrl } from "@/lib/r2-client"
 import { absoluteUrl } from "@/lib/urls"
+import { recordActivity, activityKey } from "@repo/db/activity"
 import {
     CODE_ATTEMPTS, CODE_MINUTES, CODE_RESEND_SECONDS, EXPIRE_DAYS, OFFER_MONTHS, attachmentFor, companyForWorkEmail, companyHasRoom,
     expireStale, hashCode, newCode, pickOffer, primaryResumeKey, studentCapError,
@@ -230,6 +231,15 @@ export async function requestReferral(target: Target, input: { note: string; sha
         }).catch((e: unknown) => console.error("notify REFERRAL_REQUEST:", e))
         const [me] = await db.select({ email: users.email }).from(users).where(eq(users.id, offer.userId))
         if (me?.email) void sendReferralRequestEmail(me.email, { companyName: company?.name ?? "your company", jobTitle: t.title, url: absoluteUrl("/jobs/referrals") })
+        // The activity ledger (plan/progress PRG-3).
+        await recordActivity(db, userId, {
+            type: "REFERRAL_REQUESTED",
+            title: `Asked for a referral at ${company?.name ?? "a company"}`,
+            description: t.title,
+            xp: 0,
+            key: activityKey.referralRequested(row.id),
+            meta: { requestId: row.id, companyId: t.companyId, jobId: t.jobId, importedJobId: t.importedJobId },
+        })
         return { success: true, data: { id: row.id } }
     } catch (error: unknown) {
         console.error("requestReferral:", error instanceof Error ? error.message : error)

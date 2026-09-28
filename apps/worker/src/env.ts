@@ -93,4 +93,14 @@ export type Env = {
 	CODE_EXECUTOR?: Fetcher
 	EXECUTOR_URL?: string
 	NODE_ENV?: string
+	/**
+	 * The scheduled progress reports (plan/progress PRG-10). Not a job type: the cron
+	 * starts it, no user dispatches it, so it is not in `JOB_BINDINGS`.
+	 */
+	PROGRESS_REPORTS: DurableObjectNamespace
+	/** The app's public origin, for the links in report emails. */
+	APP_URL?: string
+	/** Resend, for report emails; read by @repo/email through process.env. */
+	RESEND_API_KEY?: string
+	RESEND_FROM_MAIL?: string
 }

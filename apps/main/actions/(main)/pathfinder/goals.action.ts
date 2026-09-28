@@ -15,6 +15,7 @@ import { eq, and, or, desc, asc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { revalidateGoal } from '@/lib/pathfinder/revalidate'
 import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
+import { recordActivity, activityKey } from '@repo/db/activity'
 
 // ================================================================================
 // TYPES
@@ -212,6 +213,16 @@ export async function createPathfinderGoal(input: CreateGoalInput) {
             codingStatus: 'LOCKED',
             mockStatus: 'LOCKED',
             projectStatus: 'PENDING',
+        })
+
+        // The activity ledger (plan/progress PRG-3).
+        await recordActivity(db, session.user.id, {
+            type: 'PATHFINDER_GOAL_STARTED',
+            title: `Started goal: ${goal.title}`,
+            description: `${goal.category} - ${goal.level}`.toLowerCase(),
+            xp: 0,
+            key: activityKey.goalStarted(goal.id),
+            meta: { goalId: goal.id, slug: goal.slug },
         })
 
         // The study plan runs on the worker (PF-W4).

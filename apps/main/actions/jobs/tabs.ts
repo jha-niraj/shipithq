@@ -14,6 +14,7 @@ import {
     jobListed,
 } from "@repo/db"
 import { eq, and, gte, inArray, notInArray, count } from "drizzle-orm"
+import { recordJobSaved } from "@/lib/jobs/record-saved"
 
 /** "Not for me" hides a job from Spark for this long (plan/jobs JB-19, Niraj 2026-09-25). */
 const SKIP_HIDE_DAYS = 30
@@ -354,6 +355,8 @@ export async function recordSwipeAction(
                 db.insert(savedJobs).values({ userId, jobId }).onConflictDoNothing(),
                 db.delete(jobSkips).where(and(eq(jobSkips.userId, userId), eq(jobSkips.jobId, jobId))),
             ])
+            // The activity ledger (plan/progress PRG-3).
+            await recordJobSaved(userId, jobId)
         } else {
             // "Not for me": out of Spark for SKIP_HIDE_DAYS; a re-skip moves the date (JB-19).
             await db.insert(jobSkips).values({ userId, jobId })

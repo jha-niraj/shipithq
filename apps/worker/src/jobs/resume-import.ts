@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm"
 import { modelFor } from "@repo/ai"
+import { activityKey, recordActivity } from "@repo/db/activity"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
 import { chatJSON } from "../openai"
@@ -208,6 +209,17 @@ export class ResumeImport extends JobDurableObject<ResumeImportInput> {
 				isDefault: !existingDefault,
 			})
 			.returning({ id: resumeDraft.id, name: resumeDraft.name, shareSlug: resumeDraft.shareSlug })
+
+		// The activity ledger (plan/progress PRG-4).
+		if (draft) {
+			await recordActivity(db, job.userId, {
+				type: "RESUME_CREATED",
+				title: `Imported resume: ${draft.name}`,
+				description: `AI tools · from ${usedSources.join(" and ")}`,
+				key: activityKey.resumeCreated(draft.id),
+				meta: { draftId: draft.id },
+			})
+		}
 
 		if (!draft) throw new Error("We read your profiles but could not save the resume")
 

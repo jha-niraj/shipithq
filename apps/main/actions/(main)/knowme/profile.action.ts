@@ -18,6 +18,7 @@ import {
 } from "@repo/db";
 import { count, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { recordActivity, activityKey } from "@repo/db/activity";
 import type {
 	KnowMeProfileBasic,
 	KnowMeProfileFull,
@@ -502,6 +503,19 @@ export async function activateKnowMeProfile(): Promise<
 				nextScheduledUpdate: calculateNextUpdate(profile.updateCycleDays),
 			})
 			.where(eq(knowMeProfiles.id, profile.id));
+
+		// The activity ledger (plan/progress PRG-3). The first activation only; the key
+		// keeps a later re-activation from recording again.
+		if (profile.status !== "ACTIVE") {
+			await recordActivity(db, session.user.id, {
+				type: "KNOWME_ACTIVATED",
+				title: "Turned on KnowMe",
+				description: "KnowMe - your profile is live",
+				xp: 0,
+				key: activityKey.knowmeActivated(profile.id),
+				meta: { profileId: profile.id },
+			});
+		}
 
 		revalidatePath("/knowme");
 

@@ -42,7 +42,9 @@
 			{ "name": "APTITUDE_GENERATE", "class_name": "AptitudeGenerate" },
 			{ "name": "VOICE_INTERVIEW_SCORE", "class_name": "VoiceInterviewScore" },
 			{ "name": "JOB_IMPORT", "class_name": "JobImport" },
-			{ "name": "INCIDENT_REPORT", "class_name": "IncidentReport" }
+			{ "name": "INCIDENT_REPORT", "class_name": "IncidentReport" },
+			// Not a job type: the cron starts it (plan/progress PRG-10).
+			{ "name": "PROGRESS_REPORTS", "class_name": "ProgressReports" }
 		]
 	},
 
@@ -154,6 +156,11 @@
 			// The review a recorded incident run ends with (plan/incidents INC-36).
 			"tag": "v19",
 			"new_sqlite_classes": ["IncidentReport"]
+		},
+		{
+			// Scheduled progress reports, started by the daily cron (plan/progress PRG-10).
+			"tag": "v20",
+			"new_sqlite_classes": ["ProgressReports"]
 		}
 	],
 
@@ -170,13 +177,16 @@
 		}
 	],
 
-	// The daily cron: purge expired send data (plan/hiring-rounds HR-21), 03:00 UTC.
+	// The daily cron, 03:00 UTC: purge expired send data (plan/hiring-rounds HR-21), and on
+	// Mondays, the 1st and the 16th, the progress reports (plan/progress PRG-10).
 	"triggers": { "crons": ["0 3 * * *"] },
 
 	// Non-secret vars only. Secrets (DATABASE_URL, OPENAI_API_KEY, WORKER_SECRET,
 	// SARVAM_API_KEY, SARVAM_AGENTS_*, PATHFINDER_ASSISTANT_ID, EXA_API_KEY,
 	// FIRECRAWL_API_KEY) are uploaded by `pnpm release` from .env.production.
 	"vars": {
-		"NODE_ENV": "production"
+		"NODE_ENV": "production",
+		// The links in progress report emails (plan/progress PRG-10).
+		"APP_URL": "https://app.shipithq.com"
 	}
 }

@@ -10,6 +10,7 @@ import { scoreDsa, JudgeUnavailable } from "@/lib/hiring/dsa"
 import { settleCredits, releaseCredits } from "@/lib/credits/hold"
 import type { PricedOperation } from "@/lib/credits/pricing"
 import { roundStates, runComplete } from "@/lib/hiring/round-state"
+import { recordActivity, activityKey } from "@repo/db/activity"
 
 /*
  * The run engine (plan/hiring-rounds HR-13). Server-only: these take ids the
@@ -127,7 +128,28 @@ export async function closeAttempt(
     }
     if (scored) await refreshRunStatus(closed.runId)
     await tellStudent(attemptId, result).catch((e: unknown) => console.error("notify ROUND_SCORED:", e))
+    // The activity ledger (plan/progress PRG-3). A scored round only; a refund is not a result.
+    if (scored) await recordRoundScored(attemptId, result.score)
     return true
+}
+
+/** One ledger entry for a scored round (plan/progress PRG-3). */
+async function recordRoundScored(attemptId: string, score: number): Promise<void> {
+    const [row] = await db.select({ userId: hiringRuns.userId, roundType: interviewRounds.roundType, roundTitle: interviewRounds.title, jobId: hiringRuns.jobId, jobTitle: jobs.title })
+        .from(hiringAttempts)
+        .innerJoin(hiringRuns, eq(hiringRuns.id, hiringAttempts.runId))
+        .innerJoin(interviewRounds, eq(interviewRounds.id, hiringAttempts.roundId))
+        .leftJoin(jobs, eq(jobs.id, hiringRuns.jobId))
+        .where(eq(hiringAttempts.id, attemptId))
+    if (!row) return
+    await recordActivity(db, row.userId, {
+        type: "HIRING_ROUND_SCORED",
+        title: `Scored ${Math.round(score)} on the ${row.roundTitle} round`,
+        description: row.jobTitle ? `${row.jobTitle} - ${row.roundType.toLowerCase()}` : `Practice - ${row.roundType.toLowerCase()}`,
+        xp: 0,
+        key: activityKey.roundScored(attemptId),
+        meta: { attemptId, jobId: row.jobId, roundType: row.roundType, score },
+    })
 }
 
 /**

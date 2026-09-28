@@ -11,6 +11,7 @@ import { priceOf } from '@/lib/credits/pricing'
 import { isSetupSprint } from '@/lib/projects/sprints'
 import { QUIZ_UNLOCK_PERCENT, quizUnlocked } from '@/lib/projects/gates'
 import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
+import { recordActivity, activityKey } from '@repo/db/activity'
 
 /*
  * Sprint quizzes (plan/project-workspace WS-12, decided by Niraj 2026-09-24):
@@ -178,6 +179,24 @@ export async function submitSprintQuizAttempt(quizId: string, answers: number[])
         const [row] = await db.insert(projectV2SprintQuizAttempts)
             .values({ quizId: quiz.id, userId: quiz.userId, answers: picked, correct, total, score })
             .returning()
+        // The activity ledger (plan/progress PRG-3). Every attempt is its own event.
+        if (row) {
+            const [where] = await db
+                .select({ project: projectsV2.title, sprintNumber: projectV2Sprints.sprintNumber })
+                .from(projectsV2)
+                .leftJoin(projectV2Sprints, eq(projectV2Sprints.id, quiz.sprintId ?? ''))
+                .where(eq(projectsV2.id, quiz.projectId))
+                .limit(1)
+            const scope = quiz.sprintId ? `Sprint ${where?.sprintNumber ?? ''} quiz` : 'final quiz'
+            await recordActivity(db, quiz.userId, {
+                type: 'PROJECT_QUIZ_COMPLETED',
+                title: `Scored ${score} on the ${scope} in ${where?.project ?? 'a project'}`,
+                description: `${correct} of ${total} correct`,
+                xp: 0,
+                key: activityKey.projectQuiz(row.id),
+                meta: { attemptId: row.id, quizId: quiz.id, projectId: quiz.projectId, sprintId: quiz.sprintId, score },
+            })
+        }
         return { success: true, data: { id: row!.id, correct, total, score, createdAt: row!.createdAt.toISOString() } }
     } catch (error: unknown) {
         return { success: false, error: toErrorMessage(error) }

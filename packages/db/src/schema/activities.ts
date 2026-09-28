@@ -26,7 +26,9 @@ export const dailyActivities = pgTable(
         userId: text("user_id")
             .notNull()
             .references(() => users.id, { onDelete: "cascade" }),
-        date: date("date").unique().notNull(),
+        // One row per user per day (uq_daily_activity_user_id_date). A unique on `date`
+        // alone let only one user in the whole app record a given day (plan/home HOME-4).
+        date: date("date").notNull(),
         hasActivity: boolean("has_activity").notNull().default(false),
         totalXpEarned: integer("total_xp_earned").notNull().default(0),
         totalCreditsEarned: integer("total_credits_earned").notNull().default(0),
@@ -66,9 +68,14 @@ export const activityEntries = pgTable(
         creditsEarned: integer("credits_earned").notNull().default(0),
         timeSpent: integer("time_spent").notNull().default(0),
         metadata: jsonb("metadata"),
+        // What makes the event unique, e.g. `practice:solved:<sessionId>`: a retry or a
+        // re-submit finds its key taken and records nothing (plan/progress PRG-1). Null
+        // only on entries written before the ledger had keys.
+        dedupeKey: text("dedupe_key"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
     },
     (table) => [
+        uniqueIndex("uq_activity_entry_user_id_dedupe_key").on(table.userId, table.dedupeKey),
         index("idx_activity_entry_user_id").on(table.userId),
         index("idx_activity_entry_daily_activity_id").on(table.dailyActivityId),
         index("idx_activity_entry_activity_type").on(table.activityType),

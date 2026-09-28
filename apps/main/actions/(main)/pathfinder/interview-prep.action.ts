@@ -8,6 +8,7 @@ import { startBackgroundJob } from "@/actions/(main)/workers/jobs.action"
 import { scrapeJobDescription } from "@/utils/jobs/extract-job-description"
 import { generateAndCheckSlug } from "./goals.action"
 import { matchReportedLoop } from "@/lib/interview-reports/match"
+import { recordActivity, activityKey } from "@repo/db/activity"
 
 /**
  * Create a Pathfinder goal from a job description.
@@ -126,6 +127,16 @@ export async function createInterviewPrepGoal(input: CreateInterviewPrepInput) {
         if (!goal) {
             return { success: false as const, error: "Could not create that goal" }
         }
+
+        // The activity ledger (plan/progress PRG-3).
+        await recordActivity(db, userId, {
+            type: "PATHFINDER_GOAL_STARTED",
+            title: `Started goal: ${goal.title}`,
+            description: `Interview prep - ${total} questions`,
+            xp: 0,
+            key: activityKey.goalStarted(goal.id),
+            meta: { goalId: goal.id, slug: goal.slug, kind: "interview_prep" },
+        })
 
         // Credits are HELD here and settled or refunded when the app sees a
         // terminal status. The worker never touches credits.

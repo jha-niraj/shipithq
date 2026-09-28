@@ -9,6 +9,7 @@ import { toErrorMessage } from "@/lib/errors"
 import { resolveUserResume, buildContentFromProfile, type ResumeSource } from "@/lib/resume/primary"
 import { startBackgroundJob } from "@/actions/(main)/workers/jobs.action"
 import { priceOf } from "@/lib/credits/pricing"
+import { recordResumeCreated } from "@/lib/resume/record-created"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JD-tailored resumes.
@@ -178,6 +179,8 @@ export async function createTailoredResume(input: CreateTailoredResumeInput): Pr
                     })
                     .returning({ id: resumeDraft.id, name: resumeDraft.name })
                 if (!master) return { success: false, error: "Could not create your base resume" }
+                // The activity ledger (plan/progress PRG-3).
+                await recordResumeCreated(userId, master, "base")
                 sourceDraftId = master.id
                 sourceLabel = master.name
                 baseContent = content
@@ -208,6 +211,8 @@ export async function createTailoredResume(input: CreateTailoredResumeInput): Pr
             })
             .returning({ id: resumeDraft.id })
         if (!target) return { success: false, error: "Could not create the tailored resume" }
+        // The activity ledger (plan/progress PRG-3).
+        await recordResumeCreated(userId, { id: target.id, name }, "tailored", { sourceDraftId, jobTitle, company: input.company?.trim() || null })
 
         // Same price the inline `tailorResumeForJD` charged. Rewiring the editor
         // to this action without it silently turned a 20-credit feature free.

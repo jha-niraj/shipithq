@@ -13,6 +13,7 @@ import { releaseCredits, reserveCredits, settleCredits, toReleaseReason } from '
 import { isSetupSprint } from '@/lib/projects/sprints'
 import { MOCK_UNLOCK_PERCENT, mockUnlocked } from '@/lib/projects/gates'
 import { interviewerLine, mockContext, mockFeedback, type MockTurnRow } from '@/lib/projects/sprint-mock'
+import { recordActivity, activityKey } from '@repo/db/activity'
 
 /*
  * Sprint mock interviews (plan/project-workspace WS-13, decided by Niraj
@@ -113,6 +114,25 @@ async function finish(session: SessionRow, userId: string): Promise<void> {
         .where(and(eq(projectV2SprintMockSessions.id, session.id), inArray(projectV2SprintMockSessions.status, ['opening', 'active'])))
         .returning({ id: projectV2SprintMockSessions.id })
     if (ended.length) await settleCredits(holdFor(session.id))
+    // The activity ledger (plan/progress PRG-3).
+    if (ended.length) {
+        const [where] = await db
+            .select({ project: projectsV2.title, sprint: projectV2Sprints.name, sprintNumber: projectV2Sprints.sprintNumber })
+            .from(projectsV2)
+            .leftJoin(projectV2Sprints, eq(projectV2Sprints.id, session.sprintId ?? ''))
+            .where(eq(projectsV2.id, session.projectId))
+            .limit(1)
+        const scope = session.sprintId ? `Sprint ${where?.sprintNumber ?? ''} mock` : 'final mock'
+        await recordActivity(db, userId, {
+            type: 'PROJECT_MOCK_COMPLETED',
+            title: `Scored ${feedback.score} on the ${scope} in ${where?.project ?? 'a project'}`,
+            description: where?.sprint ? `${where.project} - ${where.sprint}` : where?.project ?? null,
+            xp: 0,
+            minutes: (Date.now() - session.createdAt.getTime()) / 60000,
+            key: activityKey.projectMock(session.id),
+            meta: { sessionId: session.id, projectId: session.projectId, sprintId: session.sprintId, score: feedback.score },
+        })
+    }
 }
 
 /**

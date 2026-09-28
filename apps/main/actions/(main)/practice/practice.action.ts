@@ -13,6 +13,7 @@ import { MODULE_CONFIG } from "@/types/practice";
 import { clientSafeJudge } from "@repo/db";
 import { withCredits } from "@/lib/credits/charge";
 import { startBackgroundJob } from "@/actions/(main)/workers/jobs.action";
+import { recordActivity, activityKey } from "@repo/db/activity";
 
 // Re-export the PracticeModule and PracticeSessionStatus types from db schema enums
 // for backward compatibility with callers that import from this file
@@ -484,7 +485,9 @@ export async function persistAssessment(input: {
             .where(eq(practiceUserSession.id, current.id));
 
         if (newStatus === "COMPLETED" && current.status !== "COMPLETED") {
-            await updateModuleProgress(input.userId, current.module, current.problemId);
+            const solved = await updateModuleProgress(input.userId, current.module, current.problemId);
+            // The activity ledger (plan/progress PRG-3).
+            if (solved) await recordPracticeSolved(input.userId, current.id, solved, score, input.mode);
         }
         return true;
     } catch (error: unknown) {
@@ -575,7 +578,11 @@ export async function applyGuidedCompletion(sessionId: string, jobId: string): P
         .where(and(eq(practiceUserSession.id, sessionId), sql`${practiceUserSession.status} <> 'COMPLETED'`))
         .returning({ id: practiceUserSession.id });
 
-    if (updated) await updateModuleProgress(userId, current.module, current.problemId);
+    if (updated) {
+        const solved = await updateModuleProgress(userId, current.module, current.problemId);
+        // The activity ledger (plan/progress PRG-3).
+        if (solved) await recordPracticeSolved(userId, sessionId, solved, result.score, "ASSIST");
+    }
     return { success: true, score: result.score, feedback: result.feedback, firstCompletion: Boolean(updated) };
 }
 
@@ -583,9 +590,25 @@ export async function applyGuidedCompletion(sessionId: string, jobId: string): P
 // PROGRESS
 // ─────────────────────────────────────────────
 
-async function updateModuleProgress(userId: string, module: PracticeModule, completedProblemId: string) {
+/** What `updateModuleProgress` solved, for the activity ledger. */
+type SolvedProblem = { problemId: string; title: string; module: string; difficulty: string; xp: number };
+
+/** One ledger entry per solved session (plan/progress PRG-3); the key makes a repeat a no-op. */
+async function recordPracticeSolved(userId: string, sessionId: string, solved: SolvedProblem, score: number, mode: PracticeMode) {
+    const moduleLabel = MODULE_CONFIG[solved.module as PracticeModule]?.label ?? solved.module;
+    await recordActivity(db, userId, {
+        type: "COMPLETED_PRACTICE_SESSION",
+        title: `Solved ${solved.title}`,
+        description: `${moduleLabel} - ${solved.difficulty.toLowerCase()} - score ${Math.round(score)}`,
+        xp: solved.xp,
+        key: activityKey.practiceSolved(sessionId),
+        meta: { sessionId, problemId: solved.problemId, module: solved.module, difficulty: solved.difficulty, score: Math.round(score), mode },
+    });
+}
+
+async function updateModuleProgress(userId: string, module: PracticeModule, completedProblemId: string): Promise<SolvedProblem | null> {
     const problem = await db.query.practiceProblem.findFirst({ where: eq(practiceProblem.id, completedProblemId) });
-    if (!problem) return;
+    if (!problem) return null;
 
     const difficultyXP: Record<string, number> = { EASY: 25, MEDIUM: 50, HARD: 100 };
     const xp = difficultyXP[problem.difficulty] ?? 25;
@@ -691,6 +714,8 @@ async function updateModuleProgress(userId: string, module: PracticeModule, comp
             totalXp: sql`${users.totalXp} + ${xp}`,
         })
         .where(eq(users.id, userId));
+
+    return { problemId: problem.id, title: problem.title, module: problem.module, difficulty: problem.difficulty, xp };
 }
 
 export async function getModuleProgress(module: PracticeModule): Promise<PracticeProgressData | null> {

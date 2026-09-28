@@ -1,7 +1,7 @@
 import "server-only"
 import { addRunEvent } from "./run"
 import { and, eq, inArray } from "drizzle-orm"
-import { db, incidentBadges, incidentProgress } from "@repo/db"
+import { db, incidentProgress, notifyUser, userBadges } from "@repo/db"
 import { INCIDENT_BADGES } from "@/content/incidents/badges"
 import { factsFrom, progressRows } from "./stats"
 import { getIncidentCase } from "@/content/incidents/cases"
@@ -9,6 +9,7 @@ import { INCIDENT_XP } from "@/content/incidents"
 import { stepsFor } from "@/content/incidents/steps"
 import { grade, isAnswered, type QuizResponse } from "@repo/ui/lib/quiz"
 import { addXpToUser } from "@/actions/(main)/user/level.action"
+import { recordActivity, activityKey } from "@repo/db/activity"
 
 /**
  * Saving a reader's progress in an Incidents case, and the XP that comes with it
@@ -133,6 +134,18 @@ export async function recordProgressFor(userId: string, input: ProgressInput): P
             await award(inserted, INCIDENT_XP.prediction, `${c.title}, a first-try prediction`)
         }
 
+        // The activity ledger (plan/progress PRG-3). A first answer only, right or wrong.
+        if (inserted && (row.kind === "check" || row.kind === "prediction")) {
+            await recordActivity(db, userId, {
+                type: "INCIDENT_CHECK_ANSWERED",
+                title: `Answered a ${row.kind} in ${c.title}`,
+                description: `Incidents - ${row.correct ? "right first time" : "not right first time"}`,
+                xp: xpEarned,
+                key: activityKey.incidentCheck(c.slug, row.itemId),
+                meta: { slug: c.slug, kind: row.kind, itemId: row.itemId, correct: row.correct ?? null },
+            })
+        }
+
         // A new prediction or round answer may finish the round or the case.
         if (inserted && (row.kind === "prediction" || row.kind === "round")) {
             const answers = await db
@@ -145,11 +158,35 @@ export async function recordProgressFor(userId: string, input: ProgressInput): P
 
             if (row.kind === "round" && roundDone && rounds.every((a) => a.correct)) {
                 const id = await insertOnce(userId, c.slug, { kind: "perfect_round", itemId: "round" })
-                if (id) await award(id, INCIDENT_XP.perfectRound, `${c.title}, a perfect round`)
+                if (id) {
+                    const before = xpEarned
+                    await award(id, INCIDENT_XP.perfectRound, `${c.title}, a perfect round`)
+                    // The activity ledger (plan/progress PRG-3).
+                    await recordActivity(db, userId, {
+                        type: "INCIDENT_ROUND_COMPLETED",
+                        title: `Perfect round in ${c.title}`,
+                        description: `Incidents - ${rounds.length} of ${rounds.length} right`,
+                        xp: xpEarned - before,
+                        key: activityKey.incidentRound(c.slug, "round"),
+                        meta: { slug: c.slug, itemId: "round" },
+                    })
+                }
             }
             if (roundDone && predictionsDone) {
                 const id = await insertOnce(userId, c.slug, { kind: "completion", itemId: "case" })
-                if (id) await award(id, INCIDENT_XP.completion, `${c.title}, case complete`)
+                if (id) {
+                    const before = xpEarned
+                    await award(id, INCIDENT_XP.completion, `${c.title}, case complete`)
+                    // The activity ledger (plan/progress PRG-3).
+                    await recordActivity(db, userId, {
+                        type: "INCIDENT_CASE_COMPLETED",
+                        title: `Completed case: ${c.title}`,
+                        description: "Incidents",
+                        xp: xpEarned - before,
+                        key: activityKey.incidentCase(c.slug),
+                        meta: { slug: c.slug },
+                    })
+                }
             }
         }
 
@@ -175,11 +212,18 @@ async function awardBadges(userId: string): Promise<{ key: string; title: string
     const facts = factsFrom(await progressRows(userId))
     const due = INCIDENT_BADGES.filter((b) => b.earned(facts))
     if (!due.length) return []
-    const created = await db.insert(incidentBadges)
-        .values(due.map((b) => ({ userId, badgeKey: b.key })))
+    // The platform's badge table (plan/badges BDG-1), as `incidents:<key>`. Marked seen at
+    // once: the case page toasts it itself, so the shell's badge toast must not repeat it.
+    const now = new Date()
+    const created = await db.insert(userBadges)
+        .values(due.map((b) => ({ userId, badgeKey: `incidents:${b.key}`, earnedAt: now, seenAt: now })))
         .onConflictDoNothing()
-        .returning({ key: incidentBadges.badgeKey })
-    return created.map((c) => ({ key: c.key, title: INCIDENT_BADGES.find((b) => b.key === c.key)!.title }))
+        .returning({ key: userBadges.badgeKey })
+    const fresh = created.map((c) => INCIDENT_BADGES.find((b) => `incidents:${b.key}` === c.key)!).filter(Boolean)
+    for (const b of fresh) {
+        await notifyUser(userId, { platform: "MAIN", kind: "GENERAL", title: `Badge earned: ${b.title}`, body: b.description, href: "/badges", context: { label: "Badges", href: "/badges" }, severity: "SUCCESS" })
+    }
+    return fresh.map((b) => ({ key: b.key, title: b.title }))
 }
 
 function safeParse(v: string): unknown {

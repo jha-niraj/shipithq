@@ -13,6 +13,7 @@ import {
     jobVisible,
 } from "@repo/db"
 import { eq, and, or, ilike, inArray, desc, count, sql, type SQL } from "drizzle-orm"
+import { recordJobSaved } from "@/lib/jobs/record-saved"
 
 export interface JobFilters {
     search?: string
@@ -408,6 +409,8 @@ export async function toggleSaveJob(jobId: string) {
                 userId: session.user.id,
                 jobId,
             })
+            // The activity ledger (plan/progress PRG-3).
+            await recordJobSaved(session.user.id, jobId)
             return { success: true, saved: true }
         }
     } catch (error) {
@@ -489,6 +492,8 @@ export async function saveJob(jobId: string) {
             userId: session.user.id,
             jobId,
         })
+        // The activity ledger (plan/progress PRG-3).
+        await recordJobSaved(session.user.id, jobId)
 
         return { success: true }
     } catch (error) {

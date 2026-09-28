@@ -1,6 +1,7 @@
 import { and, count, eq, inArray, isNull, ne, or, sql } from "drizzle-orm"
 import { modelFor, type AiTask } from "@repo/ai"
 import { exaSearch } from "@repo/exa"
+import { activityKey, recordActivity } from "@repo/db/activity"
 import { companyLoops, pickLoop, roleGroupOf } from "@repo/db/company-loop"
 import { BEHAVIOURAL_KNOWLEDGE, BEHAVIOURAL_RUBRIC, CULTURE_KNOWLEDGE, CULTURE_RUBRIC, PLATFORM_COOLDOWN_HOURS, POOL_TO_DRAW_RATIO } from "@repo/db/hiring-defaults"
 import type { ImportedJobExtract, ImportedJobPlanRound } from "@repo/db/schema"
@@ -592,6 +593,17 @@ export class JobImport extends SteppedJob<JobImportInput, JobImportState> {
         if (!rounds.length || short.length) throw new Error("A round couldn't be filled. Try importing again.")
         await db.update(interviewProcesses).set({ isActive: true, updatedAt: new Date() }).where(eq(interviewProcesses.id, state.processId))
         await this.setRow(id, { status: "READY", step: null, error: null, processId: state.processId })
+        // The activity ledger (plan/progress PRG-4). A retried step finds the key taken.
+        const row = await this.row(id)
+        if (row.ownerId) {
+            await recordActivity(db, row.ownerId, {
+                type: "JOB_IMPORTED",
+                title: `Imported: ${row.extracted?.title ?? "a job"}`,
+                description: `Jobs · ${row.extracted?.company.name ?? row.companyNameHint ?? "Company"} · ${rounds.length} rounds to practise`,
+                key: activityKey.jobImported(id),
+                meta: { importId: id, processId: state.processId },
+            })
+        }
         return { state, next: null, progress: 100, label: "Ready to practise" }
     }
 }

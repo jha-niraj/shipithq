@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm"
 import { modelFor } from "@repo/ai"
+import { activityKey, recordActivity } from "@repo/db/activity"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
 import { chatJSON } from "../openai"
@@ -180,6 +181,17 @@ export class ResumeStructure extends JobDurableObject<ResumeStructureInput> {
 				isDefault: !existingDefault,
 			})
 			.returning({ id: resumeDraft.id })
+
+		// The activity ledger (plan/progress PRG-4).
+		if (draft) {
+			await recordActivity(db, job.userId, {
+				type: "RESUME_CREATED",
+				title: `Imported resume: ${job.input.draftName?.trim() || "Imported resume"}`,
+				description: "AI tools · from an upload",
+				key: activityKey.resumeCreated(draft.id),
+				meta: { draftId: draft.id },
+			})
+		}
 
 		return {
 			draftId: draft?.id ?? null,

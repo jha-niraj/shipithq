@@ -1,0 +1,1 @@
+ALTER TABLE "daily_activity" DROP CONSTRAINT "daily_activity_date_unique";

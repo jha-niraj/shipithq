@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm"
 import { modelFor } from "@repo/ai"
 import { renderResumeText } from "@repo/db/resume"
+import { activityKey, recordActivity } from "@repo/db/activity"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
 import { chatText } from "../openai"
@@ -124,6 +125,15 @@ export class CoverLetter extends JobDurableObject<CoverLetterInput> {
             .update(coverLetter)
             .set({ generatedContent })
             .where(eq(coverLetter.id, coverLetterId))
+
+        // The activity ledger (plan/progress PRG-4). Regenerating the same letter records once.
+        await recordActivity(db, job.userId, {
+            type: "COVER_LETTER_CREATED",
+            title: `Cover letter: ${letter.jobTitle ?? "a role"}${letter.companyName ? ` at ${letter.companyName}` : ""}`,
+            description: "AI tools",
+            key: activityKey.coverLetter(coverLetterId),
+            meta: { coverLetterId },
+        })
 
         return {
             coverLetterId,

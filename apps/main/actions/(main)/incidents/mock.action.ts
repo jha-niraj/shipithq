@@ -7,6 +7,7 @@ import { modelFor } from "@repo/ai"
 import { db, incidentMockSessions, type VoiceTurn } from "@repo/db"
 import { getIncidentCase } from "@/content/incidents/cases"
 import { activeRun, addRunEvent } from "@/lib/incidents/run"
+import { recordActivity, activityKey } from "@repo/db/activity"
 
 /**
  * Talk it through (plan/incidents INC-15): a live conversation with the case's
@@ -158,6 +159,19 @@ export async function finishIncidentMock(id: string): Promise<Result<IncidentMoc
             score: typeof p.score === "number" ? Math.max(0, Math.min(100, Math.round(p.score))) : 0,
         }
         const [row] = await db.update(incidentMockSessions).set({ status: "COMPLETED", completedAt: new Date(), feedback }).where(eq(incidentMockSessions.id, id)).returning()
+        // The activity ledger (plan/progress PRG-3).
+        if (row) {
+            const from = s.consentedAt ?? s.startedAt ?? s.createdAt
+            await recordActivity(db, uid, {
+                type: "INCIDENT_MOCK_COMPLETED",
+                title: `Talked through ${c.title}`,
+                description: `Incidents - score ${feedback.score}`,
+                xp: 0,
+                minutes: (Date.now() - from.getTime()) / 60000,
+                key: activityKey.incidentMock(id),
+                meta: { sessionId: id, slug: s.caseSlug, stepKey: s.stepKey, score: feedback.score },
+            })
+        }
         return { success: true, data: view(row!) }
     } catch (error: unknown) {
         console.error("finishIncidentMock:", error instanceof Error ? error.message : error)

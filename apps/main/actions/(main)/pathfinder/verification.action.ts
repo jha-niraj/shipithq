@@ -19,6 +19,7 @@ import { revalidateGoal } from '@/lib/pathfinder/revalidate'
 import type { VerificationAIPlan } from '@/types/pathfinder'
 import { PATHFINDER_CREDITS, PATHFINDER_XP } from '@/lib/constants/pricing'
 import { addXpToUser } from '@/actions/(main)/user/level.action'
+import { recordActivity, activityKey } from '@repo/db/activity'
 
 // ================================================================================
 // TYPES
@@ -122,7 +123,7 @@ export async function submitVerificationQuiz(submission: VerificationQuizSubmiss
         const correctCount = submission.answers.filter((a) => a.isCorrect).length
         const score = Math.round((correctCount / submission.answers.length) * 100)
 
-        await db.insert(pathfinderQuizAttempts).values({
+        const [attempt] = await db.insert(pathfinderQuizAttempts).values({
             goalId: submission.goalId,
             userId: session.user.id,
             quizType: 'VERIFICATION',
@@ -132,7 +133,20 @@ export async function submitVerificationQuiz(submission: VerificationQuizSubmiss
             timeTaken: submission.totalTime,
             answers: submission.answers,
             startedAt: new Date(Date.now() - submission.totalTime * 1000),
-        })
+        }).returning({ id: pathfinderQuizAttempts.id })
+
+        // The activity ledger (plan/progress PRG-3). Every attempt is its own event.
+        if (attempt) {
+            await recordActivity(db, session.user.id, {
+                type: 'PATHFINDER_QUIZ_COMPLETED',
+                title: `Scored ${score} on the ${goal.title} verification quiz`,
+                description: `${correctCount} of ${submission.answers.length} correct - ${score >= 70 ? 'passed' : 'not passed'}`,
+                xp: 0,
+                minutes: submission.totalTime / 60,
+                key: activityKey.pathfinderQuiz(attempt.id),
+                meta: { attemptId: attempt.id, goalId: submission.goalId, score },
+            })
+        }
 
         const passed = score >= 70
         const newStatus: VerificationSectionStatus = passed ? 'COMPLETED' : 'FAILED'
@@ -580,6 +594,15 @@ async function checkVerificationCompletion(verificationId: string) {
                 `Pathfinder goal verified: ${goalForXp.title} (${weightedScore}%)`,
                 'REWARD',
             )
+            // The activity ledger (plan/progress PRG-3).
+            await recordActivity(db, goalForXp.userId, {
+                type: 'PATHFINDER_GOAL_COMPLETED',
+                title: `Completed goal: ${goalForXp.title}`,
+                description: `Verified with ${weightedScore}%`,
+                xp: xpAward,
+                key: activityKey.goalCompleted(goalForXp.id),
+                meta: { goalId: goalForXp.id, verificationId, score: weightedScore },
+            })
         }
     }
 }

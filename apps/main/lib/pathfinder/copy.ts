@@ -9,6 +9,7 @@ import {
     withTransaction,
 } from '@repo/db'
 import { and, asc, eq, inArray } from 'drizzle-orm'
+import { recordActivity, activityKey } from '@repo/db/activity'
 
 export type CopyResult =
     | { success: true; slug: string; goalId: string; existing: boolean }
@@ -161,6 +162,16 @@ export async function copyGoalFor(userId: string, goalId: string): Promise<CopyR
                 }
             }
             return goal
+        })
+
+        // The activity ledger (plan/progress PRG-3). After the transaction, with `db`.
+        await recordActivity(db, userId, {
+            type: 'PATHFINDER_GOAL_STARTED',
+            title: `Started goal: ${source.title}`,
+            description: `Copied from a shared goal - ${topicCount} topics`,
+            xp: 0,
+            key: activityKey.goalStarted(created.id),
+            meta: { goalId: created.id, slug: created.slug, forkedFromId: source.id },
         })
 
         return { success: true as const, slug: created.slug, goalId: created.id, existing: false }

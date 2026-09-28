@@ -1,6 +1,6 @@
 import "server-only"
-import { eq } from "drizzle-orm"
-import { db, incidentBadges, incidentProgress } from "@repo/db"
+import { and, eq, like } from "drizzle-orm"
+import { db, incidentProgress, userBadges } from "@repo/db"
 import { INCIDENTS, INCIDENT_TOPICS, type IncidentTopicId } from "@/content/incidents"
 import { INCIDENT_CASES } from "@/content/incidents/cases"
 import type { BadgeFacts } from "@/content/incidents/badges"
@@ -17,6 +17,8 @@ export type IncidentStats = {
     completed: number
     streak: number
     badges: string[]
+    /** Badge key to when it was earned (ISO). */
+    badgeDates: Record<string, string>
     /** Per topic: right answers over all questions in the topic's cases; null when nothing is answered there. */
     readiness: Record<IncidentTopicId, number | null>
     cases: Record<string, CaseStatus>
@@ -62,7 +64,9 @@ export async function progressRows(userId: string): Promise<Row[]> {
 export async function loadIncidentStats(userId: string): Promise<IncidentStats> {
     const [rows, badges] = await Promise.all([
         progressRows(userId),
-        db.select({ key: incidentBadges.badgeKey }).from(incidentBadges).where(eq(incidentBadges.userId, userId)),
+        // The platform's badge table (plan/badges BDG-1); Incidents' keys are `incidents:<key>`.
+        db.select({ key: userBadges.badgeKey, at: userBadges.earnedAt }).from(userBadges)
+            .where(and(eq(userBadges.userId, userId), like(userBadges.badgeKey, "incidents:%"))),
     ])
     const facts = factsFrom(rows)
     const answers = rows.filter((r) => r.kind === "prediction" || r.kind === "round")
@@ -86,7 +90,8 @@ export async function loadIncidentStats(userId: string): Promise<IncidentStats> 
         xp: rows.reduce((s, r) => s + r.xpAwarded, 0),
         completed: facts.completedCases.length,
         streak: facts.streak,
-        badges: badges.map((b) => b.key),
+        badges: badges.map((b) => b.key.slice("incidents:".length)),
+        badgeDates: Object.fromEntries(badges.map((b) => [b.key.slice("incidents:".length), b.at.toISOString()])),
         readiness,
         cases,
         facts,

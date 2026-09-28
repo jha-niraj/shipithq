@@ -1,6 +1,7 @@
 import "server-only"
 import { and, eq } from "drizzle-orm"
-import { db, backgroundJobs, hiringAttempts, interviewRounds, isTerminalJobStatus, mockVoiceSession, type VoiceTurn } from "@repo/db"
+import { db, backgroundJobs, hiringAttempts, interviewRounds, isTerminalJobStatus, mockInterviewVoice, mockVoiceSession, type VoiceTurn } from "@repo/db"
+import { recordActivity, activityKey } from "@repo/db/activity"
 import { startBackgroundJob } from "@/actions/(main)/workers/jobs.action"
 import { closeAttempt } from "@/lib/hiring/runs"
 import { releaseCredits, settleCredits } from "@/lib/credits/hold"
@@ -178,5 +179,19 @@ export async function progressVoiceMock(userId: string, sessionId: string): Prom
         aiAnalysis: analysis,
     }).where(and(eq(mockVoiceSession.id, sessionId), eq(mockVoiceSession.status, "SUBMITTED"))).returning({ id: mockVoiceSession.id })
     if (closed) await settleCredits(mockHoldId(sessionId))
+    // The activity ledger (plan/progress PRG-3).
+    if (closed) {
+        const [mock] = await db.select({ title: mockInterviewVoice.title, level: mockInterviewVoice.level, category: mockInterviewVoice.category })
+            .from(mockInterviewVoice).where(eq(mockInterviewVoice.id, row.mockId)).limit(1)
+        await recordActivity(db, userId, {
+            type: "COMPLETED_MOCK_INTERVIEW",
+            title: `Scored ${Math.round(r.score)} on ${mock?.title ?? "a"} mock`,
+            description: mock ? `${mock.category.toLowerCase()} - ${mock.level.toLowerCase()} - ${s.mode === "TYPED" ? "typed" : "voice"}` : null,
+            xp: 0,
+            minutes: (submittedAt.getTime() - startedAt.getTime()) / 60000,
+            key: activityKey.mockScored(sessionId),
+            meta: { sessionId, mockId: row.mockId, score: r.score, mode: s.mode ?? "VOICE" },
+        })
+    }
     return { state: "scored", analysis }
 }

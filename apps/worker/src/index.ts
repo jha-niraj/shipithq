@@ -42,6 +42,8 @@ export {
 	VoiceInterviewScore,
 	JobImport,
 	IncidentReport,
+	// Not a job type: the cron starts it (plan/progress PRG-10).
+	ProgressReports,
 } from "./jobs"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -108,6 +110,14 @@ export default {
 		ctx.waitUntil((async () => {
 			const purged = await purgeExpiredSends(createDb(env.DATABASE_URL))
 			console.log(`[cron] hiring send purge: ${purged} removed`)
+		})())
+		// Progress reports (plan/progress PRG-10): on a send day (Monday, the 1st, the
+		// 16th) hand today to the reports object; its alarms do the work.
+		ctx.waitUntil((async () => {
+			const day = new Date().toISOString().slice(0, 10)
+			const stub = env.PROGRESS_REPORTS.get(env.PROGRESS_REPORTS.idFromName("daily"))
+			const res = await stub.fetch("https://do/start", { method: "POST", body: JSON.stringify({ day }) })
+			console.log(`[cron] progress reports ${day}: ${await res.text()}`)
 		})())
 	},
 

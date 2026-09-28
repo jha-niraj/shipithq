@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP, magicLink } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { db, users, accounts, sessions, verifications } from "@repo/db";
+import { recordActivity } from "@repo/db/activity";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { sendAuthEmail } from "@repo/email/auth";
@@ -191,6 +192,11 @@ export const auth = betterAuth({
                         console.error("[auth] referral code generation failed:", err);
                         return { data: user };
                     }
+                },
+                // Joining is the first entry in the activity ledger (plan/progress PRG-11),
+                // whichever door they came in through. Never blocks the sign-up.
+                after: async (user) => {
+                    await recordActivity(db, user.id, { type: "SIGNUP", title: "Joined ShipItHQ", description: "Welcome aboard", key: `signup:${user.id}` });
                 },
             },
             update: {

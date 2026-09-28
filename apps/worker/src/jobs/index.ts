@@ -40,3 +40,4 @@ export function jobStub(env: Env, type: RunnableJobType, jobId: string): Durable
 }
 export { JobImport } from "./job-import"
 export { IncidentReport } from "./incident-report"
+export { ProgressReports } from "./progress-reports"

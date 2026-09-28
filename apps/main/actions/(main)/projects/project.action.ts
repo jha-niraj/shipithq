@@ -23,6 +23,7 @@ import {
     withTransaction
 } from "@repo/db";
 import { eq, and, sql, type SQL } from "drizzle-orm";
+import { recordActivity, activityKey } from "@repo/db/activity";
 import { catalogueWhere } from '@/lib/projects/catalogue'
 import { revalidatePath } from "next/cache";
 import { toErrorMessage } from "@/lib/errors"
@@ -478,6 +479,7 @@ export async function updateTaskStatus(
             return { success: false, error: "Write a line or two on what you built before marking it done." };
         }
 
+        let statusId = existingStatus?.id;
         if (existingStatus) {
             await db.update(userTaskV2Statuses)
                 .set({
@@ -488,7 +490,7 @@ export async function updateTaskStatus(
                 })
                 .where(eq(userTaskV2Statuses.id, existingStatus.id));
         } else {
-            await db.insert(userTaskV2Statuses).values({
+            const [created] = await db.insert(userTaskV2Statuses).values({
                 userId: user.id,
                 projectId,
                 taskId,
@@ -496,7 +498,8 @@ export async function updateTaskStatus(
                 status: newStatus,
                 completedAt: newStatus === "COMPLETED" ? new Date() : null,
                 notes: cleanNote || null,
-            });
+            }).returning({ id: userTaskV2Statuses.id });
+            statusId = created?.id;
         }
 
         // Recalculate progress - count completed tasks for this user in this project
@@ -547,6 +550,30 @@ export async function updateTaskStatus(
         if (newStatus === "COMPLETED") {
             const { updateProjectScore } = await import("./project-score.action");
             await updateProjectScore(projectId);
+        }
+
+        // The activity ledger (plan/progress PRG-3). Only the move to done; a toggle
+        // back and forth repeats the same key and records nothing.
+        if (newStatus === "COMPLETED" && existingStatus?.status !== "COMPLETED" && statusId) {
+            await recordActivity(db, user.id, {
+                type: "PROJECT_TASK_COMPLETED",
+                title: `Finished task: ${task.title}`,
+                description: project ? `${project.title} - ${task.difficulty.toLowerCase()}` : null,
+                xp: 0,
+                key: activityKey.projectTask(statusId),
+                meta: { taskId, taskStatusId: statusId, projectId, progressId: progress.id, sprintNumber: task.sprint.sprintNumber },
+            });
+        }
+        // The activity ledger (plan/progress PRG-3).
+        if (completedCount === totalTasks && totalTasks > 0 && progress.status !== "COMPLETED") {
+            await recordActivity(db, user.id, {
+                type: "PROJECT_COMPLETED",
+                title: `Completed project: ${project?.title ?? "a project"}`,
+                description: project ? `${totalTasks} tasks - ${project.difficulty.toLowerCase()}` : `${totalTasks} tasks`,
+                xp: 0,
+                key: activityKey.projectCompleted(progress.id),
+                meta: { projectId, progressId: progress.id, totalTasks },
+            });
         }
 
         return { success: true, data: { completedCount, totalTasks, progressPercentage } };
@@ -753,6 +780,20 @@ export async function completeQuiz(attemptId: string): Promise<ActionResponse> {
             })
             .where(eq(projectV2QuizAttempts.id, attemptId));
 
+        // The activity ledger (plan/progress PRG-3).
+        if (!attempt.isCompleted) {
+            const [project] = await db.select({ title: projectsV2.title }).from(projectsV2)
+                .where(eq(projectsV2.id, attempt.projectId)).limit(1);
+            await recordActivity(db, user.id, {
+                type: "PROJECT_QUIZ_COMPLETED",
+                title: `Scored ${score} on the ${project?.title ?? "project"} quiz`,
+                description: `${correctAnswers} of ${totalQuestions} correct`,
+                xp: 0,
+                key: activityKey.projectQuiz(attemptId),
+                meta: { attemptId, projectId: attempt.projectId, quizId: attempt.quizId, score },
+            });
+        }
+
         return { success: true, data: { score, correctAnswers, totalQuestions } };
     } catch (error: unknown) {
         return { success: false, error: toErrorMessage(error) };
@@ -803,6 +844,18 @@ export async function submitProject(
         await db.update(projectsV2)
             .set({ totalSubmissions: sql`${projectsV2.totalSubmissions} + 1` })
             .where(eq(projectsV2.id, projectId));
+
+        // The activity ledger (plan/progress PRG-3).
+        const [submitted] = await db.select({ title: projectsV2.title }).from(projectsV2)
+            .where(eq(projectsV2.id, projectId)).limit(1);
+        await recordActivity(db, user.id, {
+            type: "PROJECT_SUBMISSION",
+            title: `Submitted ${submitted?.title ?? "a project"}`,
+            description: data.liveUrl ? "Code and live link" : "Code",
+            xp: 0,
+            key: activityKey.projectSubmitted(progress.id),
+            meta: { projectId, progressId: progress.id, submissionId: submission?.id },
+        });
 
         return { success: true, data: submission };
     } catch (error: unknown) {

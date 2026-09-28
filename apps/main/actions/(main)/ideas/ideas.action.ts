@@ -9,6 +9,7 @@ import {
     type IdeaCategory, type IdeaDetail, type IdeaRow, type IdeaSort, type IdeaStatus, type IdeaBoard,
 } from "@repo/db/ideas";
 import { getSession } from "@repo/auth";
+import { recordActivity, activityKey } from "@repo/db/activity";
 
 /**
  * The app's Ideas board (plan/web/revamp REV-41). shipithq.com/ideas shows the same
@@ -82,6 +83,18 @@ export async function postIdea(input: { title: string; description: string; cate
             .values({ userId, title, description, category, isPublic, isAnonymous: !!input.isAnonymous, status: "UNDER_REVIEW" })
             .returning({ id: feedbacks.id });
 
+        // The activity ledger (plan/progress PRG-3).
+        if (row) {
+            await recordActivity(db, userId, {
+                type: "FEEDBACK_SUBMITTED",
+                title: `${category === "BUG" ? "Reported a bug" : "Posted an idea"}: ${title}`,
+                description: `Ideas - ${category.toLowerCase().replace(/_/g, " ")}`,
+                xp: 0,
+                key: activityKey.ideaPosted(row.id),
+                meta: { ideaId: row.id, category, isPublic },
+            });
+        }
+
         revalidatePath("/ideas");
         return { success: true, id: row!.id, isPublic };
     } catch (error: unknown) {
@@ -123,6 +136,19 @@ export async function toggleIdeaVote(ideaId: string): Promise<
         });
 
         if (!result) return { success: false, error: "That idea is not on the board" };
+        // The activity ledger (plan/progress PRG-3). After the transaction, with `db`; a vote
+        // taken back and given again repeats the key.
+        if (result.voted) {
+            const [idea] = await db.select({ title: feedbacks.title }).from(feedbacks).where(eq(feedbacks.id, ideaId)).limit(1);
+            await recordActivity(db, userId, {
+                type: "IDEA_VOTED",
+                title: `Voted for ${idea?.title ?? "an idea"}`,
+                description: "Ideas",
+                xp: 0,
+                key: activityKey.ideaVoted(ideaId),
+                meta: { ideaId },
+            });
+        }
         revalidatePath("/ideas");
         revalidatePath(`/ideas/${ideaId}`);
         return { success: true, ...result };

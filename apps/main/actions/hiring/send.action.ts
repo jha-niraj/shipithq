@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache"
 import { getSession } from "@repo/auth"
 import { db, hiringSends, jobs, notifications, notifyCompany, resumeDraft } from "@repo/db"
 import { closeThreadsForSend } from "@repo/db/inbox"
+import { recordActivity, activityKey } from "@repo/db/activity"
 import { emailNewResults } from "@/lib/inbox/email"
 import {
     MAX_PROJECTS, RETENTION_DAYS, SEND_CONSENT_TEXT, attemptPreviews, buildProfile, buildSnapshot, sendProfileOptions, sendState,
@@ -128,6 +129,15 @@ export async function sendResults(jobSlug: string, input: SendInput): Promise<Re
                 scores: snapshot.rounds.map((r) => `${r.title} ${r.attempt.score}`).join(" · "),
                 path: `/results/${state.job.slug}?send=${sendId}`,
             }).catch((e: unknown) => console.error("email NEW_RESULTS:", e))
+            // The activity ledger (plan/progress PRG-3).
+            await recordActivity(db, uid, {
+                type: "HIRING_RESULTS_SENT",
+                title: `Sent results to ${state.company.name}`,
+                description: `${state.job.title} - ${snapshot.rounds.length} ${snapshot.rounds.length === 1 ? "round" : "rounds"}`,
+                xp: 0,
+                key: activityKey.resultsSent(inserted[0].id),
+                meta: { sendId: inserted[0].id, jobId: state.job.id, companyId: state.company.id, runId: input.runId },
+            })
         }
         revalidatePath(`/jobs/${jobSlug}/rounds`)
         return { success: true, data: { sendId } }

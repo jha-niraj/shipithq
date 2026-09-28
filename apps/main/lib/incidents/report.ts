@@ -5,6 +5,7 @@ import { getIncidentCase } from "@/content/incidents/cases"
 import { INCIDENT_PATHS, PATH_OWNER } from "@/content/incidents/paths"
 import { INCIDENT_XP } from "@/content/incidents"
 import { addXpToUser } from "@/actions/(main)/user/level.action"
+import { recordActivity, activityKey, setActivityXp } from "@repo/db/activity"
 
 /**
  * A run's report, ready to render (plan/incidents INC-38, INC-39, INC-43): the report,
@@ -76,13 +77,25 @@ export async function loadSharedReport(token: string) {
 }
 
 /** The first report on a case earns XP once (INC-42): the ledger's unique key makes it once. */
-export async function awardReportXp(userId: string, slug: string) {
+export async function awardReportXp(userId: string, slug: string, runId: string) {
     const c = getIncidentCase(slug)
     if (!c) return
     const [row] = await db.insert(incidentProgress).values({ userId, caseSlug: slug, kind: "report", itemId: "report" }).onConflictDoNothing().returning({ id: incidentProgress.id })
     if (!row) return
     const r = await addXpToUser(userId, INCIDENT_XP.report, `Incidents: ${c.title}, first report`, "EARN")
     if (r.success) await db.update(incidentProgress).set({ xpAwarded: INCIDENT_XP.report }).where(eq(incidentProgress.id, row.id))
+    // The activity ledger (plan/progress PRG-3). The worker usually recorded this report
+    // when it was ready (PRG-4), before this XP existed; then only its XP is filled in.
+    const xp = r.success ? INCIDENT_XP.report : 0
+    const recorded = await recordActivity(db, userId, {
+        type: "INCIDENT_REPORT_READY",
+        title: `Report ready: ${c.title}`,
+        description: "Incidents - first report",
+        xp,
+        key: activityKey.incidentReport(runId),
+        meta: { slug, runId },
+    })
+    if (!recorded && xp) await setActivityXp(db, userId, activityKey.incidentReport(runId), xp)
 }
 
 /** Delete a run with its events and the transcripts of its talks (INC-44). XP already earned stays. */

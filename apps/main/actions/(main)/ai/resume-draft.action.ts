@@ -19,6 +19,7 @@ import { ResumeDraftContent, emptyResumeDraftContent, PLATFORM_TEMPLATES } from 
 import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
 import { priceOf } from '@/lib/credits/pricing'
 import { normalizeProjectLinkType } from '@repo/db/profile-values'
+import { recordResumeCreated } from '@/lib/resume/record-created'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Seed platform templates (call once or on demand)
@@ -158,6 +159,11 @@ export async function createResumeDraft(input: {
         importedUrl: input.importedUrl,
         isDefault: !existingDefault,
     }).returning()
+    // The activity ledger (plan/progress PRG-3).
+    if (draft) {
+        const how = input.importedFrom === 'profile' ? 'profile' : input.importedFrom ? 'import' : 'new'
+        await recordResumeCreated(session.user.id, draft, how, { templateSlug: draft.templateSlug })
+    }
     revalidatePath('/ai/resume')
     revalidatePath('/profile')
     return { success: true, draft }
@@ -413,6 +419,8 @@ export async function duplicateResumeDraft(id: string) {
         importedFrom: original.importedFrom,
         importedUrl: original.importedUrl,
     }).returning()
+    // The activity ledger (plan/progress PRG-3).
+    if (copy) await recordResumeCreated(session.user.id, copy, 'copy', { copiedFrom: original.id })
     revalidatePath('/ai/resume')
     return { success: true, draft: copy }
 }

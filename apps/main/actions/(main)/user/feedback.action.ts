@@ -4,7 +4,8 @@ import { db, feedbacks, recentActivities, users, rewards, creditTransactions } f
 import { getSession } from '@repo/auth';
 import { headers } from 'next/headers';
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
+import { activityKey, recordActivity } from "@repo/db/activity";
 import { sql } from "drizzle-orm";
 import { addXpToUser } from "./level.action";
 import { toggleIdeaVote } from "../ideas/ideas.action";
@@ -42,13 +43,22 @@ export async function submitFeedback({
             description: `Submitted feedback: ${title}`,
         })
 
-        // Use the new level system for XP rewards
-        await addXpToUser(
-            session.user.id,
-            25,
-            `Submitted feedback: ${title}`,
-            'REWARD'
-        );
+        // 25 XP, at most once a UTC day (plan/progress PRG-11): it paid on every
+        // submission before, so a loop of feedback was a loop of XP.
+        const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0)
+        const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(feedbacks)
+            .where(and(eq(feedbacks.userId, session.user.id), gte(feedbacks.createdAt, dayStart)))
+        const paid = Number(n) <= 1
+        if (paid) await addXpToUser(session.user.id, 25, `Submitted feedback: ${title}`, 'REWARD');
+
+        // The activity ledger (plan/progress PRG-11).
+        await recordActivity(db, session.user.id, {
+            type: "FEEDBACK_SUBMITTED",
+            title: `Sent feedback: ${title}`,
+            description: `Ideas - ${category.toLowerCase()}`,
+            xp: paid ? 25 : 0,
+            key: activityKey.ideaPosted(feedback!.id),
+        });
 
         revalidatePath("/feedback")
         return feedback

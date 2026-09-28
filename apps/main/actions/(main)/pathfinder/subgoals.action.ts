@@ -19,6 +19,7 @@ import {
 import { canRunPathfinderAI, getGoalUsageSummary } from './usage.action'
 import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
 import { modelFor } from '@repo/ai'
+import { recordActivity, activityKey } from '@repo/db/activity'
 
 
 // ================================================================================
@@ -338,6 +339,17 @@ export async function updateSubGoalStatus(
                     lastActivityAt: new Date(),
                 })
                 .where(eq(pathfinderGoals.id, subGoal.goalId))
+            // The activity ledger (plan/progress PRG-3). Un-marking and re-marking repeats the key.
+            const [goal] = await db.select({ title: pathfinderGoals.title }).from(pathfinderGoals)
+                .where(eq(pathfinderGoals.id, subGoal.goalId)).limit(1)
+            await recordActivity(db, session.user.id, {
+                type: 'PATHFINDER_STEP_COMPLETED',
+                title: `Finished step: ${subGoal.title}`,
+                description: goal ? `Pathfinder - ${goal.title}` : 'Pathfinder',
+                xp: 0,
+                key: activityKey.stepCompleted(subGoalId),
+                meta: { subGoalId, goalId: subGoal.goalId, sessionId: subGoal.sessionId },
+            })
         } else if (wasCompleted && !isNowCompleted) {
             await db.update(pathfinderDailySessions)
                 .set({ completedSubGoals: sql`${pathfinderDailySessions.completedSubGoals} - 1` })
@@ -459,6 +471,15 @@ Return ONLY valid JSON.`
             await db.update(pathfinderDailySessions)
                 .set({ solvedCodingProblems: sql`${pathfinderDailySessions.solvedCodingProblems} + 1` })
                 .where(eq(pathfinderDailySessions.id, subGoal.sessionId))
+            // The activity ledger (plan/progress PRG-3). One entry per step; later passes repeat the key.
+            await recordActivity(db, session.user.id, {
+                type: 'PATHFINDER_CODING_PASSED',
+                title: `Passed coding: ${String(codingProblem.title ?? subGoal.title)}`,
+                description: typeof evaluation.score === 'number' ? `Pathfinder - ${subGoal.title} - score ${Math.round(evaluation.score)}` : `Pathfinder - ${subGoal.title}`,
+                xp: 0,
+                key: activityKey.pathfinderCoding(subGoalId),
+                meta: { subGoalId, goalId: subGoal.goalId, problemId: pid, language, score: evaluation.score },
+            })
         }
 
         await db.update(pathfinderGoals)
