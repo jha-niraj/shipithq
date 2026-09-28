@@ -18,7 +18,16 @@ export const MIN_PRACTISING = 10
 export const MIN_SENDS = 5
 export const MIN_ROUND_STUDENTS = 10
 
-const asStrings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [])
+/** The page's tabs, kept in the URL as `?tab=` (plan/jobs-polish JP-5). Overview is the default. */
+export const COMPANY_TABS = ["overview", "jobs", "practice", "interviews"] as const
+export type CompanyTab = (typeof COMPANY_TABS)[number]
+
+/** A `?tab=` value, or overview when it is missing, repeated or unknown. */
+export function companyTab(raw: string | string[] | undefined): CompanyTab {
+    return typeof raw === "string" && (COMPANY_TABS as readonly string[]).includes(raw) ? (raw as CompanyTab) : "overview"
+}
+
+const asStrings =(v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [])
 
 /** A number, or null when it's under its minimum ("Too few to show"). */
 export type Gated<T> = { value: T } | null

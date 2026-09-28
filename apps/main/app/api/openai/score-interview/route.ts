@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
 	try {
 		if (!process.env.OPENAI_API_KEY) {
 			return NextResponse.json(
-				{ error: 'OpenAI API key not configured' },
+				{ error: 'The AI service isn\'t set up right now. Try again later.' },
 				{ status: 500 }
 			);
 		}

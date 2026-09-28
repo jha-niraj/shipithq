@@ -136,6 +136,13 @@ export class JobImport extends SteppedJob<JobImportInput, JobImportState> {
             // A company named in the page title ("Role at Acme") is a hint; the student's own wins.
             companyNameHint: row.companyNameHint ?? (page.companyGuess || null),
         })
+        // TEMPORARY, local only (Niraj, 2026-09-28: "disconnect the openai function for now and
+        // see how firecrawl does"): with JOB_IMPORT_FETCH_ONLY=1 in .dev.vars the import stops
+        // here, showing what was read, and never calls the model. Remove with the flag.
+        if (this.env.JOB_IMPORT_FETCH_ONLY === "1") {
+            await this.setRow(id, { status: "FAILED", step: null, error: `Fetch only (testing): read ${page.text.length.toLocaleString("en")} characters from the page; the AI step is switched off, so no rounds were built. What was read is below.` })
+            return { state, next: null, progress: 100, label: "Fetched (AI step off)" }
+        }
         return { state, next: "extract", progress: 15 }
     }
 

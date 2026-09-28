@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, Check, FileText, Link2, Plus, Search, Trash2, X } f
 import { Button } from "@repo/ui/components/ui/button"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { Input } from "@repo/ui/components/ui/input"
+import { MonthPicker } from "@repo/ui/components/ui/month-picker"
 import { NumberTextInput } from "@repo/ui/components/ui/number-text-input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@repo/ui/components/ui/sheet"
@@ -40,7 +41,11 @@ let seq = 0
 const next = () => ++seq
 const newQuestion = (): Question => ({ key: next(), text: "", link: null })
 const newRound = (): Round => ({ key: next(), type: "", title: "", minutes: "", questions: [newQuestion()] })
-const thisMonth = () => new Date().toISOString().slice(0, 7)
+/** The current LOCAL month as `YYYY-MM` (toISOString would give the UTC month, a day early or late at the edges). */
+const thisMonth = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+}
 
 export interface ReportPrefill {
     company?: Company
@@ -63,11 +68,11 @@ export function ReportInterviewButton({ prefill, label = "Report your interview"
                 <FileText className="h-4 w-4" /> {label}
             </Button>
             <Sheet open={open} onOpenChange={setOpen}>
-                <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+                <SheetContent className="w-full overflow-y-auto sm:max-w-3xl">
                     <SheetHeader>
                         <SheetTitle>Report your interview</SheetTitle>
                         <SheetDescription>
-                            The rounds you took and what they asked. It helps the next student prepare: only totals are ever shown (&quot;reported 4 times&quot;), never your report. An admin reviews it; approved reports earn 10 credits.
+                            The rounds you took and what they asked. It helps the next student prepare: only totals are ever shown (&quot;reported 4 times&quot;), never your report. Sending it earns 20 XP; an admin reviews it, and an approved report earns 10 credits.
                         </SheetDescription>
                     </SheetHeader>
                     <div className="px-4 pb-6">{open && <ReportForm prefill={prefill} onDone={() => setOpen(false)} />}</div>
@@ -87,6 +92,8 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
     const [rounds, setRounds] = useState<Round[]>([newRound()])
     const [busy, setBusy] = useState(false)
     const [sent, setSent] = useState(false)
+    // Three steps (plan/jobs-polish JP-11): the interview, the rounds, review and send.
+    const [step, setStep] = useState<0 | 1 | 2>(0)
 
     const setRound = (key: number, patch: Partial<Round>) => setRounds((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)))
     const move = (i: number, d: -1 | 1) => setRounds((rs) => {
@@ -96,7 +103,9 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
         ;[copy[i], copy[j]] = [copy[j]!, copy[i]!]
         return copy
     })
-    const ready = company && role.trim().length >= 2 && family && level && month && outcome && rounds.length > 0 && rounds.every((r) => r.type)
+    const interviewDone = Boolean(company && role.trim().length >= 2 && family && level && month && outcome)
+    const roundsDone = rounds.length > 0 && rounds.every((r) => r.type)
+    const ready = interviewDone && roundsDone
 
     const submit = async () => {
         if (!company || !outcome || !family || !level) return
@@ -130,14 +139,42 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
         return (
             <div className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
                 <p className="flex items-center gap-2 font-medium text-neutral-900 dark:text-white"><Check className="h-4 w-4" /> Thanks. Your report is with ShipItHQ.</p>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">An admin reviews it, usually within a few days. You&apos;ll hear either way; an approved report earns 10 credits. Follow it under My rounds.</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">You earned 20 XP for sending it. An admin reviews it, usually within a few days; you&apos;ll hear either way, and an approved report earns 10 credits. Follow it under My rounds.</p>
                 <Button size="sm" variant="outline" onClick={onDone}>Done</Button>
             </div>
         )
     }
 
     return (
-        <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); if (ready && !busy) void submit() }}>
+        <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); if (step === 2 && ready && !busy) void submit() }}>
+            <ol className="grid grid-cols-3 gap-2" aria-label="Steps">
+                {["The interview", "The rounds", "Review and send"].map((label, i) => {
+                    const reachable = i === 0 || (i === 1 && interviewDone) || (i === 2 && ready)
+                    return (
+                        <li key={label}>
+                            <button
+                                type="button"
+                                onClick={() => reachable && setStep(i as 0 | 1 | 2)}
+                                disabled={!reachable}
+                                aria-current={step === i ? "step" : undefined}
+                                className={cn(
+                                    "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed",
+                                    step === i ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900"
+                                        : "border-neutral-200 text-neutral-600 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-400",
+                                )}
+                            >
+                                <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px]", step === i ? "border-current" : "border-neutral-300 dark:border-neutral-700")}>
+                                    {(i === 0 && interviewDone && step !== 0) || (i === 1 && roundsDone && step === 2) ? <Check className="h-3 w-3" /> : i + 1}
+                                </span>
+                                <span className="truncate">{label}</span>
+                            </button>
+                        </li>
+                    )
+                })}
+            </ol>
+
+            {step === 0 && (
+                <div className="space-y-5">
             <div className="space-y-2">
                 <p className="text-sm font-medium text-neutral-900 dark:text-white">Company</p>
                 {company ? (
@@ -156,8 +193,8 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
                     <Input id="rep-role" value={role} onChange={(e) => setRole(e.target.value)} maxLength={120} placeholder="e.g. SDE 1, Backend" />
                 </div>
                 <div className="space-y-2">
-                    <label htmlFor="rep-month" className="text-sm font-medium text-neutral-900 dark:text-white">When</label>
-                    <Input id="rep-month" type="month" value={month} max={thisMonth()} onChange={(e) => setMonth(e.target.value)} />
+                    <p className="text-sm font-medium text-neutral-900 dark:text-white">When</p>
+                    <MonthPicker aria-label="When" placeholder="Month and year" format="YYYY-MM" max={thisMonth()} clearable={false} value={month} onChange={(v) => setMonth(v ?? thisMonth())} />
                 </div>
             </div>
 
@@ -186,6 +223,10 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
                 </Select>
             </div>
 
+                </div>
+            )}
+
+            {step === 1 && (
             <div className="space-y-3">
                 <div>
                     <p className="text-sm font-medium text-neutral-900 dark:text-white">Rounds, in order</p>
@@ -234,8 +275,86 @@ function ReportForm({ prefill, onDone }: { prefill?: ReportPrefill; onDone: () =
                 )}
             </div>
 
-            <Button type="submit" disabled={!ready || busy} className="gap-1.5">{busy && <InlineLoader size="sm" />} Send the report</Button>
+            )}
+
+            {step === 2 && (
+                <ReportReview
+                    company={company}
+                    role={role}
+                    month={month}
+                    family={family}
+                    level={level}
+                    outcome={outcome}
+                    rounds={rounds}
+                    onEdit={(s) => setStep(s)}
+                />
+            )}
+
+            <div className="flex items-center justify-between gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+                {step > 0 ? <Button type="button" variant="outline" onClick={() => setStep((step - 1) as 0 | 1)}>Back</Button> : <span />}
+                {step < 2
+                    ? <Button type="button" onClick={() => setStep((step + 1) as 1 | 2)} disabled={step === 0 ? !interviewDone : !roundsDone}>Next</Button>
+                    : <Button type="submit" disabled={!ready || busy} className="gap-1.5">{busy && <InlineLoader size="sm" />} Send the report</Button>}
+            </div>
         </form>
+    )
+}
+
+/** Step 3: everything as it will be sent, read-only, with a way back to each part. */
+function ReportReview({ company, role, month, family, level, outcome, rounds, onEdit }: {
+    company: Company | null; role: string; month: string
+    family: ReportRoleFamily | ""; level: ReportLevel | ""; outcome: ReportOutcome | ""
+    rounds: Round[]; onEdit: (step: 0 | 1) => void
+}) {
+    const when = month ? new Date(`${month}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "-"
+    const facts: [string, string][] = [
+        ["Company", company?.name ?? "-"],
+        ["Role", role || "-"],
+        ["When", when],
+        ["Kind of role", family ? REPORT_ROLE_FAMILY_LABEL[family] : "-"],
+        ["Level", level ? REPORT_LEVEL_LABEL[level] : "-"],
+        ["How it ended", outcome ? REPORT_OUTCOME_LABEL[outcome] : "-"],
+    ]
+    return (
+        <div className="space-y-5">
+            <section className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+                <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">The interview</h3>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(0)}>Edit</Button>
+                </div>
+                <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                    {facts.map(([k, v]) => (
+                        <div key={k} className="flex justify-between gap-3 sm:block">
+                            <dt className="text-neutral-500 dark:text-neutral-400">{k}</dt>
+                            <dd className="font-medium text-neutral-900 dark:text-white">{v}</dd>
+                        </div>
+                    ))}
+                </dl>
+            </section>
+            <section className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+                <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">{rounds.length} {rounds.length === 1 ? "round" : "rounds"}, in order</h3>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => onEdit(1)}>Edit</Button>
+                </div>
+                <ol className="space-y-3">
+                    {rounds.map((r, i) => {
+                        const qs = r.questions.filter((q) => q.text.trim())
+                        return (
+                            <li key={r.key} className="text-sm">
+                                <p className="font-medium text-neutral-900 dark:text-white">
+                                    {i + 1}. {r.type ? REPORT_ROUND_LABEL[r.type] : "-"}{r.title ? `: ${r.title}` : ""}
+                                    {r.minutes && <span className="font-normal text-neutral-500"> · {r.minutes} min</span>}
+                                </p>
+                                {qs.length > 0
+                                    ? <ul className="mt-1 list-disc space-y-0.5 pl-9 text-neutral-700 dark:text-neutral-300">{qs.map((q) => <li key={q.key}>{q.text}{q.link && <span className="text-neutral-500"> (linked: {q.link.label})</span>}</li>)}</ul>
+                                    : <p className="mt-1 pl-5 text-neutral-500">No questions added.</p>}
+                            </li>
+                        )
+                    })}
+                </ol>
+            </section>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">Only totals are ever shown to others, never your report. Sending earns 20 XP now; an approved report earns 10 credits.</p>
+        </div>
     )
 }
 

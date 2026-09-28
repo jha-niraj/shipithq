@@ -8,9 +8,11 @@ import { Button } from "@repo/ui/components/ui/button"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { Input } from "@repo/ui/components/ui/input"
 import { PageHeader } from "@repo/ui/components/ui/page-header"
+import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
 import { Textarea } from "@repo/ui/components/ui/textarea"
 import { toast } from "@repo/ui/components/ui/sonner"
 import { cn } from "@repo/ui/lib/utils"
+import { unwrapJobText } from "@repo/db/job-text"
 import { cancelImport, getImport, resumeImport, type ImportView } from "@/actions/(main)/jobs/import.action"
 
 /*
@@ -104,7 +106,29 @@ export function ImportProgress({ initial }: { initial: ImportView }) {
                     </li>
                 </ol>
             )}
+
+            {view.sourceText && <ReadFromPage text={unwrapJobText(view.sourceText)} url={view.sourceUrl} />}
         </div>
+    )
+}
+
+/** What was read from the link, as the model gets it: so a student (and we) can see what a
+ * site gave us before trusting the rounds built from it. */
+function ReadFromPage({ text, url }: { text: string; url: string | null }) {
+    const words = text.trim().split(/\s+/).length
+    return (
+        <section aria-label="What we read" className="rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-neutral-200 px-5 py-3 dark:border-neutral-800">
+                <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">What we read from {url ? "the page" : "your paste"}</h2>
+                <p className="text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
+                    {text.length.toLocaleString("en")} characters · {words.toLocaleString("en")} words
+                    {url && <> · <a href={url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">open the posting</a></>}
+                </p>
+            </div>
+            <ScrollArea className="max-h-[28rem]" viewportClassName="max-h-[28rem]">
+                <pre className="whitespace-pre-wrap break-words px-5 py-4 font-sans text-sm leading-6 text-neutral-800 dark:text-neutral-200">{text}</pre>
+            </ScrollArea>
+        </section>
     )
 }
 

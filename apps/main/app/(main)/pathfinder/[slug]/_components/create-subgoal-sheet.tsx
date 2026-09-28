@@ -141,7 +141,7 @@ export function CreateSubGoalSheet({
                     </SheetTitle>
                     <SheetDescription>
                         What do you want to learn today? We&apos;ll generate resources, videos, docs, and practice content.
-                        Cost is ~1-2 credits per sub-goal (Exa + OpenAI). Usage shown in top-right.
+                        It costs about 1 to 2 credits per sub-goal. Your usage is shown at the top right.
                     </SheetDescription>
                 </SheetHeader>
                 <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -184,7 +184,7 @@ export function CreateSubGoalSheet({
                                 </h3>
                                 <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-2 flex items-center justify-center gap-2">
                                     <Sparkles className="w-4 h-4 text-neutral-900 dark:text-neutral-100" />
-                                    Fetching videos & docs (Exa) + creating content (OpenAI)
+                                    Finding videos and docs, then writing the content
                                 </p>
                                 <p className="text-xs text-neutral-600 dark:text-neutral-400">
                                     This usually takes 5-10 seconds

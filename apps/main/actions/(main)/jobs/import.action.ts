@@ -39,6 +39,9 @@ export type ImportOutcome =
 
 export interface ImportView {
     id: string
+    /** What was read from the link (or pasted), to show the student (JI; Niraj 2026-09-28). */
+    sourceText: string | null
+    sourceUrl: string | null
     status: string
     step: string | null
     error: string | null
@@ -255,6 +258,8 @@ export async function getImport(importId: string): Promise<Result<ImportView>> {
             success: true,
             data: {
                 id: row.id,
+                sourceText: row.sourceText,
+                sourceUrl: row.sourceUrl,
                 status: row.status,
                 step: row.step,
                 error: row.error,

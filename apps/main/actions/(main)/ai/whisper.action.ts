@@ -18,7 +18,7 @@ export async function whisperTranscribe(
         if (!session?.user?.id) return { success: false, error: "Unauthorized" }
 
         if (!process.env.OPENAI_API_KEY) {
-            return { success: false, error: "OpenAI API key not configured" }
+            return { success: false, error: "The AI service isn't set up right now. Try again later." }
         }
 
         const audioBuffer = Buffer.from(audioBase64, "base64")

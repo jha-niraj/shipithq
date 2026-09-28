@@ -36,6 +36,7 @@
         "./company-loop": "./src/company-loop.ts",
         "./options": "./src/options.ts",
         "./activity": "./src/activity.ts",
+        "./job-text": "./src/job-text.ts",
         "./badges": "./src/badges.ts",
         "./progress": "./src/progress/index.ts",
         "./progress-calendar": "./src/progress/calendar.ts",

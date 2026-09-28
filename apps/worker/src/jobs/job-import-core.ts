@@ -1,5 +1,6 @@
 import { scrape, isFirecrawlError } from "@repo/firecrawl"
 import { exaContents } from "@repo/exa"
+import { unwrapJobText } from "@repo/db/job-text"
 import { cleanJobDescription, cleanJobTitle, companyFromTitle, wallReason } from "@repo/exa/job-page"
 import type { DesignRubricCriterion, ImportedJobExtract, ImportedJobPlan, ImportedJobPlanRound, ImportedRoundType } from "@repo/db/schema"
 
@@ -31,7 +32,10 @@ export async function readJobPage(url: string, keys: { firecrawl?: string; exa?:
     if (early && /search page/.test(early)) return { ok: false, reason: early }
 
     let lastReason = "We couldn't read that page."
-    if (keys.firecrawl) {
+    // The first reader refuses LinkedIn outright ("we do not support this site"), so a LinkedIn
+    // link goes straight to the second: one wasted call per import saved (Niraj, 2026-09-28).
+    const refusedByFirst = /(^|\.)linkedin\.com$/i.test((() => { try { return new URL(url).hostname } catch { return "" } })())
+    if (keys.firecrawl && !refusedByFirst) {
         try {
             const r = await Promise.race([
                 scrape(keys.firecrawl, url, { formats: ["markdown"], onlyMainContent: true }),
@@ -67,7 +71,8 @@ export async function readJobPage(url: string, keys: { firecrawl?: string; exa?:
 function accept(raw: string, title: string, via: "firecrawl" | "exa"): PageRead {
     const cleaned = cleanJobDescription(raw, title)
     // Cleaning took almost everything: the layout wasn't what it looked like, so keep the raw text.
-    const text = (cleaned.length < 200 ? raw : cleaned).slice(0, MAX_JOB_TEXT)
+    // Sentences broken across lines joined again (the student reads this, and so does the model).
+    const text = unwrapJobText(cleaned.length < 200 ? raw : cleaned).slice(0, MAX_JOB_TEXT)
     return { ok: true, text, title: cleanJobTitle(title), companyGuess: companyFromTitle(title), via }
 }
 

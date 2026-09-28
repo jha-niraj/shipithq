@@ -2,6 +2,8 @@
 
 import { and, count, desc, eq, gte, ilike, inArray, isNull, notInArray, or } from "drizzle-orm"
 import { getSession } from "@repo/auth"
+import { recordActivity } from "@repo/db/activity"
+import { addXpToUser } from "@/actions/(main)/user/level.action"
 import { headers } from "next/headers"
 import {
     db, aptitudeQuestions, companies, companyRequests, importedJobs, interviewReportQuestions, interviewReportRounds,
@@ -77,6 +79,9 @@ function personalData(text: string): string | null {
 }
 
 /** File a report. It waits for an admin; the public never sees it on its own. */
+/** XP for sending a report (JP-11; Claude's call, asked for by Niraj 2026-09-28): a report is ten careful minutes. */
+const REPORT_XP = 20
+
 export async function submitReport(input: ReportInput): Promise<Result<{ id: string }>> {
     const userId = await currentUserId()
     if (!userId) return { success: false, error: "Sign in to report an interview.", code: "UNAUTHORIZED" }
@@ -175,6 +180,17 @@ export async function submitReport(input: ReportInput): Promise<Result<{ id: str
             return report.id
         })
         if (!id) return { success: false, error: "You've already reported this interview (same company, role and month).", code: "DUPLICATE" }
+        // 20 XP for sending it, once per report (plan/jobs-polish JP-11); approval still pays
+        // 10 credits. The ledger entry shares the report's key, so it can't be paid twice.
+        const xp = await addXpToUser(userId, REPORT_XP, `Interview report: ${input.role.trim().slice(0, 80)}`, "EARN")
+        await recordActivity(db, userId, {
+            type: "INTERVIEW_REPORTED",
+            title: `Reported an interview: ${input.role.trim().slice(0, 80)}`,
+            description: "Jobs - interview report",
+            xp: xp.success ? REPORT_XP : 0,
+            key: `interview-report:${id}`,
+            meta: { reportId: id },
+        })
         return { success: true, data: { id } }
     } catch (error: unknown) {
         console.error("submitReport:", error instanceof Error ? error.message : error)

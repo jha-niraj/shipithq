@@ -101,13 +101,19 @@ function classify(status: number, body: string): FirecrawlError {
     // credits are gone. Saying "temporarily unavailable" would send someone hunting a bug
     // that is really a billing page.
     if (status === 402) {
-        return new FirecrawlError('unknown', 'The web fetching plan is out of credits. An admin needs to top up Firecrawl.', { status, cause: detail })
+        return new FirecrawlError('unknown', 'Reading web pages is unavailable right now (the plan is out of credits).', { status, cause: detail })
     }
     if (status >= 500) {
         return new FirecrawlError('network', 'Web page fetching is temporarily unavailable. Try again in a moment.', { status, cause: detail })
     }
+    // A 403 is also how a site the reader refuses comes back (LinkedIn: "we do not support this
+    // site"); telling the two apart keeps a refused site from looking like a broken key. Messages
+    // name no product: they can reach a user (Niraj, 2026-09-28).
+    if (status === 403 && /not support this site|no longer supported|not supported/i.test(body)) {
+        return new FirecrawlError('unknown', "This site can't be read automatically.", { status, cause: detail })
+    }
     if (status === 401 || status === 403) {
-        return new FirecrawlError('unknown', 'Web page fetching is not configured correctly (the Firecrawl API key was rejected).', { status, cause: detail })
+        return new FirecrawlError('unknown', 'Reading web pages is not configured correctly (the key was rejected).', { status, cause: detail })
     }
     return new FirecrawlError('unknown', `Web page fetching rejected the request (${status}).`, { status, cause: detail })
 }
@@ -116,7 +122,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /** One POST with the shared timeout + retry policy. Every endpoint goes through this. */
 async function post<T>(apiKey: string, path: string, body: unknown, timeoutMs: number): Promise<T> {
-    if (!apiKey) throw new FirecrawlError('unknown', 'Web page fetching is not configured (FIRECRAWL_API_KEY is not set).')
+    if (!apiKey) throw new FirecrawlError('unknown', 'Reading web pages is not configured (its API key is not set).')
     const payload = JSON.stringify(body)
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {

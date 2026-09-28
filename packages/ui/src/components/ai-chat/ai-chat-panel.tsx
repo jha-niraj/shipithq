@@ -421,7 +421,9 @@ export function AIChatPanel({
 			)}
 
 			{/* Header: what you are looking at (opens history), then actions. */}
-			<header className="relative flex shrink-0 items-center gap-1 border-b border-neutral-200 p-2 dark:border-neutral-800">
+			{/* 56px tall (h-14), the height of the page headers beside it (plan/jobs-polish JP-1): the
+			    two bottom borders meet in one line across the shell. */}
+			<header className="relative flex h-14 shrink-0 items-center gap-1 border-b border-neutral-200 px-2 dark:border-neutral-800">
 				<button
 					ref={titleRef}
 					type="button"

@@ -46,7 +46,9 @@ export default async function JobsLayout({
                 {/* The size of every other page header (plan/ui-pass UI-11): one 36px tab
                     strip beside a PageHeader-sized title, not a 2xl title over 44px tabs.
                     In the page frame (UI-10), so it lines up with the pages under it. */}
-                <div className="page-frame flex flex-col gap-3 px-page py-2.5 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+                {/* 55px plus the wrapper's 1px border = 56px, so the border meets Harbor's (an
+                    h-14 header with its border inside) in one line (plan/jobs-polish JP-1). */}
+                <div className="page-frame flex flex-col gap-3 px-page py-2.5 lg:h-[55px] lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:py-0">
                     <div className="min-w-0 shrink-0">
                         <h1 className="text-lg leading-tight font-semibold tracking-tight text-neutral-900 dark:text-white">
                             Jobs
