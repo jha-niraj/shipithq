@@ -8,6 +8,9 @@
  * - truefalse  a statement, true or false
  * - buckets    sort each item into the bucket it belongs to
  * - order      put the items in the right order
+ * - pick       pick the part (or every part) of a figure: "click where it broke" (INC-71).
+ *              `figure` names what the host draws (the case's system map); the parts are
+ *              also buttons, so it works without the figure, by keyboard and on a phone.
  */
 
 export type QuizQuestion =
@@ -15,6 +18,7 @@ export type QuizQuestion =
     | { id: string; kind: "truefalse"; prompt: string; answer: boolean; explanation: string }
     | { id: string; kind: "buckets"; prompt: string; buckets: { id: string; label: string }[]; items: { id: string; label: string; bucket: string }[]; explanation: string }
     | { id: string; kind: "order"; prompt: string; items: { id: string; label: string }[]; explanation: string }
+    | { id: string; kind: "pick"; prompt: string; figure?: string; parts: { id: string; label: string }[]; answer: string[]; explanation: string }
 
 /** What a reader answered: an option id, a boolean, item to bucket, or item ids in order. */
 export type QuizResponse = string | boolean | Record<string, string> | string[]
@@ -29,6 +33,7 @@ export function isAnswered(q: QuizQuestion, r: QuizResponse | undefined): boolea
         case "truefalse": return typeof r === "boolean"
         case "buckets": return typeof r === "object" && !Array.isArray(r) && q.items.every((i) => typeof (r as Record<string, string>)[i.id] === "string")
         case "order": return Array.isArray(r) && r.length === q.items.length
+        case "pick": return Array.isArray(r) && r.length > 0 && (q.answer.length > 1 || r.length === 1)
     }
 }
 
@@ -40,6 +45,8 @@ export function grade(q: QuizQuestion, r: QuizResponse | undefined): boolean {
         case "truefalse": return r === q.answer
         case "buckets": return q.items.every((i) => (r as Record<string, string>)[i.id] === i.bucket)
         case "order": return (r as string[]).every((id, i) => q.items[i]?.id === id)
+        // Every right part picked, and nothing else.
+        case "pick": return (r as string[]).length === q.answer.length && q.answer.every((id) => (r as string[]).includes(id))
     }
 }
 

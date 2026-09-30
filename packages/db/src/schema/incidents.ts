@@ -184,7 +184,7 @@ export const incidentRunEvents = pgTable(
     {
         id: text("id").primaryKey().$defaultFn(() => createId()),
         runId: text("run_id").notNull().references(() => incidentRuns.id, { onDelete: "cascade" }),
-        kind: text("kind").$type<"check" | "quiz" | "ask" | "talk" | "step">().notNull(),
+        kind: text("kind").$type<"check" | "quiz" | "ask" | "talk" | "step" | "postmortem">().notNull(),
         itemId: text("item_id").notNull(),
         payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
         createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -13,7 +13,7 @@ import { INCIDENT_XP } from "./index"
  * the app. `key` is stable: a reader's answers and ticks are saved against it.
  */
 
-export type StepKind = "start" | "chapter" | "check" | "talk" | "final-quiz" | "round" | "closing-talk" | "closing" | "learn"
+export type StepKind = "start" | "chapter" | "check" | "talk" | "final-quiz" | "round" | "postmortem" | "closing-talk" | "closing" | "learn"
 
 export type AuthoredStep = {
     key: string
@@ -69,6 +69,10 @@ export function stepsFor(c: IncidentCase): AuthoredStep[] {
     const end = "Final"
     steps.push({ key: "final-quiz", part: end, kind: "final-quiz", title: "Make the call", content: { questions: finalQuiz(c) }, xp: c.predict.length * INCIDENT_XP.prediction })
     steps.push({ key: "round", part: end, kind: "round", title: "Spot the failure", content: { items: c.round }, xp: INCIDENT_XP.perfectRound })
+    // Write the postmortem, then compare it with the real one (INC-72; 30 XP, once: overview).
+    if (c.postmortem && c.postmortemPoints) {
+        steps.push({ key: "postmortem", part: end, kind: "postmortem", title: "Write the postmortem", content: { real: c.postmortem, points: c.postmortemPoints }, xp: INCIDENT_XP.report })
+    }
     if (c.mock) steps.push({ key: "closing-talk", part: end, kind: "closing-talk", title: "You're the incident lead", content: { ...c.mock }, xp: 0 })
     steps.push({ key: "closing", part: end, kind: "closing", title: "What to remember", content: { lines: c.closing, checklist: c.checklist }, xp: INCIDENT_XP.completion })
     // What the case teaches, and its Pathfinder path (moved out of the sidebar, 2026-09-28).

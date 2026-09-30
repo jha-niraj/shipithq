@@ -47,8 +47,51 @@ export const LOGIN_CHAPTERS: Chapter[] = [
             { kind: "note", id: "doing", text: "Every answer was correct, and nothing counted how many answers there had been." },
             { kind: "say", focus: "composite", text: "One thing before we go on. This is a composite incident. The numbers are illustrative. The mechanics are real, and every one of them is sourced." },
             { kind: "note", id: "composite", text: "A composite incident: the numbers are illustrative, the mechanics are real and sourced." },
+            { kind: "say", focus: "clock:first", text: "Put the night on one clock. T plus zero is the first wrong guess, at four minutes past one." },
+            { kind: "say", focus: "clock:unseen", text: "Look at the first span. Three hours and forty eight minutes of guessing before the break-in, and nothing noticed. Then eight hours before anyone knew, and only because the customer wrote in." },
+            {
+                kind: "timeline", id: "clock", timeline: {
+                    start: "Monday, 1:04 am: the first wrong guess",
+                    caption: "A composite incident: the times come from the case's login log, and are illustrative.",
+                    events: [
+                        { id: "first", at: 0, kind: "signal", label: "First wrong guess", detail: "401, wrong password. The guesses keep coming all night." },
+                        { id: "guess", at: 13620000, kind: "signal", label: "Attempt 3,112: 401", detail: "Still a correct answer. Still nothing counting." },
+                        { id: "in", at: 13680000, kind: "mistake", label: "Password guessed", detail: "One guess was right: 200, signed in." },
+                        { id: "email", at: 13740000, kind: "mistake", label: "Email changed", detail: "The real owner is locked out of their own account." },
+                        { id: "report", at: 28680000, kind: "signal", label: "Customer writes in", detail: "\"Someone changed my email overnight.\" The team pulls the login log." },
+                    ],
+                    spans: [
+                        { id: "unseen", label: "Guessing, unseen", from: "first", to: "in" },
+                        { id: "detect", label: "Time to notice", from: "first", to: "report" },
+                    ],
+                },
+            },
+            { kind: "say", focus: "board:failed", text: "Here's what a dashboard could have shown. Failed logins, steady all night, at an hour when almost nobody signs in." },
+            { kind: "say", focus: "board:alerts", text: "And the alerts: zero. Nothing was watching failed logins, so nothing fired. The only alarm was a customer." },
+            {
+                kind: "dashboard", id: "board", dashboard: {
+                    caption: "Failed logins ran all night at a steady rate, and no alert watched them.",
+                    series: [
+                        { id: "failed", name: "Failed logins", unit: "per min", bad: true, points: [[0, 0], [60000, 14], [13680000, 14], [13740000, 0], [28680000, 0]] },
+                        { id: "total", name: "Failures on sam@example.com", unit: "total", points: [[0, 0], [13620000, 3112], [13680000, 3112], [28680000, 3112]] },
+                        { id: "success", name: "Successful logins", unit: "per min", points: [[0, 2], [7200000, 1], [13680000, 2], [21600000, 3], [28680000, 6]] },
+                        { id: "alerts", name: "Alerts fired", unit: "alerts", points: [[0, 0], [28680000, 0]] },
+                    ],
+                    markers: [
+                        { id: "m-in", at: 13680000, label: "break-in" },
+                        { id: "m-report", at: 28680000, label: "reported" },
+                    ],
+                },
+            },
         ],
         check: [
+            { id: "should-count", kind: "pick", figure: "map", prompt: "Tap the part that should have been counting the guesses.", parts: [
+                { id: "attacker", label: "Attacker's script" },
+                { id: "sam", label: "Sam" },
+                { id: "login", label: "Login endpoint" },
+                { id: "hash", label: "Password check" },
+                { id: "users", label: "Users table" },
+            ], answer: ["login"], explanation: "Every guess goes through the login endpoint, so that's where attempts can be counted and slowed. The password check and the table only ever see one attempt at a time." },
             { id: "log", kind: "single", prompt: "What did the login log show before the break-in?", options: [
                 { id: "errors", label: "Server errors, then a crash" },
                 { id: "401s", label: "Thousands of correct 401 answers, then one 200" },
@@ -91,8 +134,49 @@ export const LOGIN_CHAPTERS: Chapter[] = [
             },
             { kind: "say", focus: "math", text: "Now your number. A script sending ten guesses a second makes thirty six thousand an hour. The slow hash costs the server work on every one of them, and nothing in these four steps ever says: that's enough." },
             { kind: "note", id: "math", text: "10 guesses a second is 36,000 an hour. The weak spot is not the check. It is that nothing counts." },
+            { kind: "say", focus: "night:g1", text: "Now the same login, message by message, over the whole night. Guess one: look up the email, check the hash, answer 401." },
+            { kind: "say", focus: "night:in", text: "Three thousand answers later, guess three thousand one hundred and thirteen gets a 200. And a minute after that, the email changes." },
+            { kind: "say", focus: "night", text: "Switch to With the fix. The same script now meets a shared count, a growing wait and a challenge, and Sam still gets in with the right password." },
+            {
+                kind: "sequence", id: "night", sequence: {
+                    caption: "The login answered every guess correctly. The fix is the part that counts them.",
+                    tabs: { normal: "With the fix", failing: "Nothing counts" },
+                    variants: { normal: "A shared count and a score: guessers are slowed, then asked for proof; Sam gets in.", failing: "The night of the incident: every guess answered, none counted." },
+                    actors: [
+                        { id: "attacker", label: "Attacker's script", sub: "guess after guess" },
+                        { id: "sam", label: "Sam", sub: "the account's owner" },
+                        { id: "login", label: "Login", sub: "the endpoint" },
+                        { id: "count", label: "Shared count", sub: "email + address" },
+                        { id: "users", label: "Users table", sub: "email + hash" },
+                    ],
+                    messages: [
+                        { id: "g1", from: "attacker", to: "login", label: "guess 1: sam@ + a password", at: 0 },
+                        { id: "look", from: "login", to: "users", label: "look up, check the hash", at: 5 },
+                        { id: "no1", from: "login", to: "attacker", label: "401", at: 400, kind: "response" },
+                        { id: "c1", from: "login", to: "count", label: "sam@: 1, address: 1", at: 410, only: "normal" },
+                        { id: "g6", from: "attacker", to: "login", label: "guess 6", at: 20000, only: "normal" },
+                        { id: "c6", from: "login", to: "count", label: "sam@: 6: high score", at: 20005, only: "normal" },
+                        { id: "wait", from: "login", to: "attacker", label: "slow down: wait 30 s", at: 20010, kind: "response", only: "normal" },
+                        { id: "g8", from: "attacker", to: "login", label: "guess 8", at: 120000, only: "normal" },
+                        { id: "prove", from: "login", to: "attacker", label: "prove it: a code by email", at: 120010, kind: "failed", only: "normal" },
+                        { id: "sam", from: "sam", to: "login", label: "right password, known device", at: 180000, only: "normal" },
+                        { id: "ok", from: "login", to: "sam", label: "200: signed in", at: 180400, kind: "response", only: "normal" },
+                        { id: "g3112", from: "attacker", to: "login", label: "guess 3,112", at: 13620000, only: "failing" },
+                        { id: "no3112", from: "login", to: "attacker", label: "401", at: 13620400, kind: "response", only: "failing" },
+                        { id: "in", from: "login", to: "attacker", label: "guess 3,113: 200, signed in", at: 13680000, kind: "failed", only: "failing" },
+                        { id: "email", from: "attacker", to: "login", label: "change the email", at: 13740000, kind: "failed", only: "failing" },
+                    ],
+                },
+            },
         ],
         check: [
+            { id: "guess-reaches", kind: "pick", figure: "map", prompt: "Mark every part one guess reaches, before any fix.", parts: [
+                { id: "attacker", label: "Attacker's script" },
+                { id: "sam", label: "Sam" },
+                { id: "login", label: "Login endpoint" },
+                { id: "hash", label: "Password check" },
+                { id: "users", label: "Users table" },
+            ], answer: ["login", "hash", "users"], explanation: "Each guess is looked up in the users table and run through the slow password check. That's why guessing costs the server real work, and why nothing stops it." },
             { id: "order", kind: "order", prompt: "Put one login in order.", items: [
                 { id: "send", label: "The browser sends an email and a password" },
                 { id: "lookup", label: "The server looks up the account" },
@@ -128,6 +212,25 @@ export const LOGIN_CHAPTERS: Chapter[] = [
             { kind: "say", focus: "retry", text: "A 429 may carry a Retry-After header: how many seconds to wait, or the time to come back. A well behaved client waits. And a 429 must never be cached, so a proxy can't keep serving it." },
             { kind: "say", focus: "retry", text: "Now, the script. It ignores Retry-After and keeps going. That's fine. The point of a 429 is not that the attacker listens. It's that the server refuses cheaply, before the slow hash, and keeps refusing." },
             { kind: "note", id: "retry", text: "429 can carry Retry-After (seconds, or a date). It must not be cached. The standard does not say how to count: that part is yours." },
+            { kind: "say", focus: "why:symptom", text: "Before the fix, the causes. Start from what people saw: an account that changed hands overnight." },
+            { kind: "say", focus: "why:trigger", text: "The trigger was a script, guessing all night." },
+            { kind: "say", focus: "why:nocount", text: "It worked because nothing counted failed attempts, each guess cost the attacker only a 401, and nobody watched the failed logins." },
+            { kind: "say", focus: "why:defence", text: "And underneath: a 401 looks like the system defending itself. It isn't. It only says this guess was wrong." },
+            {
+                kind: "causes", id: "why", causes: {
+                    caption: "Read it right to left: every one of these had to be true.",
+                    symptom: { id: "symptom", label: "Sam's account changed hands", detail: "Signed in at 4:52 am, the email changed a minute later." },
+                    trigger: { id: "trigger", label: "A script guessed all night", detail: "Thousands of passwords against one email." },
+                    contributing: [
+                        { id: "nocount", label: "Nothing counted failures", detail: "Every attempt was checked on its own, with no memory of the last." },
+                        { id: "cheap", label: "Each guess cost only a 401", detail: "No wait, no challenge, no limit." },
+                        { id: "unwatched", label: "Nobody watched failed logins", detail: "The only alarm was the customer, eight hours later." },
+                    ],
+                    latent: [
+                        { id: "defence", label: "A 401 looked like a defence", detail: "It says this guess was wrong, and lets the next one straight through." },
+                    ],
+                },
+            },
         ],
         talk: {
             opening: "The attacker ignores Retry-After completely. Does a 429 still help? Tell me why, or why not.",
@@ -215,6 +318,35 @@ export const LOGIN_CHAPTERS: Chapter[] = [
             { kind: "say", focus: "trap", text: "And a second problem was hiding in the first fix. The team made it stricter: after five failures, lock the email for fifteen minutes. Now anyone can lock a real person out of their account, by typing their email with a wrong password five times." },
             { kind: "say", focus: "trap", text: "Go back to the simulator and pick one email, with lock the email. The attack stops. So does Sam, the account's owner, trying to log in with the right password. The defence became the attack." },
             { kind: "note", id: "trap", text: "A lockout on the account can be turned into a way to lock anyone out. Design it so it cannot become a denial of service." },
+            { kind: "say", focus: "lock:locked", text: "Here's the trap as states. Five wrong passwords lock the email for fifteen minutes." },
+            { kind: "say", focus: "lock:anyone", text: "But the lock can't tell who typed them. Anyone who knows Sam's email can put the account in locked, again and again." },
+            {
+                kind: "states", id: "lock", states: {
+                    caption: "An account lockout's states. The lock is on the account, so anyone can trigger it.",
+                    states: [
+                        { id: "open", label: "Open", col: 0, row: 0 },
+                        { id: "counting", label: "Counting failures", sub: "fewer than 5", col: 1, row: 0 },
+                        { id: "locked", label: "Locked 15 min", sub: "Sam is locked out too", col: 2, row: 0 },
+                        { id: "anyone", label: "Anyone, typing sam@", sub: "5 wrong passwords", col: 1, row: 1 },
+                    ],
+                    transitions: [
+                        { from: "open", to: "counting", label: "wrong" },
+                        { from: "counting", to: "open", label: "right" },
+                        { from: "counting", to: "locked", label: "5th failure" },
+                        { from: "anyone", to: "locked", label: "on purpose", bad: true },
+                    ],
+                    stuck: "locked",
+                },
+            },
+        ],
+        check: [
+            { id: "locked-who", kind: "pick", figure: "map", prompt: "An account lockout is switched on. Whose login does the attacker block by typing Sam's email five times?", parts: [
+                { id: "attacker", label: "Attacker's script" },
+                { id: "sam", label: "Sam" },
+                { id: "login", label: "Login endpoint" },
+                { id: "hash", label: "Password check" },
+                { id: "users", label: "Users table" },
+            ], answer: ["sam"], explanation: "The lock is on the account, not on the person typing, so the attacker can keep Sam out of their own account whenever they like." },
         ],
         talk: {
             opening: "Your counter never tripped, yet forty accounts fell in one night. Walk me through what the attacker changed, and why the counter couldn't see it.",
@@ -339,12 +471,69 @@ export const LOGIN_CHAPTERS: Chapter[] = [
             { kind: "say", focus: "where:rl", text: "Cloudflare also has a rate limiting binding. It's quick and simple, but it counts per Cloudflare location, it catches up a moment late, and its window is ten or sixty seconds. It's built to be permissive, not to be an exact count. Fine for a coarse limit on an endpoint. For an exact count per account, reach for the Durable Object." },
             { kind: "say", focus: "fail", text: "Last, a decision to make before you need it. If the counter store is down, do logins fail open, letting everyone through and risking guessing? Or fail closed, and lock everyone out? Write the answer down in advance." },
             { kind: "note", id: "fail", text: "Fail open risks guessing; fail closed risks locking every user out. Decide before the outage, not during it." },
+            { kind: "say", focus: "change:count", text: "Here's the whole fix on the system. Every attempt now goes through one shared count per email and per address." },
+            { kind: "say", focus: "change:score", text: "And a score that weighs the signals, so a guesser is slowed and challenged while Sam, on a known device, still gets in." },
+            { kind: "map-change", id: "change", caption: "The fix as a change to the system." },
         ],
         talk: {
             opening: "The counter store goes down at 2 am. Fail open or fail closed? Defend your choice.",
             probe: ["what failing open risks, and for how long", "what failing closed does to every real user", "why a count kept in one server's memory is wrong once there are many servers"],
         },
         sources: [S("CF-DO", "Durable Objects: one place per key"), S("CF-RL", "Locality and accuracy"), S("CF-RL", "Configuration")],
+    },
+
+
+    // ── How to run this one (INC-72) ──────────────────────────────────────────
+    {
+        id: "people",
+        act: "Beyond this case",
+        title: "How to run this one",
+        lead: "An account taken over is a security incident. Here's how a team runs it.",
+        blocks: [
+            { kind: "say", focus: "roles", text: "An account changing hands isn't a bug report. It's a security incident, and it could be happening to other accounts right now. This is how a team should run it." },
+            { kind: "say", focus: "roles:severity", text: "How bad? Critical. Someone got into a real account, and the same guessing works on every account." },
+            { kind: "say", focus: "roles:Operations", text: "Operations secures the account first: end its sessions, give Sam their email back. Then the first counter." },
+            { kind: "say", focus: "roles:Comms", text: "Comms tells Sam what happened and what to do. If more accounts turn up, comms drafts the notice." },
+            {
+                kind: "roles", id: "roles", roles: {
+                    severity: { level: "Critical (SEV-1)", why: "A real account was taken over, and the same guessing works against every account until something counts it." },
+                    roles: [
+                        { role: "Incident lead", does: "Declares a security incident, owns the decisions, and keeps a live note of what is known." },
+                        { role: "Operations", does: "Ends the account's sessions, restores Sam's email, then adds the first counter on failed logins." },
+                        { role: "Comms", does: "Tells Sam what happened and what to do next, and drafts the notice if more accounts turn up." },
+                        { role: "Planning", does: "Files the follow-ups: one shared count, the risk score, an alert on failed logins." },
+                    ],
+                    sources: [S("SRE", "Managing Incidents")],
+                },
+            },
+            { kind: "say", focus: "updates:Investigating", text: "The status page says only what's known, and never how to repeat the attack." },
+            {
+                kind: "status", id: "updates", status: {
+                    caption: "How a team would post them: an example, not the incident's record.",
+                    updates: [
+                        { at: 28800000, state: "Investigating", text: "We're investigating a report of an account being signed into without its owner. Next update within the hour." },
+                        { at: 32400000, state: "Identified", text: "Repeated password guessing reached one account. We've secured it and are checking others. If you reused your password elsewhere, change it." },
+                        { at: 50400000, state: "Monitoring", text: "Repeated failed sign-ins are now slowed and then challenged. We're watching sign-in failures." },
+                        { at: 86400000, state: "Resolved", text: "No other accounts were affected. Sign-in attempts are now counted across the whole service." },
+                    ],
+                },
+            },
+            { kind: "say", focus: "book", text: "And the runbook operations follows, step by step." },
+            { kind: "runbook", id: "book", title: "Suspected account takeover", steps: [
+                "End every session on the account.",
+                "Restore the owner's email, and ask them to set a new password.",
+                "Pull the login log for the account, and for the addresses that hit it.",
+                "Look for the same pattern on other accounts: one address, many emails, or one email, many guesses.",
+            ] },
+        ],
+        check: [
+            { id: "first-move", kind: "single", prompt: "Sam's account was taken over an hour ago. What does operations do first?", options: [
+                { id: "counter", label: "Ship the counter on failed logins" },
+                { id: "secure", label: "End the account's sessions and restore Sam's email" },
+                { id: "notice", label: "Post a notice to every customer" },
+            ], answer: "secure", explanation: "Stop the harm first: the attacker is still in. The counter comes next, and a notice only if more accounts turn out to be hit." },
+        ],
+        sources: [S("SRE", "Managing Incidents")],
     },
 
     // ── 9 ─────────────────────────────────────────────────────────────────────

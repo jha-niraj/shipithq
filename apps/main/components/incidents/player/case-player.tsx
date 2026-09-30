@@ -6,10 +6,10 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels"
 import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ExternalLink, GraduationCap, HelpCircle, Lock, ChevronRight, Flag, Mic, Pause, Play, Search, SlidersHorizontal, Sparkles } from "lucide-react"
 import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
-import { QuizRunner } from "@repo/ui/components/quiz/quiz-runner"
+import { QuizRunner, type PickFigureProps } from "@repo/ui/components/quiz/quiz-runner"
 import { grade, type QuizQuestion, type QuizResult } from "@repo/ui/lib/quiz"
 import { cn } from "@repo/ui/lib/utils"
-import type { Chapter, ChapterBlock, Flow, SourceRef } from "@/content/incidents/types"
+import type { Chapter, ChapterBlock, Flow, SourceRef, SystemMap as SystemMapData } from "@/content/incidents/types"
 import { getIncidentCase } from "@/content/incidents/cases"
 import { topicLabel, type IncidentTopicId } from "@/content/incidents"
 import type { PlayerStep } from "@/lib/incidents/catalog"
@@ -20,6 +20,16 @@ import { CaseProvider, IncidentStyles, Inline, Sources, type InlineTerm } from "
 import { CaseSimulator } from "../sim/case-simulator"
 import { Closing, Checklist, Round } from "../checklist-round"
 import { FlowChart } from "../flow-chart"
+import { SystemStrip } from "../diagrams/system-map"
+import { SequenceDiagram } from "../diagrams/sequence"
+import { Timeline } from "../diagrams/timeline"
+import { DashboardView } from "../diagrams/dashboard"
+import { CausalChainView, StateDiagramView } from "../diagrams/causes"
+import { MapChange, SystemMap } from "../diagrams/system-map"
+import { DiagramFrame } from "../diagrams/kit"
+import { ScrubProvider } from "../diagrams/scrub"
+import { RolesView, RunbookView, StatusView } from "../diagrams/human"
+import { PostmortemStep } from "./postmortem-step"
 import { MockStep } from "./mock-step"
 import { useLead } from "../lead/store"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@repo/ui/components/ui/dropdown-menu"
@@ -457,7 +467,7 @@ function StepView({ step, slug, onDone, onNext }: { step: PlayerStep; slug: stri
                 return { questionId: q.id, response, correct: grade(q, response) }
             }) : null
             return (
-                <QuizRunner key={step.key} title="Check yourself" questions={questions} initial={initial} retakeLabel="Practise again"
+                <QuizRunner key={step.key} title="Check yourself" questions={questions} initial={initial} retakeLabel="Practise again" figure={(p) => <PickFigure slug={slug} {...p} />}
                     speak={async (qid) => { const r = await speakQuestion(slug, chapter, qid); return r.success ? r.url : null }}
                     onComplete={(results) => { for (const r of results) dispatch({ type: "quiz", chapter, questionId: r.questionId, response: r.response }) }} />
             )
@@ -469,7 +479,7 @@ function StepView({ step, slug, onDone, onNext }: { step: PlayerStep; slug: stri
             return (
                 <div className="space-y-4">
                     <p className="text-[16px] leading-7 text-neutral-700 dark:text-neutral-300">Eight situations from the whole case. Answer them all, then see how you did. Your first try earns XP.</p>
-                    <QuizRunner key={step.key} title="Make the call" questions={questions} initial={initial} retakeLabel="Practise again"
+                    <QuizRunner key={step.key} title="Make the call" questions={questions} initial={initial} retakeLabel="Practise again" figure={(p) => <PickFigure slug={slug} {...p} />}
                         speak={async (qid) => { const r = await speakQuestion(slug, "final", qid); return r.success ? r.url : null }}
                         onComplete={(results) => { for (const r of results) dispatch({ type: "predict", question: r.questionId, option: String(r.response) }) }} />
                 </div>
@@ -477,6 +487,8 @@ function StepView({ step, slug, onDone, onNext }: { step: PlayerStep; slug: stri
         }
         case "round":
             return <Round />
+        case "postmortem":
+            return <PostmortemStep real={c.real as Parameters<typeof PostmortemStep>[0]["real"]} points={c.points as Parameters<typeof PostmortemStep>[0]["points"]} xp={step.xp} />
         case "talk":
             return <MockStep slug={slug} stepKey={step.key} content={c as { opening: string; probe: string[]; minutes: number; intro?: string }} onFinished={onDone} />
         case "closing-talk":
@@ -542,10 +554,29 @@ function ChapterView({ slug, chapter, stepTitle }: { slug: string; chapter: Chap
         return top
     }
 
+    // The case's system, pinned above the chapter (INC-63); `map:<part>` lights a part of it.
+    const system = getIncidentCase(slug)?.system
+
+    // A sequence builds the same way: up to the furthest message the narration has named.
+    const upToSeq = (blockId: string | undefined, messageIds: string[]): number | undefined => {
+        if (reading === null || !blockId) return undefined
+        const named = says.map((s) => parseFocus(s.focus)).filter((f) => f?.block === blockId && f.part && messageIds.includes(f.part))
+        if (!named.length) return undefined
+        let top = -1
+        says.slice(0, reading + 1).forEach((s) => {
+            const f = parseFocus(s.focus)
+            if (f?.block === blockId && f.part) top = Math.max(top, messageIds.indexOf(f.part))
+        })
+        return top
+    }
+
     let sayIndex = -1
     return (
         <div className="space-y-6">
+            {system && <div className="sticky top-0 z-30 -mx-1 bg-white/90 px-1 pb-1 backdrop-blur dark:bg-neutral-950/90"><SystemStrip map={system} chapterId={chapter.id} lit={focus?.block === "map" ? focus.part : null} /></div>}
             <p className="text-[17px] leading-8 text-neutral-600 dark:text-neutral-400">{chapter.lead}</p>
+            {/* One moment shared by the chapter's timeline and dashboard (INC-65, INC-66). */}
+            <ScrubProvider>
             <div className="space-y-6">
                 {chapter.blocks.map((b, i) => {
                     if (b.kind === "say") {
@@ -564,11 +595,12 @@ function ChapterView({ slug, chapter, stepTitle }: { slug: string; chapter: Chap
                     const dim = !!focus && !lit
                     return (
                         <div key={i} ref={(el) => { refs.current[id] = el }} className={cn("scroll-mt-24 transition-opacity duration-300", dim && "opacity-40")}>
-                            <Block block={b} part={lit ? focus!.part : null} upTo={b.kind === "flow" ? upToFor(b.id, b.flow) : undefined} terms={terms} onTerm={onTerm} />
+                            <Block block={b} part={lit ? focus!.part : null} upTo={b.kind === "flow" ? upToFor(b.id, b.flow) : b.kind === "sequence" ? upToSeq(b.id, b.sequence.messages.map((m) => m.id)) : undefined} terms={terms} onTerm={onTerm} system={system} />
                         </div>
                     )
                 })}
             </div>
+            </ScrubProvider>
             {chapter.glossary && chapter.glossary.length > 0 && <Glossary terms={chapter.glossary} onAsk={(g) => g.key && onTerm({ key: g.key, term: g.term })} />}
             {chapter.links && chapter.links.length > 0 && (
                 <ul className="flex flex-wrap gap-2">
@@ -583,6 +615,20 @@ function ChapterView({ slug, chapter, stepTitle }: { slug: string; chapter: Chap
             )}
             <Sources refs={(chapter.sources ?? []) as SourceRef[]} />
         </div>
+    )
+}
+
+/**
+ * A "pick" check's figure (INC-71): the case's system map, tappable, with the incident's
+ * marks hidden so the picture doesn't give the answer away.
+ */
+function PickFigure({ slug, q, picked, toggle, answer }: PickFigureProps & { slug: string }) {
+    const system = getIncidentCase(slug)?.system
+    if (q.figure !== "map" || !system) return null
+    return (
+        <DiagramFrame compact>
+            <SystemMap map={system} showIncident={false} pick={{ picked, toggle, answer }} />
+        </DiagramFrame>
     )
 }
 
@@ -667,12 +713,30 @@ function SpeakingBars() {
     )
 }
 
-function Block({ block, part = null, upTo, terms, onTerm }: { block: ChapterBlock; part?: string | null; upTo?: number; terms?: InlineTerm[]; onTerm?: (t: InlineTerm) => void }) {
+function Block({ block, part = null, upTo, terms, onTerm, system }: { block: ChapterBlock; part?: string | null; upTo?: number; terms?: InlineTerm[]; onTerm?: (t: InlineTerm) => void; system?: SystemMapData }) {
     switch (block.kind) {
         case "say":
             return null
         case "flow":
             return <FlowChart flow={block.flow} lit={part} upTo={upTo} />
+        case "sequence":
+            return <SequenceDiagram sequence={block.sequence} lit={part} upTo={upTo} />
+        case "timeline":
+            return <Timeline timeline={block.timeline} lit={part} />
+        case "dashboard":
+            return <DashboardView dashboard={block.dashboard} lit={part} />
+        case "causes":
+            return <CausalChainView causes={block.causes} lit={part} />
+        case "states":
+            return <StateDiagramView states={block.states} lit={part} />
+        case "map-change":
+            return system ? <MapChange map={system} lit={part} caption={block.caption} /> : null
+        case "roles":
+            return <RolesView roles={block.roles} lit={part} />
+        case "status":
+            return <StatusView status={block.status} lit={part} />
+        case "runbook":
+            return <RunbookView title={block.title} steps={block.steps} lit={part} />
         case "note":
             return <p className="rounded-2xl border-l-4 border-neutral-900 bg-neutral-50 px-5 py-4 text-[16px] font-medium leading-7 text-neutral-900 dark:border-white dark:bg-neutral-900 dark:text-white"><Inline text={block.text} terms={terms} onTerm={onTerm} /></p>
         case "see":

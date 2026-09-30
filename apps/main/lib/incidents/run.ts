@@ -12,7 +12,7 @@ import type { Progress } from "@/components/incidents/case-progress"
 export const RUN_CONSENT =
     "Keep my check and quiz answers, the questions I ask the lead with its answers, and the transcripts of my talks in this case, to build my report. I can delete the run and its report at any time."
 
-export type RunEventKind = "check" | "quiz" | "ask" | "talk" | "step"
+export type RunEventKind = "check" | "quiz" | "ask" | "talk" | "step" | "postmortem"
 
 export async function activeRun(userId: string, slug: string) {
     return db.query.incidentRuns.findFirst({

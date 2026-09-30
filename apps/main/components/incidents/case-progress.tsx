@@ -1,5 +1,6 @@
 "use client"
 
+import type { PostmortemDraft } from "@/content/incidents/postmortem"
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from "react"
 import toast from "@repo/ui/components/ui/sonner"
 import { recordIncidentProgress } from "@/actions/(main)/incidents/incidents.action"
@@ -30,6 +31,8 @@ export type Progress = {
     checks: Record<string, QuizResponse>
     /** Steps the reader marked done with "Got it, continue" (INC-20). */
     stepsDone: string[]
+    /** The postmortem the reader is writing (INC-72). */
+    postmortem: PostmortemDraft | null
 }
 
 type Action =
@@ -43,9 +46,10 @@ type Action =
     | { type: "roundReset" }
     | { type: "quiz"; chapter: string; questionId: string; response: QuizResponse }
     | { type: "stepDone"; stepKey: string }
+    | { type: "postmortem"; draft: PostmortemDraft }
 
 export const EMPTY_PROGRESS: Progress = {
-    fork: null, modelSeen: false, simulatorPlayed: false, predictions: {}, treeLeaf: null, checklist: [], round: {}, checks: {}, stepsDone: [],
+    fork: null, modelSeen: false, simulatorPlayed: false, predictions: {}, treeLeaf: null, checklist: [], round: {}, checks: {}, stepsDone: [], postmortem: null,
 }
 
 function reduce(s: Progress, a: Action): Progress {
@@ -66,6 +70,7 @@ function reduce(s: Progress, a: Action): Progress {
             return k in s.checks ? s : { ...s, checks: { ...s.checks, [k]: a.response } }
         }
         case "stepDone": return s.stepsDone.includes(a.stepKey) ? s : { ...s, stepsDone: [...s.stepsDone, a.stepKey] }
+        case "postmortem": return { ...s, postmortem: a.draft }
     }
 }
 
@@ -114,6 +119,8 @@ function toInput(slug: string, s: Progress, a: Action): ProgressInput | null {
         case "roundReset": return null
         case "quiz": return `${a.chapter}:${a.questionId}` in s.checks ? null : { slug, kind: "check", chapter: a.chapter, questionId: a.questionId, response: a.response }
         case "stepDone": return s.stepsDone.includes(a.stepKey) ? null : { slug, kind: "step", stepKey: a.stepKey }
+        // Saved every time (the caller debounces): the text keeps changing.
+        case "postmortem": return { slug, kind: "postmortem", draft: a.draft }
     }
 }
 

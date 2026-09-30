@@ -243,3 +243,65 @@ tied together and turned into a one-page review when they finish.
     hand-written code.
 17. Case 1's simulator runs on the same engine and still shows what it shows today.
 18. The case sidebar shows one row per chapter, with only the current one open.
+
+## The visual kit: incidents at the systems level (Niraj, 2026-09-30)
+
+Asked for: make the cases more technical without making them about code. Show how the system
+is built, how requests and responses move, how the incident unfolded in time, what on-call
+saw, why it happened, how the fix changed the system, and the human side of running an
+incident. All four idea groups were picked.
+
+**Decisions**
+
+- **One diagram kit, in the flowchart's style.** Hand-built SVG, monochrome with emerald and
+  rose, drawn from data in the case file, building and lighting in step with the narration
+  (a `say` block's `focus` can name any part of any diagram). Not Mermaid: it can't follow the
+  narration or match the product. A small in-house layered layout places nodes so authors
+  don't hand-set every box; hand positions still override.
+- **The system map is pinned above every chapter**: a compact strip at the top of the middle
+  pane, expandable to full size, showing the case's services (client, edge, compute, store,
+  queue, external API, AI) and their links, with the chapter's parts lit, the broken part
+  marked during the incident and the blast radius shaded.
+- **Sequence diagrams** show request and response cycles as lanes and arrows with times, a
+  cut line where something stops (the 30 s limit), and a normal / failing toggle.
+- **The incident's own clock**: a timeline of what happened when (deploy, first report,
+  alert, escalation, wrong guess, mitigation, fix, postmortem) with time to detect, to
+  mitigate and to resolve.
+- **Dashboard replay**: the charts on-call saw (error rate, p95, 5xx, queue depth), written
+  per case as a few points per minute shaped from the cited sources, scrubbing with the
+  timeline. Never presented as the company's real data.
+- **Causal chain and state diagrams**: from the user's symptom back to the trigger, the
+  contributing factors and the latent weakness; a state diagram where a record's states
+  explain the failure (case 1's "generating" forever).
+- **The fix as a before and after** of the system map: what was added, removed or changed,
+  and what each change costs.
+- **Checks on the diagrams**: click where it broke, put the messages in order, mark every
+  part that loses data. They count like the other checks (XP once per item).
+- **The human side**: severity, who does what (incident lead, comms, scribe), status-page
+  updates as posted, a runbook excerpt, and a postmortem the student writes from a template,
+  then compared with the real one by a checklist (no AI call).
+- **Order**: the kit first, then case 1 complete, then case 2, then the diagram checks and
+  the human side across both.
+- **The human side is framed as "How to run this one"** (Niraj, 2026-09-30): how a team
+  should run this incident, from standard practice (Google's SRE book, "Managing
+  Incidents", cited as a source), never presented as what happened.
+- **Writing the postmortem earns 30 XP, once** (the same as `INCIDENT_XP.report`), when all
+  five sections are filled in. The step sits after "Spot the failure", before the closing
+  talk.
+- **Authoring**: a check script validates every diagram's references; INC-60's AI drafting
+  will draft diagrams too, reviewed like scenarios.
+
+**Done when**
+
+19. Every chapter of both cases shows the pinned system map with its parts lit, and the
+    narration lights parts of any diagram on the page.
+20. Each case has at least one request/response sequence with timings and a failing path.
+21. Each case has its incident timeline with time to detect, mitigate and resolve, and a
+    dashboard replay that scrubs with it.
+22. Each case has a causal chain; case 1 has its state diagram; each fix is shown as a
+    before and after of the map.
+23. Each case has at least two diagram checks, scored like the other checks.
+24. Each case has a human-side chapter and a postmortem step with the comparison checklist,
+    saved with the run.
+25. Every diagram works at 375px and 1440px, with reduced motion, in both themes, and
+    `pnpm script check-incident-diagrams` passes.

@@ -3,39 +3,21 @@
 import { useId } from "react"
 import { cn } from "@repo/ui/lib/utils"
 import type { Flow, FlowNode } from "@/content/incidents/types"
+import { BOX, DiagramFrame, HaloText, INK, LINE, LitRing, Markers, SUB, arrowId, type Tone } from "./diagrams/kit"
+import { connector } from "./diagrams/layout"
 
 /**
  * A flowchart drawn from data (plan/incidents INC-22; Niraj, 2026-09-26: "keep it to
  * something like a flowchart ... no code"). Nodes are boxes on the chart's own grid;
  * each edge leaves the side of its node that faces the other one. Edges marked
- * `flowing` carry moving dashes, `bad` ones are rose. Monochrome with dark pairs;
- * reduced motion keeps every edge, still.
+ * `flowing` carry moving dashes, `bad` ones are rose. Drawn with the shared diagram kit
+ * (INC-62), so it looks and lights like every other incident diagram.
  */
 
 const W = 170
 const H = 58
 
-const MOTION = `
-@keyframes fc-dash { to { stroke-dashoffset: -20; } }
-.fc-flow { stroke-dasharray: 6 4; animation: fc-dash 1s linear infinite; }
-@keyframes fc-in { from { opacity: 0; } to { opacity: 1; } }
-.fc-in { animation: fc-in 0.4s ease-out both; }
-@media (prefers-reduced-motion: reduce) { .fc-flow, .fc-in { animation: none; } }
-`
-
-type Box = { x: number; y: number; w: number; h: number }
-
-const box = (n: FlowNode): Box => ({ x: n.x, y: n.y, w: n.w ?? W, h: n.h ?? H })
-const cx = (b: Box) => b.x + b.w / 2
-const cy = (b: Box) => b.y + b.h / 2
-
-/** The point on a box's border facing another box. */
-function anchor(a: Box, b: Box): { x: number; y: number } {
-    const dx = cx(b) - cx(a)
-    const dy = cy(b) - cy(a)
-    if (Math.abs(dx) * a.h > Math.abs(dy) * a.w) return { x: dx > 0 ? a.x + a.w : a.x, y: cy(a) }
-    return { x: cx(a), y: dy > 0 ? a.y + a.h : a.y }
-}
+const box = (n: FlowNode) => ({ x: n.x, y: n.y, w: n.w ?? W, h: n.h ?? H })
 
 /**
  * `lit`: the node the lead is talking about (INC-49): ringed, the rest dimmed.
@@ -43,62 +25,42 @@ function anchor(a: Box, b: Box): { x: number; y: number } {
  * once `upTo` reaches it; nodes without one are always there. Undefined shows all.
  */
 export function FlowChart({ flow, className, lit = null, upTo }: { flow: Flow; className?: string; lit?: string | null; upTo?: number }) {
-    const id = useId().replace(/:/g, "")
+    const uid = useId().replace(/:/g, "")
     const byId = new Map(flow.nodes.map((n) => [n.id, n]))
     const visible = (n: FlowNode) => upTo === undefined || n.order === undefined || n.order <= upTo
+    // A pair of opposite edges (open -> counting, counting -> open) is drawn as two parallel lines.
+    const pair = new Set(flow.edges.map((e) => `${e.from}>${e.to}`))
     return (
-        <figure className={cn("overflow-hidden rounded-3xl border border-neutral-200 bg-neutral-50/60 p-4 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900/40", className)}>
-            <style>{MOTION}</style>
-            <svg viewBox={`-10 -10 ${flow.width + 20} ${flow.height + 20}`} role="img" aria-label={flow.caption ?? "Flowchart"} className="h-auto w-full">
-                <defs>
-                    <marker id={`fc-arrow-${id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                        <path d="M0 0 L10 5 L0 10 z" className="fill-neutral-500 dark:fill-neutral-400" />
-                    </marker>
-                    <marker id={`fc-arrow-bad-${id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                        <path d="M0 0 L10 5 L0 10 z" className="fill-rose-500" />
-                    </marker>
-                </defs>
+        <DiagramFrame caption={flow.caption} className={className}>
+            {/* Never larger than its natural size: a narrow chart would otherwise scale its text up. */}
+            <svg viewBox={`-10 -10 ${flow.width + 20} ${flow.height + 20}`} role="img" aria-label={flow.caption ?? "Flowchart"} className="mx-auto h-auto w-full" style={{ maxWidth: flow.width + 20 }}>
+                <defs><Markers uid={uid} /></defs>
 
                 {flow.edges.map((e, i) => {
                     const a = byId.get(e.from)
                     const b = byId.get(e.to)
-                    if (!a || !b) return null
-                    const p = anchor(box(a), box(b))
-                    const q = anchor(box(b), box(a))
-                    // A gentle elbow when the two ends are not aligned.
-                    const midX = (p.x + q.x) / 2
-                    const midY = (p.y + q.y) / 2
-                    const straight = Math.abs(p.y - q.y) < 2 || Math.abs(p.x - q.x) < 2
-                    const sideways = p.x === box(a).x || p.x === box(a).x + box(a).w
-                    const d = straight
-                        ? `M${p.x} ${p.y} L${q.x} ${q.y}`
-                        : sideways
-                            ? `M${p.x} ${p.y} L${midX} ${p.y} L${midX} ${q.y} L${q.x} ${q.y}`
-                            : `M${p.x} ${p.y} L${p.x} ${midY} L${q.x} ${midY} L${q.x} ${q.y}`
-                    // The label sits BESIDE the line's middle stretch, never on it (INC-46):
-                    // to the right of a vertical stretch, above a horizontal one.
-                    const vertical = straight ? Math.abs(p.x - q.x) < 2 : sideways
-                    const label = vertical
-                        ? { x: (straight ? p.x : midX) + 9, y: midY + 4, anchor: "start" as const }
-                        : { x: midX, y: (straight ? p.y : midY) - 8, anchor: "middle" as const }
-                    const hidden = !visible(a) || !visible(b)
-                    if (hidden) return null
+                    if (!a || !b || !visible(a) || !visible(b)) return null
+                    const { d, label } = connector(box(a), box(b))
+                    const twin = pair.has(`${e.to}>${e.from}`)
+                    const sideways = Math.abs(box(b).x - box(a).x) > Math.abs(box(b).y - box(a).y)
+                    const shift = twin ? (e.from < e.to ? 9 : -9) : 0
                     return (
-                        <g key={i} className={cn("transition-opacity duration-300", lit && lit !== e.from && lit !== e.to && "opacity-30")}>
+                        <g key={i} transform={shift ? (sideways ? `translate(0 ${shift})` : `translate(${shift} 0)`) : undefined}
+                            className={cn("transition-opacity duration-300", lit && lit !== e.from && lit !== e.to && "opacity-30")}>
                             <path
                                 d={d}
                                 fill="none"
                                 strokeWidth={1.6}
                                 strokeLinejoin="round"
-                                markerEnd={`url(#${e.bad ? "fc-arrow-bad" : "fc-arrow"}-${id})`}
+                                markerEnd={`url(#${arrowId(uid, e.bad ? "bad" : "default")})`}
                                 strokeDasharray={e.dashed && !e.flowing ? "5 5" : undefined}
-                                className={cn(e.bad ? "stroke-rose-500" : "stroke-neutral-400 dark:stroke-neutral-500", e.flowing && "fc-flow")}
+                                className={cn(e.bad ? LINE.bad : LINE.default, e.flowing && "dk-flow")}
                             />
                             {e.label && (
-                                <text x={label.x} y={label.y} textAnchor={label.anchor} paintOrder="stroke" strokeWidth={5} strokeLinejoin="round"
-                                    className={cn("font-mono text-[11px] stroke-neutral-50 dark:stroke-neutral-900", e.bad ? "fill-rose-600 dark:fill-rose-400" : "fill-neutral-500 dark:fill-neutral-400")}>
+                                <HaloText x={label.x} y={label.y} textAnchor={label.anchor}
+                                    className={cn("font-mono text-[11px]", e.bad ? "fill-rose-600 dark:fill-rose-400" : "fill-neutral-500 dark:fill-neutral-400")}>
                                     {e.label}
-                                </text>
+                                </HaloText>
                             )}
                         </g>
                     )
@@ -107,30 +69,20 @@ export function FlowChart({ flow, className, lit = null, upTo }: { flow: Flow; c
                 {flow.nodes.map((n) => {
                     if (!visible(n)) return null
                     const b = box(n)
-                    const tone = n.tone ?? "default"
-                    const isLit = lit === n.id
+                    const tone: Tone = n.tone ?? "default"
+                    const r = n.decision ? b.h / 2 : 14
                     return (
-                        <g key={n.id} className={cn("transition-opacity duration-300", lit && !isLit && "opacity-35", n.order !== undefined && "fc-in")}>
-                            {isLit && <rect x={b.x - 5} y={b.y - 5} width={b.w + 10} height={b.h + 10} rx={(n.decision ? b.h / 2 : 14) + 5} fill="none" strokeWidth={2} className="stroke-neutral-900 dark:stroke-white" />}
-                            <rect
-                                x={b.x} y={b.y} width={b.w} height={b.h} rx={n.decision ? b.h / 2 : 14}
+                        <g key={n.id} className={cn("transition-opacity duration-300", lit && lit !== n.id && "opacity-35", n.order !== undefined && "dk-in")}>
+                            {lit === n.id && <LitRing {...b} r={r} />}
+                            <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={r}
                                 strokeWidth={tone === "strong" ? 2 : 1.4}
                                 strokeDasharray={n.decision ? "6 4" : undefined}
-                                className={cn(
-                                    tone === "strong" && "fill-neutral-900 stroke-neutral-900 dark:fill-white dark:stroke-white",
-                                    tone === "bad" && "fill-rose-50 stroke-rose-500 dark:fill-rose-950/60",
-                                    tone === "muted" && "fill-transparent stroke-neutral-300 dark:stroke-neutral-700",
-                                    tone === "default" && "fill-white stroke-neutral-300 dark:fill-neutral-950 dark:stroke-neutral-700",
-                                )}
-                            />
-                            <text x={cx(b)} y={n.sub ? cy(b) - 4 : cy(b) + 5} textAnchor="middle" className={cn(
-                                "text-[14px] font-semibold",
-                                tone === "strong" ? "fill-white dark:fill-neutral-900" : tone === "bad" ? "fill-rose-700 dark:fill-rose-300" : tone === "muted" ? "fill-neutral-500 dark:fill-neutral-400" : "fill-neutral-900 dark:fill-white",
-                            )}>
+                                className={BOX[tone]} />
+                            <text x={b.x + b.w / 2} y={n.sub ? b.y + b.h / 2 - 4 : b.y + b.h / 2 + 5} textAnchor="middle" className={cn("text-[14px] font-semibold", INK[tone])}>
                                 {n.label}
                             </text>
                             {n.sub && (
-                                <text x={cx(b)} y={cy(b) + 14} textAnchor="middle" className={cn("font-mono text-[10.5px]", tone === "strong" ? "fill-neutral-300 dark:fill-neutral-600" : "fill-neutral-500 dark:fill-neutral-400")}>
+                                <text x={b.x + b.w / 2} y={b.y + b.h / 2 + 14} textAnchor="middle" className={cn("font-mono text-[10.5px]", SUB[tone])}>
                                     {n.sub}
                                 </text>
                             )}
@@ -138,7 +90,6 @@ export function FlowChart({ flow, className, lit = null, upTo }: { flow: Flow; c
                     )
                 })}
             </svg>
-            {flow.caption && <figcaption className="mt-3 text-center text-[13px] text-neutral-500 dark:text-neutral-400">{flow.caption}</figcaption>}
-        </figure>
+        </DiagramFrame>
     )
 }

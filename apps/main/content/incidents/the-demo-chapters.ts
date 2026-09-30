@@ -14,6 +14,7 @@ import type { Chapter, SourceRef } from "./types"
 
 const SW = (section: string): SourceRef => ({ source: "SW", section })
 const WFP = (section: string): SourceRef => ({ source: "WFP", section })
+const S2 = (section: string): SourceRef => ({ source: "SRE", section })
 
 export const DEMO_GLOSSARY: Record<string, { term: string; definition: string; pathTopic?: string }> = {
     worker: { term: "Worker", definition: "Your code running on Cloudflare's servers, close to the user. It starts when a request arrives and is meant to answer it.", pathTopic: "Long-running work on Cloudflare Workers" },
@@ -80,8 +81,55 @@ export const DEMO_CHAPTERS: Chapter[] = [
             },
             { kind: "say", focus: "stopped", text: "The diagnosis came fast. Cloudflare kills requests at 30 seconds. It sounds right. It's wrong, and the rest of this case is how you'd know." },
             { kind: "note", id: "stopped", text: "Nothing failed. Something stopped. Keep that difference in mind: it is the whole case." },
+            { kind: "say", focus: "clock:refresh", text: "Here's the whole incident on one clock. T plus zero is the click on the call. The warning came fifteen minutes before it. The refresh came thirty seconds after." },
+            { kind: "say", focus: "clock:detect", text: "Look at the spans. Two minutes and ten seconds to notice nothing was running. Three minutes to a workaround. And about eighteen hours to the real cause, after a wrong guess." },
+            {
+                kind: "timeline", id: "clock", timeline: {
+                    start: "Thursday, 4:00 pm: Generate clicked on the client call",
+                    caption: "Times from the story. The fix's ship date isn't in the sources, so the clock stops at the real cause.",
+                    events: [
+                        { id: "warn", at: -900000, kind: "comms", label: "Teammate warns", detail: "\"That generate step runs over two minutes... I really wouldn't demo that one live.\"" },
+                        { id: "click", at: 0, kind: "action", label: "Generate clicked" },
+                        { id: "call1", at: 5000, kind: "action", label: "Model call 1 starts" },
+                        { id: "refresh", at: 30000, kind: "mistake", label: "Refresh to nudge it", detail: "The browser drops the old request, and the work inside it stops mid-call." },
+                        { id: "stuck", at: 31000, kind: "signal", label: "Page: Generating" },
+                        { id: "noticed", at: 130000, kind: "signal", label: "Still generating", detail: "Nothing is running, so nothing will ever finish." },
+                        { id: "workaround", at: 180000, kind: "action", label: "Shows an old report", detail: "The demo carries on with an old result." },
+                        { id: "blame", at: 65520000, kind: "mistake", label: "Blames Cloudflare", detail: "Friday, 10:12 am: \"Workers have a 30 second limit.\"" },
+                        { id: "found", at: 65700000, kind: "resolution", label: "Real cause found", detail: "\"Workers have three things that are 30 seconds. Which one?\" None of them: it was the refresh." },
+                    ],
+                    spans: [
+                        { id: "detect", label: "Time to notice", from: "click", to: "noticed" },
+                        { id: "mitigate", label: "Time to a workaround", from: "click", to: "workaround" },
+                        { id: "cause", label: "Time to the real cause", from: "click", to: "found" },
+                    ],
+                },
+            },
+            { kind: "say", focus: "board:errors", text: "And here's what a dashboard would have shown. Errors: zero, the whole time. Nothing failed, so an error alert would never fire." },
+            { kind: "say", focus: "board:stuck", text: "The only line that moved is this one. A run marked generating with nothing behind it, and it stays there. That's the signal worth alerting on." },
+            {
+                kind: "dashboard", id: "board", dashboard: {
+                    caption: "Errors stayed at zero, so an error alert never fires. The line worth watching is the stuck one.",
+                    series: [
+                        { id: "requests", name: "Open requests", unit: "requests", points: [[0, 0], [1000, 1], [30000, 1], [30500, 0], [31000, 1], [31600, 0], [180000, 0]] },
+                        { id: "calls", name: "Model calls in flight", unit: "calls", points: [[0, 0], [5000, 0], [5100, 1], [30000, 1], [30500, 0], [180000, 0]] },
+                        { id: "errors", name: "Errors logged", unit: "errors", points: [[0, 0], [180000, 0]] },
+                        { id: "stuck", name: "Runs with nothing behind them", unit: "runs", bad: true, points: [[0, 0], [30000, 0], [30500, 1], [180000, 1]] },
+                    ],
+                    markers: [
+                        { id: "m-refresh", at: 30000, label: "refresh" },
+                        { id: "m-noticed", at: 130000, label: "noticed" },
+                    ],
+                },
+            },
         ],
         check: [
+            { id: "where-stopped", kind: "pick", figure: "map", prompt: "Tap the part of the system where the work stopped.", parts: [
+                { id: "browser", label: "Browser" },
+                { id: "worker", label: "Your handler" },
+                { id: "db", label: "Database" },
+                { id: "model", label: "AI model API" },
+            ], answer: ["worker"], explanation: "The handler held the whole job, and it stopped when the refresh closed the connection. The model and the database were fine; they just stopped hearing from it." },
             { id: "row", kind: "single", prompt: "The next morning, what did the job's database row say?", options: [
                 { id: "failed", label: "Failed, with a timeout error" },
                 { id: "generating", label: "Still generating, with no error at all" },
@@ -128,8 +176,43 @@ export const DEMO_CHAPTERS: Chapter[] = [
             { kind: "note", id: "clocks", text: "Two clocks run during a request. Wall clock time counts everything, waiting included. CPU time counts only the moments your code is actually executing." },
             { kind: "say", focus: "catch", text: "But here's the catch. The work only exists while the request exists. If the connection goes away, the handler goes with it, halfway through a model call or wherever it happened to be." },
             { kind: "note", id: "catch", text: "Work inside a request lives exactly as long as its connection." },
+            { kind: "say", focus: "lifecycle:call1", text: "Here is the whole job, message by message. The click opens one request. The handler marks the job as generating, then starts the first of four model calls." },
+            { kind: "say", focus: "lifecycle:cut", text: "At thirty seconds, the refresh. The browser drops the connection, and the handler goes with it. That's the red line across every lane." },
+            { kind: "say", focus: "lifecycle:late", text: "The first answer comes back five seconds later, and nobody is there to take it. The reloaded page reads the row: still generating. Switch to Normal to see the two minutes it needed." },
+            {
+                kind: "sequence", id: "lifecycle", sequence: {
+                    caption: "One request carried the whole job, so the job lived exactly as long as the connection.",
+                    variants: { normal: "Nobody refreshes: four calls, about two minutes, then the report.", failing: "The refresh at 30 seconds: what actually happened on the call." },
+                    actors: [
+                        { id: "browser", label: "Browser", sub: "the client's tab" },
+                        { id: "worker", label: "Your handler", sub: "a Worker isolate" },
+                        { id: "model", label: "AI model API", sub: "about 30 s a call" },
+                        { id: "db", label: "Database", sub: "the job's row" },
+                    ],
+                    messages: [
+                        { id: "click", from: "browser", to: "worker", label: "Generate: one request", at: 0 },
+                        { id: "mark", from: "worker", to: "db", label: "status = generating", at: 50 },
+                        { id: "call1", from: "worker", to: "model", label: "call 1 of 4", at: 5000 },
+                        { id: "reload", from: "browser", to: "worker", label: "reload: read the job", at: 31000, only: "failing" },
+                        { id: "still", from: "worker", to: "browser", label: "generating", at: 31000, kind: "response", only: "failing" },
+                        { id: "late", from: "model", to: "worker", label: "answer 1: nobody listening", at: 35000, kind: "failed", only: "failing" },
+                        { id: "answers", from: "model", to: "worker", label: "answers 1 to 4, one by one", at: 120000, kind: "response", only: "normal" },
+                        { id: "done", from: "worker", to: "db", label: "status = done, report saved", at: 121000, only: "normal" },
+                        { id: "report", from: "worker", to: "browser", label: "the report", at: 121000, kind: "response", only: "normal" },
+                    ],
+                    cuts: [{ at: 30000, label: "Refresh: the connection closes, the handler stops", only: "failing" }],
+                },
+            },
         ],
         check: [
+            { id: "night-order", kind: "order", prompt: "Put the failing night in order, message by message.", items: [
+                { id: "click", label: "Generate: one request opens" },
+                { id: "mark", label: "The handler sets the row to generating" },
+                { id: "call1", label: "Model call 1 of 4 starts" },
+                { id: "refresh", label: "The refresh closes the connection; the handler stops" },
+                { id: "reload", label: "The reloaded page reads: generating" },
+                { id: "late", label: "Answer 1 arrives, and nobody is listening" },
+            ], explanation: "Everything after the refresh happens to a job with nothing running it, which is why the row never moves again." },
             { id: "order", kind: "order", prompt: "Put a request's life in order.", items: [
                 { id: "open", label: "The browser opens a connection and sends the request" },
                 { id: "start", label: "Cloudflare runs your handler in an isolate" },
@@ -274,8 +357,55 @@ export const DEMO_CHAPTERS: Chapter[] = [
             { kind: "say", focus: "cannot", text: "Error handling protects you from errors your code throws. It can't protect you from your code being switched off." },
             { kind: "say", focus: "cannot", text: "So something else has to notice. A status row anyone can check, and a rule like this: working for ten minutes with no progress means it died." },
             { kind: "note", id: "cannot", text: "A cancelled process cannot report that it was cancelled. Any design that waits for 'failed' to be written will wait forever on exactly the failure that matters most." },
+            { kind: "say", focus: "row-states:generating", text: "Now follow the row, not the code. It's created, then set to generating. From there it has two ways out: done, or failed." },
+            { kind: "say", focus: "row-states:stopped", text: "The refresh took a third way that no code wrote. The run stopped, and the row kept its last value. Generating, forever." },
+            {
+                kind: "states", id: "row-states", states: {
+                    caption: "The row's states. Only two of the ways out write anything.",
+                    states: [
+                        { id: "created", label: "Job created" },
+                        { id: "generating", label: "generating" },
+                        { id: "done", label: "done", sub: "the report saved" },
+                        { id: "failed", label: "failed", sub: "the catch block's error" },
+                        { id: "stopped", label: "Run cancelled", sub: "writes nothing" },
+                    ],
+                    transitions: [
+                        { from: "created", to: "generating", label: "start" },
+                        { from: "generating", to: "done", label: "4 answers" },
+                        { from: "generating", to: "failed", label: "an error" },
+                        { from: "generating", to: "stopped", label: "refresh", bad: true },
+                    ],
+                    stuck: "generating",
+                },
+            },
+            { kind: "say", focus: "why:symptom", text: "So why did it happen? Start from what people saw: a report that never arrived." },
+            { kind: "say", focus: "why:trigger", text: "The trigger was the refresh at thirty seconds." },
+            { kind: "say", focus: "why:inrequest", text: "But a refresh only matters because the whole job ran inside the request, and a cancelled run can't write down that it stopped." },
+            { kind: "say", focus: "why:localdev", text: "And underneath, weaknesses that were there all along. Local dev enforces none of the Worker limits, so it never failed on a laptop." },
+            {
+                kind: "causes", id: "why", causes: {
+                    caption: "Read it right to left: every one of these had to be true.",
+                    symptom: { id: "symptom", label: "The report never arrived", detail: "The row still says generating, with an empty error column." },
+                    trigger: { id: "trigger", label: "A refresh at 30 s", detail: "Refreshing closed the connection, which cancelled the run mid-call." },
+                    contributing: [
+                        { id: "inrequest", label: "The job ran inside the request", detail: "Its lifetime was the browser connection's." },
+                        { id: "nocatch", label: "A cancelled run can't write", detail: "No catch block runs, so nothing records that it stopped." },
+                        { id: "noreaper", label: "Nothing fails stalled runs", detail: "The page polls a dead row forever." },
+                    ],
+                    latent: [
+                        { id: "localdev", label: "Local dev enforces no limits", detail: "It never failed on a laptop." },
+                        { id: "tabs", label: "Tab switching looked like background work", detail: "It only proved the connection never broke." },
+                    ],
+                },
+            },
         ],
         check: [
+            { id: "left-wrong", kind: "pick", figure: "map", prompt: "Mark every part that was left with something wrong or missing.", parts: [
+                { id: "browser", label: "Browser" },
+                { id: "worker", label: "Your handler" },
+                { id: "db", label: "Database" },
+                { id: "model", label: "AI model API" },
+            ], answer: ["db", "browser"], explanation: "The database row still said generating, and the browser never got its report. The handler was simply gone, and the model had nothing wrong with it." },
             { id: "why-empty", kind: "single", prompt: "Why was the error column empty?", options: [
                 { id: "no-error", label: "Because no error happened" },
                 { id: "cancelled", label: "Because the run was stopped before any code could record anything" },
@@ -347,6 +477,37 @@ export const DEMO_CHAPTERS: Chapter[] = [
             { kind: "say", focus: "shape:alarm", text: "Now closing the tab changes nothing. Refreshing just starts reading again. And if a deploy ends a run, the reaper marks it failed, so nothing waits forever." },
             { kind: "say", focus: "once", text: "One more thing. Let the job's id pick the Durable Object. Then a second click lands on the same one, and it can refuse to start twice." },
             { kind: "note", id: "once", text: "Make the job's id decide which Durable Object runs it (idFromName). A second click, or a second tab, lands on the same object." },
+            { kind: "say", focus: "change:job", text: "Here's the fix drawn on the system itself. The handler only starts the job now, and replies at once. A Durable Object, picked by the job's id, does the four calls from its alarm." },
+            { kind: "say", focus: "change:reaper", text: "And a reaper, on its own self-rescheduling alarm, fails any run with no progress for ten minutes. No row waits forever." },
+            { kind: "map-change", id: "change", caption: "The fix as a change to the system." },
+            { kind: "say", focus: "after:refresh", text: "Now replay the demo on the fixed system. The same refresh at thirty seconds just reads the row again, and the job carries on." },
+            {
+                kind: "sequence", id: "after", sequence: {
+                    caption: "The work lives in the alarm, so the browser can come and go.",
+                    tabs: { normal: "Nobody refreshes", failing: "Refresh at 30 s" },
+                    variants: { normal: "The job runs in the alarm; the page reads the row until it says done.", failing: "The same refresh as the demo. The job carries on." },
+                    actors: [
+                        { id: "browser", label: "Browser", sub: "the client's tab" },
+                        { id: "worker", label: "Start request", sub: "returns 202" },
+                        { id: "job", label: "Job runner", sub: "Durable Object alarm" },
+                        { id: "model", label: "AI model API", sub: "about 30 s a call" },
+                        { id: "db", label: "Database", sub: "the status row" },
+                    ],
+                    messages: [
+                        { id: "click", from: "browser", to: "worker", label: "Generate", at: 0 },
+                        { id: "start", from: "worker", to: "job", label: "start job-123", at: 20 },
+                        { id: "accepted", from: "worker", to: "browser", label: "202 Accepted", at: 40, kind: "response" },
+                        { id: "mark", from: "job", to: "db", label: "status = working", at: 60 },
+                        { id: "call1", from: "job", to: "model", label: "call 1 of 4", at: 5000 },
+                        { id: "refresh", from: "browser", to: "worker", label: "reload: read the job", at: 31000, only: "failing" },
+                        { id: "working", from: "worker", to: "browser", label: "working", at: 31000, kind: "response", only: "failing" },
+                        { id: "answers", from: "model", to: "job", label: "answers 1 to 4", at: 120000, kind: "response" },
+                        { id: "done", from: "job", to: "db", label: "status = done, report saved", at: 121000 },
+                        { id: "poll", from: "browser", to: "worker", label: "poll: read the job", at: 124000, kind: "async" },
+                        { id: "report", from: "worker", to: "browser", label: "done: the report", at: 124000, kind: "response" },
+                    ],
+                },
+            },
         ],
         check: [
             { id: "fix-order", kind: "order", prompt: "Put the fixed flow in order.", items: [
@@ -447,6 +608,61 @@ export const DEMO_CHAPTERS: Chapter[] = [
             ], answer: "twice", explanation: "A thrown alarm is retried. Work with side effects must be idempotent, or the alarm must catch and write a final status so nothing retries blindly." },
         ],
         sources: [SW("1. Alarms retry, so the work must be idempotent"), SW("2. Two tabs start two runs"), SW("3. Runs already stuck stay stuck"), SW("4. An outbound call with no timeout hangs the job"), SW("How to prove a fix worked"), SW("You cannot test any of this locally")],
+    },
+
+
+    // ── How to run this one (INC-72) ──────────────────────────────────────────
+    {
+        id: "people",
+        act: "Beyond this case",
+        title: "How to run this one",
+        lead: "The same incident, run by a team: who decides, who fixes, who talks.",
+        blocks: [
+            { kind: "say", focus: "roles", text: "This was a demo, not a pager going off. But it became an incident, and incidents go better with a few clear roles. This is how a team should run it, not how it was run." },
+            { kind: "say", focus: "roles:severity", text: "First, how bad is it? One customer-facing feature is broken for everyone who uses it, and nothing is lost but the stuck jobs. High, not an outage." },
+            { kind: "say", focus: "roles:Incident lead", text: "One person leads. They decide, hand out the work, and keep a live note of what's known. They don't debug." },
+            { kind: "say", focus: "roles:Comms", text: "One person talks to the client, in plain words, on a schedule. Everyone else stays quiet and fixes." },
+            {
+                kind: "roles", id: "roles", roles: {
+                    severity: { level: "High (SEV-2)", why: "A customer-facing feature fails for everyone who uses it. Nothing else is down, and no data is lost beyond the stuck jobs." },
+                    roles: [
+                        { role: "Incident lead", does: "Owns the incident: decides, assigns the work, and keeps a live note of what is known. Doesn't debug." },
+                        { role: "Operations", does: "The only one changing the system: finds runs stuck in generating and marks them failed, so no page waits forever." },
+                        { role: "Comms", does: "Tells the client what happened and when they'll hear next, in plain words, on a schedule." },
+                        { role: "Planning", does: "Files the follow-ups: the Durable Object refactor, the reaper, the release check." },
+                    ],
+                    sources: [S2("Managing Incidents")],
+                },
+            },
+            { kind: "say", focus: "updates:Investigating", text: "Here's what the client could have read. First, an honest holding line: something's wrong, we're on it, next update at a set time." },
+            { kind: "say", focus: "updates:Identified", text: "Then, once the cause is known, what it is and what to do meanwhile. Don't refresh while a report runs." },
+            {
+                kind: "status", id: "updates", status: {
+                    caption: "How a team would post them: an example, not the incident's record.",
+                    updates: [
+                        { at: 180000, state: "Investigating", text: "Report generation isn't finishing for some jobs. We're looking into it. Next update in 30 minutes." },
+                        { at: 65700000, state: "Identified", text: "A report stops if its page is refreshed or closed while it runs. Please keep the page open until it finishes. We're moving generation off the page." },
+                        { at: 65700000 + 86400000, state: "Monitoring", text: "Reports now run in the background and survive a refresh. We're watching new runs." },
+                        { at: 65700000 + 172800000, state: "Resolved", text: "Reports finish whether or not the page stays open. Stuck jobs from before have been marked failed; run them again." },
+                    ],
+                },
+            },
+            { kind: "say", focus: "book", text: "And the first thing operations reaches for: a short runbook, so nobody has to think under pressure." },
+            { kind: "runbook", id: "book", title: "Stuck report jobs", steps: [
+                "Find runs still generating with no progress for ten minutes.",
+                "Mark them failed, with the reason, so their pages stop waiting.",
+                "Tell each owner, and offer to run it again.",
+                "Check whether a deploy or a refresh lines up with when they stopped.",
+            ] },
+        ],
+        check: [
+            { id: "who-talks", kind: "single", prompt: "During the incident, who tells the client what's going on?", options: [
+                { id: "lead", label: "The incident lead, between decisions" },
+                { id: "comms", label: "One person whose job is comms" },
+                { id: "whoever", label: "Whoever is closest to the fix" },
+            ], answer: "comms", explanation: "One voice, on a schedule. The lead stays free to decide, and the people fixing stay focused on the fix." },
+        ],
+        sources: [S2("Managing Incidents")],
     },
 
     // ── 9 ─────────────────────────────────────────────────────────────────────

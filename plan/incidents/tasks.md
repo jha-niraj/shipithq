@@ -63,7 +63,19 @@ Build in order. Browser checks are Niraj's.
 | INC-57 | Case 2 content: "The login that said yes to guessing", 9 chapters, sourced | built and seeded 2026-09-28, listen-through Niraj |
 | INC-58 | Case 2's attack-vs-defence scenario | done 2026-09-28 (all 15 combinations checked) |
 | INC-59 | Case 2's Pathfinder path, "Protecting logins", and its seed | done 2026-09-28 |
-| INC-60 | AI-drafted scenarios, reviewed in apps/admin | next round |
+| INC-60 | AI-drafted scenarios and diagrams (map, sequences, timeline, checks), reviewed in apps/admin; `check-incident-diagrams` gates them | next round |
+| INC-62 | Diagram kit foundation: shared parts, focus from narration, build order, layered layout | built 2026-09-30 (flowchart on the kit, unchanged in Chrome) |
+| INC-63 | The system map: schema, component, pinned strip above every chapter, expandable | built 2026-09-30 (case 1's map in Chrome: strip, lit chapter parts, broken and blast, Expand) |
+| INC-64 | Sequence diagrams: lanes, timed messages, cut lines, normal / failing toggle | built 2026-09-30 (case 1's lifecycle in Chrome: both paths, the cut at 30 s; seeded) |
+| INC-65 | The incident timeline: events, phases, time to detect, mitigate, resolve | built 2026-09-30 (case 1's clock in Chrome: labels fit, three spans, tap scrubs the dashboard) |
+| INC-66 | Dashboard replay: authored series, charts that scrub with the timeline | built 2026-09-30 (case 1's four charts in Chrome, scrubbed from the timeline) |
+| INC-67 | Causal chain and state diagrams | built 2026-09-30 (case 1's causal chain and row states in Chrome) |
+| INC-68 | The fix as a before and after of the system map | built 2026-09-30 (case 1's before and after in Chrome, with its own after layout) |
+| INC-69 | Case 1 with the full kit, sourced, seeded | built 2026-09-30 (map, two sequences, timeline, dashboard, states, causes, before/after; seeded) |
+| INC-70 | Case 2 with the full kit, sourced, seeded | built 2026-09-30 (map, login sequence, timeline, dashboard, causes, lockout states, before/after; seeded; seen in Chrome) |
+| INC-71 | Checks on the diagrams: pick the part, order the messages, mark all | built 2026-09-30 (new `pick` kind, graded on the server too; 3 checks per case; tap on the map seen in Chrome) |
+| INC-72 | The human side: severity, roles, status updates, runbook, the postmortem step | built 2026-09-30 ("How to run this one" chapter + checks, the postmortem step with autosave and comparison, 30 XP once on the server; case 2 got its postmortem; seeded; form and comparison seen on a temporary preview) |
+| INC-73 | `check-incident-diagrams` script; INC-60 drafts diagrams too | done 2026-09-30 (`npx tsx scripts/check-incident-diagrams.ts` passes both cases; `--planted` fails as it should) |
 
 ## INC-1 - Routes and the sign-in dialog
 **Files** `apps/main/app/(public)/incidents/{page,layout,loading}.tsx`,
@@ -814,3 +826,90 @@ Decisions and "done when" (7 to 10) are in `overview.md`, "Runs and the run repo
   - No off-palette colours, no dashes.
 - **Seed:** both cases gained `start` and `learn` (existing keys unchanged). Applied; the next check was "Nothing to change".
 - **Checked on dev:** both cases open on Start ("Sign in to start" signed out), `?step=learn` shows "Adopt this path", chapters and the index return 200, and tsc is clean.
+
+
+## Round 6: the visual kit (Niraj, 2026-09-30)
+Decisions and Done-when 19 to 25 are in overview.md ("The visual kit"). Build in this order.
+Diagram content is general and conceptual: services, requests, time and causes, never code.
+
+### INC-62 Diagram kit foundation
+- **Why:** seven new diagram kinds must look, build and light the same way as the flowchart.
+- **Files:** `apps/main/components/incidents/diagrams/{kit,layout,focus}.ts(x)`, `components/incidents/flow-chart.tsx` (moves onto the kit), `content/incidents/types.ts`.
+- **Steps:** shared node and edge drawing (tones, lit, broken, added, removed), a `focus` registry so a `say` block's focus can name `map:worker` or `seq:cut`; build-in by order; reduced motion; a layered layout (columns by tier, rows by order) with hand positions overriding.
+- **Edge cases:** a focus id that names nothing (the check script, INC-73, rejects it); long labels wrap inside nodes; 375px scales the SVG, never scrolls the page sideways.
+- **Done when:** case 1's existing flow blocks render through the kit unchanged, and a focus id lights a node in another diagram on the same step.
+
+### INC-63 The system map
+- **Why:** the reader never sees the whole system; every chapter is a close-up with no wide shot.
+- **Files:** `types.ts` (`system: { nodes, links, groups, incident }` on a case; `map?: string[]` on a chapter), `diagrams/system-map.tsx`, `player/case-player.tsx`.
+- **Steps:** node kinds (client, edge, compute, store, queue, external, ai) with small icons; groups (e.g. "Cloudflare"); links with labels; `incident.broken` and `incident.blast`. A compact strip pinned above the chapter body with the chapter's parts lit; "Expand" opens it full size in a sheet; narration lights parts as it reads.
+- **Edge cases:** a chapter with no `map` shows the map unlit; the strip collapses to a one-line breadcrumb of lit parts at 375px; the strip never pushes the step's controls off screen.
+- **Done when:** case 1's every chapter shows the strip with the right parts lit, and Expand shows the full map.
+
+### INC-64 Sequence diagrams
+- **Why:** incidents are about who called whom, in what order and how long it took.
+- **Files:** `types.ts` (block `sequence: { actors, messages: {from, to, label, at, kind}, cuts, variants }`), `diagrams/sequence.tsx`, `player/chapter-view.tsx`.
+- **Steps:** actors as columns, messages as arrows down the page with times; kinds request, response, async, failed; a cut line ("30 s: the platform stops the request"); a Normal / Failing toggle; steps light in order with the narration.
+- **Edge cases:** more than 5 actors scroll inside the diagram, not the page; times shown as ms, s or min as they grow.
+- **Done when:** case 1's request lifecycle plays both paths, with the cut at 30 s.
+
+### INC-65 The incident timeline
+- **Why:** how an incident runs (noticed late, a wrong guess, a mitigation before the fix) is the lesson on-call needs.
+- **Files:** `types.ts` (block `timeline: { events: {at, label, kind}, phases }`), `diagrams/incident-timeline.tsx`.
+- **Steps:** a horizontal clock (vertical at 375px), events by kind (change, signal, action, comms, resolution), spans for detect, mitigate and resolve with their durations.
+- **Edge cases:** events minutes apart and days apart on one line: a broken axis; relative times ("T+14 min") when the sources give no clock.
+- **Done when:** case 1's timeline shows the three spans with their durations.
+
+### INC-66 Dashboard replay
+- **Why:** on-call reads graphs before they know the cause; the cases never show one.
+- **Files:** `types.ts` (block `dashboard: { series: {name, unit, points}, markers }`), `diagrams/dashboard.tsx` (visx or recharts from packages/ui), links to the timeline.
+- **Steps:** two to four small charts sharing one time axis, the incident marked, a scrubber shared with the timeline block on the same chapter; a caption says the numbers are illustrative, shaped from the sources.
+- **Edge cases:** a case with no timeline scrubs on its own; charts legible in both themes (monochrome, rose for the bad series).
+- **Done when:** case 1's error-rate and latency charts scrub with its timeline.
+
+### INC-67 Causal chain and state diagrams
+- **Why:** "the root cause" hides how many things had to line up.
+- **Files:** `types.ts` (blocks `causes: { symptom, trigger, contributing, latent }` and `states: { states, transitions, stuck }`), `diagrams/causal-chain.tsx`, `diagrams/state-diagram.tsx`.
+- **Steps:** the chain drawn from the symptom back, each factor with one line and its source; states as nodes, transitions as labelled edges, the stuck state marked.
+- **Edge cases:** a factor shared by two causes is drawn once; loops in states draw as curves.
+- **Done when:** case 1 has both, and case 2 has its chain.
+
+### INC-68 The fix as a before and after
+- **Why:** a fix is a change to the system; drawing it is clearer than describing it.
+- **Files:** `types.ts` (`system.after` as a diff: added, removed, changed, each with a cost note), `diagrams/system-map.tsx` (a Before / After toggle).
+- **Steps:** the map with added parts in emerald, removed in rose dashed, changed outlined; cost notes on hover or tap.
+- **Edge cases:** a fix that changes no services (a setting) shows the changed link.
+- **Done when:** case 1's fix chapter shows the Durable Object alarm and the reaper as added.
+
+### INC-69 Case 1 with the full kit
+- **Why:** proves the kit on a real case.
+- **Files:** `content/incidents/the-demo-that-died-at-30-seconds.ts`, `the-demo-chapters.ts`, the seed.
+- **Steps:** the system map, a sequence per request path, the timeline and dashboard in "The incident", the causal chain and state diagram in "Why nothing was saved", the before and after in "The fix"; every part sourced; narration `focus` ids updated. Seed with preview then `--apply`.
+- **Edge cases:** existing progress keys stay unchanged.
+- **Done when:** Done-when 19 to 22 hold for case 1 in Chrome.
+
+### INC-70 Case 2 with the full kit
+- **Why:** the second case proves the kit is general.
+- **Files:** `the-login-that-said-yes-to-guessing.ts`, `the-login-chapters.ts`, the seed.
+- **Steps:** as INC-69 (login path sequence: attempt, lookup, hash, 401; the counter's store on the map; the attack timeline and a failed-logins dashboard).
+- **Done when:** Done-when 19 to 22 hold for case 2 in Chrome.
+
+### INC-71 Checks on the diagrams
+- **Why:** answering on the picture is practice; looking at it is not.
+- **Files:** the quiz runner (`packages/ui`, INC-19) gains `pick` (tap a part), `order` on sequence messages and `mark-all`; `types.ts`; both cases' chapters.
+- **Steps:** the check shows the diagram unlit; the answer lights the right parts and explains; XP once per item like other checks.
+- **Edge cases:** keyboard: parts are focusable buttons with names; at 375px a list of parts is offered beside the tap target.
+- **Done when:** each case has two diagram checks that score and save.
+
+### INC-72 The human side
+- **Why:** an incident is people coordinating under pressure, not just a bug.
+- **Files:** `types.ts` (blocks `roles`, `status` (updates as posted), `runbook`; a `postmortem` step), `player/postmortem-step.tsx`, the run's saved answers.
+- **Steps:** a chapter per case with severity, roles and status updates; the postmortem step: a template (impact, timeline, causes, what went well, actions) the student fills, then the real postmortem beside it with a checklist of what theirs covered; saved with the run; "Just read" stores nothing.
+- **Edge cases:** a long answer autosaves; the comparison is honest when the real postmortem is short.
+- **Done when:** both cases have the chapter and the step, and a filled postmortem survives a reload.
+
+### INC-73 Diagram checks and authoring
+- **Why:** diagrams reference ids across the case; a typo shows a dead highlight.
+- **Files:** `packages/db/src/scripts/check-incident-diagrams.ts` (or `apps/main/scripts/` beside `check-incident-sims.ts`), INC-60's task text.
+- **Steps:** every focus id, map id, sequence actor and check answer resolves; sources exist; run it on both cases. Note in INC-60 that the AI drafts diagrams too, reviewed like scenarios.
+- **Done when:** the script passes on both cases and fails on a planted bad id.

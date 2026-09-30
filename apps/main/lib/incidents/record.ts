@@ -10,6 +10,7 @@ import { stepsFor } from "@/content/incidents/steps"
 import { grade, isAnswered, type QuizResponse } from "@repo/ui/lib/quiz"
 import { addXpToUser } from "@/actions/(main)/user/level.action"
 import { recordActivity, activityKey } from "@repo/db/activity"
+import { POSTMORTEM_MAX_CHARS, POSTMORTEM_SECTIONS, postmortemComplete, type PostmortemDraft } from "@/content/incidents/postmortem"
 
 /**
  * Saving a reader's progress in an Incidents case, and the XP that comes with it
@@ -31,6 +32,8 @@ export type ProgressInput =
     | { slug: string; kind: "check"; chapter: string; questionId: string; response: QuizResponse }
     /** "Got it, continue" on a step (INC-20). */
     | { slug: string; kind: "step"; stepKey: string }
+    /** The student's postmortem, saved as they write it (INC-72): 30 XP the first time it's complete. */
+    | { slug: string; kind: "postmortem"; draft: PostmortemDraft }
 
 export type ProgressResult =
     | { success: true; xpEarned: number; levelUps: { level: number; title: string }[]; badges: { key: string; title: string }[] }
@@ -100,6 +103,8 @@ export async function recordProgressFor(userId: string, input: ProgressInput): P
                 row = { kind: "step", itemId: input.stepKey }
                 break
             }
+            case "postmortem":
+                return savePostmortem(userId, c.slug, c.title, c.postmortemPoints, input.draft)
         }
 
         const inserted = await insertOnce(userId, c.slug, row)
@@ -228,4 +233,43 @@ async function awardBadges(userId: string): Promise<{ key: string; title: string
 
 function safeParse(v: string): unknown {
     try { return JSON.parse(v) } catch { return v }
+}
+
+
+/**
+ * The student's postmortem (INC-72): saved in place as they write, since the text keeps
+ * changing. Only the five sections and the case's own points are kept. The first save that
+ * completes it earns 30 XP and goes into the recorded run.
+ */
+async function savePostmortem(
+    userId: string, slug: string, title: string,
+    points: Record<string, { id: string }[]> | undefined, draft: PostmortemDraft,
+): Promise<ProgressResult> {
+    if (!points) return { success: false, error: "This case has no postmortem step." }
+    const known = new Set(Object.values(points).flat().map((p) => p.id))
+    const clean: PostmortemDraft = {
+        sections: Object.fromEntries(POSTMORTEM_SECTIONS.map((sec) => [sec.id, String(draft?.sections?.[sec.id] ?? "").slice(0, POSTMORTEM_MAX_CHARS)])),
+        covered: [...new Set((Array.isArray(draft?.covered) ? draft.covered : []).filter((id) => known.has(id)))],
+    }
+    const value = JSON.stringify(clean)
+    const [before] = await db.select({ id: incidentProgress.id, xpAwarded: incidentProgress.xpAwarded }).from(incidentProgress)
+        .where(and(eq(incidentProgress.userId, userId), eq(incidentProgress.caseSlug, slug), eq(incidentProgress.kind, "postmortem"), eq(incidentProgress.itemId, "postmortem")))
+    const [row] = await db.insert(incidentProgress)
+        .values({ userId, caseSlug: slug, kind: "postmortem", itemId: "postmortem", value })
+        .onConflictDoUpdate({ target: [incidentProgress.userId, incidentProgress.caseSlug, incidentProgress.kind, incidentProgress.itemId], set: { value } })
+        .returning({ id: incidentProgress.id, xpAwarded: incidentProgress.xpAwarded })
+    let xpEarned = 0
+    const levelUps: { level: number; title: string }[] = []
+    if (row && postmortemComplete(clean) && !(before?.xpAwarded ?? 0) && !row.xpAwarded) {
+        const r = await addXpToUser(userId, INCIDENT_XP.report, `Incidents: ${title}, a written postmortem`, "EARN")
+        if (r.success) {
+            await db.update(incidentProgress).set({ xpAwarded: INCIDENT_XP.report }).where(eq(incidentProgress.id, row.id))
+            xpEarned = INCIDENT_XP.report
+            if ("levelUps" in r && r.levelUps) levelUps.push(...r.levelUps.map((l) => ({ level: l.level, title: l.title })))
+            await addRunEvent(userId, slug, "postmortem", "postmortem", { ledger: "postmortem", response: clean })
+        } else {
+            console.error("[incidents] postmortem XP failed:", "error" in r ? r.error : "unknown")
+        }
+    }
+    return { success: true, xpEarned, levelUps, badges: [] }
 }

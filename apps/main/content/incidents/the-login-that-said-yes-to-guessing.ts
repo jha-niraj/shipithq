@@ -25,6 +25,7 @@ export const loginThatSaidYes: IncidentCase = {
         "OWASP-PW": { title: "Password Storage Cheat Sheet", author: "OWASP", date: "2026" },
         "CF-RL": { title: "Workers: Rate Limiting binding", author: "Cloudflare", date: "2026" },
         "CF-DO": { title: "Durable Objects", author: "Cloudflare", date: "2026" },
+        SRE: { title: "Site Reliability Engineering, chapter 14: Managing Incidents", author: "Google", date: "2016" },
     },
     story: [],
     model: {
@@ -76,6 +77,105 @@ export const loginThatSaidYes: IncidentCase = {
             sources: [S("OWASP-AUTH", "Account lockout")],
         },
         afterShip: [],
+    },
+    // The postmortem as the team would write it (INC-72): a composite, from the chapters.
+    postmortem: {
+        summary: "A customer's account was taken over overnight after a script guessed its password about three thousand times. Every guess got a correct 401, and nothing counted them. The first fix, a counter per email, missed password spraying two weeks later and could lock real people out.",
+        sections: [
+            { title: "Root cause", items: [
+                "Nothing counted failed logins, so each guess cost the attacker only a 401.",
+                "The first counter was per email: spraying one password across many emails never passed one failure per email.",
+            ] },
+            { title: "Why nobody saw it coming", items: [
+                "A 401 looks like the system defending itself; it only says this guess was wrong.",
+                "No alert watched failed logins, so a customer was the only alarm.",
+            ] },
+            { title: "What we changed", items: [
+                "Failures are counted per email and per address in one shared place, updated in one step.",
+                "A score from four signals picks a graded answer: allow, slow, ask for proof, or refuse.",
+                "The login answers the same way, in the same time, whether or not the email exists.",
+                "We decided in advance whether logins fail open or closed when the counter is down.",
+            ] },
+        ],
+        sources: [S("OWASP-CS", "Brute force, credential stuffing and password spraying"), S("OWASP-AUTH", "Account lockout"), S("CF-DO", "Durable Objects")],
+    },
+    postmortemPoints: {
+        impact: [
+            { id: "i-account", label: "One account taken over; its email changed" },
+            { id: "i-owner", label: "The real owner locked out of their own account" },
+        ],
+        timeline: [
+            { id: "t-night", label: "Guessing from 1:04 am, the break-in at 4:52" },
+            { id: "t-report", label: "Noticed only when the customer wrote in, at 9:02" },
+        ],
+        causes: [
+            { id: "c-count", label: "Nothing counted failed logins" },
+            { id: "c-401", label: "A 401 looked like a defence" },
+            { id: "c-alert", label: "No alert watched failed logins" },
+        ],
+        well: [
+            { id: "w-log", label: "The login log kept every attempt, so the story could be rebuilt" },
+            { id: "w-report", label: "The customer wrote in, and the team pulled the log at once" },
+        ],
+        actions: [
+            { id: "a-shared", label: "Count per email and per address in one shared place" },
+            { id: "a-score", label: "A score from several signals: slow, challenge, or refuse" },
+            { id: "a-alert", label: "Alert on a spike in failed logins" },
+        ],
+    },
+
+    // The system as one picture (INC-63), and the fix as a change to it (INC-68).
+    system: {
+        caption: "The login's system: every guess reached the password check.",
+        groups: [{ id: "service", label: "The service" }],
+        nodes: [
+            { id: "attacker", label: "Attacker's script", sub: "guess after guess", kind: "client", col: 0, row: 0 },
+            { id: "sam", label: "Sam", sub: "the account's owner", kind: "client", col: 0, row: 1 },
+            { id: "login", label: "Login endpoint", sub: "answers 200 or 401", kind: "compute", group: "service", col: 1, row: 0 },
+            { id: "hash", label: "Password check", sub: "slow hash, on purpose", kind: "compute", group: "service", col: 2, row: 0 },
+            { id: "users", label: "Users table", sub: "email + hash", kind: "store", group: "service", col: 1, row: 1 },
+        ],
+        links: [
+            { from: "attacker", to: "login", label: "guesses" },
+            { from: "sam", to: "login", label: "signs in" },
+            { from: "login", to: "hash", label: "check" },
+            { from: "login", to: "users", label: "look up" },
+        ],
+        incident: {
+            broken: ["login"],
+            blast: ["users", "sam"],
+            note: "Every guess got a correct 401, and nothing counted them. At 4:52 one guess was right, and Sam's account changed hands.",
+        },
+        after: {
+            note: "Every attempt is counted in one place and weighed. Guessers are slowed and challenged; Sam still gets in.",
+            added: [
+                { id: "score", label: "Risk score", sub: "four signals, one verdict", kind: "compute", group: "service", col: 2, row: 0 },
+                { id: "count", label: "Shared count", sub: "a Durable Object per key", kind: "cache", group: "service", col: 2, row: 1 },
+            ],
+            addedLinks: [
+                { from: "login", to: "score", label: "score it first" },
+                { from: "score", to: "count", label: "one step" },
+                { from: "score", to: "hash", label: "if allowed" },
+            ],
+            removedLinks: [{ from: "login", to: "hash" }],
+            changed: ["login"],
+            move: { hash: { col: 3, row: 0 } },
+            notes: {
+                count: "Every request for an email reaches the same object, so the count is exact. Decide in advance whether logins fail open or closed if it is down.",
+                score: "Adds the signals into one graded answer: allow, slow, ask for proof, or refuse. No single counter locks a real person out.",
+                login: "Answers the same way, in the same time, whether the email exists or the password is wrong.",
+            },
+        },
+        chapters: {
+            "incident": ["login", "users"],
+            "what-login-does": ["login", "hash", "users"],
+            "too-many": ["attacker", "login"],
+            "per-email": ["login"],
+            "second-incident": ["attacker", "login", "sam"],
+            "per-ip": ["attacker", "login"],
+            "signals": ["login"],
+            "where-counts-live": ["login"],
+        },
     },
     chapters: LOGIN_CHAPTERS,
     learn: LOGIN_LEARN,

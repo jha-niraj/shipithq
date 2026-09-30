@@ -271,6 +271,7 @@ export const demoThatDiedAt30Seconds: IncidentCase = {
     sources: {
         SW: { title: "Long-Running Work on Standalone Workers", author: "Niraj Jha", date: "2026-09-25" },
         WFP: { title: "Long-Running Work on Workers for Platforms", author: "Niraj Jha", date: "2026-09-25" },
+        SRE: { title: "Site Reliability Engineering, chapter 14: Managing Incidents", author: "Google", date: "2016" },
     },
 
     story: [
@@ -584,6 +585,89 @@ export const demoThatDiedAt30Seconds: IncidentCase = {
         sources: [SW("What survives what"), SW("Environment variables do not reach a background job"), SW("What bites after the fix ships"), WFP("The distinction everything turns on"), SW("How to prove a fix worked")],
     },
 
+    // What a good postmortem of this case covers (INC-72).
+    postmortemPoints: {
+        impact: [
+            { id: "i-demo", label: "The client demo failed: the report never arrived" },
+            { id: "i-row", label: "The job's row stayed generating, with no error" },
+        ],
+        timeline: [
+            { id: "t-warn", label: "The warning, fifteen minutes before the demo" },
+            { id: "t-refresh", label: "The refresh at thirty seconds" },
+            { id: "t-cause", label: "The real cause, found the next morning after a wrong guess" },
+        ],
+        causes: [
+            { id: "c-inrequest", label: "The two-minute job ran inside the request" },
+            { id: "c-cancel", label: "A cancelled run can't write down its own failure" },
+            { id: "c-local", label: "Local dev enforces none of the Worker limits" },
+        ],
+        well: [
+            { id: "w-warn", label: "A teammate flagged the risk before the demo" },
+            { id: "w-row", label: "The row kept the evidence: status, an empty error, the last update" },
+        ],
+        actions: [
+            { id: "a-do", label: "Run the job in a Durable Object alarm; return 202 and poll" },
+            { id: "a-reaper", label: "A reaper fails runs with no progress for ten minutes" },
+            { id: "a-check", label: "A release check closes the browser mid-run" },
+        ],
+    },
+
+    // The system as one picture (INC-63): pinned above every chapter.
+    system: {
+        caption: "The demo's system: one request carried the whole job.",
+        groups: [
+            { id: "cloudflare", label: "Cloudflare" },
+            { id: "provider", label: "The AI provider" },
+        ],
+        nodes: [
+            { id: "browser", label: "Browser", sub: "holds the request open", kind: "client" },
+            { id: "worker", label: "Your handler", sub: "a Worker isolate", kind: "compute", group: "cloudflare", col: 1, row: 0 },
+            { id: "db", label: "Database", sub: "the job's row", kind: "store", group: "cloudflare", col: 1, row: 1 },
+            { id: "model", label: "AI model API", sub: "about 30 s a call", kind: "ai", group: "provider", col: 2, row: 0 },
+        ],
+        links: [
+            { from: "browser", to: "worker", label: "one request" },
+            { from: "worker", to: "model", label: "4 calls, awaited" },
+            { from: "worker", to: "db", label: "status" },
+        ],
+        incident: {
+            broken: ["worker"],
+            blast: ["db", "browser"],
+            note: "A refresh at 30 seconds closed the connection. The handler stopped mid-job, so the report never arrived and the row still says \"generating\".",
+        },
+        after: {
+            note: "The work left the request. Closing, refreshing or deploying can no longer strand a job.",
+            added: [
+                { id: "job", label: "Job runner", sub: "Durable Object alarm", kind: "compute", group: "cloudflare", col: 2, row: 0 },
+                { id: "reaper", label: "Reaper", sub: "alarm, every 10 min", kind: "compute", group: "cloudflare", col: 1, row: 1 },
+            ],
+            addedLinks: [
+                { from: "worker", to: "job", label: "start by job id" },
+                { from: "job", to: "model", label: "4 calls + timeouts" },
+                { from: "job", to: "db", label: "status + progress" },
+                { from: "reaper", to: "db", label: "fail stalled runs" },
+            ],
+            removedLinks: [{ from: "worker", to: "model" }, { from: "worker", to: "db" }],
+            changed: ["worker", "browser"],
+            move: { browser: { col: 0, row: 0 }, db: { col: 2, row: 1 }, model: { col: 3, row: 0 } },
+            notes: {
+                job: "Runs the four calls from its alarm, with no browser attached. The cost: a refactor, since the work moves out of the handler.",
+                reaper: "Fails runs with no progress for ten minutes. A self-rescheduling alarm, because crons never fire in the namespace.",
+                worker: "Only starts the job and replies 202 at once.",
+                browser: "Reads the status row every few seconds instead of waiting on the work.",
+            },
+        },
+        chapters: {
+            "incident": ["worker", "db"],
+            "request-life": ["browser", "worker", "model"],
+            "three-limits": ["worker", "model"],
+            "survives": ["browser", "worker"],
+            "nothing-saved": ["worker", "db"],
+            "fix": ["worker", "db"],
+            "env": ["worker"],
+            "running": ["worker", "db"],
+        },
+    },
     chapters: DEMO_CHAPTERS,
     learn: DEMO_LEARN,
     glossary: DEMO_GLOSSARY,

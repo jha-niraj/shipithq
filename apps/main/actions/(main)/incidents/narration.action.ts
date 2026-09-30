@@ -48,7 +48,7 @@ export async function speakQuestion(slug: string, scope: string, questionId: str
     const questions = scope === "final" ? finalQuiz(c) : c.chapters?.find((ch) => ch.id === scope)?.check ?? []
     const q = questions.find((x) => x.id === questionId)
     if (!q) return { success: false, error: "Unknown question." }
-    const options = q.kind === "single" ? ` The options: ${q.options.map((o, i) => `${i + 1}, ${o.label}`).join(". ")}.` : q.kind === "truefalse" ? " True or false?" : ""
+    const options = q.kind === "single" ? ` The options: ${q.options.map((o, i) => `${i + 1}, ${o.label}`).join(". ")}.` : q.kind === "truefalse" ? " True or false?" : q.kind === "pick" ? ` The parts: ${q.parts.map((p) => p.label).join(", ")}.` : ""
     try {
         return await speak(`${q.prompt}${options}`, `${slug}/question/${scope}-${questionId}`)
     } catch (error: unknown) {

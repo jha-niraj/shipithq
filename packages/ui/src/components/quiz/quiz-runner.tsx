@@ -23,7 +23,10 @@ import { grade, isAnswered, scrambled, type QuizQuestion, type QuizResponse, typ
 
 const READ_ALOUD_KEY = "quiz:read-aloud"
 
-export function QuizRunner({ questions, title, onComplete, initial, onRetake, retakeLabel = "Try again", className, speak }: {
+/** What a "pick" question's figure gets: the parts picked, a toggle, and (in the results) the answer to show. */
+export type PickFigureProps = { q: Extract<QuizQuestion, { kind: "pick" }>; picked: string[]; toggle?: (id: string) => void; answer?: string[] }
+
+export function QuizRunner({ questions, title, onComplete, initial, onRetake, retakeLabel = "Try again", className, speak, figure }: {
     questions: QuizQuestion[]
     title?: string
     onComplete?: (results: QuizResult[]) => void | Promise<void>
@@ -35,6 +38,8 @@ export function QuizRunner({ questions, title, onComplete, initial, onRetake, re
     className?: string
     /** Audio for a question, for the opt-in read-aloud switch. */
     speak?: (questionId: string) => Promise<string | null>
+    /** Draws a "pick" question's figure (the host's diagram), tappable (INC-71). */
+    figure?: (props: PickFigureProps) => React.ReactNode
 }) {
     const reduced = useReducedMotion()
     const [index, setIndex] = useState(0)
@@ -77,7 +82,7 @@ export function QuizRunner({ questions, title, onComplete, initial, onRetake, re
     }
 
     if (results) {
-        return <Results questions={questions} results={results} className={className} retakeLabel={retakeLabel} onRetake={() => { onRetake?.(); setResults(null); setResponses({}); setIndex(0) }} />
+        return <Results questions={questions} results={results} className={className} retakeLabel={retakeLabel} figure={figure} onRetake={() => { onRetake?.(); setResults(null); setResponses({}); setIndex(0) }} />
     }
     if (!q) return null
 
@@ -110,7 +115,7 @@ export function QuizRunner({ questions, title, onComplete, initial, onRetake, re
                 >
                     <p className="text-[18px] font-semibold leading-snug tracking-tight text-neutral-900 dark:text-white">{q.prompt}</p>
                     <div className="mt-5">
-                        <Answer q={q} value={responses[q.id]} onChange={(v) => setResponses((r) => ({ ...r, [q.id]: v }))} />
+                        <Answer q={q} value={responses[q.id]} onChange={(v) => setResponses((r) => ({ ...r, [q.id]: v }))} figure={figure} />
                     </div>
                 </motion.div>
             </AnimatePresence>
@@ -138,7 +143,30 @@ const choice = (on: boolean) => cn(
     on ? "border-neutral-900 bg-neutral-100 text-neutral-900 dark:border-white dark:bg-neutral-900 dark:text-white" : "border-neutral-200 text-neutral-800 hover:border-neutral-400 dark:border-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600",
 )
 
-function Answer({ q, value, onChange }: { q: QuizQuestion; value: QuizResponse | undefined; onChange: (v: QuizResponse) => void }) {
+function Answer({ q, value, onChange, figure }: { q: QuizQuestion; value: QuizResponse | undefined; onChange: (v: QuizResponse) => void; figure?: (props: PickFigureProps) => React.ReactNode }) {
+    if (q.kind === "pick") {
+        const picked = (value as string[] | undefined) ?? []
+        const many = q.answer.length > 1
+        // One answer: a tap replaces the pick. Several: a tap adds or removes it.
+        const toggle = (id: string) => onChange(many ? (picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id]) : [id])
+        return (
+            <div className="space-y-3">
+                {figure && <div>{figure({ q, picked, toggle })}</div>}
+                {many && <p className="text-[13px] text-neutral-600 dark:text-neutral-400">Pick every one that applies.</p>}
+                <div role={many ? "group" : "radiogroup"} aria-label={q.prompt} className="flex flex-wrap gap-2">
+                    {q.parts.map((p) => {
+                        const on = picked.includes(p.id)
+                        return (
+                            <button key={p.id} type="button" role={many ? "checkbox" : "radio"} aria-checked={on} onClick={() => toggle(p.id)}
+                                className={cn("inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13.5px] transition-colors", on ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-200 text-neutral-800 hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-200")}>
+                                {on && <Check className="size-3.5" aria-hidden />}{p.label}
+                            </button>
+                        )
+                    })}
+                </div>
+            </div>
+        )
+    }
     if (q.kind === "single") {
         return (
             <div role="radiogroup" aria-label={q.prompt} className="grid gap-2">
@@ -239,10 +267,14 @@ function describe(q: QuizQuestion, r: QuizResponse | undefined): { yours: string
             const label = (id: string) => q.items.find((i) => i.id === id)?.label ?? id
             return { yours: ((r as string[]) ?? []).map((id, i) => `${i + 1}. ${label(id)}`).join("\n"), right: q.items.map((i, n) => `${n + 1}. ${i.label}`).join("\n") }
         }
+        case "pick": {
+            const label = (id: string) => q.parts.find((p) => p.id === id)?.label ?? id
+            return { yours: ((r as string[]) ?? []).map(label).join(", ") || "No answer", right: q.answer.map(label).join(", ") }
+        }
     }
 }
 
-function Results({ questions, results, onRetake, retakeLabel, className }: { questions: QuizQuestion[]; results: QuizResult[]; onRetake: () => void; retakeLabel: string; className?: string }) {
+function Results({ questions, results, onRetake, retakeLabel, className, figure }: { questions: QuizQuestion[]; results: QuizResult[]; onRetake: () => void; retakeLabel: string; className?: string; figure?: (props: PickFigureProps) => React.ReactNode }) {
     const right = results.filter((r) => r.correct).length
     return (
         <div className={cn("rounded-3xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950", className)}>
@@ -271,6 +303,7 @@ function Results({ questions, results, onRetake, retakeLabel, className }: { que
                                     {!ok && <p className="mt-2 whitespace-pre-line text-[13.5px] leading-6 text-rose-700 dark:text-rose-400"><span className="font-medium">You said:</span> {d.yours}</p>}
                                     <p className="mt-1.5 whitespace-pre-line text-[13.5px] leading-6 text-neutral-700 dark:text-neutral-300"><span className="font-medium text-neutral-900 dark:text-white">Answer:</span> {d.right}</p>
                                     <p className="mt-2 text-[14px] leading-6 text-neutral-600 dark:text-neutral-400">{q.explanation}</p>
+                                    {q.kind === "pick" && figure && <div className="mt-3">{figure({ q, picked: (r?.response as string[] | undefined) ?? [], answer: q.answer })}</div>}
                                 </div>
                             </div>
                         </li>
