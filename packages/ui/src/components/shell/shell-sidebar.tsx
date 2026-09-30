@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
+import { createPortal } from "react-dom"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import {
     ChevronDown, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Search, SlidersHorizontal,
@@ -15,6 +16,7 @@ import { ThemeToggle } from "../themetoggle"
 import { SoundToggle } from "../ui/sounds"
 import { AIGlyph } from "../ui/ai-mark"
 import { InlineLoader } from "../ui/inline-loader"
+import { SigningOutScreen } from "../ui/signing-out-screen"
 import { ScrollArea } from "../ui/scroll-area"
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip"
@@ -325,8 +327,9 @@ export function ShellSidebar({
         if (signingOut) return
         setSigningOut(true)
         try {
-            await onSignOut()
-            toast.success("Signed out", { description: "You have been signed out successfully" })
+            // The goodbye screen (plan/jobs-polish JP-27) shows from the click; held at least
+            // 1.2s so it never flashes, and left up through the redirect's page load.
+            await Promise.all([onSignOut(), new Promise((r) => setTimeout(r, 1200))])
             if (typeof window !== "undefined") window.location.href = signOutHref
         } catch {
             setSigningOut(false)
@@ -725,6 +728,8 @@ export function ShellSidebar({
                     />
                 </>
             )}
+            {/* On <body>: the sidebar can sit in a transformed panel, which would clip a fixed overlay. */}
+            {signingOut && typeof document !== "undefined" && createPortal(<SigningOutScreen />, document.body)}
         </TooltipProvider>
     )
 }

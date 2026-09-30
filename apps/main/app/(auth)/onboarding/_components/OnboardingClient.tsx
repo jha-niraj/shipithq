@@ -10,6 +10,7 @@ import {
 	TypeformFlow, type FlowStep, type FlowFileValue,
 } from "@repo/ui/components/typeform-flow"
 import { signOut, useSession } from "@repo/auth/client"
+import { SigningOutScreen } from "@repo/ui/components/ui/signing-out-screen"
 import toast from "@repo/ui/components/ui/sonner"
 import { checkUsernameAvailability, completeOnboarding } from "@/actions/(main)/user/onboarding.action"
 import { uploadResume } from "@/actions/(main)/user/resume.action"
@@ -277,12 +278,16 @@ export default function OnboardingClient() {
 		if (loggingOut) return
 		setLoggingOut(true)
 		try {
-			await signOut()
+			// Held at least 1.2s so the goodbye screen (JP-27) never flashes.
+			await Promise.all([signOut(), new Promise((r) => setTimeout(r, 1200))])
 		} catch {
 			// even if the sign-out call fails, send them to the sign-in screen
 		}
 		router.push("/signin")
 	}
+
+	// Logging out: the goodbye screen until the sign-in page takes over (JP-27).
+	if (loggingOut) return <SigningOutScreen />
 
 	// TypeformFlow renders null when closed, and this component renders nothing else - so
 	// between the flow closing and the browser leaving the route, the page was BLANK. That

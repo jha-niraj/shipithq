@@ -8,6 +8,7 @@ import { Input } from "@repo/ui/components/ui/input";
 import { Button } from "@repo/ui/components/ui/button";
 import toast from "@repo/ui/components/ui/sonner";
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader";
+import { SigningInScreen } from "@repo/ui/components/ui/signing-in-screen";
 import {
     AuthAlert, AuthDivider, AuthField, AuthFootnote, AuthFormSkeleton, AuthHeader, AuthLegal,
     AuthLegalNote, AuthNotice, OtpInput, PasswordInput, PasswordRules, authLinkClass, passwordIsStrong,
@@ -43,6 +44,8 @@ function SignUpForm() {
     // ── OTP step state ────────────────────────────────────────────────────────
     const [code, setCode] = useState("");
     const [isVerifying, setIsVerifying] = useState(false);
+    // Verified and signed in: the boat comes into harbour until onboarding loads (plan/jobs-polish JP-28).
+    const [arriving, setArriving] = useState(false);
     const [isResending, setIsResending] = useState(false);
     const [cooldown, setCooldown] = useState(0);
 
@@ -117,7 +120,7 @@ function SignUpForm() {
                 }
                 // Credit the referrer / log the signup now that a session exists.
                 await finalizeSignup(referralCode);
-                toast.success("Email verified - let's set up your profile");
+                setArriving(true);
                 // The destination rides in the URL (and stays parked in sessionStorage
                 // as a fallback); onboarding hands it back (plan/ideas IDEA-1).
                 router.push(onboardingUrlFor(sessionStorage.getItem("sso_callback")));
@@ -203,6 +206,8 @@ function SignUpForm() {
             Already have an account? <Link href="/signin">Sign in</Link>
         </AuthFootnote>
     );
+
+    if (arriving) return <SigningInScreen title="Welcome aboard" note="Setting up your profile" />;
 
     if (phase === "otp") {
         return (

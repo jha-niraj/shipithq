@@ -9,6 +9,7 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Input } from "@repo/ui/components/ui/input";
 import toast from '@repo/ui/components/ui/sonner';
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader";
+import { SigningInScreen } from "@repo/ui/components/ui/signing-in-screen";
 import {
     AuthDivider, AuthField, AuthFootnote, AuthFormSkeleton, AuthHeader, AuthNotice, OtpInput,
     PasswordInput, authLinkClass,
@@ -28,6 +29,8 @@ function SignInForm() {
     const searchParams = useSearchParams();
     const [mode, setMode] = useState<Mode>("password");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Signed in: the boat comes into harbour until the next page takes over (plan/jobs-polish JP-28).
+    const [arriving, setArriving] = useState(false);
     const { email, setEmail, password, setPassword } = useAppContext();
     const [socialPending, setSocialPending] = useState<SocialProvider | null>(null);
     const [magicSent, setMagicSent] = useState(false);
@@ -115,7 +118,7 @@ function SignInForm() {
                 toast.error(getAuthErrorMessage(errCode));
                 return;
             }
-            toast.success("Welcome back!");
+            setArriving(true);
             router.push(callbackUrl);
         } catch (error: unknown) {
             console.error("Sign-in failed:", error);
@@ -168,7 +171,7 @@ function SignInForm() {
                     return;
                 }
                 // verifyEmail mints the session, so we're signed in already.
-                toast.success("Email verified - welcome back!");
+                setArriving(true);
                 router.push(callbackUrl);
             } catch (error: unknown) {
                 console.error("Verifying the code failed:", error);
@@ -197,6 +200,8 @@ function SignInForm() {
             />
         </AuthField>
     );
+
+    if (arriving) return <SigningInScreen />;
 
     if (mode === "verify") {
         return (

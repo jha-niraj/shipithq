@@ -25,6 +25,8 @@
 | JP-23 | Browse: one dropdown per filter in a row, Clear all, no sheet | 21 | done 2026-09-29 (Chrome: dropdowns, Clear filter; sort beside the search) |
 | JP-24 | JobCard tidied (shared by Spark, Saved, Browse) | 21 | done 2026-09-29 (Chrome: Browse) |
 | JP-25 | Job details in a half-width sheet, with the whole job, shared buttons unstyled | 21 | done 2026-09-29 (Chrome: Browse; Saved and Following swapped by typecheck) |
+| JP-28 | One harbour scene: the loader (with the logo), and sign-in and register arriving screens | 28 | done 2026-09-29 (Chrome: loader, sign-in and register screens on a temporary preview route, since deleted) |
+| JP-27 | The signing-out screen: a boat leaving harbour, shown from the click until the next page | 27 | done 2026-09-29 (Chrome: the scene on a temporary preview route, since deleted; the click path by typecheck) |
 | JP-26 | Filters apply at once on the client, then the server confirms; fewer round trips per page | 21 | done 2026-09-29 (Chrome: Hybrid applied at once, server followed) |
 | JP-20 | Sweep main and hiring: tabs in the header row, the shared tabs, no restyling | 19 | done 2026-09-29 (Chrome: Referrals, Explore projects, company page; the rest by typecheck) |
 | JP-17 | The 404 page: an animated scene, centred, with the right way back | 17 | done 2026-09-29 (Chrome, dark theme, signed in; signed-out button by code) |
@@ -350,3 +352,25 @@ count follow.
 
 - JP-25 left `app/(jobs)/jobs/components/skill-gap-modal.tsx` unused (every call site now opens
   `JobDetailsSheet`); deleted 2026-09-29 with Niraj's approval.
+
+### JP-27 - Signing out (Niraj, 2026-09-29)
+**Why** Sign out showed a toast and then a blank reload; the 404 set the bar for a moment
+worth looking at.
+**Files** `packages/ui/src/components/ui/signing-out-screen.tsx` (new), `packages/ui/src/components/shell/shell-sidebar.tsx`
+(main and hiring), `apps/main/app/(auth)/onboarding/_components/OnboardingClient.tsx`.
+**Steps** A full-screen overlay, centred: a dusk scene on the 404's night panel (a boat sailing
+out past the lighthouse toward a setting sun, its wake, the waves, birds, the lamp blinking),
+"Signing you out" and "See you soon". Shown the moment Sign out is clicked, held at least 1.2s
+so it never flashes, and left up through the redirect. On failure it goes away and the error
+toast shows. No motion under reduced motion.
+**Done when** clicking Sign out in main shows the scene until the sign-in page loads.
+
+### JP-28 - The harbour scene everywhere (Niraj, 2026-09-29)
+**Files** `packages/ui/src/components/ui/harbour-scene.tsx` (new: the scene, `leaving` or `arriving`,
+and the full-screen `HarbourScreen`), `signing-out-screen.tsx` (now uses it),
+`shipithq-loader.tsx` (the scene, then the logo and the wordmark sweep; same props),
+`SignInClient.tsx` and `RegisterClient.tsx` (the arriving screen from success until the app loads).
+**Steps** Arriving: the boat sails in from the sun and comes alongside the pier. Sign-in: "Welcome
+back" / "Taking you in". Register (after the code is verified): "Welcome aboard" / "Setting up your
+profile". The loader: the scene, the logo tile, "ShipItHQ" with its sweep, the track, the label.
+**Done when** all three are seen in Chrome (a temporary preview route, deleted after).
