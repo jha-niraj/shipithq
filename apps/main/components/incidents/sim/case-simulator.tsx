@@ -12,5 +12,5 @@ import { TrafficView } from "./traffic-view"
 export function CaseSimulator({ preset }: { preset?: Record<string, string> }) {
     const c = useCase()
     if ("kind" in c.simulator && c.simulator.kind === "traffic") return <TrafficView scenario={c.simulator} preset={preset} />
-    return <Simulator />
+    return <Simulator preset={preset} />
 }

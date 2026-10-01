@@ -10,7 +10,7 @@ export const AUTH_COPY: Record<string, AuthPanelCopy> = {
     "/signin": {
         art: "contributions",
         headline: <>Build projects. Crack interviews. <Muted>Land the job.</Muted></>,
-        sub: "Sign in to pick up where you left off.",
+        sub: "Projects, practice, mock interviews and real incidents, in one place.",
     },
     "/register": {
         art: "commit-graph",

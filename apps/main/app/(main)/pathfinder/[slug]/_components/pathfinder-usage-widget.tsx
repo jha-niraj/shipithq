@@ -32,7 +32,7 @@ export function PathfinderUsageWidget({ goalId, className }: PathfinderUsageWidg
     return (
         <div
             className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg border transition-colors',
+                'flex h-8 shrink-0 items-center gap-2.5 rounded-lg border px-2.5 transition-colors',
                 isBlocked
                     ? 'border-neutral-300 dark:border-neutral-300 bg-neutral-50 dark:bg-neutral-900/30'
                     : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900',
@@ -40,14 +40,14 @@ export function PathfinderUsageWidget({ goalId, className }: PathfinderUsageWidg
             )}
         >
             <div className="flex items-center gap-2">
-                <Coins className="w-4 h-4 text-neutral-900 dark:text-neutral-100" />
-                <span className="text-sm font-medium">{credits ?? 0} credits</span>
+                <Coins className="size-3.5 text-neutral-900 dark:text-neutral-100" />
+                <span className="whitespace-nowrap text-[13px] font-medium">{credits ?? 0} credits</span>
             </div>
             <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-700" />
             <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-neutral-900 dark:text-neutral-100" />
-                <span className="text-xs text-neutral-600 dark:text-neutral-400">
-                    Pending: {usage?.pendingCredits ?? 0} cred
+                <Zap className="size-3.5 text-neutral-900 dark:text-neutral-100" />
+                <span className="whitespace-nowrap text-xs text-neutral-600 dark:text-neutral-400">
+                    {usage?.pendingCredits ?? 0} pending
                 </span>
             </div>
             {

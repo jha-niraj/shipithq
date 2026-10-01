@@ -10,17 +10,12 @@ const COPY: Record<string, AuthPanelCopy> = {
     "/signin": {
         art: "funnel",
         headline: <>Hire from people who <Muted>already passed.</Muted></>,
-        sub: "Sign in to your workspace to review candidates and run your rounds.",
+        sub: "Candidates who have already built, practised and passed, in one pipeline.",
     },
     "/register": {
         art: "roster",
         headline: <>Set up your <Muted>hiring workspace.</Muted></>,
         sub: "You'll be its Owner, and can invite your team once it's set up.",
-    },
-    "/verify": {
-        art: "otp-cells",
-        headline: <>One code and <Muted>you're in.</Muted></>,
-        sub: "We emailed a six-digit code to confirm your work address.",
     },
     "/invite": {
         art: "roster",

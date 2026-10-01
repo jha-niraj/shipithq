@@ -6,6 +6,15 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 const CodeEditor = dynamic(() => import("@/components/main/code-editor"), { ssr: false });
 
+// As tall as the code, not a fixed box (Niraj, 2026-10-01): about 20 px a line at the
+// editor's 13 px font, its 12 px top and bottom padding and an 8 px scrollbar. Past 24
+// lines it scrolls inside.
+const LINE_PX = 20;
+function codeBlockHeight(code: string): string {
+    const lines = Math.min(24, Math.max(1, code.replace(/\n$/, "").split("\n").length));
+    return `${lines * LINE_PX + 32}px`;
+}
+
 // ─── Mermaid diagram block ──────────────────
 function MermaidBlock({ code }: { code: string }) {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -87,7 +96,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
                                 {children}
                             </code>
                         ) : (
-                            <div className="my-3 min-h-[120px] rounded-lg overflow-hidden">
+                            <div className="my-3 rounded-lg overflow-hidden">
                                 <CodeEditor
                                     code={String(children).replace(/\n$/, "")}
                                     language={match![1]}
@@ -96,7 +105,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
                                     showCopyButton
                                     showRunButton={false}
                                     showSubmitButton={false}
-                                    height="200px"
+                                    height={codeBlockHeight(String(children))}
                                     className="border border-neutral-200 dark:border-neutral-700"
                                 />
                             </div>

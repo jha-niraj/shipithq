@@ -6,6 +6,7 @@
  *
  * Exits 1 if any combination differs. Add a scenario's expectations here when you add one.
  */
+import { getIncidentCase } from "../content/incidents/cases"
 import { TrafficScenario } from "../components/incidents/sim/schema"
 import { runTraffic, verdictFor } from "../components/incidents/sim/traffic-engine"
 import { LOGIN_TRAFFIC } from "../content/incidents/sims/login-traffic"
@@ -22,5 +23,31 @@ for (const attack of ["one", "spray", "botnet"]) for (const defence of ["none", 
   if (!ok) bad++
   console.log(`${ok ? "ok " : "BAD"} ${attack}/${defence}: taken ${r.taken} (want ${e.taken}), locked out ${r.lockedOut} (want ${e.lockedOut}), office in ${office?.in}/30, stopped ${r.stopped}, checked ${r.checked} | ${verdictFor(s, { attack, defence }).headline}`)
 }
+
+// Case three's timeline simulator (plan/long-jobs-vercel LJV-6): each prediction's scenario
+// gives the outcome its answer claims, and every combination stays on the timeline.
+const exportCase = getIncidentCase("the-export-that-finished-after-it-failed")
+const sim = exportCase && "simulate" in exportCase.simulator ? exportCase.simulator : null
+const want: Record<string, { verdict: string; end: number }> = {
+  "inline-6": { verdict: "killed", end: 300 }, "dial-6": { verdict: "completes", end: 360 }, "dial-14": { verdict: "killed", end: 800 },
+  "after-6": { verdict: "completes", end: 360 }, "after-14": { verdict: "killed", end: 800 }, "after-crash": { verdict: "killed", end: 120 },
+  "wf-14": { verdict: "completes", end: 840 }, "wf-crash": { verdict: "completes", end: 372 },
+}
+if (!sim) { bad++; console.log("BAD export case: no timeline simulator") }
+else {
+  for (const q of exportCase!.predict) {
+    const r = sim.simulate(q.scenario); const w = want[q.id]
+    const ok = !!w && r.verdict === w.verdict && Math.round(r.end) === w.end
+    if (!ok) bad++
+    console.log(`${ok ? "ok " : "BAD"} export/${q.id}: ${r.verdict} at ${Math.round(r.end)} s (want ${w ? `${w.verdict} at ${w.end} s` : "an expectation"}) | ${r.headline}`)
+  }
+  for (const approach of ["inline", "dial", "after", "workflow"]) for (const length of ["4", "6", "14"]) for (const event of ["none", "crash"]) {
+    const r = sim.simulate({ approach, length, event })
+    const over = r.end > sim.duration || r.lanes.some((l) => l.segments.some((g) => g.to > sim.duration || g.from > g.to))
+    if (over) { bad++; console.log(`BAD export ${approach}/${length}/${event}: off the timeline`) }
+  }
+  console.log("ok  export: all 24 combinations stay on the timeline")
+}
+
 console.log("bad:", bad)
 if (bad) process.exit(1)

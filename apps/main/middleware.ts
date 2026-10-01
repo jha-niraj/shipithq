@@ -266,6 +266,9 @@ const apiRoutes = [
 	'/api/incidents/transcribe',
 	// Progress reports off by the email's token, and mail clients' one-click (PRG-10).
 	'/api/reports/unsubscribe',
+	// Public reference code for the read-only viewer (plan/long-jobs-vercel LJV-4): incident
+	// cases are readable signed out, and so is the code they show.
+	'/api/code-samples',
 ]
 
 const PRODUCTION_ORIGIN = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://www.shipithq.com'
@@ -320,7 +323,10 @@ export default async function middleware(req: NextRequest) {
 			}
 			return finish(NextResponse.redirect(url))
 		}
-		if (onboardingCompleted && pathname === '/onboarding') {
+		// Page visits only. Onboarding's own server actions POST to /onboarding, and the one
+		// after `completeOnboarding` (which refreshes the cookie) used to be redirected here,
+		// failing with "An unexpected response was received from the server" (AUTH-10).
+		if (onboardingCompleted && pathname === '/onboarding' && req.method === 'GET') {
 			// Finished already (a second tab, a back button, an old email link): go where
 			// the link was taking them, not /home (plan/auth AUTH-7).
 			const cb = nextUrl.searchParams.get('callbackUrl')

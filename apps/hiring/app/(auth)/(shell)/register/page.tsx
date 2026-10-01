@@ -12,7 +12,8 @@ import {
     AuthAlert, AuthField, AuthFootnote, AuthFormSkeleton, AuthHeader, AuthLegal, PasswordInput,
     PasswordRules, passwordIsStrong,
 } from "@repo/ui/components/auth/auth-form";
-import { signUp } from '@repo/auth/client';
+import { emailOtp, signUp } from '@repo/auth/client';
+import { EmailCodeStep } from "@repo/ui/components/auth/email-code-step";
 import { checkWorkEmail } from "@repo/auth/work-email";
 
 /** This app's own legal pages, under app/(legal). */
@@ -25,9 +26,11 @@ function SignUpForm() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const [agreedToTerms, setAgreedToTerms] = useState(false);
+    // Set once the account exists: the page shows the emailed-code step (AUTH-15).
+    const [sentTo, setSentTo] = useState<string | null>(null);
     const router = useRouter();
 
-    // Capture inviteBy from URL (university referral), forwarded to verify and onboarding.
+    // Capture inviteBy from URL (university referral), forwarded to onboarding.
     const [inviteBy, setInviteBy] = useState<string | null>(null);
     useEffect(() => {
         const invite = new URLSearchParams(window.location.search).get('inviteBy');
@@ -58,12 +61,10 @@ function SignUpForm() {
                 setError(error.message || "An error occurred during registration");
                 return;
             }
-            // `sendVerificationOnSignUp` mails the code as part of this call.
-            toast.success("Account created. Check your email for the verification code.");
-            const verifyUrl = inviteBy
-                ? `/verify?email=${encodeURIComponent(normalisedEmail)}&inviteBy=${encodeURIComponent(inviteBy)}`
-                : `/verify?email=${encodeURIComponent(normalisedEmail)}`;
-            router.push(verifyUrl);
+            // `sendVerificationOnSignUp` mails the code as part of this call; the code is
+            // entered right here (AUTH-15).
+            toast.success("We sent a 6-digit code to your email");
+            setSentTo(normalisedEmail);
         } catch (error: unknown) {
             console.error("Sign-up failed:", error);
             setError("An unexpected error occurred");
@@ -71,6 +72,25 @@ function SignUpForm() {
             setIsLoading(false);
         }
     };
+
+    if (sentTo) {
+        return (
+            <EmailCodeStep
+                email={sentTo}
+                verify={async (address, otp) => {
+                    const { error } = await emailOtp.verifyEmail({ email: address, otp });
+                    return error ? error.message || "Invalid code" : null;
+                }}
+                resend={async (address) => {
+                    const { error } = await emailOtp.sendVerificationOtp({ email: address, type: "email-verification" });
+                    return error ? error.message || "Failed to resend" : null;
+                }}
+                // A university referral rides along into onboarding.
+                onVerified={() => router.push(inviteBy ? `/onboarding?inviteBy=${encodeURIComponent(inviteBy)}` : "/onboarding")}
+                onBack={() => { setSentTo(null); setError(""); }}
+            />
+        );
+    }
 
     return (
         <>

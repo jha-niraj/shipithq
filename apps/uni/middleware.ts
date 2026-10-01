@@ -93,8 +93,8 @@ export default async function middleware(req: NextRequest) {
     // Handle post-login redirection logic
     if (isLoggedIn) {
         // Check onboarding status
-        if (!onboardingCompleted && nextUrl.pathname !== '/onboarding' && nextUrl.pathname !== '/verify') {
-            // Redirect to onboarding if not completed (except verify and onboarding itself)
+        if (!onboardingCompleted && nextUrl.pathname !== '/onboarding') {
+            // Redirect to onboarding if not completed (the code step lives on /register now, AUTH-15)
             return NextResponse.redirect(new URL('/onboarding', nextUrl.origin))
         }
 

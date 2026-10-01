@@ -143,3 +143,75 @@ matches.
   - `FlowStep.icon` replaces the fixed "↗": @ username, camera photo, graduation cap university, calendar semester, target goals, file resume.
 - **Done when:** a new account that presses OK on learning goals and closes the tab lands in the app on its next visit, not on /onboarding (Niraj's browser).
 - **Wider (Niraj, 2026-09-28):** the step column in `TypeformFlow` is `max-w-3xl` (768px), up from `max-w-xl` (576px). It applies to every onboarding step; the footer already spans the full width.
+
+## AUTH-9 Full-screen shell, darkened photo, the reference's form (Niraj, 2026-10-01)
+- [x] Status: done 2026-10-01. Checked in Chrome: main /signin (light and dark), /register,
+  /forgotpassword; hiring and uni /signin. tsc clean in main, hiring, uni. Contrast at the photo's
+  lightest top-band pixel under the 70% black: white 8.5:1, the muted run (white/70) 5.2:1, the
+  sub-line (white/75) 5.7:1; the credit on the black bottom 10.5:1. Added on the way at Niraj's
+  request: no icon tile above the title; quiet actions (Back to sign in, Create one, Forgot
+  password) hover as a soft filled pill instead of an underline; each sign-in panel has its own
+  line instead of repeating the form's. The theme toggle no longer throws in a hidden tab.
+- **Why:** the framed card and frosted art plate read busy, "like trying to prove something". Niraj's reference (TypeSafe's login): full screen, edge to edge, a dark image half and a calm form half.
+- **Files:** `packages/ui/src/components/auth/auth-shell.tsx`, `auth-form.tsx`, `social-buttons.tsx`, `packages/ui/src/styles/globals.css` (`.auth-form`), each app's `auth-copy.tsx` only if copy needs trimming.
+- **Decisions (Niraj, 2026-10-01):** left panel is the forest photo full-bleed under a black gradient, white headline and one line top-left, the animated SVG straight on the dark bottom (no plate); a hairline between the halves; a large two-line title with the logo above, taller squarer inputs and buttons, a full-width black primary, the terms line underneath; main, hiring and uni (one shared shell).
+- **Steps:** drop the xl frame (no padding, ring, radius or max width); the aside is `w-1/2` full height with the gradient over the photo and constant white ink; the art keyed per route at the bottom, faded into the gradient; a 1px divider; the form column centred, max-w ~26rem; title per route from each form's existing heading, enlarged in `.auth-form`; theme toggle kept top-right.
+- **Edge cases:** the photo is a constant surface, so ink on it never takes `dark:`; contrast of white on the gradient's lightest point >= 4.5:1 (measure); short windows (< 720px) hide the art before crowding the headline; below lg the panel goes and a short dark banner stays above the form; the route cross-fade still works; hiring and uni pass their own copy.
+- **Done when:** /signin, /register, /forgotpassword in main, and the sign-in pages of hiring and uni, render full screen in Chrome in light and dark with the measured contrast noted here; `tsc` clean in main, hiring, uni.
+
+## AUTH-10 A second onboarding in the split layout, to compare (Niraj, 2026-10-01)
+- [x] Status: done 2026-10-01. A fresh test student (`pnpm script e2e-hiring --user=<email> --student`,
+  a new flag) walked /onboarding?v=2 in Chrome to /home with the profile saved; /onboarding still
+  shows the current flow. Found on the way and fixed in `middleware.ts`: the onboarded-user redirect
+  on /onboarding now applies to GET only. It was also redirecting onboarding's own server-action
+  POSTs, so the call after `completeOnboarding` failed with "An unexpected response was received
+  from the server" (this affected the current flow too). The shared ThemeToggle is now one 36px
+  control with padding and a small radius, used everywhere (Niraj, 2026-10-01).
+- **Why:** Niraj's reference (TypeSafe's setup survey): the same dark panel on the left as auth, one question at a time on the right, dash progress at the top, a big title, chips, Skip and Continue. "Try something new at onboarding just to see how it looks, and keep the previous one intact."
+- **Files:** `packages/ui/src/components/auth/auth-shell.tsx` (export the panel as `AuthBrandPanel`), `apps/main/app/(auth)/onboarding/page.tsx` (pick the version), `apps/main/app/(auth)/onboarding/_components/OnboardingSplit.tsx` (new).
+- **Steps:** `/onboarding?v=2` renders the split version; `/onboarding` is unchanged. Same steps and the same save path as today: username (format and availability checked), photo (optional), university (suggestions), semester, learning goals (saves the profile, as today), resume (optional, uploaded on finish). The panel's headline changes per step. Log out top-right.
+- **Edge cases:** saving happens at learning goals exactly as in the current flow, so leaving on the resume step still leaves a finished profile; the exit is a full navigation to the callback or /home; a failed save keeps the reader on the step with the message; below lg the panel goes.
+- **Done when:** as a fresh test account, `/onboarding?v=2` walks every step in Chrome and lands on /home with the profile saved; `/onboarding` still shows the current flow; tsc clean in main.
+
+## Round: one onboarding for every app, the code on the register page (Niraj, 2026-10-01)
+Decisions (Niraj, 2026-10-01): the split onboarding replaces main's old one, whose files are
+deleted; it gains a photo preview and size check, jumping back through the done dashes, Enter
+and Escape, and a phone layout. Hiring and uni move to the same layout, built from one shared
+kit in packages/ui. Uni's departments, student count, city and state are saved, not just asked.
+Hiring's and uni's code step moves onto their register pages and their /verify pages go.
+
+### AUTH-11 The shared onboarding kit
+- [x] Status: Done 2026-10-01. `packages/ui/src/components/onboarding/split-onboarding.tsx`; used by all three apps. Jump back via done dashes, Enter/Escape, phone banner, photo preview with type and size checks.
+- **Files:** `packages/ui/src/components/onboarding/split-onboarding.tsx` (new).
+- **Steps:** `OnboardingFrame` (the auth brand panel per step, dash progress with done dashes clickable, theme toggle and log out, a phone header with a short photo banner below lg, Enter continues and Escape goes back), `OnboardingStep` (big title, hint, body, error), `Chip`, `FilePick` (image preview, size and type checked before upload), `StepFooter` (Back, Skip, Continue).
+- **Edge cases:** Enter inside a textarea never continues; Escape never leaves the first step; future dashes are not buttons.
+- **Done when:** main, hiring and uni render their onboarding with it; tsc clean in all three.
+
+### AUTH-12 Main: the split onboarding is the onboarding
+- [x] Status: Done 2026-10-01. Old OnboardingClient, side panel and shader deleted; walked register -> code -> onboarding in Chrome.
+- **Files:** `apps/main/app/(auth)/onboarding/page.tsx`, `_components/OnboardingSplit.tsx`; delete `OnboardingClient.tsx`, `onboarding-side-panel.tsx`, `onboarding-shader-bg.tsx` (approved 2026-10-01).
+- **Done when:** a fresh student walks /onboarding to /home with the photo previewed and saved; no `?v=` switch left.
+
+### AUTH-13 Hiring: onboarding in the split layout
+- [x] Status: Done 2026-10-01. Website, company, about, goals in the frame; invited, blocked, claim and claim-pending as frame notices. Walked a new founder from register to /home in Chrome; the blocked notice checked too.
+- **Files:** `apps/hiring/app/(auth)/onboarding/page.tsx`, `website-step.tsx`.
+- **Steps:** the invite, blocked, claim and claim-pending states as single screens in the frame; the form as four steps: website (optional), company (name, page address with its check, title, industry, size, website), about (description, location, tech, benefits, culture), what you hire for. Same save call.
+- **Done when:** the form and one blocked state render in Chrome; tsc clean.
+
+### AUTH-14 Uni: onboarding in the split layout, saving everything it asks
+- [x] Status: Done 2026-10-01. Migration 0080 adds `university.student_count`; city, state, band and department rows saved; Placement Head -> PLACEMENT_COORDINATOR, Administrative Staff -> OTHER + custom title. Verified in the DB. Also found: the action never refreshed the cached session, so /home bounced back to onboarding; now calls `refreshSession` (and on invite accept).
+- **Files:** `apps/uni/app/(auth)/onboarding/page.tsx`, `apps/uni/actions/auth/onboarding.action.ts`, `packages/db/src/schema/university.ts` (+ `student_count`), a migration.
+- **Steps:** steps: institution (name, email domain), type, your role, about (website, description), departments, campus (city, state, student count). The action saves city, state and student count on the university and one department row per pick. Roles map onto the job-title enum: Placement Head -> PLACEMENT_COORDINATOR, Administrative Staff -> OTHER with its label in `job_title_custom` (today both break the save).
+- **Done when:** the migration is reported and applied; a uni onboarding saves all of it (checked in the DB); tsc clean.
+
+### AUTH-15 The code on hiring's and uni's register pages
+- [x] Status: Done 2026-10-01. `EmailCodeStep` in @repo/ui; /verify pages, VerifyEmailForm, their copy and middleware entries deleted. Also found: `emailVerification.autoSignInAfterVerification` was never set, so verifying minted no session in any app (landed on sign-in); set in packages/auth.
+- **Files:** `apps/{hiring,uni}/app/(auth)/(shell)/register/page.tsx`; delete `apps/{hiring,uni}/app/(auth)/(shell)/verify/` and `/verify` in their layouts' copy and middleware; delete `packages/ui/src/components/auth/verify-email.tsx` if nothing else uses it (approved 2026-10-01).
+- **Steps:** after the details are sent, the same page shows the six-digit code (OtpInput), verify and resend, as main's register does; then onboarding, keeping hiring's `inviteBy`.
+- **Done when:** registering in hiring and uni reaches onboarding without leaving /register; tsc clean.
+
+### AUTH-16 A dev-only way to read a sign-up code
+- [x] Status: Done 2026-10-01. In development, `sendVerificationOTP` logs `[dev] <type> code for <email>: <otp>` to the app's dev server.
+- **Files:** `packages/auth/src/auth.ts`.
+- **Steps:** codes are stored hashed (`storeOTP: "hashed"`), so no script can read them back. Instead, when `NODE_ENV` is `development`, the email-code sender also prints `[dev] <type> code for <email>: <code>` to the dev server's console. Production never logs it.
+- **Done when:** registering a test address in dev prints a code that verifies it.

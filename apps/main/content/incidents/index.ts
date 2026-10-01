@@ -54,6 +54,14 @@ export const INCIDENTS: IncidentMeta[] = [
         alsoIn: ["auth"],
         minutes: 25,
     },
+    {
+        slug: "the-export-that-finished-after-it-failed",
+        title: "The export that finished after it failed",
+        summary: "A year export that hit Vercel's time limit, two fixes that only moved it, and the workflow that finally let it run as long as it needed.",
+        topic: "serverless",
+        alsoIn: ["queues"],
+        minutes: 25,
+    },
 ]
 
 /**

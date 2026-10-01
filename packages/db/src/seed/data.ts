@@ -794,4 +794,29 @@ export const PROJECTS: SeedProject[] = [
         totalViews: 190,
         totalStarted: 16,
     },
+    // The eleventh, at Niraj's request (2026-10-01, plan/long-jobs-vercel LJV-10): the build
+    // behind the incident "The export that finished after it failed" and its path.
+    {
+        slug: "long-jobs-on-vercel",
+        title: "Long jobs on Vercel",
+        shortDescription: "One slow function, run two ways: inline until the platform stops it, then as a workflow that finishes.",
+        description:
+            "A weekly report in ten steps, about two and a half minutes of work. Run inline, the function hits its time limit and answers 504; run as a Vercel Workflow, each step is its own short function and the run takes as long as it needs. Then make it a page the user can leave, steps that are safe to retry, and runs you can watch and cancel. Everything fits Vercel's free plan.",
+        technologies: ["Next.js", "TypeScript", "Vercel Workflows"],
+        generationType: "FULLSTACK",
+        difficulty: "INTERMEDIATE",
+        estimatedHours: 14,
+        blueprintOverview:
+            "The same ten steps behind two routes, one inline with a 60-second limit and one as a workflow, deployed side by side, with status by run id, streamed progress and idempotent steps.",
+        recruiterSignal:
+            "Shows you know what a serverless platform does to long work and how durable execution fixes it, with a live deployment that demonstrates both.",
+        keyOutcomes: [
+            "See a function's time limit end a request in production, and explain why local dev never shows it",
+            "Run the same work as a workflow whose steps each fit the limit",
+            "Build a page the user can leave and come back to, and steps that are safe to retry",
+        ],
+        stacks: { frontend: "Next.js", backend: "Next.js API", database: "None" },
+        totalViews: 0,
+        totalStarted: 0,
+    },
 ];

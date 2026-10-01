@@ -12,7 +12,8 @@ import {
     AuthLegalNote, PasswordInput, PasswordRules, passwordIsStrong,
 } from "@repo/ui/components/auth/auth-form";
 import { SocialButtons, type SocialProvider } from "@repo/ui/components/auth/social-buttons";
-import { signIn, signUp } from '@repo/auth/client';
+import { emailOtp, signIn, signUp } from '@repo/auth/client';
+import { EmailCodeStep } from "@repo/ui/components/auth/email-code-step";
 
 /** This app's own legal pages, under app/(legal). */
 const APP_LEGAL = { terms: "/terms", privacy: "/privacy" };
@@ -25,6 +26,8 @@ function SignUpForm() {
     const [socialPending, setSocialPending] = useState<SocialProvider | null>(null);
     const [error, setError] = useState("");
     const [agreedToTerms, setAgreedToTerms] = useState(false);
+    // Set once the account exists: the page shows the emailed-code step (AUTH-15).
+    const [sentTo, setSentTo] = useState<string | null>(null);
     const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -46,9 +49,10 @@ function SignUpForm() {
                 setError(error.message || "An error occurred during registration");
                 return;
             }
-            // `sendVerificationOnSignUp` mails the code as part of this call.
-            toast.success("Account created. Check your email for the verification code.");
-            router.push(`/verify?email=${encodeURIComponent(normalised)}`);
+            // `sendVerificationOnSignUp` mails the code as part of this call; the code is
+            // entered right here (AUTH-15).
+            toast.success("We sent a 6-digit code to your email");
+            setSentTo(normalised);
         } catch (error: unknown) {
             console.error("Sign-up failed:", error);
             setError("An unexpected error occurred");
@@ -68,6 +72,24 @@ function SignUpForm() {
             setSocialPending(null);
         }
     };
+
+    if (sentTo) {
+        return (
+            <EmailCodeStep
+                email={sentTo}
+                verify={async (address, otp) => {
+                    const { error } = await emailOtp.verifyEmail({ email: address, otp });
+                    return error ? error.message || "Invalid code" : null;
+                }}
+                resend={async (address) => {
+                    const { error } = await emailOtp.sendVerificationOtp({ email: address, type: "email-verification" });
+                    return error ? error.message || "Failed to resend" : null;
+                }}
+                onVerified={() => router.push("/onboarding")}
+                onBack={() => { setSentTo(null); setError(""); }}
+            />
+        );
+    }
 
     return (
         <>

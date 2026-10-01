@@ -79,6 +79,11 @@ export interface CodeMetadata {
   language: string;
   isPractice: boolean;
   problemTitle?: string;
+  /** Read-only reference code (plan/long-jobs-vercel LJV-9): a file of a code sample. */
+  sample?: string;
+  stage?: string;
+  file?: string;
+  note?: string;
 }
 
 export interface ImageMetadata {

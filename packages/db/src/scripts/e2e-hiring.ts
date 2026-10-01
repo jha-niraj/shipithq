@@ -25,6 +25,13 @@
  *     Any other test account, e.g. an invitee: created if missing (email
  *     verified), its company memberships removed, and a fresh session cookie
  *     printed. Only addresses on e2e test domains (*.test, shipithq.dev).
+ *
+ *   pnpm script e2e-hiring --user=<email> --learner [--apply]
+ *     The same, as a student with onboarding done (no HR role), for browser checks on
+ *     apps/main pages behind the onboarding gate: Pathfinder, projects (plan/long-jobs-vercel).
+ *
+ *   pnpm script e2e-hiring --user=<email> --student [--apply]
+ *     A student who has NOT onboarded (reset each --apply), for walking onboarding (plan/auth AUTH-10).
  */
 import { createHmac, randomBytes } from "node:crypto"
 import { and, eq } from "drizzle-orm"
@@ -116,10 +123,21 @@ async function mainUser(email: string) {
     const id = `e2e_${email.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`
     const user = await db.query.users.findFirst({ where: eq(users.email, email.toLowerCase()), columns: { id: true } })
     const members = user ? await db.select({ id: companyMembers.id }).from(companyMembers).where(eq(companyMembers.userId, user.id)) : []
-    console.log(`  ${user ? "=" : "+"} user    ${email}${members.length ? ` (${members.length} membership(s) removed)` : ""}`)
+    console.log(`  ${user ? "=" : "+"} user    ${email}${members.length ? ` (${members.length} membership(s) removed)` : ""}${process.argv.includes("--learner") ? ", a student with onboarding done" : ""}`)
     if (!apply) return
     const userId = user?.id ?? id
-    if (!user) await db.insert(users).values({ id, name: email.split("@")[0], email: email.toLowerCase(), emailVerified: true, role: "HR" as never })
+    const learner = process.argv.includes("--learner")
+    const student = process.argv.includes("--student")
+    if (student) {
+        if (!user) await db.insert(users).values({ id, name: email.split("@")[0], email: email.toLowerCase(), emailVerified: true, onboardingCompleted: false })
+        else await db.update(users).set({ onboardingCompleted: false, role: "Student", username: null }).where(eq(users.id, userId))
+    } else if (!user) {
+        await db.insert(users).values(learner
+            ? { id, name: email.split("@")[0], email: email.toLowerCase(), emailVerified: true, onboardingCompleted: true }
+            : { id, name: email.split("@")[0], email: email.toLowerCase(), emailVerified: true, role: "HR" as never })
+    } else if (learner) {
+        await db.update(users).set({ onboardingCompleted: true, role: "Student" }).where(eq(users.id, userId))
+    }
     await db.delete(companyMembers).where(eq(companyMembers.userId, userId))
     console.log(`\n${JSON.stringify({ userId, cookie: await signedCookie(userId) })}`)
 }

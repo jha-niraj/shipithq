@@ -239,7 +239,7 @@ export function GoalWorkspace({ goal, tab, sessions: initialSessions, verificati
 
     const split = (list: React.ReactNode) => desktop ? (
         <PanelGroup orientation="horizontal" id="pathfinder-goal" className="h-full">
-            <Panel id="topics" defaultSize="30%" minSize="20%" maxSize="45%" className="min-w-0 bg-neutral-50/60 dark:bg-neutral-950">{list}</Panel>
+            <Panel id="topics" defaultSize="24%" minSize="18%" maxSize="45%" className="min-w-0 bg-neutral-50/60 dark:bg-neutral-950">{list}</Panel>
             <PanelResizeHandle className="group relative w-px shrink-0 bg-neutral-200 outline-none dark:bg-neutral-800">
                 <span className="absolute inset-y-0 -left-2 -right-2 cursor-col-resize" />
                 <span className="absolute inset-y-0 left-0 w-px bg-transparent transition-colors group-hover:bg-neutral-400 group-data-[resize-handle-state=drag]:bg-neutral-900 dark:group-hover:bg-neutral-600 dark:group-data-[resize-handle-state=drag]:bg-white" />
@@ -258,9 +258,6 @@ export function GoalWorkspace({ goal, tab, sessions: initialSessions, verificati
     return (
         <div className="flex h-dvh flex-col overflow-hidden">
             <div className="shrink-0 border-b border-neutral-200 px-page py-3 dark:border-neutral-800">
-                <Link href="/pathfinder" className="mb-2 inline-flex items-center gap-1.5 text-[13px] text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
-                    <ArrowLeft className="size-3.5" />My goals
-                </Link>
                 <PageHeader
                     title={goal.title}
                     subtitle={`${label(goal.category)} · ${label(goal.level)} · ${done} of ${total} topics · ${pct}%`}
@@ -272,7 +269,7 @@ export function GoalWorkspace({ goal, tab, sessions: initialSessions, verificati
                         <div className="flex flex-wrap items-center gap-2">
                             <PathfinderUsageWidget goalId={goal.id} />
                             {goal.category === 'INTERVIEW_PREP' && <PractisePrepJob goalId={goal.id} />}
-                            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setMockOpen(true)}><Mic className="size-3.5" />Mock interview</Button>
+                            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setMockOpen(true)}><Mic className="size-3.5" /><span className="sm:hidden">Mock</span><span className="hidden sm:inline">Mock interview</span></Button>
                             <ShareToggle goalId={goal.id} initial={goal.isPublic} />
                         </div>
                     }

@@ -9,6 +9,7 @@ import habitTrackerWeeklyReview from "./habit-tracker-weekly-review"
 import urlShortenerWithAnalytics from "./url-shortener-with-analytics"
 import expenseSplitter from "./expense-splitter"
 import rateLimiterService from "./rate-limiter-service"
+import longJobsOnVercel from "./long-jobs-on-vercel"
 
 /**
  * The ten curated projects, by slug (plan/projects, PJ-11).
@@ -29,6 +30,8 @@ export const BLUEPRINTS: Record<string, SeedSprint[]> = {
     "url-shortener-with-analytics": urlShortenerWithAnalytics,
     "expense-splitter": expenseSplitter,
     "rate-limiter-service": rateLimiterService,
+    // The eleventh (Niraj, 2026-10-01, plan/long-jobs-vercel LJV-10): the build behind case three.
+    "long-jobs-on-vercel": longJobsOnVercel,
 }
 
 export { SETUPS } from "./setup"

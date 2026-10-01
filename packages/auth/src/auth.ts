@@ -71,6 +71,13 @@ export const auth = betterAuth({
         },
     },
 
+    // Without this, `emailOtp.verifyEmail` marks the address verified but mints no
+    // session, and register's code step lands on sign-in instead of onboarding
+    // (found 2026-10-01, plan/auth AUTH-15).
+    emailVerification: {
+        autoSignInAfterVerification: true,
+    },
+
     // ─── Social Providers ────────────────────────────────────────────────────
     socialProviders: {
         google: {
@@ -142,6 +149,9 @@ export const auth = betterAuth({
             // replayable. (Rules out "reuse" resends - a resend rotates the code.)
             storeOTP: "hashed",
             async sendVerificationOTP({ email, otp, type }) {
+                // Development only (plan/auth AUTH-16): codes are hashed at rest, so the dev
+                // server's console is the one place a tester can read the code that was sent.
+                if (process.env.NODE_ENV === "development") console.log(`[dev] ${type} code for ${email}: ${otp}`)
                 await trySend({
                     email,
                     name: await nameForEmail(email),

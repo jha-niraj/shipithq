@@ -34,8 +34,9 @@ export function startThemeTransition(apply: () => void, origin?: ThemeTransition
         && typeof window.matchMedia === "function"
         && window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
-    // Unsupported (e.g. Firefox) or reduced-motion: swap instantly, no animation.
-    if (!doc?.startViewTransition || prefersReduced) {
+    // Unsupported (e.g. Firefox), reduced motion, or a hidden tab (the browser aborts a
+    // transition there with InvalidStateError): swap instantly, no animation.
+    if (!doc?.startViewTransition || prefersReduced || doc.visibilityState === "hidden") {
         apply()
         return
     }
@@ -56,6 +57,8 @@ export function startThemeTransition(apply: () => void, origin?: ThemeTransition
     root.dataset.themeTransition = origin ? "reveal" : "fade"
 
     const transition = doc.startViewTransition(() => flushSync(apply))
+    // An aborted transition rejects `ready` too; the theme has still been applied.
+    transition.ready.catch(() => {})
     transition.finished
         .catch(() => {
             // A superseding transition (rapid re-toggle) rejects - safe to ignore.

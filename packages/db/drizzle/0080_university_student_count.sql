@@ -1,0 +1,1 @@
+ALTER TABLE "university" ADD COLUMN "student_count" text;

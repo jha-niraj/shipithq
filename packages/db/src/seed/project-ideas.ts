@@ -117,4 +117,13 @@ export const PROJECT_IDEAS: CuratedIdea[] = [
         categories: ["backend", "infrastructure"],
         primaryLanguageOrFramework: "Go",
     },
+    {
+        projectSlug: "long-jobs-on-vercel",
+        projectTitle: "Long jobs on Vercel",
+        projectDescription: "One slow function, run inline until Vercel stops it at its time limit, then as a workflow that finishes. The hard part is making steps safe to retry.",
+        difficulty: "MEDIUM",
+        technologies: ["Next.js", "TypeScript", "Vercel Workflows"],
+        categories: ["backend", "infrastructure"],
+        primaryLanguageOrFramework: "Next.js",
+    },
 ]

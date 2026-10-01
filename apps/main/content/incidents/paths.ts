@@ -9,12 +9,19 @@
  * with `learn`: the seed refuses a path whose titles drift from it.
  */
 
+import { VERCEL_PATH } from "./paths-vercel"
+
 export interface PathTopic {
     title: string
     /** One line, shown under the title in the plan. */
     summary: string
     /** The topic's notes, in markdown. Seeded as the Studio's EXPLANATION step. */
     notes: string
+    /**
+     * Files of a code sample to read on this day (plan/long-jobs-vercel LJV-9), each seeded as
+     * a CODE Studio step whose metadata names the sample, stage and file.
+     */
+    code?: { sample: string; stage: string; file: string; note: string }[]
 }
 
 export interface IncidentPath {
@@ -441,6 +448,7 @@ One-time codes (a million six-digit codes), password reset, sign-up, invite link
 export const INCIDENT_PATHS: Record<string, IncidentPath> = {
     "the-demo-that-died-at-30-seconds": DEMO,
     "the-login-that-said-yes-to-guessing": LOGIN,
+    "the-export-that-finished-after-it-failed": VERCEL_PATH,
 }
 
 /** The ShipItHQ account that owns every official path (plan/pathfinder decision, 2026-09-27). */

@@ -36,6 +36,7 @@
  * asked would put rows in their account that they did not create.
  */
 
+import { pathToFileURL } from "node:url";
 import { db, withTransaction } from "../client";
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -347,10 +348,11 @@ function setupGuideFor(p: (typeof PROJECTS)[number]) {
     return { prerequisites, environmentVariables, installationSteps, verificationSteps };
 }
 
-async function seedProjects(ownerId: string): Promise<number> {
+/** `only`: one curated project by slug (scripts/curated-project.ts); omitted, all of them. */
+export async function seedProjects(ownerId: string, only?: string): Promise<number> {
     let n = 0;
 
-    for (const p of PROJECTS) {
+    for (const p of PROJECTS.filter((x) => !only || x.slug === only)) {
         await db
             .insert(projectsV2)
             .values({
@@ -484,11 +486,11 @@ async function seedProjectStarters(): Promise<{ projects: number; files: number;
  * progress that gates their quiz and mock interview, so a started project keeps
  * what it has and the seeder says so.
  */
-async function seedProjectBlueprints(): Promise<{ projects: number; sprints: number; tasks: number; skipped: string[] }> {
+export async function seedProjectBlueprints(only?: string): Promise<{ projects: number; sprints: number; tasks: number; skipped: string[] }> {
     let projectCount = 0, sprintCount = 0, taskCount = 0;
     const skipped: string[] = [];
 
-    for (const [slug, sprints] of Object.entries(BLUEPRINTS)) {
+    for (const [slug, sprints] of Object.entries(BLUEPRINTS).filter(([s]) => !only || s === only)) {
         const [project] = await db
             .select({ id: projectsV2.id })
             .from(projectsV2)
@@ -608,14 +610,15 @@ async function clear() {
  * or disturbs an idea somebody submitted. Not part of `--clear`: a generated
  * project points back at the idea it came from.
  */
-async function seedProjectIdeas(): Promise<{ written: number; linked: number; removed: number }> {
+export async function seedProjectIdeas(only?: string): Promise<{ written: number; linked: number; removed: number }> {
     const existing = await db
         .select({ id: projectIdeas.id, title: projectIdeas.projectTitle })
         .from(projectIdeas);
     const byTitle = new Map(existing.map((r) => [r.title, r.id]));
 
+    const ideas = PROJECT_IDEAS.filter((i) => !only || i.projectSlug === only);
     let written = 0;
-    for (const idea of PROJECT_IDEAS) {
+    for (const idea of ideas) {
         const values = {
             projectTitle: idea.projectTitle,
             projectDescription: idea.projectDescription,
@@ -646,7 +649,7 @@ async function seedProjectIdeas(): Promise<{ written: number; linked: number; re
      * instead of offering to generate one (plan/projects, PJ-8 and PJ-11).
      */
     let linked = 0;
-    for (const idea of PROJECT_IDEAS) {
+    for (const idea of ideas) {
         const [project] = await db
             .select({ id: projectsV2.id })
             .from(projectsV2)
@@ -671,6 +674,8 @@ async function seedProjectIdeas(): Promise<{ written: number; linked: number; re
      * Scoped to PLATFORM-CURATED rows, so an idea a user submitted is left alone
      * even though nothing in the product creates one today.
      */
+    // One project at a time removes nothing: the sweep is for the full catalogue run.
+    if (only) return { written, linked, removed: 0 };
     const keep = PROJECT_IDEAS.map((i) => i.projectTitle);
     const removed = await db
         .delete(projectIdeas)
@@ -846,7 +851,9 @@ async function main() {
     console.log("\nDone.");
 }
 
-main()
+// Run only as the seed itself, not when a script imports the functions above.
+const isEntry = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isEntry) main()
     .then(() => process.exit(0))
     .catch((error: unknown) => {
         console.error("\nSeed failed:", error);

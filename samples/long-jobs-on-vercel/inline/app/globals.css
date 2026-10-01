@@ -1,0 +1,12 @@
+:root { color-scheme: light dark; --ink: #111; --muted: #666; --line: #ddd; --bg: #fff; --good: #047857; --bad: #be123c; }
+@media (prefers-color-scheme: dark) { :root { --ink: #eee; --muted: #999; --line: #333; --bg: #0a0a0a; --good: #34d399; --bad: #fb7185; } }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
+main { max-width: 56rem; margin: 0 auto; padding: 2rem 1rem; }
+.cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.card { border: 1px solid var(--line); border-radius: 1rem; padding: 1.25rem; }
+.muted { color: var(--muted); font-size: 0.875rem; }
+.good { color: var(--good); }
+.bad { color: var(--bad); }
+button { font: inherit; padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: default; }
+ol { padding-left: 1.25rem; }

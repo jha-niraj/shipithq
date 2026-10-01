@@ -8,6 +8,7 @@ import { cn } from "@repo/ui/lib/utils"
 import { INCIDENT_TOPICS, INCIDENT_UPCOMING, topicLabel, type IncidentTopicId } from "@/content/incidents"
 import { INCIDENT_BADGES } from "@/content/incidents/badges"
 import { CaseArt } from "@/components/incidents/case-art"
+import { ExportArt } from "@/components/incidents/export-art"
 import { TopicScene, TopicSceneStyles } from "@/components/incidents/topic-scene"
 import { BadgeCard, BadgeGrid, BadgeMedalStyles } from "@repo/ui/components/badge-card"
 import { INCIDENT_GLYPHS, glyphFor } from "@/components/incidents/badge-medal"
@@ -35,6 +36,7 @@ export const metadata: Metadata = {
 /** Case scenes by slug; a case without one gets its topic's scene. */
 const CASE_SCENES: Record<string, () => React.ReactNode> = {
     "the-demo-that-died-at-30-seconds": () => <CaseArt className="w-full" />,
+    "the-export-that-finished-after-it-failed": () => <ExportArt className="w-full" />,
 }
 
 
@@ -149,7 +151,7 @@ function Featured({ c, stats }: { c: CaseSummary; stats: IncidentStats | null })
                 </span>
             </div>
             <div className="flex items-center border-t border-white/10 p-6 sm:p-8 lg:border-l lg:border-t-0">
-                <CaseArt className="w-full" />
+                {CASE_SCENES[c.slug]?.() ?? <TopicScene topic={c.topic} className="mx-auto max-h-40 text-white" />}
             </div>
         </Link>
     )

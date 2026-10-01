@@ -40,7 +40,7 @@ const hash = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).dige
 /** What the stored goal must match: its fields, and each day's topics with their notes. */
 const authoredDigest = (p: IncidentPath) => hash({
     goal: [p.title, p.overview, p.category, p.level, p.learningObjectives, p.prerequisites],
-    days: p.days.map((d) => d.map((t) => [t.title, t.summary, t.notes])),
+    days: p.days.map((d) => d.map((t) => [t.title, t.summary, t.notes, (t.code ?? []).map((c) => [c.sample, c.stage, c.file, c.note])])),
 });
 async function storedDigest(goalId: string) {
     const g = await db.query.pathfinderGoals.findFirst({
@@ -51,9 +51,17 @@ async function storedDigest(goalId: string) {
     const ids = g.dailySessions.flatMap((d) => d.subGoals.map((t) => t.studioId)).filter((s): s is string => !!s);
     const steps = ids.length ? await db.select({ studioId: studioSteps.studioId, content: studioSteps.content }).from(studioSteps).where(and(inArray(studioSteps.studioId, ids), eq(studioSteps.type, "EXPLANATION"))) : [];
     const notes = new Map(steps.map((s) => [s.studioId, s.content]));
+    // Code to read on the day (plan/long-jobs-vercel LJV-9): CODE steps naming a sample file.
+    const codeRows = ids.length ? await db.select({ studioId: studioSteps.studioId, order: studioSteps.orderNumber, metadata: studioSteps.metadata }).from(studioSteps).where(and(inArray(studioSteps.studioId, ids), eq(studioSteps.type, "CODE"))) : [];
+    const code = new Map<string, unknown[][]>();
+    for (const r of codeRows.sort((a, b) => a.order - b.order)) {
+        const m = (r.metadata ?? {}) as { sample?: string; stage?: string; file?: string; note?: string };
+        if (!m.sample) continue;
+        code.set(r.studioId, [...(code.get(r.studioId) ?? []), [m.sample, m.stage, m.file, m.note]]);
+    }
     return hash({
         goal: [g.title, g.overview, g.category, g.level, g.learningObjectives, g.prerequisites],
-        days: g.dailySessions.map((d) => d.subGoals.map((t) => [t.title, t.description, t.studioId ? notes.get(t.studioId) ?? null : null])),
+        days: g.dailySessions.map((d) => d.subGoals.map((t) => [t.title, t.description, t.studioId ? notes.get(t.studioId) ?? null : null, t.studioId ? code.get(t.studioId) ?? [] : []])),
     });
 }
 const day = (i: number) => new Date(Date.parse(`${FIRST_DAY}T00:00:00Z`) + i * 86_400_000).toISOString().slice(0, 10);
@@ -143,9 +151,13 @@ async function write(p: Awaited<ReturnType<typeof plan>>) {
                     }).returning({ id: pathfinderSubGoals.id });
                     const [studio] = await tx.insert(studios).values({
                         slug: `subgoal-${sub!.id}`, title: topic.title, description: topic.summary,
-                        source: "PATHFINDER", sourceId: sub!.id, visibility: "PRIVATE", userId: who.id, stepCount: 1,
+                        source: "PATHFINDER", sourceId: sub!.id, visibility: "PRIVATE", userId: who.id, stepCount: 1 + (topic.code?.length ?? 0),
                     }).returning({ id: studios.id });
                     await tx.insert(studioSteps).values({ studioId: studio!.id, orderNumber: 1, type: "EXPLANATION", content: topic.notes, source: "USER", metadata: {} });
+                    // Each file to read that day: a CODE step the viewer renders read-only (LJV-9).
+                    for (const [i, c] of (topic.code ?? []).entries()) {
+                        await tx.insert(studioSteps).values({ studioId: studio!.id, orderNumber: 2 + i, type: "CODE", content: "", source: "USER", metadata: { sample: c.sample, stage: c.stage, file: c.file, note: c.note } });
+                    }
                     await tx.update(pathfinderSubGoals).set({ studioId: studio!.id }).where(eq(pathfinderSubGoals.id, sub!.id));
                 }
             }

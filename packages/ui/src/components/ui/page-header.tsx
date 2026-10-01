@@ -44,9 +44,10 @@ export function PageHeader({
                 // The tabs shrink and scroll sideways (TabsNav does); the buttons never shrink
                 // (plan/jobs-polish JP-19). Before, the whole group was `shrink-0` and long tabs
                 // ran off the edge.
-                <div className="flex min-w-0 items-center gap-2 sm:justify-end">
-                    {tabs && <div className="min-w-0">{tabs}</div>}
-                    {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+                <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
+                    {/* Below sm the tabs take their own line and scroll sideways; the actions wrap under them. */}
+                    {tabs && <div className="max-w-full min-w-0 overflow-x-auto max-sm:basis-full">{tabs}</div>}
+                    {actions && <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2">{actions}</div>}
                 </div>
             )}
         </header>

@@ -867,3 +867,197 @@ caller of `dispatchImport({ variant: 'combined', ... })`, so the combined path i
 can no longer be reached; only the `profile` variant is dispatched. Worker code,
 so not deleted without a decision. Candidate: drop the variant from the job and
 from `dispatchImport`'s input type.
+
+## Whole-repo orphans (2026-10-01) - APPROVED by Niraj, NOT YET DELETED
+
+Niraj, 2026-10-01: "make sure that you have deleted all the codes files and components that are not being used", then chose "Delete them now" for the older files.
+The delete was blocked by Claude Code's permission check, so Niraj runs it (command below).
+
+**How it was found.** Every `.ts/.tsx/.js/.mjs` under `apps/{main,hiring,uni}` and `packages/ui/src` whose path no import in any app or package resolves to (relative, `@/`, `@repo/*`); Next convention files, `.d.ts`, configs and scripts excluded. Then each name was grepped across code, JSON, CSS and TOML. Every hit was a comment, a same-named file elsewhere, or an unrelated word. Kept: `apps/main/lib/empty-module.js` (used by `next.config.mjs`).
+
+**82 files.** Deleting may leave new orphans (files only these imported), so rescan after.
+
+### apps/hiring (3)
+
+- `apps/hiring/actions/auth/permissions.action.ts`
+- `apps/hiring/types/assessment.ts`
+- `apps/hiring/utils/mail.ts`
+
+### apps/main (44)
+
+- `apps/main/actions/(common)/stats/platform-stats.action.ts`
+- `apps/main/actions/(main)/projects/categories.action.ts`
+- `apps/main/actions/(main)/projects/project-ideas.action.ts`
+- `apps/main/actions/(main)/projects/tasks.action.ts`
+- `apps/main/actions/(main)/studios/pathfinder-integration.actions.ts`
+- `apps/main/actions/(main)/user/feedback.action.ts`
+- `apps/main/actions/(main)/user/newsletter.action.ts`
+- `apps/main/app/(main)/ai/_components/animated-text.tsx`
+- `apps/main/app/(main)/ai/_components/testimonials-section.tsx`
+- `apps/main/app/(main)/ai/resume/_components/projects-tab-form.tsx`
+- `apps/main/app/(main)/home/_components/greeting-header.tsx`
+- `apps/main/app/(main)/home/_components/home-client-wrapper.tsx`
+- `apps/main/app/(main)/home/_components/mock-voice-preview.tsx`
+- `apps/main/app/(main)/home/_components/pathfinder-goals-card.tsx`
+- `apps/main/app/(main)/home/_components/projects-preview.tsx`
+- `apps/main/app/(main)/home/_components/recent-activity.tsx`
+- `apps/main/app/(main)/knowme/onboarding/_components/onboarding-wizard.tsx`
+- `apps/main/app/(main)/mock/_components/mock-card-skeleton.tsx`
+- `apps/main/app/(main)/practice/_components/add-problem-sheet.tsx`
+- `apps/main/components/activity-calendar.tsx`
+- `apps/main/components/ai/ai-trigger-button.tsx`
+- `apps/main/components/auth/auth-dialog.tsx`
+- `apps/main/components/common/app-backdrop.tsx`
+- `apps/main/components/main/orb.tsx`
+- `apps/main/components/navigation/customize-sidebar-sheet.tsx`
+- `apps/main/components/navigation/sidebar-hot-edge.tsx`
+- `apps/main/components/studio/blocks/flashcard-block.tsx`
+- `apps/main/components/studio/studio-container.tsx`
+- `apps/main/lib/jobs-navigation.ts`
+- `apps/main/lib/motion.ts`
+- `apps/main/lib/prompt.ts`
+- `apps/main/lib/prompts/jobinterviewprompts.ts`
+- `apps/main/lib/resume-pdf/types.ts`
+- `apps/main/lib/utils.ts`
+- `apps/main/public/pdf.worker.min.mjs`
+- `apps/main/types/interview.ts`
+- `apps/main/types/opensource.ts`
+- `apps/main/types/resume.ts`
+- `apps/main/types/studio.ts`
+- `apps/main/utils/truefolio/email.ts`
+- `apps/main/utils/truefolio/leetcode.ts`
+- `apps/main/utils/truefolio/linkedin.ts`
+- `apps/main/utils/truefolio/twitter.ts`
+- `apps/main/verdict-check-tmp.ts`
+
+### apps/uni (1)
+
+- `apps/uni/utils/mail.ts`
+
+### packages/ui (34)
+
+- `packages/ui/src/components/charts/area-gradient-defs.tsx`
+- `packages/ui/src/components/charts/line-chart-loading.tsx`
+- `packages/ui/src/components/charts/line-series-terminal-marker.tsx`
+- `packages/ui/src/components/charts/motion-utils.ts`
+- `packages/ui/src/components/charts/projection-line-end-marker.tsx`
+- `packages/ui/src/components/charts/projection-line.tsx`
+- `packages/ui/src/components/charts/use-enter-complete.ts`
+- `packages/ui/src/components/charts/use-mount-progress.ts`
+- `packages/ui/src/components/charts/y-axis-ticks.ts`
+- `packages/ui/src/components/github-contributions.tsx`
+- `packages/ui/src/components/metrics-01.tsx`
+- `packages/ui/src/components/typeform-flow.tsx`
+- `packages/ui/src/components/ui/3d-card.tsx`
+- `packages/ui/src/components/ui/background-beams.tsx`
+- `packages/ui/src/components/ui/bento-grid.tsx`
+- `packages/ui/src/components/ui/breadcrumb.tsx`
+- `packages/ui/src/components/ui/carousel.tsx`
+- `packages/ui/src/components/ui/container-scroll-animation.tsx`
+- `packages/ui/src/components/ui/dottedvignette.tsx`
+- `packages/ui/src/components/ui/empty-state.tsx`
+- `packages/ui/src/components/ui/form.tsx`
+- `packages/ui/src/components/ui/glow.tsx`
+- `packages/ui/src/components/ui/icon-cloud.tsx`
+- `packages/ui/src/components/ui/marquee.tsx`
+- `packages/ui/src/components/ui/motion.tsx`
+- `packages/ui/src/components/ui/orbiting-circles.tsx`
+- `packages/ui/src/components/ui/rainbow-button.tsx`
+- `packages/ui/src/components/ui/ripple.tsx`
+- `packages/ui/src/components/ui/shimmer-button.tsx`
+- `packages/ui/src/components/ui/shine-border.tsx`
+- `packages/ui/src/components/ui/text-reveal-card.tsx`
+- `packages/ui/src/components/ui/toggle-group.tsx`
+- `packages/ui/src/components/ui/typing-animation.tsx`
+- `packages/ui/src/lib/get-cached-contributions.ts`
+
+### Run
+
+```bash
+cd ~/Documents/nirajjha/shipithq
+git rm -q \
+  "apps/hiring/actions/auth/permissions.action.ts" \
+  "apps/hiring/types/assessment.ts" \
+  "apps/hiring/utils/mail.ts" \
+  "apps/main/actions/(common)/stats/platform-stats.action.ts" \
+  "apps/main/actions/(main)/projects/categories.action.ts" \
+  "apps/main/actions/(main)/projects/project-ideas.action.ts" \
+  "apps/main/actions/(main)/projects/tasks.action.ts" \
+  "apps/main/actions/(main)/studios/pathfinder-integration.actions.ts" \
+  "apps/main/actions/(main)/user/feedback.action.ts" \
+  "apps/main/actions/(main)/user/newsletter.action.ts" \
+  "apps/main/app/(main)/ai/_components/animated-text.tsx" \
+  "apps/main/app/(main)/ai/_components/testimonials-section.tsx" \
+  "apps/main/app/(main)/ai/resume/_components/projects-tab-form.tsx" \
+  "apps/main/app/(main)/home/_components/greeting-header.tsx" \
+  "apps/main/app/(main)/home/_components/home-client-wrapper.tsx" \
+  "apps/main/app/(main)/home/_components/mock-voice-preview.tsx" \
+  "apps/main/app/(main)/home/_components/pathfinder-goals-card.tsx" \
+  "apps/main/app/(main)/home/_components/projects-preview.tsx" \
+  "apps/main/app/(main)/home/_components/recent-activity.tsx" \
+  "apps/main/app/(main)/knowme/onboarding/_components/onboarding-wizard.tsx" \
+  "apps/main/app/(main)/mock/_components/mock-card-skeleton.tsx" \
+  "apps/main/app/(main)/practice/_components/add-problem-sheet.tsx" \
+  "apps/main/components/activity-calendar.tsx" \
+  "apps/main/components/ai/ai-trigger-button.tsx" \
+  "apps/main/components/auth/auth-dialog.tsx" \
+  "apps/main/components/common/app-backdrop.tsx" \
+  "apps/main/components/main/orb.tsx" \
+  "apps/main/components/navigation/customize-sidebar-sheet.tsx" \
+  "apps/main/components/navigation/sidebar-hot-edge.tsx" \
+  "apps/main/components/studio/blocks/flashcard-block.tsx" \
+  "apps/main/components/studio/studio-container.tsx" \
+  "apps/main/lib/jobs-navigation.ts" \
+  "apps/main/lib/motion.ts" \
+  "apps/main/lib/prompt.ts" \
+  "apps/main/lib/prompts/jobinterviewprompts.ts" \
+  "apps/main/lib/resume-pdf/types.ts" \
+  "apps/main/lib/utils.ts" \
+  "apps/main/public/pdf.worker.min.mjs" \
+  "apps/main/types/interview.ts" \
+  "apps/main/types/opensource.ts" \
+  "apps/main/types/resume.ts" \
+  "apps/main/types/studio.ts" \
+  "apps/main/utils/truefolio/email.ts" \
+  "apps/main/utils/truefolio/leetcode.ts" \
+  "apps/main/utils/truefolio/linkedin.ts" \
+  "apps/main/utils/truefolio/twitter.ts" \
+  "apps/main/verdict-check-tmp.ts" \
+  "apps/uni/utils/mail.ts" \
+  "packages/ui/src/components/charts/area-gradient-defs.tsx" \
+  "packages/ui/src/components/charts/line-chart-loading.tsx" \
+  "packages/ui/src/components/charts/line-series-terminal-marker.tsx" \
+  "packages/ui/src/components/charts/motion-utils.ts" \
+  "packages/ui/src/components/charts/projection-line-end-marker.tsx" \
+  "packages/ui/src/components/charts/projection-line.tsx" \
+  "packages/ui/src/components/charts/use-enter-complete.ts" \
+  "packages/ui/src/components/charts/use-mount-progress.ts" \
+  "packages/ui/src/components/charts/y-axis-ticks.ts" \
+  "packages/ui/src/components/github-contributions.tsx" \
+  "packages/ui/src/components/metrics-01.tsx" \
+  "packages/ui/src/components/typeform-flow.tsx" \
+  "packages/ui/src/components/ui/3d-card.tsx" \
+  "packages/ui/src/components/ui/background-beams.tsx" \
+  "packages/ui/src/components/ui/bento-grid.tsx" \
+  "packages/ui/src/components/ui/breadcrumb.tsx" \
+  "packages/ui/src/components/ui/carousel.tsx" \
+  "packages/ui/src/components/ui/container-scroll-animation.tsx" \
+  "packages/ui/src/components/ui/dottedvignette.tsx" \
+  "packages/ui/src/components/ui/empty-state.tsx" \
+  "packages/ui/src/components/ui/form.tsx" \
+  "packages/ui/src/components/ui/glow.tsx" \
+  "packages/ui/src/components/ui/icon-cloud.tsx" \
+  "packages/ui/src/components/ui/marquee.tsx" \
+  "packages/ui/src/components/ui/motion.tsx" \
+  "packages/ui/src/components/ui/orbiting-circles.tsx" \
+  "packages/ui/src/components/ui/rainbow-button.tsx" \
+  "packages/ui/src/components/ui/ripple.tsx" \
+  "packages/ui/src/components/ui/shimmer-button.tsx" \
+  "packages/ui/src/components/ui/shine-border.tsx" \
+  "packages/ui/src/components/ui/text-reveal-card.tsx" \
+  "packages/ui/src/components/ui/toggle-group.tsx" \
+  "packages/ui/src/components/ui/typing-animation.tsx" \
+  "packages/ui/src/lib/get-cached-contributions.ts"
+```
+
+Then: `tsc --noEmit` in apps/main, hiring, uni, web, admin and packages/ui. Also update two comments that name deleted files: `apps/main/components/knowme/knowme-onboarding.tsx:9` and `apps/main/app/(main)/practice/_components/module-content.tsx:186`. Unused npm deps left behind (`embla-carousel-react`, `react-icon-cloud`, `@radix-ui/react-toggle-group` in packages/ui) can go in a follow-up.

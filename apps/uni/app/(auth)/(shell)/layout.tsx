@@ -9,17 +9,12 @@ const COPY: Record<string, AuthPanelCopy> = {
     "/signin": {
         art: "contributions",
         headline: <>See how your students <Muted>actually build.</Muted></>,
-        sub: "Sign in to your institution's workspace.",
+        sub: "Projects, practice and mock interviews for every student, in one dashboard.",
     },
     "/register": {
         art: "commit-graph",
         headline: <>Bring your campus <Muted>on board.</Muted></>,
         sub: "Create your institution's workspace and invite your faculty.",
-    },
-    "/verify": {
-        art: "otp-cells",
-        headline: <>One code and <Muted>you're in.</Muted></>,
-        sub: "We emailed a six-digit code to confirm your address.",
     },
     "/forgotpassword": {
         art: "otp-mail",

@@ -1362,73 +1362,64 @@ h1, h2, h3, h4, h5, h6,
    main, hiring and uni gets it without touching 26 call-sites, and nothing outside
    auth changes. Unlayered on purpose: it must win over the Button/Input utilities.
 
-   - Primary (`bg-primary` Button): the web PrimaryCta recipe - ink, an inset top
-     highlight, a darker bottom edge, a soft drop shadow, and a 1px press.
-   - Outline (`border-input` Button, the social buttons): the web OutlineCta recipe -
-     white, a hairline, a faint bottom shade.
-   - Disabled: a clear inactive fill, not the primary at half opacity (which read as
-     muddy grey on the dark theme).
-   - Inputs: a hairline, a faint shadow, and a soft ring on focus.
+   Since AUTH-9 (2026-10-01) they are flat and square-ish, after Niraj's reference:
+   - Primary (`bg-primary` Button): solid ink, 48px, a 1px press.
+   - Outline (`border-input` Button, the social buttons): a soft grey fill, no border.
+   - Disabled: a clear inactive fill, not the primary at half opacity.
+   - Inputs: 48px, a plain hairline, an ink border and a faint ring on focus.
    ───────────────────────────────────────────────────────────────────────────── */
 
+/* AUTH-9 (Niraj, 2026-10-01): flat and squarer, after his reference. 48px controls, a 6px
+   radius, no raised shadows: a solid ink primary, a soft filled secondary, plain inputs. */
 .auth-form :is(button, a).bg-primary {
-    border-radius: .625rem;
+    height: 3rem;
+    border-radius: .375rem;
     background: #171717;
     color: #fff;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 0 rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.2), 0 6px 16px -6px rgba(0,0,0,.35);
-    transition: background-color .2s, box-shadow .2s, transform .1s;
+    box-shadow: none;
+    font-size: 15px;
+    transition: background-color .2s, transform .1s;
 }
-.auth-form :is(button, a).bg-primary:hover { background: #262626; }
+.auth-form :is(button, a).bg-primary:hover { background: #2a2a2a; }
 .auth-form :is(button, a).bg-primary:active { transform: translateY(1px); }
-.dark .auth-form :is(button, a).bg-primary {
-    background: #fafafa;
-    color: #0a0a0a;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -2px 0 rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.4), 0 8px 20px -8px rgba(255,255,255,.18);
-}
+.dark .auth-form :is(button, a).bg-primary { background: #fafafa; color: #0a0a0a; }
 .dark .auth-form :is(button, a).bg-primary:hover { background: #e5e5e5; }
-.auth-form button.bg-primary:disabled {
-    opacity: 1;
-    background: #e5e5e5;
-    color: #737373;
-    box-shadow: inset 0 -1px 0 rgba(0,0,0,.06);
-}
-.dark .auth-form button.bg-primary:disabled {
-    background: #262626;
-    color: #a3a3a3;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
-}
+.auth-form button.bg-primary:disabled { opacity: 1; background: #e5e5e5; color: #737373; }
+.dark .auth-form button.bg-primary:disabled { background: #262626; color: #a3a3a3; }
 
 .auth-form :is(button, a).border-input {
-    border-radius: .625rem;
-    border-color: #e5e5e5;
-    background: #fff;
+    height: 3rem;
+    border-radius: .375rem;
+    border-color: transparent;
+    background: #ebebe8;
     color: #171717;
-    box-shadow: 0 1px 0 rgba(0,0,0,.04), inset 0 -1px 0 rgba(0,0,0,.06);
-    transition: background-color .2s, border-color .2s, transform .1s;
+    box-shadow: none;
+    font-size: 15px;
+    transition: background-color .2s, transform .1s;
 }
-.auth-form :is(button, a).border-input:hover { border-color: #d4d4d4; background: #fafafa; }
+.auth-form :is(button, a).border-input:hover { background: #e2e2de; }
 .auth-form :is(button, a).border-input:active { transform: translateY(1px); }
-.dark .auth-form :is(button, a).border-input {
-    border-color: #262626;
-    background: #171717;
-    color: #fafafa;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.4);
-}
-.dark .auth-form :is(button, a).border-input:hover { border-color: #404040; background: #1f1f1f; }
+.dark .auth-form :is(button, a).border-input { border-color: transparent; background: #1f1f1f; color: #fafafa; }
+.dark .auth-form :is(button, a).border-input:hover { background: #2a2a2a; }
 
 .auth-form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
-    border-radius: .625rem;
-    box-shadow: 0 1px 2px rgba(0,0,0,.04);
-    transition: border-color .2s, box-shadow .2s, background-color .2s;
+    height: 3rem;
+    border-radius: .375rem;
+    border-color: #d4d4d4;
+    background: #fff;
+    box-shadow: none;
+    font-size: 15px;
+    transition: border-color .2s, box-shadow .2s;
 }
+.dark .auth-form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { border-color: #333; background: #0a0a0a; }
 .auth-form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus-visible {
-    border-color: #a3a3a3;
-    box-shadow: 0 0 0 4px rgba(23,23,23,.08);
+    border-color: #171717;
+    box-shadow: 0 0 0 3px rgba(23,23,23,.08);
     --tw-ring-shadow: 0 0 #0000;
 }
 .dark .auth-form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus-visible {
-    border-color: #525252;
-    box-shadow: 0 0 0 4px rgba(255,255,255,.08);
+    border-color: #a3a3a3;
+    box-shadow: 0 0 0 3px rgba(255,255,255,.08);
 }
 
 @media (prefers-reduced-motion: reduce) {

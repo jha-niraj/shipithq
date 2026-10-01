@@ -8,9 +8,13 @@
  *
  * Exits 1 on any problem.
  */
+import { existsSync, readdirSync, statSync } from "node:fs"
+import { join } from "node:path"
 import { INCIDENT_CASES } from "../content/incidents/cases"
+import { BLUEPRINTS } from "../../../packages/db/src/seed/blueprints"
 import type { ChapterBlock, IncidentCase } from "../content/incidents/types"
 
+const SAMPLES = join(import.meta.dirname, "../../../samples")
 const problems: string[] = []
 const bad = (where: string, what: string) => problems.push(`${where}: ${what}`)
 
@@ -29,6 +33,7 @@ function partsOf(b: ChapterBlock, c: IncidentCase): Set<string> | null {
         case "runbook": return new Set(b.steps.map((_, i) => String(i + 1)))
         case "see": return new Set(b.lines.map((_, i) => String(i)))
         case "compare": return new Set(b.rows.map((r) => r.label))
+        case "code": return null
         default: return null
     }
 }
@@ -73,6 +78,7 @@ function checkCase(c: IncidentCase) {
             }
             const target = blocks.get(block!)
             if (!target) return bad(where, `focus ${b.focus}: no block ${block}`)
+            if (target.kind === "code" && part && !/^L\d+(-\d+)?(,\d+(-\d+)?)*$/.test(part)) return bad(where, `focus ${b.focus}: a code block's part is lines, like L12-20`)
             const parts = partsOf(target, c)
             if (part && parts && !parts.has(part)) bad(where, `focus ${b.focus}: ${target.kind} has no part ${part}`)
         })
@@ -96,6 +102,14 @@ function checkCase(c: IncidentCase) {
                 const nodes = new Set(b.flow.nodes.map((n) => n.id))
                 b.flow.edges.forEach((e) => { if (!nodes.has(e.from) || !nodes.has(e.to)) bad(`${where} / ${id}`, `edge ${e.from} -> ${e.to} joins an unknown node`) })
             }
+            // Code: the sample, stage and file exist in samples/ (what `pnpm script code-samples` seeds).
+            if (b.kind === "code") {
+                const root = join(SAMPLES, b.sample)
+                const stages = b.stage ? [b.stage] : existsSync(root) ? readdirSync(root).filter((st) => statSync(join(root, st)).isDirectory()) : []
+                if (!existsSync(join(SAMPLES, b.sample))) bad(`${where} / ${id}`, `no code sample ${b.sample} in samples/`)
+                else if (b.stage && !existsSync(join(SAMPLES, b.sample, b.stage))) bad(`${where} / ${id}`, `sample ${b.sample} has no stage ${b.stage}`)
+                else if (b.file && !stages.some((st) => existsSync(join(SAMPLES, b.sample, st, b.file!)))) bad(`${where} / ${id}`, `sample ${b.sample} has no file ${b.file}`)
+            }
             if (b.kind === "map-change" && !c.system?.after) bad(`${where} / ${id}`, "a before/after block, but the map has no fix")
             if (b.kind === "roles") b.roles.sources.forEach((s) => { if (!sources.has(s.source)) bad(`${where} / ${id}`, `unknown source ${s.source}`) })
         }
@@ -111,6 +125,8 @@ function checkCase(c: IncidentCase) {
 
         ch.sources.forEach((s) => { if (!sources.has(s.source)) bad(where, `unknown source ${s.source}`) })
     }
+
+    if (c.build && !BLUEPRINTS[c.build.project]) bad(`${c.slug} build`, `no project blueprint ${c.build.project}`)
 
     // The postmortem step's points cover every section.
     if (c.postmortem && c.postmortemPoints) {

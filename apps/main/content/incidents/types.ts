@@ -93,6 +93,10 @@ export type SimulatorSpec = {
     simulate: (values: SimValues) => SimRun
     /** Shown under the simulator: what is faithful and what is illustrative. */
     fidelity: string
+    /** Axis ticks in seconds (default 0, 30, 60, 90 and the end). */
+    ticks?: number[]
+    /** A line drawn across every lane, its tick in white (default 30 s); null for none. */
+    line?: number | null
 }
 
 // ── 4. Predict ───────────────────────────────────────────────────────────────
@@ -282,6 +286,11 @@ export type ChapterBlock =
     | { kind: "roles"; roles: IncidentRoles; id?: string }
     | { kind: "status"; status: StatusUpdates; id?: string }
     | { kind: "runbook"; title: string; steps: string[]; id?: string }
+    /**
+     * Read-only reference code (plan/long-jobs-vercel LJV-5), from the `code_sample` tables.
+     * Narration lights lines with `focus: "<id>:L12-20"`.
+     */
+    | { kind: "code"; id?: string; sample: string; stage?: string; file?: string; highlight?: string; compare?: boolean }
     /** What you would see: a log, a thread, a database row. */
     | { kind: "see"; title: string; lines: { t?: string; who?: string; text: string; tone?: "bad" | "muted" }[]; id?: string }
     | { kind: "note"; text: string; id?: string }
@@ -398,6 +407,8 @@ export type IncidentCase = IncidentMeta & {
      * the ones theirs covered after comparing it with the real one.
      */
     postmortemPoints?: Record<"impact" | "timeline" | "causes" | "well" | "actions", { id: string; label: string }[]>
+    /** Build it yourself (LJV-5): an official project, shown in the "Keep learning" step. */
+    build?: { project: string; title: string; summary: string }
     checklist: ChecklistItem[]
     round: RoundItem[]
     closing: string[]

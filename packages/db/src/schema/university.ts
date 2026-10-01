@@ -165,6 +165,8 @@ export const universities = pgTable(
         city: text("city"),
         state: text("state"),
         country: text("country").notNull().default("India"),
+        /** A band from onboarding, e.g. "1,000-5,000 students" (plan/auth AUTH-14). */
+        studentCount: text("student_count"),
         pincode: text("pincode"),
         verificationStatus: universityVerificationStatusEnum("verification_status")
             .notNull()

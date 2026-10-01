@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels"
-import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ExternalLink, GraduationCap, HelpCircle, Lock, ChevronRight, Flag, Mic, Pause, Play, Search, SlidersHorizontal, Sparkles } from "lucide-react"
+import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ExternalLink, GraduationCap, Hammer, HelpCircle, Lock, ChevronRight, Flag, Mic, Pause, Play, Search, SlidersHorizontal, Sparkles } from "lucide-react"
 import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
 import { QuizRunner, type PickFigureProps } from "@repo/ui/components/quiz/quiz-runner"
 import { grade, type QuizQuestion, type QuizResult } from "@repo/ui/lib/quiz"
@@ -29,6 +29,7 @@ import { MapChange, SystemMap } from "../diagrams/system-map"
 import { DiagramFrame } from "../diagrams/kit"
 import { ScrubProvider } from "../diagrams/scrub"
 import { RolesView, RunbookView, StatusView } from "../diagrams/human"
+import { CodeSample } from "@/components/code-sample/code-sample-viewer"
 import { PostmortemStep } from "./postmortem-step"
 import { MockStep } from "./mock-step"
 import { useLead } from "../lead/store"
@@ -442,6 +443,19 @@ function LearnStep() {
                     </button>
                 )}
             </div>
+            {c.build && (
+                <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+                    <Hammer className="size-5 shrink-0 text-neutral-700 dark:text-neutral-300" aria-hidden />
+                    <div className="min-w-0 flex-1">
+                        <p className="text-[15px] font-semibold text-neutral-900 dark:text-white">Build it: {c.build.title}</p>
+                        <p className="mt-0.5 text-[14px] leading-6 text-neutral-700 dark:text-neutral-300">{c.build.summary}</p>
+                    </div>
+                    <Link href={`/projects/${c.build.project}`}
+                        className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-neutral-300 px-4 text-sm font-medium text-neutral-900 transition-colors hover:border-neutral-500 dark:border-neutral-700 dark:text-white dark:hover:border-neutral-500">
+                        Open the project <ArrowRight className="size-4" aria-hidden />
+                    </Link>
+                </div>
+            )}
         </div>
     )
 }
@@ -737,6 +751,9 @@ function Block({ block, part = null, upTo, terms, onTerm, system }: { block: Cha
             return <StatusView status={block.status} lit={part} />
         case "runbook":
             return <RunbookView title={block.title} steps={block.steps} lit={part} />
+        case "code":
+            // Narration lights lines: "code:L12-20".
+            return <CodeSample sample={block.sample} stage={block.stage} file={block.file} compare={block.compare} highlight={part?.startsWith("L") ? part.slice(1) : block.highlight} />
         case "note":
             return <p className="rounded-2xl border-l-4 border-neutral-900 bg-neutral-50 px-5 py-4 text-[16px] font-medium leading-7 text-neutral-900 dark:border-white dark:bg-neutral-900 dark:text-white"><Inline text={block.text} terms={terms} onTerm={onTerm} /></p>
         case "see":
@@ -746,7 +763,7 @@ function Block({ block, part = null, upTo, terms, onTerm, system }: { block: Cha
                     <ol className="space-y-2 p-4 font-mono text-[13px] leading-6">
                         {block.lines.map((l, i) => (
                             <li key={i} className={cn("flex gap-3 rounded-md transition-colors", part === String(i) && "-mx-2 bg-white/10 px-2")}>
-                                {l.t && <span className="w-10 shrink-0 text-neutral-500">{l.t}</span>}
+                                {l.t && <span className="min-w-10 shrink-0 tabular-nums text-neutral-500">{l.t}</span>}
                                 {l.who && <span className="w-24 shrink-0 text-neutral-400">{l.who}</span>}
                                 <span className={cn(l.tone === "bad" ? "text-rose-400" : l.tone === "muted" ? "text-neutral-400" : "text-neutral-100")}>{l.text}</span>
                             </li>

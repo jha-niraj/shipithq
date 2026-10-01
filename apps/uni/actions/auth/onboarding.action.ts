@@ -1,8 +1,8 @@
 "use server"
 
-import { db, users, universities, universityMembers, universityMemberInvitations } from "@repo/db"
+import { db, users, universities, universityMembers, departments } from "@repo/db"
 import { eq, and } from "drizzle-orm"
-import { getSession } from "@repo/auth"
+import { getSession, refreshSession } from "@repo/auth"
 import { headers } from "next/headers"
 import type {
     UniversityMemberJobTitle,
@@ -22,8 +22,16 @@ interface UniversityOnboardingData {
     accreditation?: string;
     establishedYear?: number;
     emailDomain: string;
+    // Asked in onboarding and saved since AUTH-14 (they used to be asked and dropped).
+    city?: string;
+    state?: string;
+    studentCount?: string;
+    /** Department names to create, one row each. */
+    departments?: string[];
     // User info
     userRole: UniversityMemberJobTitle;
+    /** The role's own words when it maps to OTHER (e.g. "Administrative Staff"). */
+    jobTitleCustom?: string;
     displayName?: string;
     phone?: string;
 }
@@ -98,6 +106,9 @@ export async function completeUniversityOnboarding(data: UniversityOnboardingDat
             accreditation: data.accreditation || null,
             establishedYear: data.establishedYear || null,
             emailDomain: data.emailDomain,
+            city: data.city?.trim() || null,
+            state: data.state?.trim() || null,
+            studentCount: data.studentCount || null,
             createdByUserId: userId,
             verificationStatus: "PENDING",
         }).returning();
@@ -116,16 +127,27 @@ export async function completeUniversityOnboarding(data: UniversityOnboardingDat
             phone: data.phone || null,
             role: "HEAD",
             jobTitle: data.userRole,
+            jobTitleCustom: data.jobTitleCustom || null,
             inviteStatus: "ACCEPTED",
             acceptedAt: new Date(),
             permissions: HEAD_PERMISSIONS,
         });
+
+        // The departments picked in onboarding, one row each (AUTH-14).
+        const names = [...new Set((data.departments ?? []).map((d) => d.trim()).filter(Boolean))]
+        if (names.length) {
+            await db.insert(departments).values(names.map((name) => ({ universityId: university.id, name }))).onConflictDoNothing()
+        }
 
         // Mark user onboarding as completed and set role to UNI
         await db.update(users).set({
             onboardingCompleted: true,
             role: "UNI",
         }).where(eq(users.id, userId));
+
+        // Rewrite better-auth's cached session cookie, or the middleware keeps reading
+        // `onboarding: false` and sends /home straight back here (as apps/main does).
+        await refreshSession(await headers());
 
         return { success: true, universityId: university.id, slug };
     } catch (error) {
@@ -164,146 +186,6 @@ export async function getUserUniversity() {
     } catch (error) {
         console.error("Get university error:", error);
         return { success: false, error: "Failed to fetch university" };
-    }
-}
-
-/**
- * Check if user has completed university onboarding
- */
-export async function checkUniversityOnboardingStatus() {
-    const session = await getSession(headers());
-
-    if (!session?.user?.id) {
-        return {
-            success: false,
-            isOnboarded: false,
-            error: "Unauthorized"
-        };
-    }
-
-    try {
-        const user = await db.query.users.findFirst({
-            where: eq(users.id, session.user.id),
-            columns: { onboardingCompleted: true, role: true },
-        });
-
-        if (!user) {
-            return { success: false, isOnboarded: false, error: "User not found" };
-        }
-
-        const universityMember = await db.query.universityMembers.findFirst({
-            where: eq(universityMembers.userId, session.user.id),
-        });
-
-        const isOnboarded = user.onboardingCompleted && !!universityMember;
-
-        return {
-            success: true,
-            isOnboarded,
-            role: user.role,
-        };
-    } catch (error) {
-        console.error("Check onboarding status error:", error);
-        return { success: false, isOnboarded: false, error: "Failed to check status" };
-    }
-}
-
-/**
- * Join an existing university via invite
- */
-export async function joinUniversityViaInvite(inviteCode: string) {
-    const session = await getSession(headers());
-
-    if (!session?.user?.id) {
-        return { success: false, error: "Unauthorized" };
-    }
-
-    try {
-        // Find the invite
-        const invite = await db.query.universityMemberInvitations.findFirst({
-            where: and(
-                eq(universityMemberInvitations.inviteCode, inviteCode),
-                eq(universityMemberInvitations.status, "PENDING"),
-            ),
-            with: { university: true },
-        });
-
-        if (!invite || (invite.expiresAt && invite.expiresAt < new Date())) {
-            return { success: false, error: "Invalid or expired invite" };
-        }
-
-        // Get user
-        const user = await db.query.users.findFirst({
-            where: eq(users.id, session.user.id),
-            columns: { email: true, name: true },
-        });
-
-        if (!user) {
-            return { success: false, error: "User not found" };
-        }
-
-        // Create the university member from the invite
-        const memberRows = await db.insert(universityMembers).values({
-            userId: session.user.id,
-            universityId: invite.universityId,
-            departmentId: invite.departmentId,
-            email: user.email,
-            displayName: invite.name || user.name,
-            role: invite.role,
-            jobTitle: invite.jobTitle,
-            inviteStatus: "ACCEPTED",
-            invitedById: invite.invitedById,
-            invitedAt: invite.createdAt,
-            acceptedAt: new Date(),
-            permissions: getDefaultPermissionsForRole(invite.role),
-        }).returning();
-
-        const member = memberRows[0];
-        if (!member) {
-            return { success: false, error: "Failed to create university member" };
-        }
-
-        // Update the invitation status
-        await db.update(universityMemberInvitations).set({
-            status: "ACCEPTED",
-            acceptedAt: new Date(),
-            resultingMemberId: member.id,
-        }).where(eq(universityMemberInvitations.id, invite.id));
-
-        // Update user role if not already UNI
-        await db.update(users).set({
-            onboardingCompleted: true,
-            role: "UNI",
-        }).where(eq(users.id, session.user.id));
-
-        return {
-            success: true,
-            universityId: invite.universityId,
-            universityName: invite.university.name,
-        };
-    } catch (error) {
-        console.error("Join university via invite error:", error);
-        return { success: false, error: "Failed to join university" };
-    }
-}
-
-// Helper function to get default permissions based on role
-function getDefaultPermissionsForRole(role: string): string[] {
-    switch (role) {
-        case "HEAD":
-            return HEAD_PERMISSIONS;
-        case "DEPARTMENT_HEAD":
-            return ["view_classes", "create_classes", "edit_classes", "create_assignments", "edit_assignments", "grade_submissions", "view_students", "manage_departments"];
-        case "PLACEMENT_OFFICER":
-            return ["view_students", "manage_placements", "view_job_applications", "view_analytics"];
-        case "FINANCE_OFFICER":
-            return ["manage_billing", "manage_credits", "view_reports"];
-        case "FACULTY":
-            return ["view_classes", "create_assignments", "edit_assignments", "grade_submissions", "view_students"];
-        case "TEACHING_ASSISTANT":
-            return ["view_classes", "grade_submissions", "view_students"];
-        default:
-            return ["view_classes", "view_students"];
     }
 }
 

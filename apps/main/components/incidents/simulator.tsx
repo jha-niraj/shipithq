@@ -31,13 +31,13 @@ export function effectiveValues(spec: SimulatorSpec, v: SimValues): SimValues {
     return out
 }
 
-export function Simulator() {
+export function Simulator({ preset }: { preset?: SimValues } = {}) {
     const c = useCase()
     // Case 1's timeline; traffic scenarios render in sim/traffic-view (CaseSimulator picks).
     const spec = c.simulator as SimulatorSpec
     const { gate } = useGate()
     const { dispatch } = useProgress()
-    const [values, setValues] = useState<SimValues>(spec.defaults)
+    const [values, setValues] = useState<SimValues>({ ...spec.defaults, ...preset })
     const eff = useMemo(() => effectiveValues(spec, values), [spec, values])
     const run = useMemo(() => spec.simulate(eff), [spec, eff])
     const { t, playing, play, seek } = usePlayback(spec.duration, 6500)
@@ -101,7 +101,7 @@ export function Simulator() {
             </div>
 
             <div className="mt-8">
-                <SimTimeline run={run} duration={spec.duration} t={t} onSeek={(v) => act(() => seek(v))} />
+                <SimTimeline run={run} duration={spec.duration} ticks={spec.ticks} line={spec.line === undefined ? 30 : spec.line} t={t} onSeek={(v) => act(() => seek(v))} />
             </div>
 
             <Verdict run={run} show={t >= stopsAt(run, spec.duration)} />
@@ -129,9 +129,9 @@ const SEG: Record<LaneState, string> = {
 }
 
 /** Lanes on one time axis, drawn up to the playhead `t`. Used by the simulator and each prediction. */
-export function SimTimeline({ run, duration, t, onSeek, compact = false }: { run: SimRun; duration: number; t: number; onSeek?: (v: number) => void; compact?: boolean }) {
+export function SimTimeline({ run, duration, t, onSeek, compact = false, ticks: given, line = 30 }: { run: SimRun; duration: number; t: number; onSeek?: (v: number) => void; compact?: boolean; ticks?: number[]; line?: number | null }) {
     const pct = (s: number) => `${(Math.max(0, Math.min(duration, s)) / duration) * 100}%`
-    const ticks = [0, 30, 60, 90, duration].filter((v, i, a) => v <= duration && a.indexOf(v) === i)
+    const ticks = (given ?? [0, 30, 60, 90, duration]).filter((v, i, a) => v <= duration && a.indexOf(v) === i)
     const label = Math.round(t)
 
     return (
@@ -142,7 +142,7 @@ export function SimTimeline({ run, duration, t, onSeek, compact = false }: { run
                     {/* Axis */}
                     <div className="relative h-5">
                         {ticks.map((v) => (
-                            <span key={v} className={cn("absolute -translate-x-1/2 font-mono text-[10px]", v === 30 ? "text-white" : "text-neutral-400")} style={{ left: pct(v) }}>
+                            <span key={v} className={cn("absolute -translate-x-1/2 font-mono text-[10px]", v === line ? "text-white" : "text-neutral-400")} style={{ left: pct(v) }}>
                                 {v}s
                             </span>
                         ))}
@@ -171,9 +171,9 @@ export function SimTimeline({ run, duration, t, onSeek, compact = false }: { run
                     </div>
                 ))}
 
-                {/* The 30 s line, the events and the playhead, across every lane. */}
+                {/* The spec's line (30 s for case one), the events and the playhead, across every lane. */}
                 <div className={cn("pointer-events-none absolute inset-y-0 right-0", compact ? "left-16" : "left-20 sm:left-24")} aria-hidden>
-                    <span className="absolute inset-y-0 w-px bg-white/25" style={{ left: pct(30) }} />
+                    {line !== null && <span className="absolute inset-y-0 w-px bg-white/25" style={{ left: pct(line) }} />}
                     {run.marks.map((m, i) => t >= m.at && (
                         <span key={i} className={cn("absolute inset-y-0 w-px", m.tone === "bad" ? "bg-rose-400" : "bg-neutral-500")} style={{ left: pct(m.at) }} />
                     ))}

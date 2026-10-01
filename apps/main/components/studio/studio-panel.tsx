@@ -253,6 +253,7 @@ export function StudioPanel({
                                 <>
                                     <div className="flex-1 overflow-hidden">
                                         <StudioViewer
+                                            fullWidth
                                             studio={studioData || undefined}
                                             studioId={studioId}
                                             className="h-full"

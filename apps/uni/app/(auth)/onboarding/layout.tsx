@@ -1,11 +1,4 @@
-import { PublicHeader } from "@/components/public-header";
-
-/** Onboarding keeps a slim header: the marketing chrome moved to shipithq.com/uni (REV-32). */
+/** The onboarding frame is full screen with its own brand and controls (plan/auth AUTH-14). */
 export default function OnboardingLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-    return (
-        <>
-            <PublicHeader />
-            {children}
-        </>
-    );
+    return children;
 }

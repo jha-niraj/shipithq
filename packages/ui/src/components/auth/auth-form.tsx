@@ -25,16 +25,14 @@ export function AuthHeader({ title, description, icon }: {
     description?: React.ReactNode
     icon?: React.ReactNode
 }) {
+    // AUTH-9: a large, tight title, as in Niraj's reference. No icon tile above it (Niraj,
+    // 2026-10-01: "remove this icons from everywhere on auth"); `icon` is accepted and unused.
+    void icon
     return (
-        <div className="mb-7">
-            {icon && (
-                <div className="mb-5 flex size-11 items-center justify-center rounded-lg border border-neutral-200 text-neutral-900 dark:border-neutral-800 dark:text-white">
-                    {icon}
-                </div>
-            )}
-            <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">{title}</h1>
+        <div className="mb-8">
+            <h1 className="text-[2.25rem] font-semibold leading-[1.05] tracking-[-0.03em] text-neutral-900 text-balance dark:text-white">{title}</h1>
             {description && (
-                <p className="mt-1.5 text-sm leading-6 text-neutral-600 dark:text-neutral-400">{description}</p>
+                <p className="mt-3 text-[15px] leading-6 text-neutral-600 dark:text-neutral-400">{description}</p>
             )}
         </div>
     )
@@ -157,7 +155,8 @@ export function AuthLegalNote({ hrefs = WEB_LEGAL }: { hrefs?: LegalHrefs }) {
 /** The line under the form: "Don't have an account? Create one". */
 export function AuthFootnote({ children }: { children: React.ReactNode }) {
     return (
-        <p className="mt-6 text-center text-sm text-neutral-600 dark:text-neutral-400 [&_a]:font-medium [&_a]:text-neutral-900 [&_a]:underline-offset-4 hover:[&_a]:underline dark:[&_a]:text-white">
+        // Links and buttons here hover as a soft rounded fill, not an underline (Niraj, 2026-10-01).
+        <p className="mt-6 text-center text-sm text-neutral-600 dark:text-neutral-400 [&_:is(a,button)]:rounded-md [&_:is(a,button)]:px-2 [&_:is(a,button)]:py-1 [&_:is(a,button)]:font-medium [&_:is(a,button)]:text-neutral-900 [&_:is(a,button)]:transition-colors [&_:is(a,button):hover]:bg-neutral-200/70 dark:[&_:is(a,button)]:text-white dark:[&_:is(a,button):hover]:bg-neutral-800">
             {children}
         </p>
     )
@@ -165,7 +164,7 @@ export function AuthFootnote({ children }: { children: React.ReactNode }) {
 
 /** A quiet inline link or text button for secondary actions inside a form. */
 export const authLinkClass =
-    "cursor-pointer font-medium text-neutral-900 underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:text-neutral-400 disabled:no-underline dark:text-white dark:disabled:text-neutral-600"
+    "-mx-1.5 -my-0.5 cursor-pointer rounded-md px-1.5 py-0.5 font-medium text-neutral-900 transition-colors hover:bg-neutral-200/70 disabled:cursor-not-allowed disabled:bg-transparent disabled:text-neutral-400 dark:text-white dark:hover:bg-neutral-800 dark:disabled:text-neutral-600"
 
 /**
  * Six one-digit cells for an emailed code. Typing advances, Backspace on an empty

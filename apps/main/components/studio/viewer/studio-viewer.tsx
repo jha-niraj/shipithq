@@ -32,6 +32,8 @@ interface StudioViewerProps {
 	onExternalPromptConsumed?: () => void;
 	/** Ref callback for triggering reload from parent */
 	onRefresh?: (refreshFn: () => void) => void;
+	/** Use the container's whole width instead of a centred 4xl column (a panel, e.g. Pathfinder). */
+	fullWidth?: boolean;
 }
 
 // Skeleton component for pending steps
@@ -137,6 +139,7 @@ export function StudioViewer({
 	studioId,
 	className,
 	onRefresh,
+	fullWidth = false,
 }: StudioViewerProps) {
 	const [quizData, setQuizData] = useState<Record<string, unknown>>({});
 	const [initialLoading, setInitialLoading] = useState(!initialStudio);
@@ -320,7 +323,7 @@ export function StudioViewer({
 
 	return (
 		<ScrollArea className={className}>
-			<div className="max-w-4xl mx-auto px-6 py-8">
+			<div className={fullWidth ? "w-full px-6 py-8" : "max-w-4xl mx-auto px-6 py-8"}>
 				<AnimatePresence mode="popLayout">
 					{
 						steps.map((step, index) => (

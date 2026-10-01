@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useMemo, useState } from "react"
 import { Bot, ChevronDown, Cloud, Cpu, Database, Globe, Layers, ListOrdered, Maximize2, Monitor, Plug } from "lucide-react"
-import { Button } from "@repo/ui/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@repo/ui/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
 import { cn } from "@repo/ui/lib/utils"
@@ -193,9 +192,10 @@ export function SystemStrip({ map, lit, chapterId }: { map: SystemMapData; lit: 
                     <span className="shrink-0 text-[13px] font-medium text-neutral-900 dark:text-white">The system</span>
                     {names.length > 0 && <span className="min-w-0 truncate text-[12.5px] text-neutral-500 dark:text-neutral-400">{names.join(" · ")}</span>}
                 </button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => setFull(true)} aria-label="Expand the system map">
-                    <Maximize2 /> <span className="hidden sm:inline">Expand</span>
-                </Button>
+                <button type="button" onClick={() => setFull(true)} aria-label="Expand the system map"
+                    className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white">
+                    <Maximize2 className="size-3.5" aria-hidden /> <span className="hidden sm:inline">Expand</span>
+                </button>
             </div>
             {open && (
                 <div className="hidden border-t border-neutral-100 px-3 pb-3 pt-2 sm:block dark:border-neutral-900">

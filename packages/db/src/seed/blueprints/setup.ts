@@ -1,6 +1,6 @@
 import type { SeedSprint } from "./types"
 import {
-    expoApi, expoApp, goModule, goRedisPing, installTools, layoutAndCommit, nextJsPostgres, neonDatabase, nodeHealth, nodeService, setupSprint,
+    expoApi, nextApp, expoApp, goModule, goRedisPing, installTools, layoutAndCommit, nextJsPostgres, neonDatabase, nodeHealth, nodeService, setupSprint,
     step, upstashRedis, viteApp, vitest,
 } from "../../project-setup"
 
@@ -13,6 +13,35 @@ import {
 // ─── The ten ─────────────────────────────────────────────────────────────────
 
 export const SETUPS: Record<string, SeedSprint> = {
+    // No database: run status lives in the workflow itself (plan/long-jobs-vercel LJV-10).
+    "long-jobs-on-vercel": setupSprint(
+        "Get it running, and deployed",
+        "A Next.js app on your machine is also live on Vercel, deployed from a GitHub repository on every push.",
+        [
+            installTools(),
+            nextApp("long-jobs-on-vercel"),
+            step({
+                title: "Deploy it to Vercel",
+                description: [
+                    "Push the app to a new GitHub repository, then import it at vercel.com/new. The free Hobby plan is enough for everything in this project.",
+                    "Deploy now, before there is anything to deploy: the whole project is about what happens in production that never happens on your laptop, so production has to exist from the first day.",
+                ],
+                criteria: [
+                    "The Vercel deployment shows the Next.js starter page at its *.vercel.app address",
+                    "Pushing a one-line change to the main branch redeploys it within a few minutes",
+                    "In the project's settings, Functions shows Fluid compute on",
+                ],
+                hints: ["Fluid compute is on by default for new projects; older ones can turn it on in the Functions settings."],
+                estimatedTime: "20 minutes",
+            }),
+            layoutAndCommit([
+                "`src/lib/` - the report's steps, as plain functions",
+                "`src/workflows/` - the workflow, added in sprint 2",
+                "`src/app/api/report/` - the routes (already there once you add the first)",
+            ], "npm run dev"),
+        ],
+    ),
+
     "expense-splitter": setupSprint(
         "Get it running on your machine",
         "A Next.js app on your machine reaches its own Postgres database on Neon through the ORM you chose.",

@@ -38,70 +38,36 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         )
     }
 
+    // One toggle everywhere (Niraj, 2026-10-01): a 36px control with real padding and a
+    // small radius, a square thumb that slides under the active icon.
     return (
         <div
             className={cn(
-                "flex w-16 h-8 p-1 rounded-full cursor-pointer transition-all duration-300",
+                "relative flex h-9 w-[4.5rem] shrink-0 cursor-pointer items-center rounded-lg border p-1 transition-colors duration-300",
                 !mounted && "transition-none",
-                isDark
-                    ? "bg-zinc-950 border border-zinc-800"
-                    : "bg-white border border-zinc-200",
+                isDark ? "border-neutral-800 bg-neutral-950" : "border-neutral-200 bg-white",
                 className
             )}
             onClick={toggle}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle() } }}
             role="button"
             tabIndex={0}
-            aria-label="Toggle theme"
+            aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
         >
-            <div className="flex justify-between items-center w-full">
-                <div
-                    className={cn(
-                        "flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-300",
-                        !mounted && "transition-none",
-                        isDark
-                            ? "transform translate-x-0 bg-zinc-800"
-                            : "transform translate-x-8 bg-gray-200"
-                    )}
-                >
-                    {
-                        isDark ? (
-                            <Moon
-                                className="w-4 h-4 text-white"
-                                strokeWidth={1.5}
-                            />
-                        ) : (
-                            <Sun
-                                className="w-4 h-4 text-gray-700"
-                                strokeWidth={1.5}
-                            />
-                        )
-                    }
-                </div>
-                <div
-                    className={cn(
-                        "flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-300",
-                        !mounted && "transition-none",
-                        isDark
-                            ? "bg-transparent"
-                            : "transform -translate-x-8"
-                    )}
-                >
-                    {
-                        isDark ? (
-                            <Sun
-                                className="w-4 h-4 text-gray-500"
-                                strokeWidth={1.5}
-                            />
-                        ) : (
-                            <Moon
-                                className="w-4 h-4 text-black"
-                                strokeWidth={1.5}
-                            />
-                        )
-                    }
-                </div>
-            </div>
+            <span
+                aria-hidden
+                className={cn(
+                    "absolute left-1 top-1 size-7 rounded-md transition-transform duration-300",
+                    !mounted && "transition-none",
+                    isDark ? "translate-x-0 bg-neutral-800" : "translate-x-8 bg-neutral-100",
+                )}
+            />
+            <span className="relative z-10 flex size-7 items-center justify-center">
+                <Moon className={cn("size-4", isDark ? "text-white" : "text-neutral-500")} strokeWidth={1.75} />
+            </span>
+            <span className="relative z-10 ml-1 flex size-7 items-center justify-center">
+                <Sun className={cn("size-4", isDark ? "text-neutral-500" : "text-neutral-900")} strokeWidth={1.75} />
+            </span>
         </div>
     )
 }

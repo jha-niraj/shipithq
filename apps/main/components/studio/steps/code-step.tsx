@@ -12,6 +12,7 @@ import { saveStep } from "@/actions/(main)/studios/studio.actions";
 import toast from "@repo/ui/components/ui/sonner";
 import type { StudioStep, CodeMetadata } from "@/types/studios";
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
+import { CodeSample } from "@/components/code-sample/code-sample-viewer";
 
 const CodeEditor = dynamic(() => import("@/components/main/code-editor"), { ssr: false });
 
@@ -20,7 +21,21 @@ interface CodeStepProps {
 	studioId?: string;
 }
 
+/** A CODE step: reference code to read when it names a sample (LJV-9), else the editor. */
 export function CodeStep({ step, studioId }: CodeStepProps) {
+	const meta = (step.metadata || {}) as Partial<CodeMetadata>;
+	if (meta.sample) {
+		return (
+			<div className="space-y-2">
+				{meta.note && <p className="text-[14px] leading-6 text-neutral-700 dark:text-neutral-300">{meta.note}</p>}
+				<CodeSample sample={meta.sample} stage={meta.stage} file={meta.file} />
+			</div>
+		);
+	}
+	return <EditableCodeStep step={step} studioId={studioId} />;
+}
+
+function EditableCodeStep({ step, studioId }: CodeStepProps) {
 	const metadata = useMemo(() => (step.metadata || {}) as Partial<CodeMetadata>, [step.metadata]);
 	const [isRunning, setIsRunning] = useState(false);
 	const [currentCode, setCurrentCode] = useState(step.content || "// Start coding here...");

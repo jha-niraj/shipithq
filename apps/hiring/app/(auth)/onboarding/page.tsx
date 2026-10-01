@@ -4,19 +4,9 @@ import {
     useState, useTransition, useEffect, useCallback, Suspense 
 } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { motion, AnimatePresence } from "framer-motion"
-import {
-    Building2, MapPin, Briefcase, ArrowRight, ArrowLeft, Check,
-    Users, Code, Palette, LineChart, Megaphone, Cog, Globe,
-    Link2, CheckCircle2, XCircle
-} from "lucide-react"
-import { Button } from "@repo/ui/components/ui/button"
+import { Users, Code, Palette, LineChart, Megaphone, Cog, CheckCircle2, XCircle } from "lucide-react"
 import { Input } from "@repo/ui/components/ui/input"
-import { Label } from "@repo/ui/components/ui/label"
 import { Textarea } from "@repo/ui/components/ui/textarea"
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from "@repo/ui/components/ui/select"
 import { cn } from "@repo/ui/lib/utils"
 import { 
     completeOnboarding, checkSlugAvailability, getPendingCompanyInfo, getOnboardingEligibility, claimCompany
@@ -30,6 +20,9 @@ import { OptionSelect } from "@repo/ui/components/ui/option-select"
 import { TagInput } from "@repo/ui/components/ui/tag-input"
 import { OPTION_BUILTINS } from "@repo/db/option-builtins"
 import { WebsiteStep, type WebsiteResult } from "./website-step"
+import {
+    Chip, OnboardingFrame, OnboardingStep, PanelMuted, StepField, StepFooter, type OnboardingPanel,
+} from "@repo/ui/components/onboarding/split-onboarding"
 import { COUNTRIES, INDIAN_STATES } from "@/lib/places"
 
 // Hiring Goal Options
@@ -58,30 +51,47 @@ function OnboardingLoading() {
     return <ShipItHQLoader />
 }
 
+/** Every hiring onboarding screen sits in the shared split frame (plan/auth AUTH-13). */
+const PANEL: Record<string, OnboardingPanel> = {
+    website: { headline: <>Hire from people who <PanelMuted>already passed.</PanelMuted></>, sub: "Give us your website and we fill in most of this for you.", art: "terminal" },
+    company: { headline: <>Your company, <PanelMuted>on ShipItHQ.</PanelMuted></>, sub: "Candidates see this page before they apply.", art: "roster" },
+    about: { headline: <>Tell candidates <PanelMuted>why you.</PanelMuted></>, sub: "What you build, where, and how the team works.", art: "commit-graph" },
+    goals: { headline: <>Who are you <PanelMuted>hiring?</PanelMuted></>, sub: "It shapes the templates and rounds you see first.", art: "funnel" },
+    notice: { headline: <>Almost <PanelMuted>there.</PanelMuted></>, sub: "One more thing before your workspace opens.", art: "shield" },
+}
+
+function useSignOut() {
+    const [signingOut, setSigningOut] = useState(false)
+    const signOutNow = async () => {
+        setSigningOut(true)
+        await signOut().catch(() => {})
+        window.location.href = "/signin"
+    }
+    return { signingOut, signOutNow }
+}
+
+/** A single screen (invited, blocked, claim): the frame with no step dashes. */
+function NoticeFrame({ children }: { children: React.ReactNode }) {
+    const { signingOut, signOutNow } = useSignOut()
+    return (
+        <OnboardingFrame brand="ShipItHQ Hiring" panel={PANEL.notice!} panelKey="notice" onLogout={() => void signOutNow()} loggingOut={signingOut}>
+            {children}
+        </OnboardingFrame>
+    )
+}
+
 /* Shown instead of the form when an invitation is waiting for this email (HA-8). */
 function OnboardingInvited({ code, companyName, roleName }: { code: string; companyName: string; roleName: string }) {
     const [pending, startTransition] = useTransition()
     return (
-        <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-page dark:bg-neutral-950">
-            <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
-                    <Building2 className="h-5 w-5 text-neutral-700 dark:text-neutral-300" />
-                </div>
-                <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">You&apos;ve been invited to {companyName}</h1>
-                <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">Join as {roleName}. Your company&apos;s workspace is ready for you.</p>
-                <Button
-                    className="mt-6 w-full gap-1.5"
-                    disabled={pending}
-                    onClick={() => startTransition(async () => {
-                        const r = await acceptInvitation(code)
-                        if (!r.success) { toast.error(r.error); return }
-                        window.location.href = "/welcome"
-                    })}
-                >
-                    {pending && <InlineLoader size="sm" />} Accept and join
-                </Button>
-            </div>
-        </div>
+        <NoticeFrame>
+            <OnboardingStep title={<>You&apos;ve been invited to {companyName}</>} hint={<>Join as {roleName}. Your company&apos;s workspace is ready for you.</>}
+                footer={<StepFooter busy={pending} nextLabel="Accept and join" onNext={() => startTransition(async () => {
+                    const r = await acceptInvitation(code)
+                    if (!r.success) { toast.error(r.error); return }
+                    window.location.href = "/welcome"
+                })} />} />
+        </NoticeFrame>
     )
 }
 
@@ -91,29 +101,11 @@ function OnboardingInvited({ code, companyName, roleName }: { code: string; comp
  * company is already on ShipItHQ and they need an invite from its admins.
  */
 function OnboardingBlocked({ title, message }: { title: string; message: string }) {
-    const [signingOut, setSigningOut] = useState(false)
+    const { signingOut, signOutNow } = useSignOut()
     return (
-        <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-page dark:bg-neutral-950">
-            <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
-                    <Building2 className="h-5 w-5 text-neutral-700 dark:text-neutral-300" />
-                </div>
-                <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">{title}</h1>
-                <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">{message}</p>
-                <Button
-                    variant="outline"
-                    className="mt-6 w-full"
-                    disabled={signingOut}
-                    onClick={async () => {
-                        setSigningOut(true)
-                        await signOut().catch(() => {})
-                        window.location.href = "/signin"
-                    }}
-                >
-                    Sign out
-                </Button>
-            </div>
-        </div>
+        <NoticeFrame>
+            <OnboardingStep title={title} hint={message} footer={<StepFooter busy={signingOut} nextLabel="Sign out" onNext={() => void signOutNow()} />} />
+        </NoticeFrame>
     )
 }
 
@@ -134,85 +126,51 @@ function OnboardingClaim({ companyName, website, lastRejection, onClaimed }: {
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
     const host = website?.replace(/^https?:\/\//, "").replace(/\/$/, "")
+    const claim = () => startTransition(async () => {
+        setError(null)
+        const r = await claimCompany({ jobTitle, linkedinUrl, note })
+        if (!r.success) { setError(r.error); return }
+        onClaimed()
+    })
     return (
-        <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-page py-10 dark:bg-neutral-950">
-            <form
-                className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900"
-                onSubmit={(e) => {
-                    e.preventDefault()
-                    startTransition(async () => {
-                        setError(null)
-                        const r = await claimCompany({ jobTitle, linkedinUrl, note })
-                        if (!r.success) { setError(r.error); return }
-                        onClaimed()
-                    })
-                }}
+        <NoticeFrame>
+            <OnboardingStep
+                wide
+                title={<>Claim {companyName}&apos;s page</>}
+                hint={<>{companyName} already has a page on ShipItHQ, built from {host ?? "its website"}. Claim it and, once we&apos;ve checked, you&apos;ll be its Owner. It usually takes a working day.</>}
+                error={error}
+                footer={<StepFooter busy={pending} disabled={jobTitle.trim().length < 2} nextLabel="Claim this page" onNext={claim} />}
             >
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
-                    <Building2 className="h-5 w-5 text-neutral-700 dark:text-neutral-300" />
-                </div>
-                <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">Claim {companyName}&apos;s page</h1>
-                <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                    {companyName} already has a page on ShipItHQ, built from {host ?? "its website"}. Claim it and, once we&apos;ve checked, you&apos;ll be its Owner: you can edit the page, invite your team and start hiring.
-                </p>
                 {lastRejection && (
-                    <p className="mt-3 rounded-lg bg-neutral-100 px-3 py-2 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                        Your last claim wasn&apos;t approved: {lastRejection}
-                    </p>
+                    <p className="mb-5 rounded-md bg-neutral-200/60 px-3 py-2 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">Your last claim wasn&apos;t approved: {lastRejection}</p>
                 )}
-                <div className="mt-5 space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="claim-title">Your job title</Label>
+                <div className="space-y-5">
+                    <StepField label="Your job title">
                         <OptionSelect id="claim-title" value={jobTitle} onChange={setJobTitle} options={[...OPTION_BUILTINS.member_title]} placeholder="Pick one or type your own" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="claim-linkedin">LinkedIn profile <span className="font-normal text-neutral-500">(optional)</span></Label>
+                    </StepField>
+                    <StepField label="LinkedIn profile" optional>
                         <Input id="claim-linkedin" type="url" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="https://www.linkedin.com/in/..." maxLength={300} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="claim-note">Anything that helps us check <span className="font-normal text-neutral-500">(optional)</span></Label>
+                    </StepField>
+                    <StepField label="Anything that helps us check" optional>
                         <Textarea id="claim-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={500} />
-                    </div>
+                    </StepField>
                 </div>
-                {error && <p role="alert" className="mt-4 text-sm text-rose-700 dark:text-rose-400">{error}</p>}
-                <Button type="submit" className="mt-6 w-full gap-1.5" disabled={pending || jobTitle.trim().length < 2}>
-                    {pending && <InlineLoader size="sm" />} Claim this page
-                </Button>
-                <p className="mt-3 text-center text-xs text-neutral-500 dark:text-neutral-400">
-                    We check that you work there before anything changes. It usually takes a working day.
-                </p>
-            </form>
-        </div>
+            </OnboardingStep>
+        </NoticeFrame>
     )
 }
 
 /* The claim is with an admin (HR-8): no workspace until it is approved. */
 function OnboardingClaimPending({ companyName, submittedAt }: { companyName: string; submittedAt: Date }) {
-    const [signingOut, setSigningOut] = useState(false)
+    const { signingOut, signOutNow } = useSignOut()
     return (
-        <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-page dark:bg-neutral-950">
-            <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
-                    <CheckCircle2 className="h-5 w-5 text-neutral-700 dark:text-neutral-300" />
-                </div>
-                <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">Your claim for {companyName} is pending</h1>
-                <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                    Sent {new Date(submittedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}. We&apos;re checking that you work there. We&apos;ll email you when it&apos;s approved, and then this sign-in takes you straight to your workspace.
-                </p>
-                <Button
-                    variant="outline"
-                    className="mt-6 w-full"
-                    disabled={signingOut}
-                    onClick={async () => {
-                        setSigningOut(true)
-                        await signOut().catch(() => {})
-                        window.location.href = "/signin"
-                    }}
-                >
-                    Sign out
-                </Button>
-            </div>
-        </div>
+        <NoticeFrame>
+            <OnboardingStep
+                title={<>Your claim for {companyName} is pending</>}
+                hint={<>Sent {new Date(submittedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}. We&apos;re checking that you work there and will email you when it&apos;s approved; then this sign-in takes you straight to your workspace.</>}
+                footer={<StepFooter busy={signingOut} nextLabel="Sign out" onNext={() => void signOutNow()} />}
+            />
+        </NoticeFrame>
     )
 }
 
@@ -268,8 +226,8 @@ function OnboardingContent() {
     const [culture, setCulture] = useState("")
     const [draftId, setDraftId] = useState<string | undefined>()
 
-    // 1 the website (optional), 2 the details, 3 what you hire for.
-    const totalSteps = 3
+    // 1 the website (optional), 2 the company, 3 about it (optional), 4 what you hire for (AUTH-13).
+    const totalSteps = 4
 
     const applyWebsite = (r: WebsiteResult) => {
         setWebsite(r.website.trim() && !/^https?:\/\//i.test(r.website.trim()) ? `https://${r.website.trim()}` : r.website.trim())
@@ -403,6 +361,9 @@ function OnboardingContent() {
         })
     }
 
+    // Before any early return: hooks run in the same order every render.
+    const { signingOut, signOutNow } = useSignOut()
+
     if (!eligibility) return <OnboardingLoading />
     if (eligibility.status === "company_exists") {
         return <OnboardingBlocked title="Your company is already here" message={eligibility.message} />
@@ -430,353 +391,135 @@ function OnboardingContent() {
         return <OnboardingBlocked title="A company email is needed" message={eligibility.message} />
     }
 
-    return (
-        <div className="min-h-dvh bg-neutral-50 dark:bg-neutral-950">
-            <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800">
-                <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-neutral-900 dark:bg-white flex items-center justify-center">
-                            <Briefcase className="w-4 h-4 text-white dark:text-black" />
-                        </div>
-                        <span className="font-bold text-neutral-900 dark:text-white">ShipItHQ Hiring</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-neutral-500">
-                        Step {currentStep} of {totalSteps}
-                    </div>
-                </div>
-            </nav>
-            <div className="fixed top-16 left-0 right-0 z-40 h-1 bg-neutral-200 dark:bg-neutral-800">
-                <motion.div
-                    className="h-full bg-neutral-900 dark:bg-white"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(currentStep / totalSteps) * 100}%` }}
-                    transition={{ duration: 0.3 }}
-                />
-            </div>
-            <div className="pt-24 pb-12 px-4">
-                <div className="max-w-2xl mx-auto">
-                    <AnimatePresence mode="wait">
-                        {
-                            currentStep === 1 && (
-                                <motion.div
-                                    key="step1"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    transition={{ duration: 0.3 }}
-                                >
-                                    <WebsiteStep initialWebsite={website} onDone={applyWebsite} />
-                                </motion.div>
-                            )
-                        }
-                        {
-                            currentStep === 2 && (
-                                <motion.div
-                                    key="step2"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    transition={{ duration: 0.3 }}
-                                >
-                                    <div className="text-center mb-8">
-                                        <div className="w-16 h-16 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto mb-4">
-                                            <Building2 className="w-8 h-8 text-neutral-600 dark:text-neutral-400" />
-                                        </div>
-                                        <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
-                                            {companyName ? (
-                                                <>Set up your workspace for <span className="text-neutral-500">{companyName}</span></>
-                                            ) : (
-                                                "Set up your workspace"
-                                            )}
-                                        </h1>
-                                        <p className="text-neutral-500">
-                                            {companyName 
-                                                ? "Complete the details below to finalize your workspace"
-                                                : "Tell us about your company to personalize your experience"
-                                            }
-                                        </p>
-                                    </div>
-                                    <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 space-y-6">
-                                        <div className="space-y-4 pb-4 border-b border-neutral-100 dark:border-neutral-800">
-                                            <div>
-                                                <Label htmlFor="companyName">Company name *</Label>
-                                                <div className="relative mt-1.5">
-                                                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                                                    <Input
-                                                        id="companyName"
-                                                        value={companyName}
-                                                        onChange={(e) => setCompanyName(e.target.value)}
-                                                        placeholder="Acme Corporation"
-                                                        className="pl-10"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="slug">Company page address *</Label>
-                                                <div className="relative mt-1.5">
-                                                    <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                                                    <Input
-                                                        id="slug"
-                                                        value={slug}
-                                                        onChange={(e) => setSlug(generateSlug(e.target.value))}
-                                                        placeholder="acme-corp"
-                                                        className={cn(
-                                                            "pl-10 pr-10 rounded-xl",
-                                                            slugStatus === "available" && "border-neutral-900 focus-visible:ring-neutral-900",
-                                                            slugStatus === "taken" && "border-rose-500 focus-visible:ring-rose-500"
-                                                        )}
-                                                    />
-                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                        {
-                                                        slugStatus === "checking" && (
-                                                            <InlineLoader size="sm" className="text-neutral-400" />
-                                                        )
-                                                        }
-                                                        {
-                                                        slugStatus === "available" && (
-                                                            <CheckCircle2 className="w-4 h-4 text-neutral-900" />
-                                                        )
-                                                        
-                                                        
-                                                        }
-                                                        {
-                                                        slugStatus === "taken" && (
-                                                            <XCircle className="w-4 h-4 text-rose-500" />
-                                                        )
-                                                        }
-                                                    </div>
-                                                </div>
-                                                <p className="mt-1.5 text-xs text-neutral-500">
-                                                    Your company page: hire.shipithq.com/c/<span className="font-medium">{slug || "your-company"}</span>
-                                                </p>
-                                                {
-                                                slugStatus === "taken" && slugSuggestions.length > 0 && (
-                                                    <div className="mt-2 flex flex-wrap gap-2">
-                                                        <span className="text-xs text-neutral-500">Try:</span>
-                                                        {
-                                                        slugSuggestions.map((suggestion) => (
-                                                            <button
-                                                                key={suggestion}
-                                                                type="button"
-                                                                onClick={() => setSlug(suggestion)}
-                                                                className="text-xs px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-                                                            >
-                                                                {suggestion}
-                                                            </button>
-                                                        ))
-                                                        }
-                                                    </div>
-                                                )
-                                                }
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <Label htmlFor="website">Website</Label>
-                                                <div className="relative mt-1.5">
-                                                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                                                    <Input
-                                                        id="website"
-                                                        value={website}
-                                                        onChange={(e) => setWebsite(e.target.value)}
-                                                        placeholder="https://acme.com"
-                                                        className="pl-10"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="industry">Industry</Label>
-                                                <OptionSelect value={industry} onChange={setIndustry} options={[...OPTION_BUILTINS.industry]} placeholder="Pick an industry" className="mt-1.5" />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="companySize">Company size</Label>
-                                                <Select value={companySize} onValueChange={setCompanySize}>
-                                                    <SelectTrigger className="mt-1.5">
-                                                        <SelectValue placeholder="How many people" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {
-                                                            companySizes.map(size => (
-                                                                <SelectItem key={size.value} value={size.value}>
-                                                                    {size.label}
-                                                                </SelectItem>
-                                                            ))
-                                                        }
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="userRole">Your job title *</Label>
-                                                <OptionSelect id="userRole" value={userRole} onChange={setUserRole} options={[...OPTION_BUILTINS.member_title]} placeholder="Pick one or type your own" className="mt-1.5" />
-                                            </div>
-                                            <div className="md:col-span-2">
-                                                <Label htmlFor="description">About the company</Label>
-                                                <Textarea
-                                                    id="description"
-                                                    value={description}
-                                                    onChange={(e) => setDescription(e.target.value)}
-                                                    placeholder="What the company does, and for whom."
-                                                    className="mt-1.5 min-h-[80px]"
-                                                />
-                                            </div>
-                                            <div className="md:col-span-2 pt-4 border-t border-neutral-100 dark:border-neutral-800">
-                                                <div className="flex items-center gap-2 mb-4">
-                                                    <MapPin className="w-4 h-4 text-neutral-500" />
-                                                    <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                                                        Where the company is
-                                                    </span>
-                                                </div>
-                                                <div className="grid grid-cols-3 gap-4">
-                                                    <div>
-                                                        <Label htmlFor="city">City</Label>
-                                                        <OptionSelect id="city" value={city} onChange={setCity} options={[...OPTION_BUILTINS.city]} placeholder="Pick a city" className="mt-1.5" />
-                                                    </div>
-                                                    <div>
-                                                        <Label htmlFor="state">State</Label>
-                                                        <OptionSelect id="state" value={state} onChange={setState} options={country === "India" || !country ? [...INDIAN_STATES] : []} placeholder={country === "India" || !country ? "Pick a state" : "Type the state"} className="mt-1.5" />
-                                                    </div>
-                                                    <div>
-                                                        <Label htmlFor="country">Country</Label>
-                                                        <OptionSelect id="country" value={country} onChange={(v) => { if (v !== country) setState(""); setCountry(v) }} options={[...COUNTRIES]} placeholder="Pick a country" className="mt-1.5" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="mt-6 space-y-4 rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-                                        <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">For your company page <span className="font-normal text-neutral-500">(optional)</span></p>
-                                        <div>
-                                            <Label>Tech stack</Label>
-                                            <TagInput values={techStack} onChange={setTechStack} suggestions={[...OPTION_BUILTINS.tech]} placeholder="e.g. TypeScript" className="mt-1.5" />
-                                        </div>
-                                        <div>
-                                            <Label>Benefits</Label>
-                                            <TagInput values={benefits} onChange={setBenefits} suggestions={[...OPTION_BUILTINS.benefit]} placeholder="e.g. Health insurance" className="mt-1.5" />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="culture">How you work</Label>
-                                            <Textarea id="culture" value={culture} onChange={(e) => setCulture(e.target.value)} rows={3} maxLength={2000} placeholder="How the team works, what it values." className="mt-1.5" />
-                                        </div>
-                                    </div>
-                                    {/* Stays in reach on a long step (plan/hiring-ui HU-21). */}
-                                    <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
-                                        <Button variant="outline" onClick={handleBack} className="gap-1.5">
-                                            <ArrowLeft className="h-4 w-4" /> Back
-                                        </Button>
-                                        {!canProceedDetails && <span className="hidden text-xs text-neutral-500 sm:inline">Name, page address and your job title are needed</span>}
-                                        <Button onClick={handleNext} disabled={!canProceedDetails} className="gap-1.5">
-                                            Continue <ArrowRight className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </motion.div>
-                            )
-                        }
-                        {
-                            currentStep === 3 && (
-                                <motion.div
-                                    key="step3"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    transition={{ duration: 0.3 }}
-                                >
-                                    <div className="text-center mb-8">
-                                        <div className="w-16 h-16 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto mb-4">
-                                            <Users className="w-8 h-8 text-neutral-600 dark:text-neutral-400" />
-                                        </div>
-                                        <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
-                                            What roles are you hiring for?
-                                        </h1>
-                                        <p className="text-neutral-500">
-                                            Pick every kind you hire for. It shapes the templates you see first.
-                                        </p>
-                                    </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                        {
-                                            hiringGoals.map((goal) => {
-                                                const Icon = goal.icon
-                                                const isSelected = selectedGoals.includes(goal.id)
+    const stepKey = currentStep === 1 ? "website" : currentStep === 2 ? "company" : currentStep === 3 ? "about" : "goals"
+    const next = () => {
+        if (currentStep === 2 && !canProceedDetails) return
+        if (currentStep === 4) return canProceedGoals && !isPending ? handleComplete() : undefined
+        handleNext()
+    }
 
-                                                return (
-                                                    <button
-                                                        key={goal.id}
-                                                        onClick={() => toggleGoal(goal.id)}
-                                                        className={cn(
-                                                            "relative cursor-pointer p-4 rounded-2xl border-2 transition-all text-left",
-                                                            isSelected
-                                                                ? "border-neutral-900 dark:border-white bg-neutral-900 dark:bg-white"
-                                                                : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700"
-                                                        )}
-                                                    >
-                                                        <div className={cn(
-                                                            "w-10 h-10 rounded-xl flex items-center justify-center mb-3",
-                                                            isSelected
-                                                                ? "bg-white/20 dark:bg-black/20"
-                                                                : "bg-neutral-100 dark:bg-neutral-800"
-                                                        )}>
-                                                            <Icon className={cn(
-                                                                "w-5 h-5",
-                                                                isSelected
-                                                                    ? "text-white dark:text-black"
-                                                                    : "text-neutral-600 dark:text-neutral-400"
-                                                            )} />
-                                                        </div>
-                                                        <h3 className={cn(
-                                                            "font-semibold mb-1",
-                                                            isSelected
-                                                                ? "text-white dark:text-black"
-                                                                : "text-neutral-900 dark:text-white"
-                                                        )}>
-                                                            {goal.label}
-                                                        </h3>
-                                                        <p className={cn(
-                                                            "text-sm",
-                                                            isSelected
-                                                                ? "text-white/70 dark:text-black/70"
-                                                                : "text-neutral-500"
-                                                        )}>
-                                                            {goal.description}
-                                                        </p>
-                                                        {
-                                                            isSelected && (
-                                                                <div className="absolute top-3 right-3">
-                                                                    <Check className="w-5 h-5 text-white dark:text-black" />
-                                                                </div>
-                                                            )
-                                                        }
-                                                    </button>
-                                                )
-                                            })
-                                        }
-                                    </div>
-                                    <div className="sticky bottom-0 z-20 -mx-4 mt-8 flex items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
-                                        <Button variant="outline" onClick={handleBack} className="gap-1.5">
-                                            <ArrowLeft className="h-4 w-4" /> Back
-                                        </Button>
-                                        <Button
-                                            onClick={handleComplete}
-                                            disabled={!canProceedGoals || isPending}
-                                            className="gap-1.5"
-                                        >
-                                            {
-                                                isPending ? (
-                                                    <>
-                                                        <InlineLoader size="sm" /> Creating your workspace
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        Finish setup <Check className="h-4 w-4" />
-                                                    </>
-                                                )
-                                            }
-                                        </Button>
-                                    </div>
-                                </motion.div>
-                            )
-                        }
-                    </AnimatePresence>
-                </div>
-            </div>
-        </div>
+    return (
+        <OnboardingFrame
+            brand="ShipItHQ Hiring"
+            panel={PANEL[stepKey]!}
+            panelKey={stepKey}
+            steps={totalSteps}
+            current={currentStep - 1}
+            onJump={(n) => setCurrentStep(n + 1)}
+            onLogout={() => void signOutNow()}
+            loggingOut={signingOut}
+            // The website step owns its form (Enter reads the site); the rest continue on Enter.
+            onEnter={currentStep === 1 ? undefined : next}
+            onEscape={currentStep > 1 ? handleBack : undefined}
+        >
+            {currentStep === 1 && <WebsiteStep key="website" initialWebsite={website} onDone={applyWebsite} />}
+
+            {currentStep === 2 && (
+                <OnboardingStep
+                    key="company"
+                    wide
+                    title={companyName ? <>Set up {companyName}</> : "Set up your workspace"}
+                    hint="The page candidates see, and your role in it."
+                    footer={<StepFooter onBack={handleBack} onNext={next} disabled={!canProceedDetails} />}
+                >
+                    <div className="space-y-5">
+                        <StepField label="Company name">
+                            <Input id="companyName" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Acme Corporation" autoFocus />
+                        </StepField>
+                        <StepField label="Company page address">
+                            <div className="relative">
+                                <Input id="slug" value={slug} onChange={(e) => setSlug(generateSlug(e.target.value))} placeholder="acme-corp"
+                                    className={cn("pr-10", slugStatus === "taken" && "border-rose-500")} />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    {slugStatus === "checking" && <InlineLoader size="sm" className="text-neutral-400" />}
+                                    {slugStatus === "available" && <CheckCircle2 className="h-4 w-4 text-neutral-900 dark:text-white" />}
+                                    {slugStatus === "taken" && <XCircle className="h-4 w-4 text-rose-500" />}
+                                </span>
+                            </div>
+                            <span className="block text-xs text-neutral-500">hire.shipithq.com/c/<span className="font-medium">{slug || "your-company"}</span></span>
+                            {slugStatus === "taken" && slugSuggestions.length > 0 && (
+                                <span className="flex flex-wrap items-center gap-2">
+                                    <span className="text-xs text-neutral-500">Try:</span>
+                                    {slugSuggestions.map((suggestion) => (
+                                        <button key={suggestion} type="button" onClick={() => setSlug(suggestion)}
+                                            className="rounded-md bg-neutral-200/70 px-2 py-1 text-xs hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700">{suggestion}</button>
+                                    ))}
+                                </span>
+                            )}
+                        </StepField>
+                        <StepField label="Your job title">
+                            <OptionSelect id="userRole" value={userRole} onChange={setUserRole} options={[...OPTION_BUILTINS.member_title]} placeholder="Pick one or type your own" />
+                        </StepField>
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <StepField label="Industry" optional>
+                                <OptionSelect value={industry} onChange={setIndustry} options={[...OPTION_BUILTINS.industry]} placeholder="Pick an industry" />
+                            </StepField>
+                            <StepField label="Website" optional>
+                                <Input id="website" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://acme.com" />
+                            </StepField>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-[14px] font-medium text-neutral-800 dark:text-neutral-200">Company size <span className="font-normal text-neutral-500">(optional)</span></p>
+                            <div className="flex flex-wrap gap-2">
+                                {companySizes.map((size) => <Chip key={size.value} on={companySize === size.value} onClick={() => setCompanySize(companySize === size.value ? "" : size.value)}>{size.label}</Chip>)}
+                            </div>
+                        </div>
+                    </div>
+                    {!canProceedDetails && <p className="mt-5 text-xs text-neutral-500">Name, page address and your job title are needed.</p>}
+                </OnboardingStep>
+            )}
+
+            {currentStep === 3 && (
+                <OnboardingStep
+                    key="about"
+                    wide
+                    title="About the company"
+                    hint="Optional. Shown on your company page; you can change it any time."
+                    footer={<StepFooter onBack={handleBack} onSkip={handleNext} onNext={next} />}
+                >
+                    <div className="space-y-5">
+                        <StepField label="What the company does" optional>
+                            <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What the company does, and for whom." rows={3} />
+                        </StepField>
+                        <div className="grid gap-5 sm:grid-cols-3">
+                            <StepField label="City" optional>
+                                <OptionSelect id="city" value={city} onChange={setCity} options={[...OPTION_BUILTINS.city]} placeholder="Pick a city" />
+                            </StepField>
+                            <StepField label="State" optional>
+                                <OptionSelect id="state" value={state} onChange={setState} options={country === "India" || !country ? [...INDIAN_STATES] : []} placeholder={country === "India" || !country ? "Pick a state" : "Type the state"} />
+                            </StepField>
+                            <StepField label="Country" optional>
+                                <OptionSelect id="country" value={country} onChange={(v) => { if (v !== country) setState(""); setCountry(v) }} options={[...COUNTRIES]} placeholder="Pick a country" />
+                            </StepField>
+                        </div>
+                        <StepField label="Tech stack" optional>
+                            <TagInput values={techStack} onChange={setTechStack} suggestions={[...OPTION_BUILTINS.tech]} placeholder="e.g. TypeScript" />
+                        </StepField>
+                        <StepField label="Benefits" optional>
+                            <TagInput values={benefits} onChange={setBenefits} suggestions={[...OPTION_BUILTINS.benefit]} placeholder="e.g. Health insurance" />
+                        </StepField>
+                        <StepField label="How you work" optional>
+                            <Textarea id="culture" value={culture} onChange={(e) => setCulture(e.target.value)} rows={3} maxLength={2000} placeholder="How the team works, what it values." />
+                        </StepField>
+                    </div>
+                </OnboardingStep>
+            )}
+
+            {currentStep === 4 && (
+                <OnboardingStep
+                    key="goals"
+                    title="What roles are you hiring for?"
+                    hint="Pick every kind you hire for. It shapes the templates you see first."
+                    footer={<StepFooter onBack={handleBack} onNext={next} busy={isPending} disabled={!canProceedGoals} nextLabel="Finish setup" />}
+                >
+                    <div className="flex flex-wrap gap-2">
+                        {hiringGoals.map((goal) => {
+                            const Icon = goal.icon
+                            return <Chip key={goal.id} on={selectedGoals.includes(goal.id)} onClick={() => toggleGoal(goal.id)} icon={<Icon className="size-3.5" />}>{goal.label}</Chip>
+                        })}
+                    </div>
+                </OnboardingStep>
+            )}
+        </OnboardingFrame>
     )
 }

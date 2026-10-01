@@ -32,7 +32,6 @@ async function getSessionFromRequest(request: NextRequest): Promise<SessionData 
 const publicRoutes = [
     '/signin',
     '/register',
-    '/verify',
     '/forgotpassword',
     '/resetpassword',
     '/invite',
