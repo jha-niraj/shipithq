@@ -91,7 +91,7 @@ export function TrafficView({ scenario, preset }: { scenario: TrafficScenario; p
                     { label: "Guesses stopped", value: stopped },
                     { label: "Guesses checked", value: checked },
                 ].map((s) => (
-                    <div key={s.label} className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+                    <div key={s.label} className="rounded-xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
                         <dt className="font-mono text-[10.5px] text-neutral-400">{s.label}</dt>
                         <dd className={cn("mt-1 text-2xl font-semibold tabular-nums", s.bad ? "text-rose-400" : "text-white")}>{s.value.toLocaleString("en-US")}</dd>
                     </div>
@@ -121,7 +121,7 @@ export function TrafficView({ scenario, preset }: { scenario: TrafficScenario; p
                 </div>
             </div>
 
-            <div className={cn("mt-6 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 transition-opacity duration-300", done ? "opacity-100" : "opacity-0")} aria-live="polite">
+            <div className={cn("mt-6 rounded-xl bg-white/5 p-4 ring-1 ring-white/10 transition-opacity duration-300", done ? "opacity-100" : "opacity-0")} aria-live="polite">
                 <p className="text-[16px] font-semibold">{verdict.headline}</p>
                 <p className="mt-1.5 text-[14px] leading-6 text-neutral-300">{verdict.reason}</p>
             </div>

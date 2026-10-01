@@ -29,7 +29,7 @@ export function Checklist() {
                     <p className="font-mono text-[12px] tabular-nums text-neutral-500 dark:text-neutral-400">{done} of {c.checklist.length}</p>
                 </div>
             </Reveal>
-            <ul className="mt-5 divide-y divide-neutral-200 overflow-hidden rounded-3xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+            <ul className="mt-5 divide-y divide-neutral-200 overflow-hidden rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
                 {c.checklist.map((item) => {
                     const on = progress.checklist.includes(item.id)
                     return (
@@ -110,7 +110,7 @@ export function Round() {
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -16 }}
                             transition={{ duration: 0.3, ease: EASE }}
-                            className="rounded-3xl bg-neutral-950 p-6 text-white ring-1 ring-white/10 sm:p-7"
+                            className="rounded-xl bg-neutral-950 p-6 text-white ring-1 ring-white/10 sm:p-7"
                         >
                             <p className="font-mono text-[11px] text-neutral-400">Symptom {index + 1} of {c.round.length}</p>
                             <p className="mt-3 font-mono text-[16px] leading-7 text-neutral-100 sm:text-[17px]">&ldquo;<Inline text={item.symptom} />&rdquo;</p>
@@ -125,7 +125,7 @@ export function Round() {
                                             disabled={picked !== undefined}
                                             onClick={() => answer(item.id, o.id)}
                                             className={cn(
-                                                "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-[14.5px] leading-6 transition-[background-color,border-color,opacity] duration-200",
+                                                "flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left text-[14.5px] leading-6 transition-[background-color,border-color,opacity] duration-200",
                                                 picked === undefined && "border-white/15 hover:border-white/50",
                                                 isAnswer && "border-white/60 bg-white/10 text-white",
                                                 isPick && !isAnswer && "border-rose-400/60 bg-rose-500/10 text-rose-200",
@@ -162,7 +162,7 @@ export function Round() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.35, ease: EASE }}
-                            className="rounded-3xl border border-neutral-200 p-6 sm:p-7 dark:border-neutral-800"
+                            className="rounded-xl border border-neutral-200 p-6 sm:p-7 dark:border-neutral-800"
                         >
                             <div className="flex items-center justify-between gap-3">
                                 <p className="flex items-center gap-2 text-xl font-semibold tracking-tight text-neutral-900 dark:text-white">

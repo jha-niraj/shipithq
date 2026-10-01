@@ -86,11 +86,9 @@ export const arrowId = (uid: string, t: LineTone = "default") => `dk-arrow-${t}-
 /** The frame every diagram sits in, with its caption. */
 export function DiagramFrame({ caption, className, children, compact = false }: { caption?: string; className?: string; children: React.ReactNode; compact?: boolean }) {
     return (
-        <figure className={cn(
-            "overflow-hidden rounded-3xl border border-neutral-200 bg-neutral-50/60 dark:border-neutral-800 dark:bg-neutral-900/40",
-            compact ? "p-3" : "p-4 sm:p-6",
-            className,
-        )}>
+        // Flat on the page (INC-78): no card around a diagram, so the one border a block may
+        // have (a chart, a node) is the only one.
+        <figure className={cn(compact ? "py-1" : "py-2", className)}>
             <style>{KIT_MOTION}</style>
             {children}
             {caption && <figcaption className="mt-3 text-center text-[13px] text-neutral-500 dark:text-neutral-400">{caption}</figcaption>}
@@ -105,5 +103,5 @@ export function LitRing({ x, y, w, h, r }: { x: number; y: number; w: number; h:
 
 /** A label that stays readable over lines: a halo in the frame's background. */
 export function HaloText({ className, ...props }: React.SVGProps<SVGTextElement>) {
-    return <text paintOrder="stroke" strokeWidth={5} strokeLinejoin="round" className={cn("stroke-neutral-50 dark:stroke-neutral-900", className)} {...props} />
+    return <text paintOrder="stroke" strokeWidth={5} strokeLinejoin="round" className={cn("stroke-white dark:stroke-neutral-950", className)} {...props} />
 }

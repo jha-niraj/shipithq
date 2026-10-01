@@ -56,7 +56,7 @@ export function ReportCard({ slug, trigger = 0 }: { slug: string; trigger?: numb
     if (mode !== "recording" && !status && !latestReported) return null
 
     return (
-        <div className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
             <p className="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white"><FileText className="size-4" aria-hidden /> Your report</p>
             <div className="mt-2 text-[14px] leading-6 text-neutral-600 dark:text-neutral-300">
                 {status?.state === "reporting" && (
@@ -101,7 +101,7 @@ export function RunsList({ slug }: { slug: string }) {
     const past = state?.past ?? []
     if (!past.length && mode !== "recording") return null
     return (
-        <div className="mx-3 mt-2 rounded-2xl border border-neutral-200 p-3 dark:border-neutral-800">
+        <div className="mx-3 mt-2 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
             <p className="flex items-center gap-2 px-1 text-[12px] font-semibold text-neutral-900 dark:text-white">
                 <FileText className="size-4" aria-hidden /> Your runs
             </p>

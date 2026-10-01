@@ -49,9 +49,6 @@ type LeadStore = {
     /** The reader turned the rail off on cases: it no longer opens by itself (remembered). */
     railOff: boolean
     setRailOff: (off: boolean) => void
-    /** Show the narration as text on the page (remembered). */
-    transcript: boolean
-    setTranscript: (on: boolean) => void
 
     register: (c: { slug: string; title: string; thread: LeadTurn[]; canAsk: boolean; requireRun: () => boolean }) => void
     unregister: () => void
@@ -95,8 +92,6 @@ export const useLead = create<LeadStore>((set, get) => ({
     tab: "lead",
     railOff: false,
     setRailOff: (off) => { set({ railOff: off }); save("incidents:rail-off", off ? "1" : "0") },
-    transcript: false,
-    setTranscript: (on) => { set({ transcript: on }); save("incidents:transcript-shown", on ? "1" : "0") },
 
     register: ({ slug, title, thread, canAsk, requireRun }) => {
         const same = get().caseSlug === slug
@@ -106,8 +101,6 @@ export const useLead = create<LeadStore>((set, get) => ({
             speed: Number(pref("incidents:speed", "1")) || 1,
             // Off unless the reader turned it on (Niraj, 2026-09-27).
             autoplay: pref("incidents:autoplay", "0") === "1",
-            // Hidden unless the reader opens it (Niraj, 2026-09-27); a new key so an old "on" does not carry over.
-            transcript: pref("incidents:transcript-shown", "0") === "1",
             railOff: pref("incidents:rail-off", "0") === "1",
         })
     },

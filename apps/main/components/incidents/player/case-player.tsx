@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
-import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels"
-import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ExternalLink, GraduationCap, Hammer, HelpCircle, Lock, ChevronRight, Flag, Mic, Pause, Play, Search, SlidersHorizontal, Sparkles } from "lucide-react"
+import { Group as PanelGroup, Panel, Separator as PanelResizeHandle, usePanelRef } from "react-resizable-panels"
+import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ExternalLink, GraduationCap, Hammer, HelpCircle, Lock, Flag, Mic, Pause, Play, Search, SlidersHorizontal, Sparkles } from "lucide-react"
 import { ScrollArea } from "@repo/ui/components/ui/scroll-area"
 import { QuizRunner, type PickFigureProps } from "@repo/ui/components/quiz/quiz-runner"
 import { grade, type QuizQuestion, type QuizResult } from "@repo/ui/lib/quiz"
@@ -110,6 +110,20 @@ function Handle() {
     )
 }
 
+/** One page of the case (INC-75): a step, and the check that closes it when it is a chapter. */
+type Page = { main: PlayerStep; check?: PlayerStep }
+
+/** Chapter rows read "01" as a number; the rest of a part label is the chapter's title. */
+const chapterNo = (part: string) => (part.includes(" · ") ? part.split(" · ")[0]! : null)
+
+/** The steps pane's width, kept per reader (INC-76). */
+const STEPS_W_KEY = "incidents:steps-w"
+// Default narrow (Niraj, 2026-10-01: "Narrow, about 200px").
+const STEPS_W = { def: 200, min: 180, max: 420 }
+// A percentage of the group, worked out here: `resize("300px")` converted against a stale group
+// size and landed on the max (seen 2026-10-01).
+const toPct = (px: number, groupPx: number) => `${Math.min(100, (px / groupPx) * 100).toFixed(3)}%`
+
 function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string }) {
     const { progress, derived, dispatch } = useProgress()
     const run = useRun()
@@ -118,18 +132,42 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
     const desktop = useIsDesktop()
     const reduced = useReducedMotion()
     const steps = data.steps
-    const [index, setIndex] = useState(Math.max(0, steps.findIndex((s) => s.key === initialStep)))
-    const top = useRef<HTMLDivElement>(null)
-    const step = steps[index]!
 
-    const go = useCallback((i: number) => setIndex(Math.max(0, Math.min(steps.length - 1, i))), [steps.length])
+    // A chapter and the check right after it are one page (INC-75, Niraj 2026-10-01: "check
+    // under its chapter"). Progress and XP stay per step; only navigation moves by page.
+    const pages = useMemo(() => {
+        const out: Page[] = []
+        for (const s of steps) {
+            const prev = out[out.length - 1]
+            if (s.kind === "check" && prev && prev.main.kind === "chapter" && !prev.check && String(s.content.chapter) === String(prev.main.content.id)) prev.check = s
+            else out.push({ main: s })
+        }
+        return out
+    }, [steps])
+    const chapterPages = useMemo(() => pages.filter((p) => p.main.kind === "chapter"), [pages])
+
+    const [index, setIndex] = useState(() => Math.max(0, pages.findIndex((p) => p.main.key === initialStep || p.check?.key === initialStep)))
+    const top = useRef<HTMLDivElement>(null)
+    const checkRef = useRef<HTMLDivElement>(null)
+    const page = pages[index]!
+    const step = page.main
+
+    const go = useCallback((i: number) => setIndex(Math.max(0, Math.min(pages.length - 1, i))), [pages.length])
+
+    // An old link to a check (`?step=check-…`) opens its chapter at the check.
+    const openedAtCheck = useRef(!!initialStep && pages[index]?.check?.key === initialStep)
 
     // The URL keeps the step; the AI rail learns what is being read.
     useEffect(() => {
         const url = new URL(window.location.href)
         url.searchParams.set("step", step.key)
         window.history.replaceState(null, "", url)
-        top.current?.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" })
+        if (openedAtCheck.current) {
+            openedAtCheck.current = false
+            setTimeout(() => checkRef.current?.scrollIntoView({ block: "start", behavior: "auto" }), 300)
+        } else {
+            top.current?.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" })
+        }
         setAutoTag({ id: `${data.slug}#${step.key}`.slice(0, 64), kind: "incident", title: `${data.title}: ${step.title}`.slice(0, 120) })
     }, [step.key, step.title, data.slug, data.title, reduced])
     useEffect(() => () => setAutoTag(null), [])
@@ -188,19 +226,6 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
         return progress.stepsDone.includes(s.key)
     }, [progress, derived])
 
-    const acts = useMemo(() => {
-        const out: { act: string; parts: { part: string; items: { s: PlayerStep; i: number }[] }[] }[] = []
-        steps.forEach((s, i) => {
-            const act = typeof s.content.act === "string" ? s.content.act : s.part === "Final" ? "Final" : "The case"
-            let a = out[out.length - 1]
-            if (!a || a.act !== act) { a = { act, parts: [] }; out.push(a) }
-            const last = a.parts[a.parts.length - 1]
-            if (last && last.part === s.part) last.items.push({ s, i })
-            else a.parts.push({ part: s.part, items: [{ s, i }] })
-        })
-        return out
-    }, [steps])
-
     // Gating (round 5): reading is never blocked. A chapter's check or talk opens once every
     // earlier chapter's check and talk is passed; the final steps open after all of them.
     const chapterOrder = useMemo(() => steps.filter((s) => s.kind === "chapter").map((s) => String(s.content.id)), [steps])
@@ -212,64 +237,70 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
         return gates.find((g) => chapterOrder.indexOf(String(g.content.chapter)) < ci && !isDone(g)) ?? null
     }, [chapterOrder, gates, isDone])
 
-    const done = steps.filter(isDone).length
+    const pageDone = useCallback((p: Page) => isDone(p.main) && (!p.check || isDone(p.check)), [isDone])
+    const done = pages.filter(pageDone).length
 
-    // The sidebar accordion (INC-53): the chapter holding the current step is the open one.
-    const [openPart, setOpenPart] = useState<string | null>(step.part)
-    useEffect(() => { setOpenPart(step.part) }, [step.part])
+    // The sidebar (INC-77): acts, then one row per page. A chapter's later pages (its talk)
+    // sit indented under it.
+    const acts = useMemo(() => {
+        const out: { act: string; rows: { p: Page; i: number; sub: boolean }[] }[] = []
+        pages.forEach((p, i) => {
+            const s = p.main
+            const act = typeof s.content.act === "string" ? s.content.act : s.part === "Final" ? "Final" : "The case"
+            let a = out[out.length - 1]
+            if (!a || a.act !== act) { a = { act, rows: [] }; out.push(a) }
+            const prev = a.rows[a.rows.length - 1]
+            a.rows.push({ p, i, sub: !!prev && prev.p.main.part === s.part && !!chapterNo(s.part) })
+        })
+        return out
+    }, [pages])
+
     const markAndNext = () => { dispatch({ type: "stepDone", stepKey: step.key }); go(index + 1) }
     // Steps the reader marks done by hand (the rest are done by answering).
     const markable = (step.kind === "chapter" || step.kind === "talk" || step.kind === "closing-talk" || step.kind === "closing" || step.kind === "learn") && !isDone(step) && !lockedBy(step)
+
+    // Where a page sits, said once (INC-77): never the title again.
+    const where = (p: Page) => {
+        const s = p.main
+        const act = typeof s.content.act === "string" ? s.content.act : null
+        const ch = chapterPages.indexOf(p)
+        if (ch >= 0) return `${act ? `${act} · ` : ""}Chapter ${ch + 1} of ${chapterPages.length}`
+        const no = chapterNo(s.part)
+        return [act ?? s.part, no ? `Chapter ${Number(no)}` : null].filter(Boolean).join(" · ")
+    }
 
     const list = (
         <ScrollArea className="h-full" reflow>
             <nav aria-label="Steps" className="py-3">
                 {acts.map((a) => (
-                    <div key={a.act} className="mb-4">
-                        <p className="px-4 pb-1 pt-1 text-[11.5px] font-medium text-neutral-500 dark:text-neutral-400">{a.act}</p>
-                        {a.parts.map((p) => {
-                            const doneHere = p.items.filter(({ s }) => isDone(s)).length
-                            const isOpen = openPart === p.part
-                            const hasCurrent = p.items.some(({ i }) => i === index)
-                            const [num, title] = p.part.includes(" · ") ? p.part.split(" · ") : [null, p.part]
-                            return (
-                                <div key={p.part}>
-                                    {/* One row per chapter; only one is open (INC-53, Niraj 2026-09-28). */}
-                                    <button type="button" onClick={() => setOpenPart(isOpen ? null : p.part)} aria-expanded={isOpen}
-                                        className={cn("flex w-full min-w-0 items-center gap-2 px-4 py-2 text-left transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-900/60",
-                                            hasCurrent && !isOpen && "bg-neutral-100 dark:bg-neutral-900")}>
-                                        <ChevronRight className={cn("size-3.5 shrink-0 text-neutral-400 transition-transform duration-200", isOpen && "rotate-90")} aria-hidden />
-                                        {num && <span className="shrink-0 font-mono text-[11px] tabular-nums text-neutral-400">{num}</span>}
-                                        <span className={cn("min-w-0 flex-1 truncate text-[13.5px]", hasCurrent || isOpen ? "font-medium text-neutral-900 dark:text-white" : "text-neutral-700 dark:text-neutral-300")}>{title}</span>
-                                        <span className={cn("shrink-0 font-mono text-[10.5px] tabular-nums", doneHere === p.items.length ? "text-neutral-900 dark:text-white" : "text-neutral-400")}>{doneHere}/{p.items.length}</span>
-                                    </button>
-                                    {isOpen && (
-                                    <ol className="pb-1">
-                                        {p.items.map(({ s, i }) => {
-                                            const Icon = ICON[s.kind] ?? BookOpen
-                                            const on = i === index
-                                            const ok = isDone(s)
-                                            const locked = !!lockedBy(s)
-                                            return (
-                                                <li key={s.key}>
-                                                    <button type="button" onClick={() => go(i)} aria-current={on ? "step" : undefined} title={locked ? "Pass the earlier checks and talks to open this" : s.title}
-                                                        className={cn("relative flex w-full min-w-0 items-center gap-2.5 py-1.5 pl-9 pr-3 text-left text-[13px] transition-colors",
-                                                            on ? "bg-neutral-100 font-medium text-neutral-900 dark:bg-neutral-900 dark:text-white" : locked ? "text-neutral-400 dark:text-neutral-600" : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900/60 dark:hover:text-white")}>
-                                                        {on && <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-neutral-900 dark:bg-white" />}
-                                                        <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-md", ok ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "text-neutral-400 dark:text-neutral-500")}>
-                                                            {ok ? <Check className="size-3" aria-hidden /> : locked ? <Lock className="size-3" aria-hidden /> : <Icon className="size-3.5" aria-hidden />}
-                                                        </span>
-                                                        <span className="min-w-0 flex-1 truncate">{s.title}</span>
-                                                        {s.xp > 0 && <span className="shrink-0 font-mono text-[10px] tabular-nums text-neutral-400">+{s.xp}</span>}
-                                                    </button>
-                                                </li>
-                                            )
-                                        })}
-                                    </ol>
-                                    )}
-                                </div>
-                            )
-                        })}
+                    <div key={a.act} className="mb-3">
+                        <p className="px-4 pb-1 pt-2 text-[11.5px] font-medium text-neutral-500 dark:text-neutral-400">{a.act}</p>
+                        <ol>
+                            {a.rows.map(({ p, i, sub }) => {
+                                const s = p.main
+                                const Icon = ICON[s.kind] ?? BookOpen
+                                const on = i === index
+                                const ok = pageDone(p)
+                                const locked = !!lockedBy(s)
+                                const no = !sub ? chapterNo(s.part) : null
+                                const xp = s.xp + (p.check?.xp ?? 0)
+                                return (
+                                    <li key={s.key}>
+                                        <button type="button" onClick={() => go(i)} aria-current={on ? "step" : undefined} title={locked ? "Pass the earlier checks and talks to open this" : s.title}
+                                            className={cn("relative flex w-full min-w-0 items-start gap-2.5 py-1.5 pr-3 text-left text-[13.5px] leading-5 transition-colors", sub ? "pl-10" : "pl-4",
+                                                on ? "bg-neutral-100 font-medium text-neutral-900 dark:bg-neutral-900 dark:text-white" : locked ? "text-neutral-400 dark:text-neutral-600" : "text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-900/60 dark:hover:text-white")}>
+                                            {on && <span aria-hidden className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-neutral-900 dark:bg-white" />}
+                                            <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-md font-mono text-[10.5px] tabular-nums", ok ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "text-neutral-400 dark:text-neutral-500")}>
+                                                {ok ? <Check className="size-3" aria-hidden /> : locked ? <Lock className="size-3" aria-hidden /> : no ?? <Icon className="size-3.5" aria-hidden />}
+                                            </span>
+                                            {/* Titles wrap to the pane's width, never cut off (Niraj, 2026-10-01). */}
+                                            <span className="min-w-0 flex-1 break-words">{s.title}</span>
+                                            {xp > 0 && !ok && <span className="shrink-0 font-mono text-[10px] tabular-nums text-neutral-400">+{xp}</span>}
+                                        </button>
+                                    </li>
+                                )
+                            })}
+                        </ol>
                     </div>
                 ))}
                 <RunsList slug={data.slug} />
@@ -277,6 +308,7 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
         </ScrollArea>
     )
 
+    const checkLock = page.check ? lockedBy(page.check) : null
     const body = (
         <ScrollArea className="h-full">
             <div ref={top} />
@@ -284,22 +316,91 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
                 <motion.div key={step.key}
                     initial={reduced ? { opacity: 1 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={reduced ? { opacity: 1 } : { opacity: 0 }} transition={{ duration: 0.22 }}
                     className="mx-auto max-w-4xl px-5 pb-16 pt-8 sm:px-8">
-                    <p className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{step.part} · step {index + 1} of {steps.length}</p>
+                    <p className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{where(page)}</p>
                     <h1 className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900 dark:text-white">{step.title}</h1>
                     <div className="mt-6">
                         {runMode === "deciding" ? (
                             <StartScreen />
                         ) : lockedBy(step) ? (
-                            <Locked by={lockedBy(step)!} onGo={() => go(steps.indexOf(lockedBy(step)!))} />
+                            <Locked by={lockedBy(step)!} onGo={() => goToStep(lockedBy(step)!)} />
                         ) : (
                             <StepView step={step} slug={data.slug} onDone={() => dispatch({ type: "stepDone", stepKey: step.key })} onNext={() => go(index + 1)} />
                         )}
                     </div>
+                    {page.check && runMode !== "deciding" && (
+                        // The chapter's check, under it (INC-75).
+                        <section ref={checkRef} aria-label="Check yourself" className="mt-14 scroll-mt-6 border-t border-neutral-200 pt-10 dark:border-neutral-800">
+                            {checkLock ? <Locked by={checkLock} onGo={() => goToStep(checkLock)} /> : <StepView step={page.check} slug={data.slug} onDone={() => dispatch({ type: "stepDone", stepKey: page.check!.key })} onNext={() => go(index + 1)} />}
+                        </section>
+                    )}
                 </motion.div>
             </AnimatePresence>
         </ScrollArea>
     )
 
+    // The steps pane keeps the width the reader dragged to (INC-76): sizes are in pixels and
+    // re-applied when the page narrows or widens (the AI rail, a window resize), which a
+    // percentage layout would otherwise scale.
+    const stepsPanel = usePanelRef()
+    const groupBox = useRef<HTMLDivElement>(null)
+    const stepsW = useRef(STEPS_W.def)
+    const quietUntil = useRef(0)
+    const groupW = useRef(0)
+    // The server renders both panes as flex 1 (50/50) until the library measures; until the
+    // width is applied, CSS holds the steps pane at its default so nothing flashes.
+    const [panesReady, setPanesReady] = useState(false)
+    useEffect(() => {
+        if (!desktop) return
+        try { const v = Number(localStorage.getItem(STEPS_W_KEY)); if (v) stepsW.current = Math.min(STEPS_W.max, Math.max(STEPS_W.min, v)) } catch { /* private window */ }
+        // Retried for a few frames: the first call can land before the group has its layout.
+        const apply = (tries = 12) => {
+            try {
+                const api = stepsPanel.current
+                const gw = box?.offsetWidth ?? 0
+                // The layout's own percentage, not the element's width: CSS pins that until ready.
+                const want = (stepsW.current / gw) * 100
+                if (api && gw && Math.abs(api.getSize().asPercentage - want) > 0.2) api.resize(toPct(stepsW.current, gw))
+                else if (api && gw) return setPanesReady(true)
+            } catch { /* not mounted yet */ }
+            if (tries > 0) requestAnimationFrame(() => apply(tries - 1))
+            else setPanesReady(true)
+        }
+        const box = groupBox.current
+        groupW.current = box?.offsetWidth ?? 0
+        quietUntil.current = performance.now() + 300
+        const raf = requestAnimationFrame(() => apply())
+        const ro = new ResizeObserver(() => {
+            const w = box?.offsetWidth ?? 0
+            if (w === groupW.current) return
+            groupW.current = w
+            quietUntil.current = performance.now() + 300
+            requestAnimationFrame(() => apply())
+        })
+        if (box) ro.observe(box)
+        return () => { cancelAnimationFrame(raf); ro.disconnect() }
+    }, [desktop, stepsPanel])
+    const onStepsResize = (size: { inPixels: number }) => {
+        if (!size.inPixels) return
+        // A resize the page caused (the layout keeps percentages) is put back, not saved; only
+        // a drag is the reader's choice. The library can report it before the observer above
+        // sees the page change, so the page width is compared here too.
+        const now = groupBox.current?.offsetWidth ?? 0
+        if (now !== groupW.current) { groupW.current = now; quietUntil.current = performance.now() + 300 }
+        if (performance.now() < quietUntil.current) {
+            const gw = now
+            if (gw && Math.abs(size.inPixels - stepsW.current) > 2) requestAnimationFrame(() => { try { stepsPanel.current?.resize(toPct(stepsW.current, gw)) } catch { /* not mounted */ } })
+            return
+        }
+        stepsW.current = Math.round(size.inPixels)
+        try { localStorage.setItem(STEPS_W_KEY, String(stepsW.current)) } catch { /* private window */ }
+    }
+
+    function goToStep(s: PlayerStep) {
+        const i = pages.findIndex((p) => p.main.key === s.key || p.check?.key === s.key)
+        if (i >= 0) go(i)
+    }
+
+    const next = pages[index + 1]
     return (
         <div className="flex h-screen min-h-0 flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
             <header className="flex h-14 shrink-0 items-center gap-4 border-b border-neutral-200 px-4 dark:border-neutral-800">
@@ -314,20 +415,21 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
                 <LeadButton />
                 <RunBadge />
                 <div className="hidden items-center gap-3 sm:flex">
-                    <span className="font-mono text-[12px] tabular-nums text-neutral-500 dark:text-neutral-400">{done}/{steps.length}</span>
+                    <span className="font-mono text-[12px] tabular-nums text-neutral-500 dark:text-neutral-400">{done}/{pages.length}</span>
                     <div className="h-1.5 w-40 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-                        <div className="h-full origin-left rounded-full bg-neutral-900 transition-transform duration-500 dark:bg-white" style={{ transform: `scaleX(${done / steps.length})` }} />
+                        <div className="h-full origin-left rounded-full bg-neutral-900 transition-transform duration-500 dark:bg-white" style={{ transform: `scaleX(${done / pages.length})` }} />
                     </div>
                 </div>
             </header>
 
-            <div className="min-h-0 flex-1">
+            <div ref={groupBox} data-panes={panesReady ? "ready" : "boot"} className="min-h-0 flex-1">
+                <style>{`[data-panes="boot"] #steps{flex:0 0 ${STEPS_W.def}px !important}`}</style>
                 {/* lg and up: resizable panes. Below: the step alone, with a picker in the footer.
                     The body is mounted ONCE: it holds the narrator and the live talk, and
                     rendering it in both layouts (one hidden by CSS) played every clip twice. */}
                 {desktop ? (
                     <PanelGroup orientation="horizontal" id="incident-player" className="h-full">
-                        <Panel id="steps" defaultSize="18%" minSize="13%" maxSize="32%" className="min-w-0 bg-neutral-50/60 dark:bg-neutral-950">{list}</Panel>
+                        <Panel id="steps" panelRef={stepsPanel} onResize={onStepsResize} defaultSize={`${STEPS_W.def}px`} minSize={`${STEPS_W.min}px`} maxSize={`${STEPS_W.max}px`} className="min-w-0 bg-neutral-50/60 dark:bg-neutral-950">{list}</Panel>
                         <Handle />
                         <Panel id="step" minSize="50%" className="min-w-0">{body}</Panel>
                     </PanelGroup>
@@ -340,15 +442,13 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
                 <button type="button" onClick={() => go(index - 1)} disabled={index === 0}
                     className="inline-flex h-10 min-w-0 items-center gap-2 rounded-xl border border-neutral-200 px-4 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600">
                     <ArrowLeft className="size-4 shrink-0" aria-hidden />
-                    <StepLabel step={steps[index - 1]} fallback="Previous" />
+                    <PageLabel page={pages[index - 1]} kind={pages[index - 1] ? kindOf(pages[index - 1]!, chapterPages) : ""} fallback="Previous" />
                 </button>
                 <select aria-label="Go to step" value={index} onChange={(e) => go(Number(e.target.value))}
                     className="h-10 min-w-0 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-sm lg:hidden dark:border-neutral-800 dark:bg-neutral-950">
-                    {steps.map((s, i) => <option key={s.key} value={i}>{i + 1}. {s.title}</option>)}
+                    {pages.map((p, i) => <option key={p.main.key} value={i}>{i + 1}. {p.main.title}</option>)}
                 </select>
-                {step.kind === "chapter" && leadReady
-                    ? <FooterPlayer />
-                    : <span className="hidden font-mono text-[11px] text-neutral-400 lg:inline">Arrow keys move between steps</span>}
+                {step.kind === "chapter" && leadReady ? <FooterPlayer /> : <span className="hidden flex-1 lg:block" />}
                 {/* "Got it, continue" lives here, not under the content (Niraj, 2026-09-27): on a
                     step that is marked by hand and not yet done, Next marks it and moves on. */}
                 {markable ? (
@@ -356,14 +456,14 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
                         className="inline-flex h-10 min-w-0 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-2px_0_rgba(0,0,0,0.4)] transition-colors hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200">
                         <CheckCheck className="size-4 shrink-0" aria-hidden />
                         <span className="flex min-w-0 flex-col items-start text-left leading-tight">
-                            {steps[index + 1] && <span className="hidden max-w-[14rem] truncate font-mono text-[10px] opacity-70 sm:block">Next: {steps[index + 1]!.part}</span>}
-                            <span className="truncate">{index === steps.length - 1 ? "Got it, finish" : "Got it, continue"}</span>
+                            {next && <span className="hidden max-w-[14rem] truncate font-mono text-[10px] opacity-70 sm:block">Next: {kindOf(next, chapterPages)}</span>}
+                            <span className="truncate">{index === pages.length - 1 ? "Got it, finish" : "Got it, continue"}</span>
                         </span>
                     </button>
                 ) : (
-                    <button type="button" onClick={() => go(index + 1)} disabled={index === steps.length - 1}
+                    <button type="button" onClick={() => go(index + 1)} disabled={index === pages.length - 1}
                         className="inline-flex h-10 min-w-0 items-center gap-2 rounded-xl border border-neutral-200 px-4 text-sm font-medium text-neutral-800 transition-colors hover:border-neutral-400 disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600">
-                        <StepLabel step={steps[index + 1]} fallback="Next" />
+                        <PageLabel page={next} kind={next ? kindOf(next, chapterPages) : ""} fallback="Next" />
                         <ArrowRight className="size-4 shrink-0" aria-hidden />
                     </button>
                 )}
@@ -372,13 +472,23 @@ function Player({ data, initialStep }: { data: PlayerCase; initialStep?: string 
     )
 }
 
-/** A footer label: the step and which chapter it belongs to, so two "Check yourself" never look alike. */
-function StepLabel({ step, fallback }: { step?: PlayerStep; fallback: string }) {
-    if (!step) return <span className="hidden sm:inline">{fallback}</span>
+/** What kind of page this is, for the footer's small line (INC-77): "Chapter 2", "Talk", "Final". */
+function kindOf(p: Page, chapterPages: Page[]) {
+    const ch = chapterPages.indexOf(p)
+    if (ch >= 0) return `Chapter ${ch + 1}`
+    if (p.main.kind === "talk") return "Talk"
+    if (p.main.kind === "learn") return "Keep learning"
+    return p.main.part === "Final" ? "Final" : p.main.part.replace(/^\d+ · /, "")
+}
+
+/** A footer label (INC-77): the kind of page, then its title. Never the same words twice. */
+function PageLabel({ page, kind, fallback }: { page?: Page; kind: string; fallback: string }) {
+    if (!page) return <span className="hidden sm:inline">{fallback}</span>
+    const title = page.main.title
     return (
         <span className="hidden min-w-0 flex-col items-start text-left leading-tight sm:flex">
-            <span className="max-w-[14rem] truncate font-mono text-[10px] text-neutral-500 dark:text-neutral-400">{step.part}</span>
-            <span className="max-w-[14rem] truncate">{step.title}</span>
+            {kind && kind !== title && <span className="max-w-[14rem] truncate font-mono text-[10px] text-neutral-500 dark:text-neutral-400">{kind}</span>}
+            <span className="max-w-[14rem] truncate">{title}</span>
         </span>
     )
 }
@@ -386,8 +496,8 @@ function StepLabel({ step, fallback }: { step?: PlayerStep; fallback: string }) 
 /** A step that opens once an earlier check or talk is passed. */
 function Locked({ by, onGo }: { by: PlayerStep; onGo: () => void }) {
     return (
-        <div className="flex flex-col items-start gap-4 rounded-3xl border border-dashed border-neutral-300 p-8 dark:border-neutral-700">
-            <span className="flex size-11 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-900"><Lock className="size-5" aria-hidden /></span>
+        <div className="flex flex-col items-start gap-4 rounded-xl border border-dashed border-neutral-300 p-8 dark:border-neutral-700">
+            <span className="flex size-11 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-900"><Lock className="size-5" aria-hidden /></span>
             <div>
                 <p className="text-lg font-semibold text-neutral-900 dark:text-white">This opens after the earlier check</p>
                 <p className="mt-1 text-[15px] leading-7 text-neutral-600 dark:text-neutral-400">Reading is always open. Checks and talks go in order: pass &ldquo;{by.title}&rdquo; in {by.part} first.</p>
@@ -424,14 +534,14 @@ function LearnStep() {
             </p>
             <ol className="grid gap-3 sm:grid-cols-2">
                 {c.learn.map((l, i) => (
-                    <li key={l.title} className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+                    <li key={l.title} className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
                         <p className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{String(i + 1).padStart(2, "0")}</p>
                         <p className="mt-1 text-[15px] font-semibold leading-snug text-neutral-900 dark:text-white">{l.title}</p>
                         <p className="mt-1 text-[13.5px] leading-6 text-neutral-600 dark:text-neutral-400">{l.summary}</p>
                     </li>
                 ))}
             </ol>
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
                 <GraduationCap className="size-5 shrink-0 text-neutral-700 dark:text-neutral-300" aria-hidden />
                 <p className="min-w-0 flex-1 text-[14px] leading-6 text-neutral-700 dark:text-neutral-300">
                     {hasPath ? "Free. It becomes one of your Pathfinder goals, with notes for every topic." : "The learning path for this case is being written."}
@@ -444,7 +554,7 @@ function LearnStep() {
                 )}
             </div>
             {c.build && (
-                <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
                     <Hammer className="size-5 shrink-0 text-neutral-700 dark:text-neutral-300" aria-hidden />
                     <div className="min-w-0 flex-1">
                         <p className="text-[15px] font-semibold text-neutral-900 dark:text-white">Build it: {c.build.title}</p>
@@ -528,20 +638,18 @@ function StepView({ step, slug, onDone, onNext }: { step: PlayerStep; slug: stri
 
 
 /**
- * A chapter (INC-30): visuals first. The narrated script is behind a remembered "Show
- * transcript" toggle; the paragraph being read shows as a caption under the orb, and with
- * the transcript on, the page follows it. Without a voice, the transcript is always shown.
+ * A chapter, read as an article (INC-74, Niraj 2026-10-01: "article first"): the story is
+ * always on the page with each diagram after the paragraph about it. Listen is optional;
+ * while it plays, the paragraph being read is highlighted and the page follows it.
  */
 function ChapterView({ slug, chapter, stepTitle }: { slug: string; chapter: Chapter & { glossary?: { key?: string; term: string; definition: string }[] }; stepTitle: string }) {
-    const transcript = useLead((s) => s.transcript)
     const refs = useRef<Record<string, HTMLElement | null>>({})
     const says = chapter.blocks.filter((b): b is Extract<ChapterBlock, { kind: "say" }> => b.kind === "say")
     const paragraphs = says.map((b) => b.text)
     const setChapter = useLead((s) => s.setChapter)
     const reading = useLead((s) => (s.chapter?.chapterId === chapter.id ? s.index : null))
-    const unavailable = useLead((s) => s.state === "unavailable")
+    const playing = useLead((s) => s.state === "playing")
     const explain = useLead((s) => s.explain)
-    const showScript = transcript || unavailable
     const terms: InlineTerm[] = (chapter.glossary ?? []).filter((g) => g.key).map((g) => ({ key: g.key!, term: g.term }))
     const onTerm = (t: InlineTerm) => { openLeadRail(); void explain(t.key, t.term) }
 
@@ -550,9 +658,10 @@ function ChapterView({ slug, chapter, stepTitle }: { slug: string; chapter: Chap
 
     // What the paragraph being read is about (INC-49): that part lights, the page follows it.
     const focus = reading !== null ? parseFocus(says[reading]?.focus) : null
+    // Only while it plays, and once per paragraph: a reader who scrolls away keeps their place.
     useEffect(() => {
-        if (reading === null) return
-        const target = (focus && refs.current[focus.block]) ?? (showScript ? refs.current[`say-${reading}`] : null)
+        if (reading === null || !playing) return
+        const target = (focus && refs.current[focus.block]) ?? refs.current[`say-${reading}`]
         target?.scrollIntoView({ block: "center", behavior: "smooth" })
     }, [reading]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -588,7 +697,7 @@ function ChapterView({ slug, chapter, stepTitle }: { slug: string; chapter: Chap
     return (
         <div className="space-y-6">
             {system && <div className="sticky top-0 z-30 -mx-1 bg-white/90 px-1 pb-1 backdrop-blur dark:bg-neutral-950/90"><SystemStrip map={system} chapterId={chapter.id} lit={focus?.block === "map" ? focus.part : null} /></div>}
-            <p className="text-[17px] leading-8 text-neutral-600 dark:text-neutral-400">{chapter.lead}</p>
+            <p className="max-w-[44rem] text-[19px] leading-8 text-neutral-600 dark:text-neutral-400">{chapter.lead}</p>
             {/* One moment shared by the chapter's timeline and dashboard (INC-65, INC-66). */}
             <ScrubProvider>
             <div className="space-y-6">
@@ -596,10 +705,9 @@ function ChapterView({ slug, chapter, stepTitle }: { slug: string; chapter: Chap
                     if (b.kind === "say") {
                         sayIndex += 1
                         const at = sayIndex
-                        if (!showScript) return null
                         return (
                             <p key={i} ref={(el) => { refs.current[`say-${at}`] = el }}
-                                className={cn("-mx-4 rounded-2xl px-4 py-2 text-[17px] leading-8 transition-colors duration-300", at === reading ? "bg-neutral-100 text-neutral-900 dark:bg-neutral-900 dark:text-white" : "text-neutral-800 dark:text-neutral-200")}>
+                                className={cn("-mx-3 max-w-[calc(44rem+1.5rem)] rounded-lg px-3 py-1 text-[17px] leading-8 transition-colors duration-300", at === reading && playing ? "bg-neutral-100 text-neutral-900 dark:bg-neutral-900 dark:text-white" : "text-neutral-800 dark:text-neutral-200")}>
                                 <Inline text={b.text} terms={terms} onTerm={onTerm} />
                             </p>
                         )
@@ -674,14 +782,13 @@ function openLeadRail() {
 
 /**
  * Listening lives in the page's bottom bar (Niraj, 2026-09-27: "put this to the bottom bar
- * so it doesn't block the words"): play, speed, Auto, the transcript switch and, while it
- * reads, the line being read. Nothing floats over the content. The rail is for talking.
+ * so it doesn't block the words"): play, and speed and Auto in one menu. The words are on the
+ * page already (INC-74). Nothing floats over the content. The rail is for talking.
  */
 function FooterPlayer() {
-    const { state, answering, toggle, speed, setSpeed, autoplay, setAutoplay, index, chapter, transcript, setTranscript } = useLead()
+    const { state, answering, toggle, speed, setSpeed, autoplay, setAutoplay } = useLead()
     const playing = state === "playing" && !answering
-    const line = index !== null && chapter ? chapter.paragraphs[index] : null
-    // Two controls (Niraj, 2026-09-27): play, and one menu for speed, Auto and the transcript.
+    // Two controls (Niraj, 2026-09-27): play, and one menu for speed and Auto. The text is always on the page (INC-74).
     return (
         // On phones it sits beside the step picker, so it takes only its own width.
         <div className="flex min-w-0 shrink-0 items-center justify-center gap-2 sm:flex-1">
@@ -705,10 +812,8 @@ function FooterPlayer() {
                     </DropdownMenuRadioGroup>
                     <DropdownMenuSeparator />
                     <DropdownMenuCheckboxItem checked={autoplay} onCheckedChange={(v) => setAutoplay(!!v)}>Play when a chapter opens</DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem checked={transcript} onCheckedChange={(v) => setTranscript(!!v)}>Show the transcript</DropdownMenuCheckboxItem>
                 </DropdownMenuContent>
             </DropdownMenu>
-            {line && !transcript && <p className="hidden min-w-0 max-w-xl truncate text-[13px] text-neutral-600 2xl:block dark:text-neutral-400" title={line}>{line}</p>}
         </div>
     )
 }
@@ -755,10 +860,11 @@ function Block({ block, part = null, upTo, terms, onTerm, system }: { block: Cha
             // Narration lights lines: "code:L12-20".
             return <CodeSample sample={block.sample} stage={block.stage} file={block.file} compare={block.compare} highlight={part?.startsWith("L") ? part.slice(1) : block.highlight} />
         case "note":
-            return <p className="rounded-2xl border-l-4 border-neutral-900 bg-neutral-50 px-5 py-4 text-[16px] font-medium leading-7 text-neutral-900 dark:border-white dark:bg-neutral-900 dark:text-white"><Inline text={block.text} terms={terms} onTerm={onTerm} /></p>
+            // The chapter's takeaway as a pull quote (INC-78): a rule, no box.
+            return <p className="max-w-[44rem] border-l-2 border-neutral-900 py-1 pl-5 text-[19px] font-medium leading-8 tracking-tight text-neutral-900 dark:border-white dark:text-white"><Inline text={block.text} terms={terms} onTerm={onTerm} /></p>
         case "see":
             return (
-                <div className="overflow-hidden rounded-2xl bg-neutral-950 ring-1 ring-white/10">
+                <div className="overflow-hidden rounded-xl bg-neutral-950 ring-1 ring-white/10">
                     <p className="border-b border-white/10 px-4 py-2.5 font-mono text-[11px] text-neutral-400">{block.title}</p>
                     <ol className="space-y-2 p-4 font-mono text-[13px] leading-6">
                         {block.lines.map((l, i) => (
@@ -773,7 +879,7 @@ function Block({ block, part = null, upTo, terms, onTerm, system }: { block: Cha
             )
         case "compare":
             return (
-                <ScrollArea orientation="horizontal" className="rounded-2xl border border-neutral-200 dark:border-neutral-800">
+                <ScrollArea orientation="horizontal" className="rounded-xl border border-neutral-200 dark:border-neutral-800">
                     <table className="w-full min-w-[40rem] text-left text-[14px]">
                         <thead>
                             <tr className="border-b border-neutral-200 dark:border-neutral-800">
@@ -800,7 +906,8 @@ function Block({ block, part = null, upTo, terms, onTerm, system }: { block: Cha
 function Glossary({ terms, onAsk }: { terms: { key?: string; term: string; definition: string }[]; onAsk: (t: { key?: string; term: string }) => void }) {
     const [open, setOpen] = useState<string | null>(null)
     return (
-        <div className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+        // Flat (INC-78): a label and the words, no box.
+        <div>
             <p className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">Words in this chapter</p>
             <div className="mt-3 flex flex-wrap gap-2">
                 {terms.map((t) => (

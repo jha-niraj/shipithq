@@ -14,7 +14,7 @@ import { formatRel } from "./scrub"
 
 export function RolesView({ roles, lit = null }: { roles: IncidentRoles; lit?: string | null }) {
     return (
-        <section aria-label="Severity and roles" className="overflow-hidden rounded-3xl border border-neutral-200 dark:border-neutral-800">
+        <section aria-label="Severity and roles" className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
             <div className={cn("flex gap-3 border-b border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-800 dark:bg-neutral-900/60", lit === "severity" && "ring-2 ring-inset ring-neutral-900 dark:ring-white")}>
                 <ShieldAlert className="mt-0.5 size-5 shrink-0 text-neutral-700 dark:text-neutral-300" aria-hidden />
                 <div>
@@ -51,7 +51,7 @@ const STATE_DOT: Record<StatusUpdates["updates"][number]["state"], string> = {
 /** Status-page updates, newest last, the way a customer would read them. */
 export function StatusView({ status, lit = null }: { status: StatusUpdates; lit?: string | null }) {
     return (
-        <figure className="overflow-hidden rounded-3xl border border-neutral-200 dark:border-neutral-800">
+        <figure className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
             <div className="flex items-center gap-2 border-b border-neutral-200 px-5 py-3 dark:border-neutral-800">
                 <Radio className="size-4 text-neutral-600 dark:text-neutral-400" aria-hidden />
                 <p className="text-[13px] font-medium text-neutral-900 dark:text-white">Status page</p>
@@ -75,7 +75,7 @@ export function StatusView({ status, lit = null }: { status: StatusUpdates; lit?
 /** A runbook excerpt: numbered steps a person follows under pressure. */
 export function RunbookView({ title, steps, lit = null }: { title: string; steps: string[]; lit?: string | null }) {
     return (
-        <figure className="rounded-3xl border border-neutral-200 p-5 dark:border-neutral-800">
+        <figure className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
             <p className="flex items-center gap-2 text-[13px] font-medium text-neutral-900 dark:text-white"><ClipboardList className="size-4" aria-hidden /> Runbook: {title}</p>
             <ol className="mt-3 space-y-2">
                 {steps.map((st, i) => (

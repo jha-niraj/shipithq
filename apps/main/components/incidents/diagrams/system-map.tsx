@@ -185,7 +185,7 @@ export function SystemStrip({ map, lit, chapterId }: { map: SystemMapData; lit: 
     const names = (lit ? [lit] : parts).map((id) => map.nodes.find((n) => n.id === id)?.label).filter(Boolean)
 
     return (
-        <section aria-label="The system" className="rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+        <section aria-label="The system" className="rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
             <div className="flex items-center gap-2 px-3 py-2">
                 <button type="button" onClick={toggle} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                     <ChevronDown className={cn("size-4 shrink-0 text-neutral-500 transition-transform", !open && "-rotate-90")} aria-hidden />

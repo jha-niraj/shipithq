@@ -78,7 +78,7 @@ function Chart({ s, x, toTime, span, markers, at, setAt, lit, dim }: {
     }
 
     return (
-        <div className={cn("rounded-2xl bg-white p-3 ring-1 transition-opacity duration-300 dark:bg-neutral-950", lit === s.id ? "ring-2 ring-neutral-900 dark:ring-white" : "ring-neutral-200 dark:ring-neutral-800", dim && "opacity-35")}>
+        <div className={cn("rounded-xl bg-white p-3 ring-1 transition-opacity duration-300 dark:bg-neutral-950", lit === s.id ? "ring-2 ring-neutral-900 dark:ring-white" : "ring-neutral-200 dark:ring-neutral-800", dim && "opacity-35")}>
             <div className="flex items-baseline justify-between gap-2">
                 <p className="text-[12.5px] font-medium text-neutral-800 dark:text-neutral-200">{s.name}</p>
                 <p className={cn("font-mono text-[13px] font-semibold tabular-nums", s.bad ? "text-rose-600 dark:text-rose-400" : "text-neutral-900 dark:text-white")}>

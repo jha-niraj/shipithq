@@ -84,17 +84,17 @@ export function PostmortemStep({ real, points, xp }: { real: Real; points: Point
                         <p className="text-[14px] text-neutral-700 dark:text-neutral-300">Yours covered <span className="font-semibold text-neutral-900 dark:text-white">{covered} of {all.length}</span> points. Tick the ones it did.</p>
                         <Button type="button" variant="outline" onClick={() => setCompare(false)}>Edit mine</Button>
                     </div>
-                    <div className="rounded-3xl border border-neutral-200 p-5 dark:border-neutral-800">
+                    <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
                         <p className="text-[13px] text-neutral-500 dark:text-neutral-400">The real postmortem</p>
                         <p className="mt-1 text-[15px] leading-7 text-neutral-900 dark:text-white">{real.summary}</p>
                     </div>
                     {POSTMORTEM_SECTIONS.map((s) => (
                         <section key={s.id} aria-label={s.label} className="grid gap-4 lg:grid-cols-2">
-                            <div className="rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-900/60">
+                            <div className="rounded-xl bg-neutral-50 p-4 dark:bg-neutral-900/60">
                                 <p className="text-[12px] font-medium text-neutral-500 dark:text-neutral-400">Yours: {s.label}</p>
                                 <p className="mt-1 whitespace-pre-line text-[14px] leading-6 text-neutral-800 dark:text-neutral-200">{draft.sections[s.id]}</p>
                             </div>
-                            <div className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+                            <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
                                 <p className="text-[12px] font-medium text-neutral-500 dark:text-neutral-400">A good one covers</p>
                                 <ul className="mt-2 space-y-2">
                                     {(points[s.id] ?? []).map((p) => {
@@ -112,7 +112,7 @@ export function PostmortemStep({ real, points, xp }: { real: Real; points: Point
                             </div>
                         </section>
                     ))}
-                    <details className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+                    <details className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
                         <summary className="cursor-pointer text-[14px] font-medium text-neutral-900 dark:text-white">The real postmortem, in full</summary>
                         <div className="mt-3 space-y-4">
                             {real.sections.map((sec) => (

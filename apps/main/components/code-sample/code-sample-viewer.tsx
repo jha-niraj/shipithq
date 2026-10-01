@@ -196,7 +196,7 @@ export function CodeSampleViewer({ data, stage: initialStage, file: initialFile,
     const label = (id: string) => data.stages.find((s) => s.id === id)?.label ?? id
 
     return (
-        <figure className={cn("@container overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950", className)}>
+        <figure className={cn("@container overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950", className)}>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
                 <p className="min-w-0 truncate font-mono text-[12.5px] text-neutral-700 dark:text-neutral-300" title={shown}>{shown || data.title}</p>
                 <div className="flex flex-wrap items-center gap-2">

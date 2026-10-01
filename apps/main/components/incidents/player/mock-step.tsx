@@ -67,9 +67,9 @@ export function MockStep({ slug, stepKey, content, capped = false, onFinished }:
 
     return (
         <div className="space-y-8">
-            <div className="rounded-3xl bg-neutral-950 p-6 text-white ring-1 ring-white/10 sm:p-8">
+            <div className="rounded-xl bg-neutral-950 p-6 text-white ring-1 ring-white/10 sm:p-8">
                 <div className="flex items-start gap-4">
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white/10"><Mic className="size-5" aria-hidden /></span>
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/10"><Mic className="size-5" aria-hidden /></span>
                     <div className="min-w-0">
                         <p className="text-[16px] leading-7 text-neutral-200">{content.intro ?? `The incident lead will ask: "${content.opening}" Answer out loud or type. It takes about ${content.minutes} minutes.`}</p>
                         <p className="mt-4 font-mono text-[11px] text-neutral-400">It will push on</p>
@@ -96,12 +96,12 @@ export function MockStep({ slug, stepKey, content, capped = false, onFinished }:
                 <div className="space-y-3" aria-busy="true">
                     <ShimmerStyles />
                     <Shimmer className="h-6 w-48" />
-                    <Shimmer className="h-40 w-full rounded-2xl" delay={0.05} />
+                    <Shimmer className="h-40 w-full rounded-xl" delay={0.05} />
                 </div>
             )}
 
             {open && (
-                <div className="overflow-hidden rounded-3xl border border-neutral-200 dark:border-neutral-800">
+                <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
                     <LiveInterview
                         voiceRef={{ kind: "incident", id: open.id }}
                         title={content.role ?? "Talk it through with the incident lead"}
@@ -122,7 +122,7 @@ function Feedback({ s, latest }: { s: IncidentMockView; latest: boolean }) {
     const [showTranscript, setShowTranscript] = useState(false)
     const f = s.feedback
     return (
-        <article className="rounded-3xl border border-neutral-200 p-6 dark:border-neutral-800">
+        <article className="rounded-xl border border-neutral-200 p-6 dark:border-neutral-800">
             <div className="flex items-center justify-between gap-3">
                 <p className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
                     {latest ? "Your last conversation" : "Earlier"} · {new Date(s.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
@@ -151,7 +151,7 @@ function Feedback({ s, latest }: { s: IncidentMockView; latest: boolean }) {
                     <button type="button" onClick={() => setShowTranscript((v) => !v)} className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-medium text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white">
                         {showTranscript ? "Hide" : "Read"} the transcript <ChevronDown className={cn("size-3.5 transition-transform", showTranscript && "rotate-180")} aria-hidden />
                     </button>
-                    {showTranscript && <TranscriptPane turns={s.turns} className="mt-3 max-h-96 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-900" />}
+                    {showTranscript && <TranscriptPane turns={s.turns} className="mt-3 max-h-96 rounded-xl bg-neutral-50 p-4 dark:bg-neutral-900" />}
                 </>
             )}
         </article>

@@ -48,7 +48,7 @@ export function StartScreen({ variant = "prompt", content, onDone }: { variant?:
                             { label: "Checks", value: content.checks },
                             { label: "Talks with the lead", value: content.talks },
                         ].map((s) => (
-                            <div key={s.label} className="rounded-2xl border border-neutral-200 px-4 py-3 dark:border-neutral-800">
+                            <div key={s.label} className="rounded-xl border border-neutral-200 px-4 py-3 dark:border-neutral-800">
                                 <dt className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{s.label}</dt>
                                 <dd className="mt-1 text-xl font-semibold tabular-nums text-neutral-900 dark:text-white">{s.value}</dd>
                             </div>
@@ -60,7 +60,7 @@ export function StartScreen({ variant = "prompt", content, onDone }: { variant?:
                             { icon: HelpCircle, title: "Check yourself", body: "Short checks after each chapter, and a final call at the end." },
                             { icon: Mic, title: "Talk it through", body: "Explain it to the incident lead out loud, and ask anything as you go." },
                         ].map((f) => (
-                            <div key={f.title} className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+                            <div key={f.title} className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
                                 <f.icon className="size-4 text-neutral-700 dark:text-neutral-300" aria-hidden />
                                 <p className="mt-2 text-[14.5px] font-semibold text-neutral-900 dark:text-white">{f.title}</p>
                                 <p className="mt-1 text-[13px] leading-5 text-neutral-600 dark:text-neutral-400">{f.body}</p>
@@ -79,7 +79,7 @@ export function StartScreen({ variant = "prompt", content, onDone }: { variant?:
             )}
 
             {recording ? (
-                <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-900 p-4 dark:border-white">
+                <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-neutral-900 p-4 dark:border-white">
                     <span className="size-2 animate-pulse rounded-full bg-rose-500" aria-hidden />
                     <p className="min-w-0 flex-1 text-[14px] text-neutral-800 dark:text-neutral-200">You're recording this run. Your answers, questions and talks go into your review.</p>
                     {onDone && (
@@ -90,7 +90,7 @@ export function StartScreen({ variant = "prompt", content, onDone }: { variant?:
                 </div>
             ) : (
                 <>
-                    <div className="mt-6 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+                    <div className="mt-6 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
                         <p className="text-sm font-semibold text-neutral-900 dark:text-white">Start a recorded run, and we keep, for your review:</p>
                         <ul className="mt-3 space-y-2">
                             {KEPT.map((k) => (

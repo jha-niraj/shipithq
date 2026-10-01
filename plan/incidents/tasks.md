@@ -913,3 +913,50 @@ Diagram content is general and conceptual: services, requests, time and causes, 
 - **Files:** `packages/db/src/scripts/check-incident-diagrams.ts` (or `apps/main/scripts/` beside `check-incident-sims.ts`), INC-60's task text.
 - **Steps:** every focus id, map id, sequence actor and check answer resolves; sources exist; run it on both cases. Note in INC-60 that the AI drafts diagrams too, reviewed like scenarios.
 - **Done when:** the script passes on both cases and fails on a planted bad id.
+
+## Round 7: the case page, re-presented (Niraj, 2026-10-01)
+Niraj: "the content is great but the ui and the way we are presenting that is not good ... needs to be think over". Seen in Chrome on the Vercel case, 2026-10-01:
+(1) a chapter hides its story: the `say` paragraphs render only with "Show the transcript" on, so a reader sees diagrams with a one-line lead and no narrative; (2) every block is a bordered card, the dashboard a card of cards; (3) the steps pane changes width (190px, 272px, 756px on three loads) because sizes are percentages of a page the AI rail narrows; (4) the same words repeat: the eyebrow names the chapter above its own title, and the footer prints `01 · The spinner...` over "The spinner..." (Niraj's screenshot); (5) 29 steps for 10 chapters, every check its own page.
+Decisions (AskUserQuestion, 2026-10-01): **article first** (story always on the page, diagrams after the paragraph about them, Listen optional and highlighting the paragraph read); **the check under its chapter** (one page per chapter; talks and the final steps stay pages of their own); **keep the resizable panes**, fix the width and remember it per reader.
+
+### INC-74 A chapter reads as an article
+- [x] Status: Done 2026-10-01. Every `say` paragraph is on the page (44rem measure); Listen highlights the paragraph and follows it only while playing; "Show the transcript" and the flag in the lead store removed. Checked on the Vercel case chapter 1 in Chrome (dark).
+- **Why:** decision 1; the story is the content, and it was hidden behind the voice.
+- **Files:** `components/incidents/player/case-player.tsx` (`ChapterView`, `FooterPlayer`), `components/incidents/lead/store.ts` (the transcript flag).
+- **Steps:** render every `say` paragraph always, 17px, a ~42rem reading measure; blocks keep their place between paragraphs. The paragraph being read gets a quiet highlight and the page follows it only while Listen plays. Drop "Show the transcript" from the listening menu and the caption under the footer.
+- **Edge cases:** voice unavailable (signed out, no key) reads the same; a chapter with no `say` blocks still shows its lead line; a reader who scrolls away while it plays is not yanked back more than once per paragraph.
+- **Done when:** chapter 1 of both cases shows its full story on load with Listen off, and Listen highlights paragraph by paragraph.
+
+### INC-75 The check under its chapter
+- [x] Status: Done 2026-10-01. Pages built from steps; the Vercel case went from 29 steps to 19 pages; the check renders under its chapter; `?step=check-incident` opens chapter 1 at its check (Chrome). Progress and XP keys unchanged. Supersedes the INC-53 accordion: one row per page now, a chapter's talk indented under it.
+- **Why:** decision 2; a check is the end of reading a chapter, not a separate place.
+- **Files:** `case-player.tsx` (pages built from steps, the sidebar, progress, `?step=`).
+- **Steps:** a page is a chapter step plus the `check` step right after it whose `content.chapter` is that chapter; every other step is a page alone. Navigation, the sidebar and the header count move by page. The check renders under the chapter after a hairline, titled "Check yourself"; locked, it shows why in place. `?step=check-…` opens the chapter and scrolls to the check. A page is done when its steps are done.
+- **Edge cases:** a chapter with no check; a check whose chapter is not right before it stays its own page; saved progress and XP keys unchanged (still per step); Arrow keys still move.
+- **Done when:** the Vercel case lists one row per chapter (no "Check yourself" rows), a check answered inline saves and survives a reload, and an old `?step=check-incident` link lands on that check.
+
+### INC-76 The steps pane holds its width
+- [x] Status: Done 2026-10-01. Default 200px (Niraj: "Narrow, about 200px", then "This is perfect"), min 180, max 420; kept in `incidents:steps-w`. Measured in Chrome: 200px on load, opening and closing the rail kept 200px and saved nothing, a saved 300px came back as 299px. Two library traps fixed: `resize("300px")` landed on the max (now a computed %), and the server renders both panes 50/50 until mount (CSS pins the default until applied).
+- **Why:** decision 3; the pane jumped between 190px and 756px.
+- **Files:** `case-player.tsx`.
+- **Steps:** pixel constraints (default 200px, Niraj 2026-10-01; min 180px, max 420px); the width the reader drags to is kept in localStorage (`incidents:steps-w`) and re-applied when the page width changes (the AI rail opening or closing, a window resize).
+- **Edge cases:** localStorage throws (private window): default width; a saved width over the max clamps.
+- **Done when:** with the rail opened, closed and the window resized, the pane stays within 2px of the dragged width, and a reload keeps it.
+
+### INC-77 Labels say each thing once
+- [x] Status: Done 2026-10-01. Eyebrow "What happened · Chapter 1 of 10"; footer small line is the kind ("Chapter 2", "Talk", "Final"); "Arrow keys" hint dropped; sidebar titles wrap to the pane width (Niraj, 2026-10-01) instead of truncating.
+- **Why:** finding 4 and Niraj's footer screenshot.
+- **Files:** `case-player.tsx` (eyebrow, sidebar rows, footer labels).
+- **Steps:** the eyebrow says where (e.g. "What happened · Chapter 1 of 10"), never the title again; the footer's small line says what kind of page is next ("Chapter 2", "Talk", "Final") and the big line its title; drop "Arrow keys move between steps"; the sidebar is a flat list per act, one row per page, with done and locked marks.
+- **Done when:** no string appears twice in the eyebrow plus title, or in a footer button.
+
+### INC-78 Fewer boxes
+- [x] Status: Done 2026-10-01. `DiagramFrame` is flat (no border or fill) with halos on the page colour; the takeaway is a pull quote; the glossary has no box; bordered blocks on the case page use one radius (rounded-xl).
+- **Why:** finding 2; with every block in a card nothing leads.
+- **Files:** `case-player.tsx` (`Block`: note, see, compare), `diagrams/kit.tsx` (the frame), `diagrams/dashboard.tsx`.
+- **Steps:** diagrams sit on the page with a caption under them, no outer card; the dashboard's charts keep their own light border but lose the frame around all four; the takeaway note becomes a pull quote (left rule, no fill); the log stays dark (it is a terminal), corners matching the rest.
+- **Done when:** a chapter has at most one level of border around any block, in light and dark.
+
+### INC-79 Check it all in Chrome
+- [ ] Status: partly checked 2026-10-01: the Vercel case in dark at desktop width (chapter, check under chapter, rail toggle, widths). Still to check: case 2, light mode, 375px, and the talk and final pages.
+- **Done when:** both cases walked start to final in light and dark at 1440px and 375px, the AI rail toggled on a chapter, and tsc clean in apps/main.
