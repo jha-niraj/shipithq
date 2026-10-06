@@ -24,14 +24,14 @@ const OLD = [
 const NEW = [
     "One pipeline, the same rounds for every candidate",
     "Hard gates on aptitude and coding, with written pass marks",
-    "Your team meets the ones who cleared them",
-    "Scores, notes and take-homes on one board",
+    "The ones who cleared them send you their results",
+    "Their code, answers and transcripts, round by round",
 ]
 
 /*
  * One 14s loop, both rows starting together. The usual row lights a stage every 3s and
  * waits in between; the ShipItHQ row lights a stage every 0.9s and then shows its
- * shortlist while the usual row is still in stage two. It illustrates the order of
+ * results while the usual row is still in stage two. It illustrates the order of
  * work, not a measured time: no numbers are shown.
  */
 const LOOP_STYLES = `
@@ -58,7 +58,7 @@ function LoopRow({ label, items, dark, speed }: { label: string; items: string[]
             <div className="flex items-center justify-between gap-4">
                 <p className={cn(MONO, "text-[11px] uppercase tracking-[0.16em]", dark ? "text-[#A8D5BA]" : "text-neutral-600")}>{label}</p>
                 {dark ? (
-                    <span className={cn(MONO, "ovn-done rounded-md bg-[#A8D5BA] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-neutral-950")} style={{ animationDelay: "0s" }}>Shortlist ready</span>
+                    <span className={cn(MONO, "ovn-done rounded-md bg-[#A8D5BA] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-neutral-950")} style={{ animationDelay: "0s" }}>Results in</span>
                 ) : (
                     <span className={cn(MONO, "ovn-wait text-[10px] uppercase tracking-[0.12em] text-neutral-500")}>Still going</span>
                 )}
@@ -94,7 +94,7 @@ export function OldVsNew() {
         <Section
             eyebrow="Why it works"
             title="The usual loop, and this one"
-            sub="Both loops below start at the same moment and go through the same four stages. Watch which one reaches a shortlist first."
+            sub="Both loops below start at the same moment and go through the same four stages. Watch which one reaches results first."
         >
             <style>{LOOP_STYLES}</style>
             <div className="ovn-run sh-reveal space-y-4">
@@ -105,92 +105,6 @@ export function OldVsNew() {
                 An illustration of the order of work, not a measured time
             </p>
         </Section>
-    )
-}
-
-// ── What the candidate sees ──────────────────────────────────────────────────
-
-const PHONE_STYLES = `
-@keyframes cv-screen { 0%,4% { opacity: 0; transform: translateY(8px); } 8%,30% { opacity: 1; transform: none; } 34%,100% { opacity: 0; transform: translateY(-8px); } }
-.cv-screen { animation: cv-screen 12s ease-in-out infinite; }
-@keyframes cv-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.cv-fill { transform-origin: left; animation: cv-fill 1.2s cubic-bezier(.2,.7,.2,1) both; }
-@media (prefers-reduced-motion: reduce) { .cv-screen { animation: none; opacity: 0; } .cv-screen:first-child { opacity: 1; } .cv-fill { animation: none; } }
-`
-
-function Phone() {
-    return (
-        <div className="relative mx-auto h-[30rem] w-[16rem] rounded-[2.4rem] border-[10px] border-neutral-900 bg-neutral-50 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.5)]" aria-hidden>
-            <span className="absolute left-1/2 top-2 h-5 w-20 -translate-x-1/2 rounded-full bg-neutral-900" />
-            <div className="relative h-full overflow-hidden rounded-[1.7rem] pt-10">
-                {/* 1. The job in their feed, with their match */}
-                <div className="cv-screen absolute inset-x-0 top-10 px-4" style={{ animationDelay: "0s" }}>
-                    <p className={cn(MONO, "text-[9px] uppercase tracking-[0.14em] text-neutral-500")}>Spark · 1 of 12</p>
-                    <div className="mt-3 rounded-2xl border border-neutral-200 bg-white p-4">
-                        <div className="size-9 rounded-lg bg-neutral-900" />
-                        <p className="mt-3 text-[14px] font-semibold text-neutral-900">Backend SDE-1</p>
-                        <p className="text-[11px] text-neutral-600">Your company · Bengaluru</p>
-                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-neutral-100"><div className="cv-fill h-full w-[76%] rounded-full bg-neutral-900" /></div>
-                        <p className="mt-2 text-[11px] font-medium text-neutral-900">76% match</p>
-                        <p className="mt-1 text-[10px] text-neutral-600">You have: Node, SQL · Missing: Redis</p>
-                    </div>
-                </div>
-                {/* 2. Taking the rounds */}
-                <div className="cv-screen absolute inset-x-0 top-10 px-4" style={{ animationDelay: "4s" }}>
-                    <p className={cn(MONO, "text-[9px] uppercase tracking-[0.14em] text-neutral-500")}>Your rounds</p>
-                    <div className="mt-3 space-y-2">
-                        {[["Aptitude", "Passed 72"], ["Coding (DSA)", "Passed 68"], ["System design", "In progress"], ["Voice round", "Locked"]].map(([r, s], i) => (
-                            <div key={r} className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-3 py-2.5">
-                                <span className="text-[12px] font-medium text-neutral-900">{r}</span>
-                                <span className={cn(MONO, "rounded px-1.5 py-0.5 text-[9px]", i < 2 ? "bg-[#A8D5BA] text-neutral-900" : i === 2 ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-500")}>{s}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                {/* 3. The outcome */}
-                <div className="cv-screen absolute inset-x-0 top-10 px-4" style={{ animationDelay: "8s" }}>
-                    <div className="mt-10 flex flex-col items-center text-center">
-                        <span className="flex size-14 items-center justify-center rounded-full bg-[#A8D5BA]"><Check className="size-7 text-neutral-900" /></span>
-                        <p className="mt-4 text-[15px] font-semibold text-neutral-900">Shortlisted</p>
-                        <p className="mt-1 text-[11px] leading-4 text-neutral-600">Your company will be in touch about the next step.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-export function CandidateView() {
-    const steps = [
-        { t: "They find your job", b: "Public jobs appear in the feed developers already use, with how well their skills match." },
-        { t: "They prepare on the platform", b: "The same place they practise DSA, build projects and rehearse voice mocks." },
-        { t: "They take your rounds", b: "In order, behind your gates. Candidates pay for their own attempts, so an applicant never costs you." },
-        { t: "You meet who passed", b: "Your shortlist starts with the people who cleared your pass marks." },
-    ]
-    return (
-        <section className="px-4 py-20 sm:px-6 md:py-28">
-            <style>{PHONE_STYLES}</style>
-            <div className="mx-auto grid max-w-7xl items-center gap-12 rounded-3xl bg-[#F2C9C4] p-8 md:p-14 lg:grid-cols-[1.1fr_1fr]">
-                <div className="sh-reveal">
-                    <Eyebrow className="text-neutral-700">The other side</Eyebrow>
-                    <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-neutral-900 md:text-4xl">What your candidate sees</h2>
-                    <ol className="mt-8 space-y-5">
-                        {steps.map((s, i) => (
-                            <li key={s.t} className="flex gap-4">
-                                <span className={cn(MONO, "flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-[12px] text-white")}>{String(i + 1).padStart(2, "0")}</span>
-                                <span>
-                                    <span className="block text-[16px] font-semibold text-neutral-900">{s.t}</span>
-                                    <span className="mt-0.5 block text-[15px] leading-6 text-neutral-800">{s.b}</span>
-                                </span>
-                            </li>
-                        ))}
-                    </ol>
-                </div>
-                <div className="sh-reveal" style={{ ["--sh-reveal-delay" as string]: "0.1s" }}>
-                    <Phone />
-                </div>
-            </div>
-        </section>
     )
 }
 

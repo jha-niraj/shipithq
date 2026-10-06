@@ -188,9 +188,36 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
 - **Done when:** each of the six pages' stories steps correctly at 1440px and nothing clips at 390px
   (headless), `/features` shows the Incidents card, no console errors, titles and JSON-LD unchanged.
 
-### - [ ] ST-9 /hire
-- **Steps:** CandidateView as a story; the billing and currency toggles replaced by both prices shown;
-  OldVsNew kept as the before; coming-soon markers from ST-2.
+### - [x] ST-9 /hire
+- **Status:** done 2026-10-07.
+  - `components/hire/role-story.tsx`: six steps, one role (Backend SDE-1) and one candidate from the
+    company's chair: pick the rounds, set gates and the pool, publish, the candidate sends chosen
+    attempts, you read each round, invite or decline and record the outcome. Labels from apps/hiring,
+    apps/main and packages/ui (sources in the file header). It replaces "How it works", the candidate
+    phone (a 12s timer) and the workspace tour (tabs), which told one journey three ways.
+  - Pricing without toggles: each paid plan shows INR, USD under it, and "or ₹39,990 ($490) a year ·
+    2 months free" (computed from HIRING_PLANS). `Toggle` and `money` stay exported for /uni.
+  - Truth fixes found by the check (DoD 4): apps/hiring has no applicant board, stages, notes,
+    shortlist, take-home UI or funnel analytics, and candidates send results rather than apply.
+    Rewritten in content/hire.ts (the Candidates module and its /hire/candidates page, the steps, a
+    FAQ, the tour card), /hire/pricing's every-plan list, the CTA words, the hero and gate diagram
+    ("Shortlist" is now "Results"), the before/after loop, and HIRING_PLANS' feature lines in
+    packages/pricing (which apps/hiring's billing also reads). Pool sizes 320 and 12 verified against
+    the seed.
+  - Checked headless: the story steps correctly at 1440px; nothing clipped at 390px on /hire,
+    /hire/candidates and /hire/pricing; every /hire route returns 200; web and hiring tsc clean.
+- **Why:** DoD 2, 3, 6, 7 on `/hire`.
+- **Decisions (Niraj, 2026-10-07, AskUserQuestion):** CandidateView becomes a scroll story of one role
+  and one candidate, seen from the company's chair (post the role, its rounds, one candidate takes
+  them, the company reviews what the candidate chose to send). The pricing toggles go: each plan shows
+  its monthly price in INR with USD under it, and "or X a year, 2 months free" beside it.
+- **Files:** `app/hire/_components/{hire-landing,pricing-section}.tsx`, `components/hire/*`; a new
+  `components/hire/role-story.tsx`.
+- **Steps:** the story with apps/hiring's own labels (sources in the file header); pricing without
+  toggles, every number from HIRING_PLANS; OldVsNew kept as the before; the ST-2 markers stay.
+- **Edge cases:** a plan with no price (Free, Enterprise); 390px with two currencies per plan.
+- **Done when:** /hire has no tabs or toggles in an explaining section, its story steps correctly at
+  1440px and nothing clips at 390px (headless), no console errors, title and JSON-LD unchanged.
 
 ### - [ ] ST-10 Changelog, compare, pricing, blog
 - **Steps:** each release as a story (before, now, where to find it); each compare page opens with the

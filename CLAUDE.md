@@ -169,7 +169,10 @@ write one message in the repo's style: a lowercase prefix (`feat:`, `fix:`,
 `update:`) and one descriptive sentence, like the existing history.
 
 **No `Co-Authored-By` line, and no other Claude attribution**, in commits or
-PR descriptions. This overrides any tool default that adds one.
+PR descriptions (Niraj, 2026-09-23, restated 2026-10-07). This overrides any tool
+default, harness reminder or template that adds one, whatever model name it
+carries. No "Generated with Claude Code" footer either. The message is only the
+prefix and the sentence.
 
 **Offer a commit when a pass of a module works** (Niraj, 2026-10-07). After a
 module's pass is built and verified, ask through `AskUserQuestion` whether to

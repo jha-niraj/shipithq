@@ -1,7 +1,7 @@
 /**
  * The animated pipeline in the /hire hero (plan/web/revamp REV-102): candidate dots
  * leave the applicant pool, pass through four rounds, and either stop at a hard gate
- * (they drop and fade) or reach the shortlist. It is the product's whole promise in
+ * (they drop and fade) or reach your results. It is the product's whole promise in
  * one picture, drawn with the pipeline builder's own labels (apps/hiring/types/
  * pipeline.ts, seed/hiring-pipelines.ts): Aptitude and Coding (DSA) are hard gates at
  * 60, System design and the voice round advisory.
@@ -96,9 +96,9 @@ export function GateFlow() {
                     <circle key={i} r="7" fill={dot.fate === "pass" ? "#A8D5BA" : "#fafafa"} className={`gf-dot gf-${dot.fate}`} style={{ animationDelay: `${dot.delay}s` }} />
                 ))}
 
-                {/* Shortlist */}
+                {/* Results: candidates who cleared every gate send theirs */}
                 <rect x="960" y="72" width="120" height="96" rx="14" fill="#A8D5BA" />
-                <text x="976" y="100" fill="#171717" fontSize="11" style={{ fontFamily: "var(--font-geist-mono), monospace", letterSpacing: "0.12em" }}>SHORTLIST</text>
+                <text x="976" y="100" fill="#171717" fontSize="11" style={{ fontFamily: "var(--font-geist-mono), monospace", letterSpacing: "0.12em" }}>RESULTS</text>
                 {[0, 1, 2, 3].map((i) => (
                     <circle key={i} className="gf-count" cx={988 + i * 20} cy="140" r="7" fill="#171717" style={{ animationDelay: `${i * 2 + 1}s` }} />
                 ))}

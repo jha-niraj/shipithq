@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { ArrowRight, Check } from "lucide-react"
 import { HIRING_PLANS, type HiringPlanKey } from "@repo/pricing"
@@ -13,8 +12,9 @@ import { Eyebrow, MONO, Section } from "@/components/marketing/primitives"
  * credit allowance and feature line comes from HIRING_PLANS in @repo/pricing, the same
  * object apps/hiring's checkout reads.
  *
- * Two toggles: currency (INR / USD) and billing (monthly / yearly, two months free).
- * Switching either replays a short roll-in on the numbers.
+ * No toggles (plan/web/story ST-9; Niraj, 2026-10-07): each paid plan shows its monthly price in
+ * INR with USD under it, and the yearly price beside, so every number is on the page at once.
+ * `Toggle` and `money` stay exported: /uni's plan cards still use them (uni is later).
  */
 
 const ORDER: HiringPlanKey[] = ["FREE", "PRO", "ENTERPRISE"]
@@ -25,16 +25,17 @@ export function money(n: number, c: Currency) {
     return c === "INR" ? `₹${n.toLocaleString("en-IN")}` : `$${n.toLocaleString("en-US")}`
 }
 
-function priceFor(key: HiringPlanKey, currency: Currency, billing: Billing) {
+/** Every price a plan has, at once: monthly INR, monthly USD, and the yearly line. */
+function prices(key: HiringPlanKey) {
     const p = HIRING_PLANS[key]
-    if (key === "ENTERPRISE") return { value: "Custom", unit: "talk to us", note: "Priced to your hiring volume" }
-    const monthly = currency === "INR" ? p.priceINR : p.priceUSD
-    if (monthly === 0) return { value: money(0, currency), unit: "forever", note: "No card needed" }
-    if (billing === "yearly") {
-        const yearly = currency === "INR" ? p.priceYearlyINR : p.priceYearlyUSD
-        return { value: money(yearly, currency), unit: "per year", note: `${money(monthly * 12 - yearly, currency)} less than paying monthly` }
+    if (key === "ENTERPRISE") return { value: "Custom", unit: "talk to us", second: null, note: "Priced to your hiring volume" }
+    if (p.priceINR === 0) return { value: money(0, "INR"), unit: "forever", second: null, note: "No card needed" }
+    const free = Math.round(12 - p.priceYearlyINR / p.priceINR)
+    return {
+        value: money(p.priceINR, "INR"), unit: "per month",
+        second: `${money(p.priceUSD, "USD")} per month`,
+        note: `or ${money(p.priceYearlyINR, "INR")} (${money(p.priceYearlyUSD, "USD")}) a year${free > 0 ? ` · ${free} months free` : ""}`,
     }
-    return { value: money(monthly, currency), unit: "per month", note: "Billed monthly, cancel any time" }
 }
 
 function creditsLine(key: HiringPlanKey) {
@@ -69,20 +70,13 @@ export function Toggle<T extends string>({ value, options, onChange, label }: { 
 }
 
 export function HirePlanCards() {
-    const [currency, setCurrency] = useState<Currency>("INR")
-    const [billing, setBilling] = useState<Billing>("monthly")
-
     return (
         <div>
-            <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
-                <Toggle label="Billing" value={billing} onChange={setBilling} options={[{ id: "monthly", label: "Monthly" }, { id: "yearly", label: "Yearly · 2 months free" }]} />
-                <Toggle label="Currency" value={currency} onChange={setCurrency} options={[{ id: "INR", label: "INR" }, { id: "USD", label: "USD" }]} />
-            </div>
             <div className="grid gap-4 lg:grid-cols-3">
                 {ORDER.map((key, idx) => {
                     const plan = HIRING_PLANS[key]
                     const pro = key === "PRO"
-                    const pr = priceFor(key, currency, billing)
+                    const pr = prices(key)
                     const href = key === "ENTERPRISE"
                         ? `mailto:${BRAND.email}?subject=${encodeURIComponent("ShipItHQ Hiring: Enterprise")}`
                         : HIRING_LINKS.signup
@@ -101,12 +95,13 @@ export function HirePlanCards() {
                                 <Eyebrow className={pro ? "text-neutral-400" : "text-neutral-700"}>{plan.name}</Eyebrow>
                                 {pro && <span className={cn(MONO, "rounded-md bg-white px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-neutral-950")}>Most teams</span>}
                             </div>
-                            <div key={`${currency}-${billing}`} className="mt-6 overflow-hidden">
-                                <p className="flex items-baseline gap-2">
-                                    <span className="font-display text-5xl font-semibold tracking-tight animate-in fade-in-0 slide-in-from-bottom-4 duration-500 motion-reduce:animate-none">{pr.value}</span>
-                                    <span className={cn("text-sm animate-in fade-in-0 duration-700 motion-reduce:animate-none", pro ? "text-neutral-400" : "text-neutral-700")}>{pr.unit}</span>
+                            <div className="mt-6">
+                                <p className="flex flex-wrap items-baseline gap-x-2">
+                                    <span className="font-display text-5xl font-semibold tracking-tight">{pr.value}</span>
+                                    <span className={cn("text-sm", pro ? "text-neutral-400" : "text-neutral-700")}>{pr.unit}</span>
                                 </p>
-                                <p className={cn(MONO, "mt-2 text-[11px] uppercase tracking-[0.12em] animate-in fade-in-0 duration-700 motion-reduce:animate-none", pro ? "text-neutral-400" : "text-neutral-700")}>{pr.note}</p>
+                                {pr.second && <p className={cn("mt-1 text-[15px] font-medium tabular-nums", pro ? "text-neutral-200" : "text-neutral-800")}>{pr.second}</p>}
+                                <p className={cn(MONO, "mt-2 text-[11px] uppercase tracking-[0.12em]", pro ? "text-neutral-300" : "text-neutral-700")}>{pr.note}</p>
                             </div>
                             <p className={cn("mt-4 text-[15px]", pro ? "text-neutral-300" : "text-neutral-800")}>{plan.tagline}</p>
                             <p className={cn("mt-5 rounded-lg px-3 py-2 text-[13px] font-medium", pro ? "bg-white/10 text-white" : "bg-white/55 text-neutral-900")}>

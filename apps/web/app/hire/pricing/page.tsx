@@ -38,8 +38,8 @@ const EVERY_PLAN = [
     "Aptitude, coding (DSA), system design and voice rounds",
     "Hard and advisory gates, pass marks and time limits",
     "The 320-question aptitude pool and 12 design prompts",
-    "Candidate board from Applied to Hired",
-    "Take-home assignments with scores and feedback",
+    "Results from candidates who cleared your rounds, round by round",
+    "Invite or decline with AI-drafted messages, and record the outcome",
     "Company email sign-up and custom roles",
 ]
 

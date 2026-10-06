@@ -49,7 +49,7 @@ export const HIRING_PLANS = {
             '2 team members and 1 custom role',
             '100 credits to start',
             'Aptitude, coding, system design and voice rounds',
-            'Candidate board and take-home assignments',
+            'Round-by-round results, invite or decline',
         ],
     },
     PRO: {
@@ -81,7 +81,7 @@ export const HIRING_PLANS = {
             '10 team members and 5 custom roles',
             '1,000 credits every month',
             'Company page with logo, cover and media',
-            'Analytics and the hiring funnel',
+            'Analytics: results received, waiting and invited',
             'An invoice for every payment',
         ],
     },

@@ -1,8 +1,6 @@
 import { HIRING_AI_LIMITS } from "@repo/pricing"
 import type { ModuleCardData } from "@/components/home/modules"
 import type { FaqItem } from "@/components/faq-accordion"
-import type { Step } from "@/components/marketing/sections"
-import type { TourTab } from "@/components/marketing/product-tour"
 
 /**
  * What shipithq.com/hire says (plan/web/revamp REV-21). Sources are apps/hiring
@@ -60,18 +58,20 @@ export const HIRE_MODULES: ModuleCardData[] = [
         meta: ["Pause or close any time"],
     },
     {
-        // apps/hiring/app/(main)/candidates, applications, actions/assignments/index.ts
+        // apps/hiring/app/(main)/{candidates,results}, actions/sends; the shared send view
+        // packages/ui/src/components/hiring/send-view.tsx (checked 2026-10-07, plan/web/story ST-9:
+        // there is no board, no stages, no notes, no shortlist and no take-home UI)
         id: "hire-candidates",
         href: "/hire/candidates",
         kind: "Review",
         name: "Candidates",
         tone: "mint",
         bullets: [
-            "A board from Applied to Hired",
-            "Notes, shortlists and status in one place",
-            "Take-home assignments your team scores",
+            "Results from candidates who cleared your rounds",
+            "Their code, answers and transcripts, round by round",
+            "Invite or decline, then record the outcome",
         ],
-        meta: ["6 stages"],
+        meta: ["Compare up to 3"],
     },
     {
         // apps/hiring/actions/team/*; packages/auth/src/work-email.ts
@@ -89,17 +89,6 @@ export const HIRE_MODULES: ModuleCardData[] = [
     },
 ]
 
-export const HIRE_STEPS: string[] = [
-    // packages/auth/src/work-email.ts
-    "Create your company's workspace with a work email. Personal and disposable addresses are turned away.",
-    // interview-config pipeline builder; seed/hiring-pipelines.ts
-    "Design the interview: start from a template, draft it with AI, or build it round by round with pass marks.",
-    // jobs/new/job-form-content.tsx
-    "Publish a job with that pipeline attached. Public jobs appear in the jobs feed developers use on ShipItHQ.",
-    // plan/hiring-rounds HR-12 to HR-18 (being built)
-    "Candidates take your rounds on ShipItHQ, and your shortlist starts with the ones who passed.",
-]
-
 export const HIRE_FAQS: FaqItem[] = [
     {
         question: "Who can create a company workspace?",
@@ -115,7 +104,7 @@ export const HIRE_FAQS: FaqItem[] = [
     },
     {
         question: "Where do candidates come from?",
-        answer: "From ShipItHQ: developers practising, building projects and preparing for interviews on the platform see your jobs in their feed and apply there.",
+        answer: "From ShipItHQ: developers practising, building projects and preparing for interviews on the platform see your public jobs in their feed, take your rounds, and choose to send you their results.",
     },
     {
         question: "Can my whole team work in it?",
@@ -150,7 +139,7 @@ export const HIRE_FEATURES: HireFeature[] = [
             "Start from one of three starter pipelines, draft one with AI, or build it round by round.",
             "Pick each round's type, pass mark, time limit and retake cool-down.",
             "Make a round a hard gate, so the next stays locked below the pass mark, or advisory.",
-            "Attach the pipeline to a job; candidates take it on ShipItHQ before they reach your shortlist.",
+            "Attach the pipeline to a job; candidates take it on ShipItHQ before they send you results.",
         ],
         different: [
             "Rounds are built for engineers: aptitude, DSA, system design and voice, not a generic form.",
@@ -217,26 +206,26 @@ export const HIRE_FEATURES: HireFeature[] = [
     },
     {
         slug: "candidates",
-        headline: "Every applicant, one board",
-        intro: "Move applicants from Applied to Hired on one board, keep notes and shortlists beside them, and send take-home assignments your team scores.",
+        headline: "Results you can read, not CVs",
+        intro: "Candidates who clear your rounds send you their results: the code, the written answers, the transcripts and the diagrams, round by round. You invite or decline, and record what happened.",
         steps: [
-            "See applicants per job, or across every job at once.",
-            "Move them through Applied, Reviewing, Shortlisted, Interviewing, Offered and Hired.",
-            "Add notes and shortlist in place.",
-            "Send a take-home assignment and score the submission with feedback.",
+            "See the results sent for each role, or every candidate across roles.",
+            "Open one: an overview, then a tab per round with the attempt they chose and its integrity counts.",
+            "Compare up to three side by side, then decide one at a time or together.",
+            "Invite or decline with a message drafted from your note, then record the outcome: Interviewing, Offer, Hired or Not selected.",
         ],
         different: [
-            "Status, notes and assignments live together, so nothing gets lost in email.",
-            "A funnel view shows where candidates drop out.",
-            "Messages can be tidied with AI before you send them.",
+            "You read what the candidate did in your rounds, not what they wrote about themselves.",
+            "The candidate chooses which attempt to send and agrees to share exactly that.",
+            "A candidate's email stays private until you invite them.",
         ],
         limits: [
-            "Take-home submissions are scored by your team, not automatically.",
+            "There is no applicant board or take-home assignments: you see results candidates send, after your rounds.",
         ],
         faqs: [
-            { question: "Can my team see the same board?", answer: "Yes. Everyone invited to the workspace works on the same candidates, with the permissions their role allows." },
-            { question: "How do take-home assignments work?", answer: "Attach one to a job, send it to a candidate, and score the submission with a mark and written feedback." },
-            { question: "Is there reporting?", answer: "An analytics page shows views, applications, active jobs, time to hire and the funnel." },
+            { question: "Can my team see the same results?", answer: "Yes. Everyone invited to the workspace works on the same results, with the permissions their role allows." },
+            { question: "What do I see for each round?", answer: "The attempt the candidate chose and how many they made, the pass mark, the code with its language, written answers, transcripts, diagrams, rubric scores, and how often they pasted or left the tab." },
+            { question: "Is there reporting?", answer: "An analytics page shows the results received, those waiting on a decision, and those you invited." },
         ],
     },
     {
@@ -266,41 +255,6 @@ export const HIRE_FEATURES: HireFeature[] = [
 ]
 
 export const hireFeatureBySlug = (slug: string) => HIRE_FEATURES.find((f) => f.slug === slug)
-
-/** The four steps with their scenes (REV-84); same words as HIRE_STEPS. */
-export const HIRE_STEP_CARDS: Step[] = [
-    { title: "Create your workspace", body: HIRE_STEPS[0]!, art: "hire-team" },
-    { title: "Design the interview", body: HIRE_STEPS[1]!, art: "hire-pipelines" },
-    { title: "Publish the job", body: HIRE_STEPS[2]!, art: "hire-jobs" },
-    { title: "Meet who passed", body: HIRE_STEPS[3]!, art: "hire-candidates" },
-]
-
-export const HIRE_TOUR: TourTab[] = [
-    {
-        id: "pipelines", label: "Pipelines", art: "hire-pipelines", tone: "ink",
-        title: "Rounds with a pass mark and a gate",
-        points: ["Aptitude, coding, system design and voice rounds", "Hard gates lock the next round below the pass mark", "Start from a template or draft one with AI"],
-        href: "/hire/pipelines", cta: "How pipelines work",
-    },
-    {
-        id: "questions", label: "Questions", art: "hire-questions", tone: "butter",
-        title: "A question bank you do not have to write",
-        points: ["320 aptitude questions across three kinds of reasoning", "12 system design prompts, or your own", "Each attempt draws a fresh set"],
-        href: "/hire/questions", cta: "How the question bank works",
-    },
-    {
-        id: "candidates", label: "Candidates", art: "hire-candidates", tone: "mint",
-        title: "Every applicant, one board",
-        points: ["Applied to Hired in six stages", "Notes and shortlists in place", "Take-home assignments your team scores"],
-        href: "/hire/candidates", cta: "How the board works",
-    },
-    {
-        id: "team", label: "Team", art: "hire-team", tone: "blush",
-        title: "Hire as a team",
-        points: ["Invite by company email only", "Custom roles and permissions", "One workspace, owned by its creator"],
-        href: "/hire/team", cta: "How teams work",
-    },
-]
 
 /**
  * The wedge from the company's side (plan/competition/skillmeet CMP-5; Niraj,

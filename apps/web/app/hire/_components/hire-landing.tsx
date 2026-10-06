@@ -9,13 +9,13 @@ import { HireHero } from "@/components/hire/hero";
 import { ModuleCardGrid } from "@/components/home/modules";
 import { TestimonialWall } from "@/components/site/testimonial-wall";
 import { Section } from "@/components/marketing/primitives";
-import { CtaBand, HowItWorks, NumbersBand } from "@/components/marketing/sections";
-import { ProductTour } from "@/components/marketing/product-tour";
+import { CtaBand, NumbersBand } from "@/components/marketing/sections";
+import { RoleStory } from "@/components/hire/role-story";
 import { GuidesStrip } from "./guides-strip";
-import { AlreadyPractising, CandidateView, FairByDesign, OldVsNew, TeamSizes } from "@/components/hire/sections";
+import { AlreadyPractising, FairByDesign, OldVsNew, TeamSizes } from "@/components/hire/sections";
 import { TESTIMONIALS as COMPANY_TESTIMONIALS } from "@/content/testimonials/companies";
 import { DEMO_COMPANIES } from "@/content/testimonials/demo";
-import { HIRE_FAQS, HIRE_MODULES, HIRE_STEP_CARDS, HIRE_TOUR } from "@/content/hire";
+import { HIRE_FAQS, HIRE_MODULES } from "@/content/hire";
 import { BRAND, HIRING_LINKS } from "@/lib/site";
 import PricingSection from "./pricing-section";
 
@@ -36,10 +36,18 @@ export function HireLanding() {
 				</Section>
 
 				<OldVsNew />
-				<HowItWorks title="From a job post to a shortlist that already passed" steps={HIRE_STEP_CARDS} />
-				<CandidateView />
+				{/* plan/web/story ST-9 (Niraj, 2026-10-07): one role and one candidate from the company's
+				    chair replaces "How it works", the candidate's phone (a 12s timer) and the workspace
+				    tour (tabs), which told one journey three ways. */}
+				<Section
+					id="how-it-works"
+					eyebrow="How it works"
+					title="One role, from the rounds to a decision"
+					sub="A backend role, its four rounds, and one candidate who cleared them, seen from your side."
+				>
+					<RoleStory />
+				</Section>
 				<AlreadyPractising />
-				<ProductTour eyebrow="Take the tour" title="See the workspace" tabs={HIRE_TOUR} />
 				<NumbersBand title="On ShipItHQ today" keys={["developers", "activeJobs", "companies", "mocks"]} />
 				<FairByDesign />
 				<TeamSizes />
@@ -61,7 +69,7 @@ export function HireLanding() {
 					sub="Set up your workspace with a company email and build your first pipeline in minutes."
 					primary={{ text: "Start hiring free", href: HIRING_LINKS.signup }}
 					secondary={{ text: "Talk to us", href: `mailto:${BRAND.email}` }}
-					words={["Pipelines", "Hard gates", "Pass marks", "Question bank", "Take-homes", "Candidate board", "Custom roles"]}
+					words={["Pipelines", "Hard gates", "Pass marks", "Question bank", "Round results", "Invite or decline", "Custom roles"]}
 				/>
 			</main>
 			<SiteFooter audience="companies" />
