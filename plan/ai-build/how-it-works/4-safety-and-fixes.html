@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>4. Safety and Fixes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<nav class="guide-nav" aria-label="Guide">
+  <a class="name" href="index.html">How the sandbox works</a>
+  <a href="index.html">Start here</a>
+  <a href="1-opening-a-workspace.html">1. Opening a workspace</a>
+  <a href="2-terminal-in-the-browser.html">2. The terminal</a>
+  <a href="3-recording-and-git.html">3. Recording and git</a>
+  <a href="4-safety-and-fixes.html" aria-current="page">4. Safety and fixes</a>
+</nav>
+
+<main class="wrap">
+  <p class="eyebrow">Chapter 4</p>
+  <h1>Safety, and what we fixed</h1>
+  <p class="lede">The candidate has a real shell. Anything their shell can reach, they can read, change or fake. So the design question is always the same: what can user <code>candidate</code> reach, and what can only <code>root</code> reach?</p>
+
+  <h2>Two users, one line between them</h2>
+  <div class="tscroll">
+    <table class="t">
+      <thead><tr><th></th><th>root (the agent)</th><th>candidate (you, bash, Claude)</th></tr></thead>
+      <tbody>
+        <tr><td>Change <code>/workspace</code></td><td>Yes</td><td>Yes, it's theirs</td></tr>
+        <tr><td>Read or change <code>/root/remote</code> (recording, stored repo)</td><td>Yes</td><td><strong>No</strong>: Permission denied</td></tr>
+        <tr><td>Change the hooks in <code>/etc/claude-code</code></td><td>Yes</td><td><strong>No</strong>: Permission denied</td></tr>
+        <tr><td>Install system software (<code>apt-get</code>)</td><td>Yes</td><td>No</td></tr>
+        <tr><td>See an API key or secret in the environment</td><td colspan="2">There is none to see: <code>env | grep -i key</code> finds nothing, because ShipItHQ holds no Claude key here</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="root-remote">The fix: why the folder moved to /root/remote</h2>
+  <p>This was a real hole in the first version, found by testing it the way a candidate would.</p>
+
+  <h3>What we built first</h3>
+  <p>The session folder was plugged in at <code>/remote</code>, and the agent ran <code>chmod 700 /remote</code> at start: "only the owner (root) may enter". On a normal Linux server that works.</p>
+
+  <h3>What the test showed</h3>
+<pre><code>$ docker exec -u candidate sbx-eca7a687 bash -lc 'cat /remote/events.jsonl'
+{"seq":1,"ts":"2026-10-03T19:08:20.545Z","type":"session.started","head":"e2af1726..."}      <span class="c"># could READ it</span>
+$ docker exec -u candidate sbx-eca7a687 bash -lc 'echo x &gt;&gt; /remote/events.jsonl &amp;&amp; echo "WRITE ALLOWED"'
+<span class="del">WRITE ALLOWED</span>                                                                               <span class="c"># could WRITE it</span></code></pre>
+  <p>The candidate could read the recording and add fake lines to it, and could have rewritten the stored repo's history. A recording the candidate can edit proves nothing.</p>
+
+  <h3>Why chmod did nothing</h3>
+  <p>On a Mac, Docker can't run Linux containers directly. It runs a small Linux virtual machine, and the containers live inside that. A bind mount from your Mac therefore crosses two borders: Mac → virtual machine → container. The sharing layer in between presents your Mac's files to Linux and decides their permissions itself; a <code>chmod</code> made inside the container on a shared folder doesn't stick. So <code>/remote</code> stayed open to everyone.</p>
+</main>
+
+<div class="wide">
+  <div class="diagram" role="img" aria-label="Before and after the mount move">
+    <p class="diagram-title">Before and after</p>
+    <div class="vs">
+      <div class="zone">
+        <span class="tag bad">BEFORE · OPEN</span>
+        <p class="zt">Mounted at /remote</p>
+        <div class="flow" style="min-width:0">
+          <div class="step"><b>/</b> &nbsp;anyone may enter</div>
+          <div class="arrow"></div>
+          <div class="step"><b>/remote</b> &nbsp;the shared folder<br>its permissions come from the sharing layer: <b>open</b></div>
+          <div class="arrow"></div>
+          <div class="step"><b>events.jsonl, repo.git</b><br>candidate can read and write</div>
+        </div>
+      </div>
+      <div class="zone">
+        <span class="tag good">AFTER · CLOSED</span>
+        <p class="zt">Mounted at /root/remote</p>
+        <div class="flow" style="min-width:0">
+          <div class="step"><b>/</b> &nbsp;anyone may enter</div>
+          <div class="arrow"></div>
+          <div class="step z"><b>/root</b> &nbsp;<code>drwx------ root</code><br>root's home: only root may enter. <b>Stops here.</b></div>
+          <div class="arrow"></div>
+          <div class="step"><b>/root/remote</b> &nbsp;the shared folder, still "open" on its own, but unreachable</div>
+        </div>
+      </div>
+    </div>
+    <p class="cap">Linux checks every folder on the way down a path. To reach /root/remote/events.jsonl you must be allowed through /root first, and only root is. The shared folder's own permissions never get asked.</p>
+  </div>
+</div>
+
+<main class="wrap">
+  <h3>The change itself was two lines</h3>
+  <p class="file">apps/sandbox/src/server.ts</p>
+<pre><code><span class="del">-        "-v", `${dirOf(m.id)}:/remote`,</span>
+<span class="add">+        "-v", `${dirOf(m.id)}:/root/remote`,</span></code></pre>
+  <p class="file">apps/sandbox/image/agent/server.mjs</p>
+<pre><code><span class="del">-const REMOTE = "/remote"</span>
+<span class="add">+// Inside /root (mode 700): a bind mount ignores its own chmod on Docker Desktop, so the</span>
+<span class="add">+// folder the candidate cannot enter is what keeps the recording and the repo out of reach.</span>
+<span class="add">+const REMOTE = "/root/remote"</span>
+<span class="del">-    fs.chmodSync(REMOTE, 0o700)</span></code></pre>
+  <p>The agent runs as root, so it walks through <code>/root</code> as before. Nothing else changed. Then the same test again:</p>
+<pre><code>$ ls /root/remote                     <span class="add">ls: cannot access '/root/remote': Permission denied</span>
+$ cat /root/remote/events.jsonl       <span class="add">cat: /root/remote/events.jsonl: Permission denied</span>
+$ echo x &gt;&gt; /root/remote/events.jsonl <span class="add">bash: /root/remote/events.jsonl: Permission denied</span></code></pre>
+  <p>The broken test session (with its junk line) was thrown away, the image rebuilt, and the host server restarted so new sessions use the new path.</p>
+
+  <h2>What is still not safe</h2>
+  <p>This is an experiment. These are known, written down, and planned (<code>plan/ai-build/tasks.md</code>), not forgotten.</p>
+  <div class="tscroll">
+    <table class="t">
+      <thead><tr><th>Gap</th><th>What a candidate could do today</th><th>The fix later</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Fake events</strong></td><td>The agent's <code>/hook</code> and <code>/command</code> accept anything from inside the container. A candidate could run <code>curl -X POST localhost:8080/hook ...</code> and add a made-up "Claude did X" line. They can't edit or delete existing lines.</td><td>Give each hook call a secret only Claude Code's process knows, or capture from outside the container; cross-check events against the git diffs, which can't be faked after the push</td></tr>
+        <tr><td><strong>Open internet</strong></td><td>Download anything, call any website, paste in code from elsewhere</td><td>AB-8: allow only package registries and Anthropic</td></tr>
+        <tr><td><strong>Working around the hooks</strong></td><td>The hooks belong to Claude Code. Code written with another tool (a script calling an AI API directly, or pasted in) never fires them. That code still lands in the commits</td><td>Treat git as the truth and hooks as the narration; flag sessions where turns have commits but no hook events</td></tr>
+        <tr><td><strong>One machine, many sessions</strong></td><td>Docker containers share the host's kernel. A kernel bug could let someone out</td><td>Production runs each session in its own small virtual machine, which is how Cloudflare Containers isolate them</td></tr>
+        <tr><td><strong>The agent is root next to the candidate</strong></td><td>Root could read the candidate's Claude sign-in file. Our code never does</td><td>Move recording and git outside the sandbox where possible</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Three quirks your session showed</h2>
+
+  <h3>1. Claude's answers are filed one turn late</h3>
+  <p>Look at what was recorded as Claude's answer after each of your prompts:</p>
+  <div class="tscroll">
+    <table class="t">
+      <thead><tr><th>Your prompt</th><th>Recorded as Claude's answer</th><th>Really the answer to</th></tr></thead>
+      <tbody>
+        <tr><td>How are you?</td><td><em>(empty)</em></td><td></td></tr>
+        <tr><td>What is this project about...?</td><td>"I'm doing well, thanks for asking..."</td><td>How are you?</td></tr>
+        <tr><td>Hey</td><td>"This is <strong>Notes API</strong>, a small HTTP service..."</td><td>What is this project about?</td></tr>
+        <tr><td>yes, start on the task</td><td>"Hey! Do you want me to start on the task..."</td><td>Hey</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>Why:</strong> the Stop hook fires as Claude finishes, and the agent reads the transcript at that instant. Claude Code hasn't finished writing the last answer to the file yet, so the agent gets everything up to the previous one. On the next turn it picks up the missing answer and files it there.</p>
+  <p><strong>Fix (not done yet):</strong> wait for the transcript to settle before reading it, or read the turn's answer when the <em>next</em> event arrives. Prompts, tool calls and commits are correct; only this one field is shifted.</p>
+
+  <h3>2. Typing "claude" is recorded when you quit it</h3>
+  <p>Your commands are recorded by bash's <code>PROMPT_COMMAND</code>, which runs when the prompt comes back, after a command ends. For <code>ls</code> that is instant. For <code>claude</code> it is when you quit Claude, so event 19 says you ran <code>claude</code> at 19:23, though you started it at 19:13 (event 3, "Claude Code started", has the right time).</p>
+  <p><strong>Fix:</strong> also record commands as they start (bash's <code>DEBUG</code> trap), or simply rely on <code>claude.started</code> for this one.</p>
+
+  <h3>3. "Recorded as your edit" when nothing changed</h3>
+  <p>You pressed Save without changing the file. The agent correctly recorded nothing, but the page still said "Saved, recorded as your edit". The page should say "No changes" in that case.</p>
+
+  <h2>The rules we are working inside</h2>
+  <p>Before writing any code we read Anthropic's published terms for running Claude Code inside another product. Two conditions decide the design:</p>
+  <ul>
+    <li><strong>"The Claude Code binary must not be modified."</strong> We install it with Anthropic's installer and only add hooks, which is configuration. Its sign-in options are untouched.</li>
+    <li><strong>"Customers may not pay for, resell, or intermediate Claude usage on their end users' behalf. Each end user must authenticate with their own Anthropic API key, Claude subscription plan credentials, or 3P inference provider credential."</strong> So each person signs in with their own account in their own container, as you did. ShipItHQ never holds the key, never pays for the usage, and never stores the sign-in.</li>
+  </ul>
+  <p>Source: Claude Code's <a href="https://code.claude.com/docs/en/legal-and-compliance">Legal and compliance</a> page, "Can customers offer Claude Code in their products?". That is the "own sign-in" model, and the experiment uses exactly it. If ShipItHQ or a hiring company ever needs to pay for candidates' AI use, the route the same page points to is the Agent SDK with an API key, which means our own chat panel instead of the real Claude Code screen.</p>
+
+  <h2>Where this leaves us</h2>
+  <div class="plain">
+    <p>Proved: a fresh computer per session, Claude Code running unmodified with the person's own sign-in, a real git repo with a commit per turn stored outside the sandbox, and a recording of prompts, tool calls and the candidate's own actions that survives the container. Not built yet, on purpose: the network limits, tamper-proof events, the fixes above, a real database and storage instead of files, Cloudflare instead of local Docker, and a designed interface.</p>
+  </div>
+
+  <nav class="pager" aria-label="Chapters">
+    <a href="3-recording-and-git.html"><small>Back</small><span>3. Recording and git</span></a>
+    <a href="index.html"><small>Back to the start</small><span>Start here</span></a>
+  </nav>
+</main>
+</body>
+</html>

@@ -75,6 +75,7 @@ export default async function UniFeaturePage({ params }: { params: Promise<{ fea
                 different={f.different}
                 limits={f.limits}
                 faqs={f.faqs}
+                soon={card.soon}
                 others={UNI_MODULES.filter((m) => m.id !== card.id)}
                 finalCta={{ text: "Set up your campus", href: UNI_LINKS.signup }}
                 planLimits={PLAN_LIMITS[f.slug]}

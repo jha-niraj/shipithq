@@ -16,6 +16,8 @@ import Link from "next/link";
 
 import React from 'react'
 import { Reveal } from '@/components/reveal'
+import { SIGNUP_GRANT_CREDITS } from "@repo/pricing"
+import { publishedPosts } from "@/content/blog"
 import { ArrowRight, Target, Users, Globe, Cpu, Mail } from 'lucide-react'
 import { Button } from "@repo/ui/components/ui/button"
 import { Badge } from "@repo/ui/components/ui/badge"
@@ -38,11 +40,14 @@ import { GapArt, EvidenceArt, ContainerArt } from "./_components/about-art"
  * If you want usage numbers here later, `actions/stats.action.ts` already returns real
  * counts from the database. Use those, or use nothing.
  */
+// Counted, not typed (plan/web/story ST-1): the practice languages a learner can pick
+// (packages/db/src/practice-types.ts JudgeLanguage), the signup grant, and the published guides.
+const topics = new Set(publishedPosts.map((p) => p.category)).size
 const stats = [
-    { value: "6", label: "Languages that run", note: "JavaScript, TypeScript, Python 3, C, C++, Java" },
-    { value: "100", label: "Free credits at signup", note: "No card, and they never expire" },
+    { value: "5", label: "Languages that run", note: "JavaScript, TypeScript, Python, Java, C++" },
+    { value: String(SIGNUP_GRANT_CREDITS), label: "Free credits at signup", note: "No card, and they never expire" },
     { value: "0", label: "Subscriptions", note: "You pay for operations, not for months" },
-    { value: "30", label: "Guides published", note: "Across seven topics, all free to read" },
+    { value: String(publishedPosts.length), label: "Guides published", note: `Across ${topics} topics, all free to read` },
 ]
 
 export default function AboutUs() {
@@ -55,7 +60,7 @@ export default function AboutUs() {
                 variant="statement"
                 tone="blush"
                 art="about"
-                eyebrow="Since 2024"
+                eyebrow="About ShipItHQ"
                 title={<>Nobody gets hired for<br className="hidden sm:block" /> finishing a tutorial.</>}
                 sub="ShipItHQ exists for the gap between passing a course and passing an interview - the part where you have to build something real, explain it out loud, and prove you can do it again."
                 ctas={[
@@ -84,11 +89,13 @@ export default function AboutUs() {
                         <strong className="font-semibold">ShipItHQ is an interview preparation and portfolio
                         platform for computer science students and software engineers.</strong>{" "}
                         <span className="text-neutral-600 dark:text-neutral-400">
-                            It combines four things that are usually five separate tabs: pattern-based
+                            It brings together what is usually spread across separate tools: pattern-based
                             practice where your code runs in a real Linux container, portfolio projects
                             with a quiz and mock interview generated from what you actually built, voice
-                            mock interviews you can take at any hour, and resume tooling that scores what
-                            an applicant tracking system extracts from your file.
+                            mock interviews you can take at any hour, resume tooling that scores what an
+                            applicant tracking system extracts from your file, a job&apos;s own interview
+                            rounds to practise, and incident cases: real production failures you work
+                            through with an AI lead.
                         </span>
                     </p>
                     <p className="mt-6 text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-400">
@@ -107,10 +114,11 @@ export default function AboutUs() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
                         {
                             [
-                                { icon: Target, title: "Our Mission", desc: "To democratize access to high-level engineering tools and AI guidance." },
-                                { icon: Users, title: "Growth", desc: "Helping developers build real projects, practice, and get hired." },
-                                { icon: Cpu, title: "Technology", desc: "Leveraging AI to simulate real-world technical interviews and tasks." },
-                                { icon: Globe, title: "Impact", desc: "Helping students land roles at top product companies globally." }
+                                // Plain statements of what the product does (plan/web/story ST-1): no unsourced outcomes.
+                                { icon: Target, title: "What it is", desc: "Projects, practice, mock interviews and real incidents, in one place." },
+                                { icon: Users, title: "Who it is for", desc: "Students and early-career engineers getting ready for an engineering job." },
+                                { icon: Cpu, title: "Where AI helps", desc: "Mock interviews, reviews and an incident lead that work from your own code and answers." },
+                                { icon: Globe, title: "What we don't promise", desc: "No job guarantee, and no placement numbers we can't show you." }
                             ].map((item, i) => (
                                 <div key={i} className="flex flex-col gap-4">
                                     <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center text-neutral-900 dark:text-white">

@@ -1,9 +1,9 @@
 "use client"
 
 import { useId, useState } from "react"
-import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
-import { cn } from "@repo/ui/lib/utils"
-import type { Sequence, SequenceMessage } from "@/content/incidents/types"
+import { Tabs, TabsList, TabsTrigger } from "../ui/tabs"
+import { cn } from "../../lib/utils"
+import type { Sequence, SequenceMessage } from "../../lib/incidents/types"
 import { DiagramFrame, HaloText, LINE, Markers, arrowId, type LineTone } from "./kit"
 
 /*

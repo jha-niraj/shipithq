@@ -1,11 +1,11 @@
 "use client"
 
 import { useId, useState } from "react"
-import { cn } from "@repo/ui/lib/utils"
-import type { CausalChain, Flow, StateDiagram } from "@/content/incidents/types"
-import { FlowChart } from "../flow-chart"
+import { cn } from "../../lib/utils"
+import type { CausalChain, Flow, StateDiagram } from "../../lib/incidents/types"
+import { FlowChart } from "./flow-chart"
 import { BOX, DiagramFrame, LINE, LitRing, Markers, arrowId, type Tone } from "./kit"
-import { layered } from "./layout"
+import { layered } from "../../lib/incidents/layout"
 
 /*
  * Why it happened (plan/incidents INC-67). A causal chain reads right to left: the latent

@@ -36,6 +36,25 @@ export type IncidentMeta = {
     /** Other topics it also shows under on the index (INC-54). `topic` stays the main one: its tag and cover. */
     alsoIn?: IncidentTopicId[]
     minutes: number
+    /**
+     * Whose work the case is based on (plan/rag-latency RL-2): shown on the index card, the
+     * start step, the closing step and the sources. Our own words; the credit and its links
+     * are theirs.
+     */
+    credit?: CaseCredit
+}
+
+/** A person whose public work a case is built on, and the post it came from. */
+export type CaseCredit = {
+    name: string
+    /** One line, as they describe themselves, e.g. "Founder, AIEngg". */
+    role?: string
+    profileUrl: string
+    postUrl: string
+    /** What the post is, in a few words: "his walkthrough of a real interview question". */
+    postTitle: string
+    /** What the case took from it. */
+    what: string
 }
 
 export const INCIDENTS: IncidentMeta[] = [
@@ -61,6 +80,23 @@ export const INCIDENTS: IncidentMeta[] = [
         topic: "serverless",
         alsoIn: ["queues"],
         minutes: 25,
+    },
+    {
+        slug: "the-bot-that-searched-the-whole-library",
+        title: "The bot that searched the whole library",
+        summary: "A support bot took eleven seconds to say hello. Not the model: an index built for fifty thousand documents, searching eleven million chunks on every question.",
+        topic: "ai",
+        alsoIn: ["databases"],
+        minutes: 25,
+        // plan/rag-latency: the method and the scenario are his; the story and words are ours.
+        credit: {
+            name: "Gaurav Sen",
+            role: "Founder of AIEngg, previously at Uber",
+            profileUrl: "https://www.linkedin.com/in/gkcs/",
+            postUrl: "https://www.linkedin.com/feed/update/urn:li:activity:7512856137524965377/",
+            postTitle: "His walkthrough of the interview question",
+            what: "The method this case follows (measure, then cut the problem in half until one part is left), the scenario of a slow RAG chatbot over a million documents, and the fixes it lists.",
+        },
     },
 ]
 

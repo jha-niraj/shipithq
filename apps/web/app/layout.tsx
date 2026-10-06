@@ -80,7 +80,7 @@ export const metadata: Metadata = {
 		"software engineering portfolio", "mock technical interview", "system design prep",
 		"DSA practice", "open source contribution tracker", "AI resume builder",
 		"cover letter generator", "coding interview prep", "cs student platform",
-		"developer career tools", "ShipItHQ", "engineering intelligence suite",
+		"developer career tools", "ShipItHQ", "production incident cases",
 	],
 	authors: [{ name: "Niraj Kumar Jha", url: `${SITE}/aboutus` }],
 	creator: BRAND.name,

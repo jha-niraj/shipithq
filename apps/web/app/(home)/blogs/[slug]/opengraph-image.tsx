@@ -30,7 +30,7 @@ export default async function OpengraphImage({ params }: { params: Promise<{ slu
     const post = BLOG_POSTS[slug]
 
     if (!post) {
-        return ogImage({ eyebrow: 'The ShipItHQ Blog', title: 'Engineering intelligence, written down' })
+        return ogImage({ eyebrow: 'The ShipItHQ Blog', title: 'Interviews and engineering careers, written down' })
     }
 
     return ogImage({

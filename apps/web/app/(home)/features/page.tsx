@@ -82,7 +82,7 @@ export default function FeaturesPage() {
                 variant="split"
                 tone="mint"
                 eyebrow="Features"
-                title={<>Six things, and each one does what it says.</>}
+                title={<>Every part, and what each one does.</>}
                 sub="No module on this page is coming soon, in beta, or a route you cannot reach after signing up. Where something has a limit, the limit is written next to it."
                 ctas={[
                     { text: 'Start free', href: APP_LINKS.signup, external: true },

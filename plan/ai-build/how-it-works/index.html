@@ -1,0 +1,116 @@
+<title>How the AI Build Sandbox Works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+
+<nav class="guide-nav" aria-label="Guide">
+  <a class="name" href="index.html">How the sandbox works</a>
+  <a href="index.html" aria-current="page">Start here</a>
+  <a href="1-opening-a-workspace.html">1. Opening a workspace</a>
+  <a href="2-terminal-in-the-browser.html">2. The terminal</a>
+  <a href="3-recording-and-git.html">3. Recording and git</a>
+  <a href="4-safety-and-fixes.html">4. Safety and fixes</a>
+</nav>
+
+<main class="wrap">
+  <p class="eyebrow">The AI build experiment · plan/ai-build · built 2026-10-04</p>
+  <h1>How Claude Code ended up running in your browser tab</h1>
+  <p class="lede">You opened <code>localhost:7070</code>, pressed a button, got a terminal, signed in to Claude, and Claude rewrote <code>src/app.js</code>. This guide explains every piece between that button and that edit, from scratch, with the real code and the real lines your session recorded.</p>
+
+  <div class="plain">
+    <p><strong>The whole thing in one paragraph.</strong> Your Mac runs a small Node program (the <em>host server</em>). When you press Start, it asks Docker to start a fresh little Linux computer (a <em>container</em>) that already has Node, git and Claude Code installed. Inside that container, a second small program (the <em>agent</em>) opens a real Linux shell and streams it to your browser over a live connection, so your keystrokes go in and the shell's output comes back. Claude Code runs in that shell like on any laptop. Every time Claude does something, Claude Code itself calls a tiny script we installed (a <em>hook</em>), and the agent writes that down. After each of Claude's turns the agent saves the code as a git commit and copies it to a folder on your Mac. The replay page reads only that folder, so it still works when the container is gone.</p>
+  </div>
+</main>
+
+<div class="wide">
+  <div class="diagram" role="img" aria-label="The four places the system lives: the browser, the host server on the Mac, Docker's container, and the session folder on the Mac.">
+    <p class="diagram-title">The big picture: four places, and what talks to what</p>
+    <div class="nest">
+      <div class="zone a">
+        <p class="zt">1 · Your browser tab</p>
+        <p class="zs">apps/sandbox/public/index.html and replay.html</p>
+        <div class="row">
+          <div class="chip"><b>Terminal (xterm.js)</b><span>Draws the shell. Sends every keystroke out, prints every byte that comes back.</span></div>
+          <div class="chip"><b>Files and editor</b><span>Lists /workspace, opens a file, Save sends it back.</span></div>
+          <div class="chip"><b>Timeline</b><span>Asks for new events every 1.5 seconds.</span></div>
+        </div>
+        <span class="link-note">talks only to http://localhost:7070 (HTTP + one WebSocket)</span>
+      </div>
+      <div class="zone b">
+        <p class="zt">2 · The host server, a Node program on your Mac</p>
+        <p class="zs">apps/sandbox/src/server.ts · port 7070 · only reachable from this Mac</p>
+        <div class="row">
+          <div class="chip"><b>Starts and stops sessions</b><span>Runs <code>docker run</code> and <code>docker rm</code>.</span></div>
+          <div class="chip"><b>Relays</b><span>Passes the terminal and file requests through to the right container.</span></div>
+          <div class="chip"><b>Serves the replay</b><span>Reads the session folder (box 4). No container needed.</span></div>
+        </div>
+        <span class="link-note">talks to the container on a random port, e.g. 127.0.0.1:32770</span>
+      </div>
+      <div class="zone c dashed">
+        <p class="zt">3 · The container: a fresh Linux computer, one per session</p>
+        <p class="zs">built from apps/sandbox/image/Dockerfile · started by Docker · deleted on Submit</p>
+        <div class="row">
+          <div class="chip"><b>The agent (root)</b><span>image/agent/server.mjs · port 8080 inside. Owns the shell, the files, git and the recording.</span></div>
+          <div class="chip"><b>bash + Claude Code (candidate)</b><span>The shell you type in. <code>claude</code> runs here, unmodified.</span></div>
+          <div class="chip"><b>/workspace</b><span>The starter repo, a real git repo, owned by candidate.</span></div>
+        </div>
+        <span class="link-note">the session folder is plugged in at /root/remote (only root can open it)</span>
+      </div>
+      <div class="zone d">
+        <p class="zt">4 · The session folder on your Mac</p>
+        <p class="zs">apps/sandbox/.data/sessions/&lt;id&gt;/</p>
+        <div class="row">
+          <div class="chip"><b>events.jsonl</b><span>The recording: one line per thing that happened.</span></div>
+          <div class="chip"><b>repo.git</b><span>The code: one commit per Claude turn.</span></div>
+          <div class="chip"><b>meta.json</b><span>Status, port, container name.</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="cap">Boxes 3 and 4 are the same folder seen from two sides: the container writes into <code>/root/remote</code>, and that is <code>.data/sessions/&lt;id&gt;/</code> on your Mac. Chapter 3 explains why that matters.</p>
+  </div>
+</div>
+
+<main class="wrap">
+  <h2>Words you will meet</h2>
+  <p>Every chapter uses these. None of them is hard; each is a name for something simple.</p>
+  <dl class="words">
+    <dt>Docker image</dt><dd>A frozen snapshot of a Linux computer with programs already installed: Node, git, Claude Code, our agent, the starter repo. Built once from the <code>Dockerfile</code> (a recipe). Ours is called <code>shipithq-sandbox:dev</code> and is 2.18 GB.</dd>
+    <dt>Container</dt><dd>A running copy of the image. Starting one takes under a second because nothing is installed at start; everything is already in the image. Each session gets its own, and deleting it deletes everything inside it.</dd>
+    <dt>Host</dt><dd>The machine running Docker: your Mac. Anything "on the host" survives a container being deleted.</dd>
+    <dt>Port</dt><dd>A numbered door on a computer that a program listens behind. Our host server listens on 7070; the agent listens on 8080 <em>inside</em> its container; Docker connects a random door on your Mac (like 32770) to that 8080.</dd>
+    <dt>WebSocket</dt><dd>A phone call between the browser and a server: once connected, both sides can talk at any time. Ordinary web requests are letters (ask, get one answer). A terminal needs the phone call.</dd>
+    <dt>PTY</dt><dd>"Pseudo-terminal". A fake keyboard and screen that a program like bash can't tell from a real one. It is how a terminal gets inside a web page (chapter 2).</dd>
+    <dt>Bind mount</dt><dd>Plugging a folder from the host into the container, like a USB drive. Both sides see the same files at the same time.</dd>
+    <dt>Bare git repo</dt><dd>A git repository with only the history, no working files. It is what GitHub keeps on its side. Ours (<code>repo.git</code>) is the "remote" we push every checkpoint to.</dd>
+    <dt>Hook</dt><dd>A command Claude Code runs on its own at set moments: when you send a prompt, before and after each tool it uses, and when it finishes a turn. We use hooks to record what Claude did.</dd>
+    <dt>root / candidate</dt><dd>Two Linux users inside the container. <code>root</code> can do anything; our agent runs as root. <code>candidate</code> is an ordinary user; your shell and Claude run as candidate. The gap between the two is the whole safety story (chapter 4).</dd>
+  </dl>
+
+  <h2>Read in this order</h2>
+  <ol>
+    <li><a href="1-opening-a-workspace.html"><strong>Opening a workspace.</strong></a> What happens, step by step, between pressing Start and seeing the prompt. The Dockerfile, the <code>docker run</code> command, and your <code>ls -la</code> output explained line by line.</li>
+    <li><a href="2-terminal-in-the-browser.html"><strong>The terminal in the browser.</strong></a> How a keystroke travels from your keyboard to bash and back, how Claude Code starts in it, and where your Claude sign-in lives.</li>
+    <li><a href="3-recording-and-git.html"><strong>Recording and git.</strong></a> Hooks, the events file with real lines from your session, the commit after every turn, the replay, and coming back after a crash.</li>
+    <li><a href="4-safety-and-fixes.html"><strong>Safety and what we fixed.</strong></a> Why the session folder moved to <code>/root/remote</code>, what is still not safe, the two quirks your session showed, and the terms we are working inside.</li>
+  </ol>
+
+  <h2>What the experiment proved</h2>
+  <div class="tscroll">
+    <table class="t">
+      <thead><tr><th>Question</th><th>Answer</th><th>How we know</th></tr></thead>
+      <tbody>
+        <tr><td>Can Claude Code run on the platform?</td><td>Yes, unmodified, version 2.1.288</td><td>You signed in and it edited <code>src/app.js</code></td></tr>
+        <tr><td>Can we start a computer per session?</td><td>Yes, in under a second</td><td><code>POST /api/sessions</code> returned in 0.87 s</td></tr>
+        <tr><td>Is there a real git repo?</td><td>Yes, inside and stored outside</td><td>Commit <code>b2eecf5</code> "Turn 4: yes, start on the task"</td></tr>
+        <tr><td>Is everything recorded?</td><td>Prompts, tool calls, answers, your commands, your saves</td><td>19 lines in your session's <code>events.jsonl</code></td></tr>
+        <tr><td>Does it survive the container dying?</td><td>Yes</td><td>Killed one on purpose; the replay still showed the diff, and resume brought the code back</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <nav class="pager" aria-label="Next">
+    <span></span>
+    <a href="1-opening-a-workspace.html"><small>Next</small><span>1. Opening a workspace</span></a>
+  </nav>
+</main>

@@ -231,7 +231,7 @@ export default async function BlogPostPage({ params }: Props) {
                             Stop reading about it. Start practising.
                         </h2>
                         <p className="mx-auto mb-6 max-w-md text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
-                            AI mock interviews, DSA practice, a portfolio builder and an ATS resume checker -
+                            AI mock interviews, DSA practice, real projects, a resume builder with an ATS check and incident cases -
                             in one place, free to start.
                         </p>
                         <div className="flex flex-wrap items-center justify-center gap-3">

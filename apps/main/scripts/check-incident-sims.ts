@@ -49,5 +49,28 @@ else {
   console.log("ok  export: all 24 combinations stay on the timeline")
 }
 
+// Case four's latency simulator (plan/rag-latency RL-4): each prediction's scenario gives
+// the timing its answer claims (seconds to the last word), and every combination stays on
+// the 14 s timeline.
+const botCase = getIncidentCase("the-bot-that-searched-the-whole-library")
+const botSim = botCase && "simulate" in botCase.simulator ? botCase.simulator : null
+const botWant: Record<string, number> = { quiet: 9.54, peak: 13.92, rebuilt: 3.72, exact: 3.73, semantic: 0.35, "semantic-new": 3.61, "shard-old": 7, all: 3.58 }
+if (!botSim) { bad++; console.log("BAD bot case: no simulator") }
+else {
+  for (const q of botCase!.predict) {
+    const r = botSim.simulate(q.scenario); const w = botWant[q.id]
+    const ok = w !== undefined && r.verdict === "completes" && Math.abs(r.end - w) < 0.005
+    if (!ok) bad++
+    console.log(`${ok ? "ok " : "BAD"} bot/${q.id}: ends at ${r.end} s (want ${w}) | ${r.headline}`)
+  }
+  let n = 0
+  for (const index of ["old", "rebuilt", "hnsw"]) for (const load of ["quiet", "peak"]) for (const cache of ["none", "exact", "semantic"]) for (const store of ["one", "sharded"]) for (const question of ["new", "repeat"]) {
+    const r = botSim.simulate({ index, load, cache, store, question }); n++
+    const over = r.end > botSim.duration || r.lanes.some((l) => l.segments.some((g) => g.to > botSim.duration || g.from > g.to))
+    if (over) { bad++; console.log(`BAD bot ${index}/${load}/${cache}/${store}/${question}: off the timeline`) }
+  }
+  console.log(`ok  bot: all ${n} combinations stay on the timeline`)
+}
+
 console.log("bad:", bad)
 if (bad) process.exit(1)

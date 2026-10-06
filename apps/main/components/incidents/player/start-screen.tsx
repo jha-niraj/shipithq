@@ -6,6 +6,7 @@ import { useGate } from "../sign-in-gate"
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { useCase } from "../primitives"
 import { useRun } from "./run-context"
+import { CreditCard } from "../credit"
 
 /**
  * "Start this case" (plan/incidents INC-34): what a recorded run keeps and why, before
@@ -67,6 +68,7 @@ export function StartScreen({ variant = "prompt", content, onDone }: { variant?:
                             </div>
                         ))}
                     </div>
+                    <CreditCard credit={c.credit} className="mt-6" />
                 </>
             ) : (
                 <>

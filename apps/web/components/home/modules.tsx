@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { SoonNote, type SoonFacts } from "@/components/marketing/soon"
 import { ArrowRight } from "lucide-react"
 import { cn } from "@repo/ui/lib/utils"
 import { MODULES } from "@/content/modules"
@@ -30,6 +31,8 @@ export interface ModuleCardData {
     /** Where the card goes. Omitted: the card is not a link. */
     href?: string
     cta?: string
+    /** Not built yet (plan/web/story ST-2): written out on the card, never stated as working. */
+    soon?: SoonFacts
 }
 
 export function ModuleCardGrid({ items, cols = 5 }: { items: ModuleCardData[]; cols?: 4 | 5 }) {
@@ -56,6 +59,7 @@ export function ModuleCardGrid({ items, cols = 5 }: { items: ModuleCardData[]; c
                             <div className="mt-6">
                                 <Eyebrow className={t.muted}>{m.kind}</Eyebrow>
                                 <h3 className={cn(MONO, "mt-2.5 text-[1.7rem] font-medium leading-[1.1] tracking-[-0.04em]")}>{m.name}</h3>
+                                {m.soon && <SoonNote {...m.soon} dark={dark} className="mt-3" />}
                                 <ul className="mt-5 space-y-2">
                                     {m.bullets.map((b) => (
                                         <li key={b} className="flex gap-2 text-[14px] leading-5">
@@ -109,7 +113,7 @@ export function HomeModules() {
             id="modules"
             eyebrow="Pick your module"
             title="Choose where to start"
-            sub="Five parts of one product, on one account and one credit balance. Start with whichever you need first."
+            sub="The parts of one product, on one account and one credit balance. Start with whichever you need first."
         >
             <ModuleCardGrid items={moduleCards()} />
         </Section>

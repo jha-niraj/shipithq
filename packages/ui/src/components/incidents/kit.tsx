@@ -1,6 +1,6 @@
 "use client"
 
-import { cn } from "@repo/ui/lib/utils"
+import { cn } from "../../lib/utils"
 
 /*
  * The incidents diagram kit (plan/incidents INC-62): what every diagram shares, so the

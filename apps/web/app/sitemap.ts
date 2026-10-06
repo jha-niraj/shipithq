@@ -26,6 +26,8 @@ const ROUTES: Record<string, [number, MetadataRoute.Sitemap[number]['changeFrequ
     'pricing': [0.9, 'monthly'],
     'blogs': [0.8, 'weekly'],
     'compare': [0.7, 'monthly'],
+    // plan/web/story ST-6: the Incidents launch page; it gains a case every few weeks.
+    'incidents': [0.9, 'weekly'],
     // ShipItHQ for companies, moved from apps/hiring (plan/hiring-app HA-3).
     'hire': [0.8, 'monthly'],
     'hire/guides': [0.6, 'monthly'],

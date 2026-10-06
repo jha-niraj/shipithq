@@ -1,7 +1,7 @@
 "use client"
 
-import { cn } from "@repo/ui/lib/utils"
-import type { IncidentTimeline, TimelineEvent } from "@/content/incidents/types"
+import { cn } from "../../lib/utils"
+import type { IncidentTimeline, TimelineEvent } from "../../lib/incidents/types"
 import { DiagramFrame, HaloText } from "./kit"
 import { formatRel, formatSpan, useScrub } from "./scrub"
 

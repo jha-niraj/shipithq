@@ -20,7 +20,7 @@ export const alt = 'The ShipItHQ Blog'
 export default async function BlogIndexOgImage() {
     return ogImage({
         eyebrow: 'The ShipItHQ Blog',
-        title: 'Engineering intelligence, written down',
+        title: 'Interviews and engineering careers, written down',
         footer: `${publishedPosts.length} guides`,
     })
 }

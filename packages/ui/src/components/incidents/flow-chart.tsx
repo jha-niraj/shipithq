@@ -1,10 +1,10 @@
 "use client"
 
 import { useId } from "react"
-import { cn } from "@repo/ui/lib/utils"
-import type { Flow, FlowNode } from "@/content/incidents/types"
-import { BOX, DiagramFrame, HaloText, INK, LINE, LitRing, Markers, SUB, arrowId, type Tone } from "./diagrams/kit"
-import { connector } from "./diagrams/layout"
+import { cn } from "../../lib/utils"
+import type { Flow, FlowNode } from "../../lib/incidents/types"
+import { BOX, DiagramFrame, HaloText, INK, LINE, LitRing, Markers, SUB, arrowId, type Tone } from "./kit"
+import { connector } from "../../lib/incidents/layout"
 
 /**
  * A flowchart drawn from data (plan/incidents INC-22; Niraj, 2026-09-26: "keep it to

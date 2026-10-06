@@ -22,7 +22,7 @@ export const LANDING_FAQS: readonly { id: string; question: string; answer: stri
     {
         id: "item-1",
         question: "What is ShipItHQ?",
-        answer: "ShipItHQ is an interview-preparation and portfolio platform for computer-science students and software engineers. It gives you four things in one place: pattern-based practice across DSA, system design, frontend and backend; guided portfolio projects broken into real tasks; voice mock interviews with scored feedback; and AI tools for your resume and cover letters."
+        answer: "ShipItHQ is an interview-preparation and portfolio platform for computer-science students and software engineers. In one place: pattern-based practice across DSA, system design, frontend and backend; guided portfolio projects broken into real tasks; voice mock interviews with scored feedback; AI tools for your resume and cover letters; a job's own interview rounds to practise; and incident cases, real production failures you work through with an AI lead."
     },
     {
         id: "item-2",
@@ -32,7 +32,7 @@ export const LANDING_FAQS: readonly { id: string; question: string; answer: stri
     {
         id: "item-3",
         question: "Does my code actually run?",
-        answer: "Yes - in a real Linux container, not a browser emulator. JavaScript, TypeScript, Python, Java, C and C++ execute server-side with the real toolchain, so your program behaves the way it would on your own machine rather than in a simulated subset."
+        answer: "Yes - in a real Linux container, not a browser emulator. JavaScript, TypeScript, Python, Java and C++ execute server-side with the real toolchain, so your program behaves the way it would on your own machine rather than in a simulated subset."
     },
     {
         id: "item-4",

@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>1. Opening a Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<nav class="guide-nav" aria-label="Guide">
+  <a class="name" href="index.html">How the sandbox works</a>
+  <a href="index.html">Start here</a>
+  <a href="1-opening-a-workspace.html" aria-current="page">1. Opening a workspace</a>
+  <a href="2-terminal-in-the-browser.html">2. The terminal</a>
+  <a href="3-recording-and-git.html">3. Recording and git</a>
+  <a href="4-safety-and-fixes.html">4. Safety and fixes</a>
+</nav>
+
+<main class="wrap">
+  <p class="eyebrow">Chapter 1</p>
+  <h1>Opening a workspace</h1>
+  <p class="lede">From the moment you press "Start a session" to the moment you see <code>candidate@f65505af9b4a:/workspace$</code>. Three things happen: a computer is built once in advance (the image), a copy of it is started for you (the container), and your browser is connected to it.</p>
+
+  <h2>Step 0, done once: build the image</h2>
+  <p>Before any session can start, we bake a Linux computer with everything already installed. The recipe is <code>apps/sandbox/image/Dockerfile</code>, and you bake it with <code>pnpm image</code> (which runs <code>docker build</code>). It took a few minutes the first time, because it downloads Node and Claude Code. After that, starting a session needs no downloads at all.</p>
+  <p>Here is the whole recipe, read top to bottom like a setup guide for a new laptop:</p>
+
+  <p class="file">apps/sandbox/image/Dockerfile</p>
+<pre><code><span class="c"># Start from an official image: Debian Linux with Node 22 already installed.</span>
+FROM node:22-bookworm
+
+<span class="c"># Install the everyday tools: git, curl, a search tool, a tiny vim, ps.</span>
+RUN apt-get update \
+    &amp;&amp; apt-get install -y --no-install-recommends git curl ca-certificates jq ripgrep less vim-tiny procps \
+    &amp;&amp; rm -rf /var/lib/apt/lists/*
+
+<span class="c"># Let root run git inside a repo another user owns (the agent commits as root).</span>
+RUN git config --system safe.directory '*' &amp;&amp; git config --system init.defaultBranch main
+
+<span class="hl"><span class="c"># The base image ships a user called "node" (number 1000). Rename it: that is the candidate.</span>
+RUN usermod -l candidate -d /home/candidate -m node &amp;&amp; groupmod -n candidate node</span>
+
+<span class="c"># Install Claude Code AS the candidate, with Anthropic's own installer. Never modified.</span>
+USER candidate
+RUN curl -fsSL https://claude.ai/install.sh | bash
+ENV PATH="/home/candidate/.local/bin:${PATH}"
+<span class="c"># Add our command logger to the candidate's shell (chapter 3), and a git name for commits.</span>
+COPY --chown=candidate:candidate bashrc.sh /tmp/bashrc.sh
+RUN cat /tmp/bashrc.sh &gt;&gt; /home/candidate/.bashrc &amp;&amp; git config --global user.name "Candidate" ...
+USER root
+
+<span class="c"># Claude Code's hooks, in the folder Claude Code reads company-wide settings from.</span>
+<span class="c"># Owned by root, so the candidate can read them but cannot change them.</span>
+COPY managed-settings.json /etc/claude-code/managed-settings.json
+
+<span class="c"># Our agent and its two libraries (node-pty for the terminal, ws for WebSockets).</span>
+COPY agent/package.json /opt/agent/package.json
+RUN cd /opt/agent &amp;&amp; npm install --omit=dev --no-audit --no-fund
+COPY agent/server.mjs agent/hook.mjs /opt/agent/
+<span class="c"># The starter repo every session begins with.</span>
+COPY template /opt/template
+
+ENV DISABLE_AUTOUPDATER=1
+EXPOSE 8080
+<span class="hl"><span class="c"># What runs when a container starts: our agent, as root.</span>
+CMD ["node", "/opt/agent/server.mjs"]</span></code></pre>
+
+  <div class="plain"><p>So the image already contains: Linux, Node, git, Claude Code (for the user <code>candidate</code>), our agent in <code>/opt/agent</code>, the hooks in <code>/etc/claude-code</code>, and the starter repo in <code>/opt/template</code>. Nothing about <em>your</em> session is in it yet.</p></div>
+
+  <h2>Step 1 to 9: you press "Start a session"</h2>
+  <p>Read the diagram top to bottom. Each arrow is one message; a box sitting in one column is work done by that program alone.</p>
+</main>
+
+<div class="wide">
+  <div class="diagram" role="img" aria-label="Sequence of starting a session">
+    <p class="diagram-title">Starting a session, message by message</p>
+    <div class="seq" style="--n:4">
+      <div class="actor" style="grid-column:1">Browser<small>index.html</small></div>
+      <div class="actor" style="grid-column:2">Host server<small>server.ts · :7070</small></div>
+      <div class="actor" style="grid-column:3">Docker<small>on your Mac</small></div>
+      <div class="actor" style="grid-column:4">Agent<small>in the container · :8080</small></div>
+
+      <div class="msg r" style="grid-column:1/3;--span:2"><span class="num">1</span><b>POST /api/sessions</b><br>"start one for me"</div>
+      <div class="self" style="grid-column:2"><span class="num">2</span>Makes the session folder <b>.data/sessions/425d157a/</b> with an empty <b>repo.git</b>, an empty <b>events.jsonl</b> and <b>meta.json</b></div>
+      <div class="msg r" style="grid-column:2/4;--span:2"><span class="num">3</span><b>docker run -d ... shipithq-sandbox:dev</b></div>
+      <div class="self" style="grid-column:3"><span class="num">4</span>Makes a container from the image, plugs the session folder in at <b>/root/remote</b>, gives it a random door (here <b>32771</b>), runs <b>CMD</b></div>
+      <div class="msg r" style="grid-column:3/5;--span:2"><span class="num">5</span>starts <b>node /opt/agent/server.mjs</b></div>
+      <div class="self" style="grid-column:4"><span class="num">6</span>Copies <b>/opt/template</b> into <b>/workspace</b>, hands it to candidate, <b>git init</b>, first commit "Start: the starter repo", pushes it to <b>/root/remote/repo.git</b>, records <b>session.started</b>, starts listening on 8080</div>
+      <div class="msg r" style="grid-column:2/5;--span:3"><span class="num">7</span><b>GET /health</b> every half second until it answers</div>
+      <div class="msg l back" style="grid-column:2/5;--span:3"><b>{ ok: true }</b></div>
+      <div class="msg l back" style="grid-column:1/3;--span:2"><span class="num">8</span><b>{ id: "425d157a", status: "running", port: 32771 }</b></div>
+      <div class="self" style="grid-column:1"><span class="num">9</span>Goes to <b>/?id=425d157a</b>: draws the terminal, opens the WebSocket, lists files (chapter 2)</div>
+    </div>
+    <p class="cap">All nine steps took 0.87 seconds in the test run. Most of that is step 6 and the first health check.</p>
+  </div>
+</div>
+
+<main class="wrap">
+  <h3>Steps 1 to 3 in code: the host server</h3>
+  <p class="file">apps/sandbox/src/server.ts</p>
+<pre><code>async function createSession(): Promise&lt;Meta&gt; {
+    const id = crypto.randomBytes(4).toString("hex")                <span class="c">// e.g. "425d157a"</span>
+    fs.mkdirSync(dirOf(id), { recursive: true })                       <span class="c">// .data/sessions/425d157a/</span>
+    await run("git", ["init", "-q", "--bare", "-b", "main", path.join(dirOf(id), "repo.git")])
+    fs.writeFileSync(path.join(dirOf(id), "events.jsonl"), "")
+    const m: Meta = { id, createdAt: new Date().toISOString(), status: "starting" }
+    writeMeta(m)                                                       <span class="c">// meta.json</span>
+    await startContainer(m)
+    return m
+}</code></pre>
+
+  <h3>Step 3 in detail: the one command that makes the computer</h3>
+<pre><code>async function startContainer(m: Meta) {
+    const name = `sbx-${m.id}`
+    await run("docker", [
+        "run", "-d", "--name", name,
+        "-p", "127.0.0.1::8080",
+        "-v", `${dirOf(m.id)}:/root/remote`,
+        "--memory", "2g", "--cpus", "2", "--pids-limit", "1024",
+        "--label", "shipithq.sandbox=1",
+        IMAGE,                                                         <span class="c">// "shipithq-sandbox:dev"</span>
+    ])
+    const { stdout } = await run("docker", ["port", name, "8080/tcp"])  <span class="c">// "127.0.0.1:32771"</span>
+    const port = Number(stdout.trim().split("\n")[0]!.split(":").pop())
+    await waitHealthy(port)                                            <span class="c">// step 7</span>
+    Object.assign(m, { status: "running", port, container: name })
+    writeMeta(m)
+}</code></pre>
+
+  <p>Every flag, in plain words:</p>
+  <div class="tscroll">
+    <table class="t">
+      <thead><tr><th>Flag</th><th>What it does</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><code>run -d</code></td><td>Start a container from the image and leave it running in the background</td><td>The session lives on after this command returns</td></tr>
+        <tr><td><code>--name sbx-425d157a</code></td><td>Give it a name we can find later</td><td>So Submit can run <code>docker rm -f sbx-425d157a</code></td></tr>
+        <tr><td><code>-p 127.0.0.1::8080</code></td><td>Connect a random free door on your Mac to door 8080 inside. The empty middle means "you pick"; <code>127.0.0.1</code> means only this Mac may knock</td><td>Many sessions can run at once without fighting over one number, and nobody on your Wi-Fi can reach them</td></tr>
+        <tr><td><code>-v &lt;folder&gt;:/root/remote</code></td><td>Plug the session folder on your Mac into the container at <code>/root/remote</code> (a bind mount)</td><td>Whatever the agent writes there lands on your Mac at once and outlives the container</td></tr>
+        <tr><td><code>--memory 2g --cpus 2</code></td><td>At most 2 GB of memory and two CPU cores</td><td>One session can't slow down the others</td></tr>
+        <tr><td><code>--pids-limit 1024</code></td><td>At most 1024 running processes</td><td>Stops a "fork bomb" (a program that copies itself forever)</td></tr>
+        <tr><td><code>--label shipithq.sandbox=1</code></td><td>A sticker on the container</td><td>Lets us list or clean up every sandbox in one command</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Step 6 in code: the agent prepares /workspace</h3>
+  <p>This is the moment the candidate is "given" a workspace. The agent runs as root, so it can create the folder and then hand it over.</p>
+  <p class="file">apps/sandbox/image/agent/server.mjs</p>
+<pre><code>async function setupWorkspace() {
+    <span class="c">// Is there already code for this session? (Only after a crash and resume, chapter 3.)</span>
+    const resumed = await asRoot(["--git-dir", BARE, "rev-parse", "--verify", "-q", "refs/heads/main"]).then(() =&gt; true, () =&gt; false)
+    fs.mkdirSync(WS, { recursive: true })                       <span class="c">// WS = "/workspace"</span>
+    if (fs.readdirSync(WS).length === 0) {
+        if (resumed) {
+            await asRoot(["clone", "-q", BARE, WS])             <span class="c">// bring the code back</span>
+            await asRoot(["-C", WS, "remote", "remove", "origin"])
+        } else {
+            await run("cp", ["-a", `${TEMPLATE}/.`, WS])        <span class="c">// copy the starter repo in</span>
+        }
+<span class="hl">        await run("chown", ["-R", "candidate:candidate", WS])  // hand every file to candidate</span>
+        if (!resumed) {
+            await asCandidate(["init", "-q", "-b", "main"])     <span class="c">// git init, as candidate</span>
+            await asCandidate(["add", "-A"])
+            await asCandidate(["commit", "-q", "-m", "Start: the starter repo"])
+            await push()                                        <span class="c">// copy that commit to /root/remote/repo.git</span>
+        }
+    }
+    const head = (await asCandidate(["rev-parse", "HEAD"])).stdout.trim()
+    record(resumed ? "session.resumed" : "session.started", { head })
+}</code></pre>
+  <p><code>asCandidate</code> and <code>asRoot</code> are two tiny helpers. Both run git; <code>asCandidate</code> runs it as user number 1000 (the candidate), so everything git creates in <code>/workspace/.git</code> belongs to the candidate too:</p>
+<pre><code>const CANDIDATE = { uid: 1000, gid: 1000 }
+const asCandidate = (args) =&gt; run("git", ["-C", WS, ...args], { uid: CANDIDATE.uid, gid: CANDIDATE.gid, env: CANDIDATE_ENV })
+const asRoot      = (args) =&gt; run("git", args)</code></pre>
+
+  <h2 id="ls">Your <code>ls -la</code>, line by line</h2>
+  <p>You typed this in the session's terminal. Every line follows from the code above.</p>
+<pre><code>candidate@f65505af9b4a:/workspace$ ls -la
+total 32
+drwxr-xr-x 5 candidate candidate 4096 Oct  3 19:10 .
+drwxr-xr-x 1 root      root      4096 Oct  3 19:10 ..
+drwxr-xr-x 8 candidate candidate 4096 Oct  3 19:18 .git
+-rw-r--r-- 1 candidate candidate   13 Oct  3 19:05 .gitignore
+-rw-r--r-- 1 candidate candidate  665 Oct  3 19:05 README.md
+-rw-r--r-- 1 candidate candidate  146 Oct  3 19:05 package.json
+drwxr-xr-x 2 candidate candidate 4096 Oct  3 19:05 src
+drwxr-xr-x 2 candidate candidate 4096 Oct  3 19:05 test</code></pre>
+  <div class="tscroll">
+    <table class="t">
+      <thead><tr><th>Part</th><th>What it means</th><th>Where it came from</th></tr></thead>
+      <tbody>
+        <tr><td><code>candidate@</code></td><td>You are logged in as the user <code>candidate</code></td><td>The agent starts your shell as user 1000 (chapter 2), whom the Dockerfile renamed from <code>node</code></td></tr>
+        <tr><td><code>f65505af9b4a</code></td><td>The computer's name</td><td>Docker names each container's computer with a random ID. Every session has a different one</td></tr>
+        <tr><td><code>:/workspace$</code></td><td>You are in <code>/workspace</code>; <code>$</code> means an ordinary user (root would show <code>#</code>)</td><td><code>bashrc.sh</code> ends with <code>cd /workspace</code></td></tr>
+        <tr><td><code>.</code> owned by <code>candidate</code></td><td>The workspace folder itself is yours</td><td><code>chown -R candidate:candidate /workspace</code> in step 6</td></tr>
+        <tr><td><code>..</code> owned by <code>root</code></td><td>The folder above, <code>/</code>, the top of the disk, belongs to root</td><td>Linux itself. You can look at it but not change it</td></tr>
+        <tr><td><code>.git</code>, 19:18</td><td>A real git repo. Its time is later than the others because Claude's turn at 19:18 made a commit in it</td><td><code>git init</code> as candidate in step 6, then a commit per Claude turn (chapter 3)</td></tr>
+        <tr><td>Files at 19:05</td><td>The starter files, never touched yet</td><td>Copied with <code>cp -a</code>, which keeps their original times from when the image was built (19:05)</td></tr>
+        <tr><td><code>drwxr-xr-x</code></td><td><code>d</code> = folder. Then three groups of read/write/execute: the owner can do everything, everyone else may read and enter</td><td>The normal default</td></tr>
+        <tr><td><code>-rw-r--r--</code></td><td>A file the owner can read and change; others only read</td><td>The normal default</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>What you <em>don't</em> see here is just as important: <code>/root/remote</code>, where the recording and the stored repo live. Try <code>ls /root/remote</code> in the terminal and you get "Permission denied". Chapter 4 is about exactly that.</p>
+
+  <h2>How the page finds your container afterwards</h2>
+  <p>The browser never talks to the container directly. It only knows the session ID. The host server keeps the container's door number in <code>meta.json</code> and forwards each request:</p>
+<pre><code><span class="c">// .data/sessions/425d157a/meta.json</span>
+{ "id": "425d157a", "createdAt": "2026-10-03T19:10:42.632Z", "status": "running", "port": 32771, "container": "sbx-425d157a" }</code></pre>
+<pre><code><span class="c">// server.ts: a request for /s/425d157a/agent/files ...</span>
+const a = p.match(/^\/s\/([a-f0-9]{8})\/agent(\/.*)$/)
+if (a) {
+    const m = readMeta(id)                                    <span class="c">// look up the door: 32771</span>
+    return proxyAgent(req, res, m.port, rest + url.search)    <span class="c">// ... becomes http://127.0.0.1:32771/files</span>
+}</code></pre>
+  <p>That forwarding is why, in production, the containers can live anywhere (Cloudflare, another server) while the browser only ever talks to ShipItHQ.</p>
+
+  <h2>What the agent offers the page</h2>
+  <div class="tscroll">
+    <table class="t">
+      <thead><tr><th>Request to the agent</th><th>Used by</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /health</code></td><td>Host, at start</td><td>"Are you up?"</td></tr>
+        <tr><td><code>WS /pty</code></td><td>The terminal</td><td>The live shell (chapter 2)</td></tr>
+        <tr><td><code>GET /files</code></td><td>File tree, every 3 s</td><td>Walks <code>/workspace</code>, skipping <code>.git</code> and <code>node_modules</code></td></tr>
+        <tr><td><code>GET /file?path=src/app.js</code></td><td>Opening a file</td><td>Returns its text (refuses anything outside <code>/workspace</code>)</td></tr>
+        <tr><td><code>PUT /file?path=src/app.js</code></td><td>The Save button</td><td>Writes it as candidate and records your edit as a diff</td></tr>
+        <tr><td><code>POST /hook</code></td><td>Claude Code's hooks</td><td>Records what Claude did (chapter 3)</td></tr>
+        <tr><td><code>POST /command</code></td><td>Your shell</td><td>Records a command you typed (chapter 3)</td></tr>
+        <tr><td><code>POST /checkpoint</code></td><td>Submit</td><td>One last commit before the container goes</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <nav class="pager" aria-label="Chapters">
+    <a href="index.html"><small>Back</small><span>Start here</span></a>
+    <a href="2-terminal-in-the-browser.html"><small>Next</small><span>2. The terminal in the browser</span></a>
+  </nav>
+</main>
+</body>
+</html>

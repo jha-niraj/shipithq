@@ -1,4 +1,5 @@
 import { cn } from "@repo/ui/lib/utils"
+import { SoonNote, type SoonFacts } from "@/components/marketing/soon"
 import { PageHero, type PageHeroCta } from "@/components/page-hero"
 import FaqsAccrodian from "@/components/landingpage/faqs"
 import { MONO, Section, TONE, isDark, type Tone } from "@/components/marketing/primitives"
@@ -44,6 +45,8 @@ export interface FeatureDetailProps {
     /** The plan columns of `planLimits`, and where "Compare every plan" goes. Hiring's by default. */
     planNames?: string[]
     pricingHref?: string
+    /** Not built yet (plan/web/story ST-2): said under the hero, in full. */
+    soon?: SoonFacts
 }
 
 const ROW_TONES = ["blush", "mint", "butter"] as const
@@ -73,6 +76,12 @@ export function FeatureDetail(p: FeatureDetailProps) {
                     return { value: value ?? m, label: rest.join(" ") }
                 })}
             />
+
+            {p.soon && (
+                <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+                    <SoonNote {...p.soon} className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-[14px]" />
+                </div>
+            )}
 
             {/* ── A closer look: three capabilities, alternating sides (REV-92) ── */}
             {x && (

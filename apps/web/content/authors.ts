@@ -26,7 +26,7 @@ export const AUTHORS: Record<AuthorKey, Author> = {
         role: `Founder & Lead Engineer, ${BRAND.name}`,
         email: BRAND.email,
         image: '/icon-512.png',
-        bio: 'Building ShipItHQ - the engineering intelligence suite for CS students and working software engineers. Full-stack engineer across database architecture, AI systems, and frontend delivery, who has sat on both sides of the technical interview table. These guides come from what actually moves the needle for candidates, not from recycled interview advice.',
+        bio: 'Building ShipItHQ, where CS students and working software engineers build projects, practise and prepare for interviews. Full-stack engineer across database architecture, AI systems, and frontend delivery, who has sat on both sides of the technical interview table. These guides come from what actually moves the needle for candidates, not from recycled interview advice.',
         sameAs: [
             'https://www.linkedin.com/in/nirajjha31/',
             'https://x.com/iamnirajjha',

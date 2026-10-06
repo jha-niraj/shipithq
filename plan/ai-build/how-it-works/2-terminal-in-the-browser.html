@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>2. The Terminal in the Browser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<nav class="guide-nav" aria-label="Guide">
+  <a class="name" href="index.html">How the sandbox works</a>
+  <a href="index.html">Start here</a>
+  <a href="1-opening-a-workspace.html">1. Opening a workspace</a>
+  <a href="2-terminal-in-the-browser.html" aria-current="page">2. The terminal</a>
+  <a href="3-recording-and-git.html">3. Recording and git</a>
+  <a href="4-safety-and-fixes.html">4. Safety and fixes</a>
+</nav>
+
+<main class="wrap">
+  <p class="eyebrow">Chapter 2</p>
+  <h1>The terminal in the browser</h1>
+  <p class="lede">A browser can't run bash. It doesn't need to. bash runs in the container; the browser only draws characters and sends keystrokes. Between them is a fake terminal on one end and a live connection in the middle.</p>
+
+  <h2>First: what a terminal actually is</h2>
+  <p>Forget the browser for a minute. On your Mac, when you open Terminal and type <code>ls</code>, two separate programs are involved:</p>
+  <ul>
+    <li><strong>The terminal window</strong> (Terminal.app, iTerm, the one in VS Code). It only does two things: it sends the keys you press, and it draws whatever characters it receives. It has no idea what <code>ls</code> means.</li>
+    <li><strong>The shell</strong> (bash, zsh). It reads keys, understands commands, runs programs, and writes text back.</li>
+  </ul>
+  <p>Between them is a <strong>terminal device</strong>: a two-way pipe the shell believes is a real keyboard and screen. Programs check for one; it is how <code>ls</code> knows to print in colour and how Claude Code knows it can draw its full-screen interface.</p>
+
+  <div class="plain"><p>So "a terminal in the browser" means: replace Terminal.app with a web page (xterm.js), keep bash, and give bash a fake terminal device (a PTY) whose other end is a WebSocket instead of a window.</p></div>
+</main>
+
+<div class="wide">
+  <div class="diagram" role="img" aria-label="Your Mac's terminal compared with the browser terminal">
+    <p class="diagram-title">The same two jobs, split across the network</p>
+    <div class="vs">
+      <div class="zone a">
+        <p class="zt">On your Mac</p>
+        <p class="zs">everything in one machine</p>
+        <div class="flow" style="min-width:0">
+          <div class="step"><b>Terminal.app</b><br>draws characters, sends keys</div>
+          <div class="arrow"><span>terminal device</span></div>
+          <div class="step"><b>zsh</b><br>runs your commands</div>
+        </div>
+      </div>
+      <div class="zone c">
+        <p class="zt">In the sandbox</p>
+        <p class="zs">the drawing in your browser, the shell in the container</p>
+        <div class="flow" style="min-width:0">
+          <div class="step"><b>xterm.js</b> in your browser tab<br>draws characters, sends keys</div>
+          <div class="arrow"><span>WebSocket via the host server</span></div>
+          <div class="step w"><b>the agent</b> (node-pty)<br>holds the fake terminal device</div>
+          <div class="arrow"><span>PTY</span></div>
+          <div class="step"><b>bash</b> as candidate<br>runs your commands, and <code>claude</code></div>
+        </div>
+      </div>
+    </div>
+    <p class="cap">xterm.js is the same library VS Code uses for its built-in terminal. node-pty is the library VS Code uses to create the fake terminal device.</p>
+  </div>
+</div>
+
+<main class="wrap">
+  <h2>One keystroke, all the way there and back</h2>
+  <p>You type <code>l</code>. Here is everything that happens before the <code>l</code> appears on your screen. Note the surprise in step 6: the browser does <em>not</em> print the <code>l</code> when you press it. bash sends it back, and only then is it drawn. That echo is why typing feels instant on a fast connection and laggy on a slow one.</p>
+</main>
+
+<div class="wide">
+  <div class="diagram" role="img" aria-label="Sequence of one keystroke">
+    <p class="diagram-title">Pressing "l": seven hops</p>
+    <div class="seq" style="--n:4">
+      <div class="actor" style="grid-column:1">xterm.js<small>your tab</small></div>
+      <div class="actor" style="grid-column:2">Host server<small>:7070</small></div>
+      <div class="actor" style="grid-column:3">Agent<small>container :8080</small></div>
+      <div class="actor" style="grid-column:4">bash<small>as candidate</small></div>
+
+      <div class="self" style="grid-column:1"><span class="num">1</span>You press <b>l</b>. xterm.js turns it into the text <b>"l"</b> (Enter becomes <b>"\r"</b>, arrow-up becomes <b>"\x1b[A"</b>)</div>
+      <div class="msg r" style="grid-column:1/3;--span:2"><span class="num">2</span><b>{"t":"i","d":"l"}</b><br>over the WebSocket</div>
+      <div class="msg r" style="grid-column:2/4;--span:2"><span class="num">3</span>passes it on, unchanged</div>
+      <div class="msg r" style="grid-column:3/5;--span:2"><span class="num">4</span><b>term.write("l")</b><br>into the PTY</div>
+      <div class="self" style="grid-column:4"><span class="num">5</span>bash adds "l" to the line it is building, and echoes it</div>
+      <div class="msg l back" style="grid-column:3/5;--span:2"><span class="num">6</span><b>"l"</b> comes out of the PTY</div>
+      <div class="msg l back" style="grid-column:2/4;--span:2">sent as plain text</div>
+      <div class="msg l back" style="grid-column:1/3;--span:2"><span class="num">7</span>passed on; xterm draws <b>l</b></div>
+    </div>
+    <p class="cap">When you press Enter, step 5 is bash running the command; step 6 is then the command's whole output, coloured with escape codes that xterm.js understands.</p>
+  </div>
+</div>
+
+<main class="wrap">
+  <h2>The three pieces of code</h2>
+
+  <h3>1. In the browser: draw, connect, send keys</h3>
+  <p class="file">apps/sandbox/public/index.html</p>
+<pre><code><span class="c">// xterm.js and its "fit" add-on are loaded from a CDN by two &lt;script&gt; tags.</span>
+const term = new Terminal({ fontSize: 13, cursorBlink: true })
+const fit = new FitAddon.FitAddon()          <span class="c">// sizes the terminal to its box</span>
+term.loadAddon(fit)
+term.open(document.getElementById("term"))   <span class="c">// draw it into the middle column</span>
+fit.fit()
+
+let ws
+const connect = () =&gt; {
+    ws = new WebSocket(`ws://${location.host}/s/${id}/pty`)          <span class="c">// the phone call</span>
+    ws.onopen = () =&gt; ws.send(JSON.stringify({ t: "r", c: term.cols, r: term.rows }))  <span class="c">// "I am 120 x 32"</span>
+<span class="hl">    ws.onmessage = (m) =&gt; term.write(m.data)                          // whatever bash says, draw it</span>
+    ws.onclose = () =&gt; { term.write("\r\n[disconnected, retrying]\r\n"); setTimeout(connect, 1500) }
+}
+connect()
+<span class="hl">term.onData((d) =&gt; ws.send(JSON.stringify({ t: "i", d })))          // every key you press, send it</span></code></pre>
+  <p>Two message types travel up: <code>{"t":"i"}</code> is input (keys), <code>{"t":"r"}</code> is resize (the box changed size, so bash and Claude can redraw to fit). Down comes plain text.</p>
+
+  <h3>2. On your Mac: the host server connects the two calls</h3>
+  <p>The browser's call reaches the host server. The host server makes a second call to the container and joins them, like an operator patching two phone lines.</p>
+  <p class="file">apps/sandbox/src/server.ts</p>
+<pre><code>server.on("upgrade", (req, socket, head) =&gt; {
+    <span class="c">// Only "/s/&lt;session id&gt;/pty" is allowed to become a WebSocket.</span>
+    const m = new URL(req.url, "http://host").pathname.match(/^\/s\/([a-f0-9]{8})\/pty$/)
+    const meta = readMeta(m[1])                                   <span class="c">// which door? 32771</span>
+    wss.handleUpgrade(req, socket, head, (browser) =&gt; {
+        const up = new WebSocket(`ws://127.0.0.1:${meta.port}/pty`) <span class="c">// call the container</span>
+        up.on("message", (d) =&gt; browser.send(String(d)))           <span class="c">// container -&gt; browser</span>
+        browser.on("message", (d) =&gt; up.send(String(d)))           <span class="c">// browser -&gt; container</span>
+        up.on("close", () =&gt; browser.close())                      <span class="c">// one hangs up, both hang up</span>
+        browser.on("close", () =&gt; up.close())
+    })
+})</code></pre>
+
+  <h3>3. In the container: the fake terminal and bash</h3>
+  <p>This is the only part that is new to most people. <code>pty.spawn</code> starts bash attached to a fake terminal device and gives us both ends of it: <code>term.write()</code> types into it, <code>term.onData()</code> hears what comes out.</p>
+  <p class="file">apps/sandbox/image/agent/server.mjs</p>
+<pre><code>import pty from "node-pty"
+
+let term = null
+let scrollback = ""
+const clients = new Set()                 <span class="c">// every open browser tab on this session</span>
+
+function ensureTerm() {
+    if (term) return term                 <span class="c">// one shell per session, shared</span>
+<span class="hl">    term = pty.spawn("bash", ["-l"], {
+        name: "xterm-256color", cols: 120, rows: 32,
+        cwd: "/workspace",
+        env: CANDIDATE_ENV,               // HOME=/home/candidate, PATH with claude in it
+        uid: 1000, gid: 1000,             // run as candidate, never as root
+    })</span>
+    term.onData((d) =&gt; {
+        scrollback = (scrollback + d).slice(-200_000)   <span class="c">// keep the last 200 KB</span>
+        for (const c of clients) c.send(d)              <span class="c">// to every tab</span>
+    })
+    term.onExit(() =&gt; { term = null })    <span class="c">// you typed "exit": a new shell next time</span>
+    return term
+}
+
+<span class="c">// When a browser connects to /pty:</span>
+wss.handleUpgrade(req, socket, head, (ws) =&gt; {
+    ensureTerm()
+    clients.add(ws)
+    if (scrollback) ws.send(scrollback)   <span class="c">// a reconnect sees what was already on screen</span>
+    ws.on("message", (m) =&gt; {
+        const msg = JSON.parse(String(m))
+        if (msg.t === "i") ensureTerm().write(msg.d)        <span class="c">// your keys go in</span>
+        if (msg.t === "r") term.resize(msg.c, msg.r)        <span class="c">// your window changed size</span>
+    })
+    ws.on("close", () =&gt; clients.delete(ws))
+})</code></pre>
+  <p>The highlighted lines answer "how does the candidate get a shell": the agent is root, and root may start a program as any user. It starts bash as user 1000, in <code>/workspace</code>, with the candidate's home folder. From then on everything you type, and everything Claude runs, happens as the candidate.</p>
+
+  <h3>Why reloading the page doesn't kill your work</h3>
+  <ul>
+    <li>bash lives in the container, not in the page. Closing the tab only hangs up the call; <code>term</code> keeps running.</li>
+    <li>When the page reconnects, the agent replays <code>scrollback</code>, so the screen comes back as it was.</li>
+    <li>Two tabs on one session see the same shell, because every tab is in <code>clients</code>.</li>
+  </ul>
+
+  <h2>Where Claude Code fits in</h2>
+  <p>To the sandbox, Claude Code is just another program, like <code>ls</code> or <code>vim</code>. Typing <code>claude</code> makes bash start it. Its interface (the coloured boxes, the spinner, the diffs you saw) is drawn with the same kind of escape codes, and xterm.js draws them.</p>
+</main>
+
+<div class="wide">
+  <div class="diagram" role="img" aria-label="Where Claude Code runs and who it talks to">
+    <p class="diagram-title">When you type "claude"</p>
+    <div class="nest">
+      <div class="zone c dashed">
+        <p class="zt">The container</p>
+        <p class="zs">everything below runs as candidate, in /workspace</p>
+        <div class="row">
+          <div class="chip"><b>bash</b><span>starts <code>/home/candidate/.local/bin/claude</code></span></div>
+          <div class="chip"><b>Claude Code</b><span>reads your prompt, plans, uses tools</span></div>
+          <div class="chip"><b>Its tools</b><span>Bash runs commands; Edit and Write change files; Read and Grep look. All as candidate, so all limited to what candidate may touch</span></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div class="chip"><b>Its sign-in</b><span>Saved in <code>/home/candidate/.claude</code>, inside this container only. Deleted with it.</span></div>
+          <div class="chip"><b>Its hooks</b><span>Read from <code>/etc/claude-code/managed-settings.json</code>. Each one sends a note to the agent (chapter 3).</span></div>
+        </div>
+        <span class="link-note">Claude Code talks to Anthropic's servers directly over the internet, with YOUR sign-in</span>
+      </div>
+      <div class="zone a">
+        <p class="zt">Anthropic</p>
+        <p class="zs">api.anthropic.com · claude.ai</p>
+        <div class="row"><div class="chip"><b>The model</b><span>Every prompt and answer goes here and back. Billed to your subscription. ShipItHQ is not in the middle.</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+  <h3>How your sign-in worked</h3>
+  <ol>
+    <li>The first run of <code>claude</code> in a fresh container finds no saved sign-in and shows its menu. You picked "Claude account with subscription".</li>
+    <li>It printed a link. You opened it in your own browser and signed in at claude.ai, Anthropic's page, not ours.</li>
+    <li>claude.ai gave you a code; you pasted it into the terminal. Claude Code swapped it for a sign-in token and saved that in <code>/home/candidate/.claude</code>.</li>
+  </ol>
+  <p>ShipItHQ never sees your password, and the token stays inside your container. When you press Submit, the container (and the token) is deleted, so the next session asks you to sign in again. That is on purpose: Claude Code's terms say a product hosting it may not collect or store people's Claude credentials (chapter 4). It is also why the recording keeps <em>Claude's</em> actions and <em>your typed commands</em>, but not the raw terminal screen: that screen is where the sign-in happens.</p>
+
+  <nav class="pager" aria-label="Chapters">
+    <a href="1-opening-a-workspace.html"><small>Back</small><span>1. Opening a workspace</span></a>
+    <a href="3-recording-and-git.html"><small>Next</small><span>3. Recording and git</span></a>
+  </nav>
+</main>
+</body>
+</html>

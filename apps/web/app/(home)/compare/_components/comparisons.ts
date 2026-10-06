@@ -150,7 +150,7 @@ export const COMPARISONS: readonly Comparison[] = [
             },
             {
                 dimension: 'Where your code runs',
-                ours: 'A Linux container built for that run: Node, TypeScript, Python 3, C, C++, Java. Real compiler output',
+                ours: 'A Linux container built for that run: JavaScript, TypeScript, Python, Java, C++. Real compiler output',
                 theirs: 'A hosted judge across a wide language list',
                 source: 'ours: runtimes read from apps/shipitworker\'s Dockerfile',
                 learnMore: { label: 'Practice', href: '/features/practice' },

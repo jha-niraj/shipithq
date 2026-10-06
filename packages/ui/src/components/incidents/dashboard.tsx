@@ -1,8 +1,8 @@
 "use client"
 
 import { useRef } from "react"
-import { cn } from "@repo/ui/lib/utils"
-import type { Dashboard as DashboardData } from "@/content/incidents/types"
+import { cn } from "../../lib/utils"
+import type { Dashboard as DashboardData } from "../../lib/incidents/types"
 import { DiagramFrame } from "./kit"
 import { formatRel, useScrub } from "./scrub"
 

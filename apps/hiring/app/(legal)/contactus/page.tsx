@@ -1,10 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import {
-    Mail, Phone, MapPin, Clock, ArrowRight, Calendar,
-    MessageCircle, Building2
-} from "lucide-react"
+import { Mail, ArrowRight, Calendar, MessageCircle, Building2 } from "lucide-react"
 import { Button } from "@repo/ui/components/ui/button"
 import { Input } from "@repo/ui/components/ui/input"
 import { Label } from "@repo/ui/components/ui/label"
@@ -14,19 +11,42 @@ import {
 } from "@repo/ui/components/ui/select"
 import Link from "next/link"
 import { useState } from "react"
+import { submitHiringContact } from "@/actions/contact.action"
 
+const SUBJECTS: Record<string, string> = {
+    demo: "Request a demo",
+    sales: "Sales enquiry",
+    support: "Technical support",
+    partnership: "Partnership",
+    other: "Other",
+}
+
+/**
+ * The hiring contact page (plan/web/story ST-1). The form used to wait a second and say
+ * "sent" without sending; it now stores the message (`submitHiringContact`). The placeholder
+ * phone, office address, hours and map box are gone: only the real email addresses stay.
+ */
 export default function ContactPage() {
     const [loading, setLoading] = useState(false)
-    const [submitted, setSubmitted] = useState(false)
+    const [submitted, setSubmitted] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+    const [form, setForm] = useState({ name: "", email: "", company: "", subject: "", message: "" })
+    const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
-        // Simulate API call
-        setTimeout(() => {
+        setError(null)
+        try {
+            const r = await submitHiringContact({ ...form, subject: SUBJECTS[form.subject] ?? "" })
+            if (r.success) setSubmitted(r.message)
+            else setError(r.message)
+        } catch (err: unknown) {
+            console.error("Sending the contact form failed:", err)
+            setError("Something went wrong. Please email us directly instead.")
+        } finally {
             setLoading(false)
-            setSubmitted(true)
-        }, 1500)
+        }
     }
 
     return (
@@ -40,7 +60,7 @@ export default function ContactPage() {
                         className="text-center mb-16"
                     >
                         <span className="inline-block text-[10px] font-mono uppercase tracking-widest text-neutral-500 bg-neutral-100 dark:bg-neutral-900 px-4 py-2 rounded-full mb-6">
-                            Contact Protocol
+                            Contact
                         </span>
                         <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-neutral-900 dark:text-white mb-6">
                             Let&apos;s Build <br />
@@ -109,7 +129,7 @@ export default function ContactPage() {
                                 Send us a message
                             </h2>
                             <p className="text-neutral-500 mb-8">
-                                Fill out the form below and we&apos;ll get back to you within 24 hours.
+                                Fill in the form and we&apos;ll get back to you within two working days.
                             </p>
 
                             {
@@ -123,40 +143,31 @@ export default function ContactPage() {
                                             <Mail className="w-8 h-8 text-neutral-800 dark:text-neutral-100" />
                                         </div>
                                         <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">
-                                            Message Sent!
+                                            Message sent
                                         </h3>
-                                        <p className="text-neutral-500">
-                                            Thanks for reaching out. We&apos;ll respond shortly.
-                                        </p>
+                                        <p className="text-neutral-500">{submitted}</p>
                                     </motion.div>
                                 ) : (
                                     <form onSubmit={handleSubmit} className="space-y-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <Label htmlFor="firstName" className="text-sm font-medium">First Name</Label>
-                                                <Input
-                                                    id="firstName"
-                                                    placeholder="John"
-                                                    className="mt-2 rounded-xl bg-white dark:bg-neutral-950"
-                                                    required
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="lastName" className="text-sm font-medium">Last Name</Label>
-                                                <Input
-                                                    id="lastName"
-                                                    placeholder="Doe"
-                                                    className="mt-2 rounded-xl bg-white dark:bg-neutral-950"
-                                                    required
-                                                />
-                                            </div>
+                                        <div>
+                                            <Label htmlFor="name" className="text-sm font-medium">Your name</Label>
+                                            <Input
+                                                id="name"
+                                                value={form.name}
+                                                onChange={set("name")}
+                                                placeholder="Ada Lovelace"
+                                                className="mt-2 rounded-xl bg-white dark:bg-neutral-950"
+                                                required
+                                            />
                                         </div>
                                         <div>
                                             <Label htmlFor="email" className="text-sm font-medium">Work Email</Label>
                                             <Input
                                                 id="email"
                                                 type="email"
-                                                placeholder="john@company.com"
+                                                value={form.email}
+                                                onChange={set("email")}
+                                                placeholder="you@company.com"
                                                 className="mt-2 rounded-xl bg-white dark:bg-neutral-950"
                                                 required
                                             />
@@ -165,22 +176,20 @@ export default function ContactPage() {
                                             <Label htmlFor="company" className="text-sm font-medium">Company Name</Label>
                                             <Input
                                                 id="company"
+                                                value={form.company}
+                                                onChange={set("company")}
                                                 placeholder="Acme Inc."
                                                 className="mt-2 rounded-xl bg-white dark:bg-neutral-950"
                                             />
                                         </div>
                                         <div>
                                             <Label htmlFor="subject" className="text-sm font-medium">Subject</Label>
-                                            <Select>
+                                            <Select value={form.subject} onValueChange={(v) => setForm((f) => ({ ...f, subject: v }))}>
                                                 <SelectTrigger className="mt-2 rounded-xl bg-white dark:bg-neutral-950">
                                                     <SelectValue placeholder="How can we help?" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="demo">Request a Demo</SelectItem>
-                                                    <SelectItem value="sales">Sales Inquiry</SelectItem>
-                                                    <SelectItem value="support">Technical Support</SelectItem>
-                                                    <SelectItem value="partnership">Partnership</SelectItem>
-                                                    <SelectItem value="other">Other</SelectItem>
+                                                    {Object.entries(SUBJECTS).map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -188,14 +197,17 @@ export default function ContactPage() {
                                             <Label htmlFor="message" className="text-sm font-medium">Message</Label>
                                             <Textarea
                                                 id="message"
+                                                value={form.message}
+                                                onChange={set("message")}
                                                 placeholder="Tell us about your needs..."
                                                 className="mt-2 rounded-xl bg-white dark:bg-neutral-950 min-h-[150px]"
                                                 required
                                             />
                                         </div>
+                                        {error && <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
                                         <Button
                                             type="submit"
-                                            disabled={loading}
+                                            disabled={loading || !form.subject}
                                             className="w-full rounded-xl h-12 bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 font-bold"
                                         >
                                             {loading ? "Sending..." : "Send Message"}
@@ -229,43 +241,6 @@ export default function ContactPage() {
                                         </a>
                                     </div>
                                 </div>
-                                <div className="flex items-start gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0">
-                                        <Phone className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-neutral-900 dark:text-white mb-1">Phone</p>
-                                        <p className="text-neutral-500">+91 98765 43210</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0">
-                                        <MapPin className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-neutral-900 dark:text-white mb-1">Office</p>
-                                        <p className="text-neutral-500">
-                                            123 Tech Park, Electronic City<br />
-                                            Bengaluru, Karnataka 560100<br />
-                                            India
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0">
-                                        <Clock className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-neutral-900 dark:text-white mb-1">Business Hours</p>
-                                        <p className="text-neutral-500">
-                                            Monday - Friday: 9:00 AM - 6:00 PM IST<br />
-                                            Saturday - Sunday: Closed
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="mt-12 h-64 rounded-2xl bg-neutral-200 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 flex items-center justify-center">
-                                <p className="text-neutral-500 text-sm">Map Integration</p>
                             </div>
                         </motion.div>
                     </div>

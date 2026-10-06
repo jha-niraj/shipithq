@@ -131,18 +131,19 @@ export function Sources({ refs, dark = false, className }: { refs: SourceRef[]; 
     return (
         <p className={cn("flex flex-wrap items-center gap-1.5", className)}>
             <span className={cn("font-mono text-[10px]", dark ? "text-neutral-400" : "text-neutral-500 dark:text-neutral-400")}>Source</span>
-            {refs.map((r) => (
-                <span
-                    key={`${r.source}-${r.section}`}
-                    title={c.sources[r.source] ? `${c.sources[r.source]!.title} (${c.sources[r.source]!.author}, ${c.sources[r.source]!.date})` : r.source}
-                    className={cn(
-                        "rounded-md px-1.5 py-0.5 font-mono text-[10.5px]",
-                        dark ? "bg-white/10 text-neutral-300" : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300",
-                    )}
-                >
-                    {r.source} · {r.section}
-                </span>
-            ))}
+            {refs.map((r) => {
+                const src = c.sources[r.source]
+                const cls = cn(
+                    "rounded-md px-1.5 py-0.5 font-mono text-[10.5px]",
+                    dark ? "bg-white/10 text-neutral-300" : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300",
+                    src?.url && (dark ? "underline-offset-2 hover:underline" : "underline-offset-2 hover:bg-neutral-200 hover:underline dark:hover:bg-neutral-700"),
+                )
+                const title = src ? `${src.title} (${src.author}, ${src.date})` : r.source
+                // A source with a link (a post, a page) opens it (plan/rag-latency RL-2).
+                return src?.url
+                    ? <a key={`${r.source}-${r.section}`} href={src.url} target="_blank" rel="noopener noreferrer" title={title} className={cls}>{r.source} · {r.section}</a>
+                    : <span key={`${r.source}-${r.section}`} title={title} className={cls}>{r.source} · {r.section}</span>
+            })}
         </p>
     )
 }

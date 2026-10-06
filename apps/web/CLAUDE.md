@@ -25,9 +25,10 @@ The authenticated product (auth, dashboard, AI tools, practice, projects, checko
   - The `APP_PATHS` redirects in `next.config.mjs` are a safety net for old inbound links, not
     a routing strategy. Linking through them adds a pointless redirect hop.
 
-**Database access is allowed but narrow.** `@repo/db` is used for exactly four things:
+**Database access is allowed but narrow.** `@repo/db` is used for exactly five things:
 read-only landing stats (`actions/stats.action.ts`), newsletter capture
-(`actions/newsletter.action.ts`), contact submissions (`actions/contact.action.ts`), and
+(`actions/newsletter.action.ts`), contact submissions (`actions/contact.action.ts`), the
+read-only incident cases that /incidents draws (`lib/incidents.ts`, plan/web/story ST-6), and
 the read-only public Ideas board (`app/(home)/ideas`, through `listPublicIdeas` in
 `@repo/db/ideas`; plan/web/revamp REV-42, plan/ideas). The only user data that query
 returns is a poster's first name and avatar, and not even that when they posted

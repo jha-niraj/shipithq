@@ -1,7 +1,7 @@
 import "server-only"
 import { asc, eq } from "drizzle-orm"
 import { db, incidentCases, incidentSteps } from "@repo/db"
-import type { IncidentTopicId } from "@/content/incidents"
+import type { CaseCredit, IncidentTopicId } from "@/content/incidents"
 import { getIncidentCase } from "@/content/incidents/cases"
 
 /**
@@ -10,7 +10,8 @@ import { getIncidentCase } from "@/content/incidents/cases"
  */
 
 /** `topics`: the main topic first, then any it also shows under (INC-54), from the content file. */
-export type CaseSummary = { slug: string; title: string; summary: string; topic: IncidentTopicId; topics: IncidentTopicId[]; minutes: number; steps: number; quizzes: number }
+/** `credit`: from the seeded `meta` (plan/rag-latency RL-2). */
+export type CaseSummary = { slug: string; title: string; summary: string; topic: IncidentTopicId; topics: IncidentTopicId[]; minutes: number; steps: number; quizzes: number; credit?: CaseCredit }
 
 export async function listLiveCases(): Promise<CaseSummary[]> {
     const cases = await db.select().from(incidentCases).where(eq(incidentCases.status, "LIVE")).orderBy(asc(incidentCases.publishedAt))
@@ -18,7 +19,7 @@ export async function listLiveCases(): Promise<CaseSummary[]> {
     return cases.map((c) => {
         const mine = steps.filter((s) => s.caseId === c.id)
         const topic = c.topic as IncidentTopicId
-        return { slug: c.slug, title: c.title, summary: c.summary, topic, topics: [topic, ...(getIncidentCase(c.slug)?.alsoIn ?? []).filter((t) => t !== topic)], minutes: c.minutes, steps: mine.length, quizzes: mine.filter((s) => s.kind === "check" || s.kind === "final-quiz").length }
+        return { slug: c.slug, title: c.title, summary: c.summary, topic, topics: [topic, ...(getIncidentCase(c.slug)?.alsoIn ?? []).filter((t) => t !== topic)], minutes: c.minutes, steps: mine.length, quizzes: mine.filter((s) => s.kind === "check" || s.kind === "final-quiz").length, credit: (c.meta as { credit?: CaseCredit }).credit }
     })
 }
 

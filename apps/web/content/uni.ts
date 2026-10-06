@@ -33,6 +33,7 @@ export const UNI_MODULES: ModuleCardData[] = [
             "Verify who belongs to your campus",
             "Readiness from real practice, projects and mocks",
         ],
+        soon: { what: "the Students screen: rosters by department and class, verification and readiness", today: "institution set-up, faculty and assignments work, and student rosters have no screen in the app yet" },
         meta: [`Up to ${n(UNI_PLANS.GROWTH.maxStudents)} on Growth`],
     },
     {
@@ -75,6 +76,7 @@ export const UNI_MODULES: ModuleCardData[] = [
             "Students apply with the work they did",
             "Who applied, who was shortlisted, who was placed",
         ],
+        soon: { what: "the Placements screen: campus jobs, applications and outcomes", today: "companies hire through ShipItHQ Hiring, and the university app has no Placements screen yet" },
         meta: ["Growth and Enterprise"],
     },
     {
@@ -89,6 +91,7 @@ export const UNI_MODULES: ModuleCardData[] = [
             "Assignment completion and scores",
             "Credit use and placement outcomes",
         ],
+        soon: { what: "the Analytics screen: readiness, completion and credit use", today: "the university app has no Analytics screen yet" },
         meta: ["Starter and up"],
     },
 ]

@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3. Recording and Git</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Hanken+Grotesk:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<nav class="guide-nav" aria-label="Guide">
+  <a class="name" href="index.html">How the sandbox works</a>
+  <a href="index.html">Start here</a>
+  <a href="1-opening-a-workspace.html">1. Opening a workspace</a>
+  <a href="2-terminal-in-the-browser.html">2. The terminal</a>
+  <a href="3-recording-and-git.html" aria-current="page">3. Recording and git</a>
+  <a href="4-safety-and-fixes.html">4. Safety and fixes</a>
+</nav>
+
+<main class="wrap">
+  <p class="eyebrow">Chapter 3</p>
+  <h1>Recording and git</h1>
+  <p class="lede">We never record the screen. We record <em>what happened</em>, as one line of text per event, and we save the code as git commits. Four sources feed the recording; one file holds it; one repo holds the code.</p>
+
+  <h2>The four sources</h2>
+  <div class="tscroll">
+    <table class="t">
+      <thead><tr><th>Source</th><th>Catches</th><th>How it reaches the agent</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Claude Code's hooks</strong></td><td>Your prompts, each tool Claude uses (before and after), the end of each turn</td><td>Claude Code runs <code>node /opt/agent/hook.mjs</code>, which posts the details to <code>/hook</code></td></tr>
+        <tr><td><strong>Claude's transcript</strong></td><td>Claude's written answers</td><td>Claude Code keeps a log file of the conversation; the agent reads it at the end of each turn</td></tr>
+        <tr><td><strong>Your shell</strong></td><td>Commands you type yourself (<code>ls</code>, <code>npm test</code>)</td><td>A few lines in the candidate's <code>.bashrc</code> post each command to <code>/command</code></td></tr>
+        <tr><td><strong>The Save button</strong></td><td>Edits you make in the side editor</td><td>The page sends the file to <code>PUT /file</code>; the agent works out the diff</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Hooks, from scratch</h2>
+  <p>Claude Code has a built-in feature: at certain moments it runs a command you configure and hands it a description of what is happening, as JSON on its input. It is designed for exactly this kind of thing (auditing, checks, notifications). We use five moments:</p>
+  <p class="file">apps/sandbox/image/managed-settings.json → /etc/claude-code/managed-settings.json</p>
+<pre><code>{
+  "hooks": {
+    "SessionStart":     [{ "hooks": [{ "type": "command", "command": "node /opt/agent/hook.mjs", "timeout": 5 }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node /opt/agent/hook.mjs", "timeout": 5 }] }],
+    "PreToolUse":  [{ "matcher": "*", "hooks": [{ "type": "command", "command": "node /opt/agent/hook.mjs", "timeout": 5 }] }],
+    "PostToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "node /opt/agent/hook.mjs", "timeout": 5 }] }],
+    "Stop":             [{ "hooks": [{ "type": "command", "command": "node /opt/agent/hook.mjs", "timeout": 5 }] }]
+  }
+}</code></pre>
+  <dl class="words">
+    <dt>SessionStart</dt><dd>You typed <code>claude</code> and it started.</dd>
+    <dt>UserPromptSubmit</dt><dd>You pressed Enter on a prompt. The JSON includes <code>"prompt"</code>, your exact text.</dd>
+    <dt>PreToolUse</dt><dd>Claude is about to use a tool. Includes <code>"tool_name"</code> (Bash, Edit, Write, Read...) and <code>"tool_input"</code> (the command, or the file and the change).</dd>
+    <dt>PostToolUse</dt><dd>The tool finished. Adds <code>"tool_response"</code> (its output) and <code>"duration_ms"</code>.</dd>
+    <dt>Stop</dt><dd>Claude finished its turn and is waiting for you. Includes <code>"transcript_path"</code>, the conversation's log file.</dd>
+  </dl>
+  <p>Why the file lives in <code>/etc/claude-code/</code>: that is where Claude Code looks for <em>managed</em> settings, the ones a company sets for every user. They apply on top of anything the user sets, and because root owns the file, the candidate can read it but can't remove the hooks. (A determined candidate could still stop them in other ways; chapter 4.)</p>
+
+  <p>The hook script itself is tiny. It must never slow Claude down or break it, so it hands the JSON over and always exits successfully:</p>
+  <p class="file">apps/sandbox/image/agent/hook.mjs</p>
+<pre><code>let input = ""
+process.stdin.on("data", (c) =&gt; { input += c })        <span class="c">// Claude Code writes the JSON here</span>
+process.stdin.on("end", async () =&gt; {
+    try {
+        await fetch("http://127.0.0.1:8080/hook", {        <span class="c">// the agent, in the same container</span>
+            method: "POST", headers: { "content-type": "application/json" },
+            body: input, signal: AbortSignal.timeout(2000),
+        })
+    } catch { <span class="c">/* recording must never get in Claude's way */</span> }
+    process.exit(0)                                      <span class="c">// 0 = "carry on"</span>
+})</code></pre>
+  <p>For example, when you sent "yes, start on the task", Claude Code ran the script with this on its input (shortened):</p>
+<pre><code>{ "hook_event_name": "UserPromptSubmit",
+  "session_id": "996fb9e7-4baf-4ea9-9965-0ca7024fb1e4",
+  "transcript_path": "/home/candidate/.claude/projects/-workspace/996fb9e7-....jsonl",
+  "cwd": "/workspace",
+  "prompt": "yes, start on the task" }</code></pre>
+
+  <h3>The agent turns each hook into an event</h3>
+  <p class="file">apps/sandbox/image/agent/server.mjs</p>
+<pre><code>function onHook(h) {
+    const base = { claudeSession: h.session_id }
+    switch (h.hook_event_name) {
+        case "UserPromptSubmit":
+            lastPrompt = String(h.prompt ?? "")
+            record("prompt", { ...base, text: clip(lastPrompt) })
+            break
+        case "PreToolUse":
+            record("tool.start", { ...base, id: h.tool_use_id, tool: h.tool_name, input: clip(h.tool_input) })
+            break
+        case "PostToolUse":
+            record("tool.end", { ...base, id: h.tool_use_id, tool: h.tool_name, input: clip(h.tool_input), response: clip(h.tool_response), ms: h.duration_ms })
+            break
+        case "Stop": {
+            const text = h.transcript_path ? assistantTextSince(h.transcript_path) : ""   <span class="c">// Claude's words</span>
+            record("turn.end", { ...base, text: clip(text) })
+            turn += 1
+<span class="hl">            void checkpoint(`Turn ${turn}: ${lastPrompt.split("\n")[0].slice(0, 72)}`)   // save the code</span>
+            break
+        }
+    }
+}</code></pre>
+  <p><code>clip</code> cuts anything over 20,000 characters (a huge test output, say) and notes the full size, so one tool call can't balloon the file.</p>
+
+  <h3>Writing an event: one line, appended</h3>
+<pre><code>let seq = 0                                              <span class="c">// event number, 1, 2, 3...</span>
+function record(type, data = {}) {
+    seq += 1
+    const line = JSON.stringify({ seq, ts: new Date().toISOString(), type, ...data })
+<span class="hl">    fs.appendFileSync("/root/remote/events.jsonl", line + "\n")   // straight onto your Mac</span>
+}</code></pre>
+  <p>Because <code>/root/remote</code> is the session folder on your Mac (chapter 1, the <code>-v</code> flag), each line is on the host the moment it is written. A container crash a second later loses nothing already recorded.</p>
+
+  <h3>Your commands, from the shell</h3>
+  <p>Claude's commands come through hooks. Commands <em>you</em> type need another way in. bash runs <code>PROMPT_COMMAND</code> every time it is about to show the prompt again, which happens right after a command finishes:</p>
+  <p class="file">apps/sandbox/image/bashrc.sh (added to the candidate's .bashrc)</p>
+<pre><code>__sbx_log() {
+    local c
+    c=$(HISTTIMEFORMAT= history 1 | sed 's/^ *[0-9]* *//')          <span class="c"># the command just run</span>
+    if [ -n "$c" ] &amp;&amp; [ "$c" != "$__sbx_last" ]; then
+        __sbx_last="$c"
+        ( curl -s -m 1 -X POST --data-binary "$c" http://127.0.0.1:8080/command &gt;/dev/null 2&gt;&amp;1 &amp; )
+    fi
+}
+PROMPT_COMMAND="__sbx_log${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+cd /workspace 2&gt;/dev/null</code></pre>
+  <p>Side effect worth knowing: a command is recorded when it <em>ends</em>. Your <code>claude</code> was recorded as event 19, after you quit Claude, not at the start.</p>
+</main>
+
+<div class="wide">
+  <div class="diagram" role="img" aria-label="Sequence of one Claude turn being recorded and saved">
+    <p class="diagram-title">One Claude turn: recorded, then saved as a commit</p>
+    <div class="seq" style="--n:5">
+      <div class="actor" style="grid-column:1">You<small>in the terminal</small></div>
+      <div class="actor" style="grid-column:2">Claude Code<small>as candidate</small></div>
+      <div class="actor" style="grid-column:3">hook.mjs<small>runs per hook</small></div>
+      <div class="actor" style="grid-column:4">Agent<small>as root</small></div>
+      <div class="actor" style="grid-column:5">Session folder<small>/root/remote = your Mac</small></div>
+
+      <div class="msg r" style="grid-column:1/3;--span:2"><span class="num">1</span>"yes, start on the task" + Enter</div>
+      <div class="msg r" style="grid-column:2/4;--span:2"><span class="num">2</span><b>UserPromptSubmit</b></div>
+      <div class="msg r" style="grid-column:3/5;--span:2"><b>POST /hook</b></div>
+      <div class="msg r" style="grid-column:4/6;--span:2">event 14 <b>prompt</b></div>
+      <div class="self" style="grid-column:2"><span class="num">3</span>Thinks (talks to Anthropic), decides to write the files and run the tests in one <b>Bash</b> call</div>
+      <div class="msg r" style="grid-column:2/4;--span:2"><span class="num">4</span><b>PreToolUse</b> Bash</div>
+      <div class="msg r" style="grid-column:3/5;--span:2"><b>POST /hook</b></div>
+      <div class="msg r" style="grid-column:4/6;--span:2">event 15 <b>tool.start</b></div>
+      <div class="self" style="grid-column:2"><span class="num">5</span>Runs it: <b>cat &gt; src/app.js</b>, <b>cat &gt;&gt; test/app.test.js</b>, <b>npm test</b> (325 ms)</div>
+      <div class="msg r" style="grid-column:2/4;--span:2"><span class="num">6</span><b>PostToolUse</b> + output</div>
+      <div class="msg r" style="grid-column:3/5;--span:2"><b>POST /hook</b></div>
+      <div class="msg r" style="grid-column:4/6;--span:2">event 16 <b>tool.end</b></div>
+      <div class="msg r" style="grid-column:2/4;--span:2"><span class="num">7</span><b>Stop</b> + transcript_path</div>
+      <div class="msg r" style="grid-column:3/5;--span:2"><b>POST /hook</b></div>
+      <div class="self" style="grid-column:4"><span class="num">8</span>Reads Claude's words from the transcript</div>
+      <div class="msg r" style="grid-column:4/6;--span:2">event 17 <b>turn.end</b></div>
+      <div class="self" style="grid-column:4"><span class="num">9</span><b>git add -A</b> and <b>git commit</b> in /workspace, as candidate: <b>b2eecf5</b></div>
+      <div class="msg r" style="grid-column:4/6;--span:2"><span class="num">10</span><b>git push</b> into repo.git, as root</div>
+      <div class="msg r" style="grid-column:4/6;--span:2">event 18 <b>checkpoint</b></div>
+    </div>
+    <p class="cap">Steps 2, 4, 6 and 7 are Claude Code calling our script on its own. Nothing about Claude was changed to make this happen; hooks are a standard feature.</p>
+  </div>
+</div>
+
+<main class="wrap">
+  <h2>What your session recorded</h2>
+  <p>These are real lines from <code>.data/sessions/425d157a/events.jsonl</code>, shortened where marked:</p>
+<pre><code>{"seq":1,"ts":"2026-10-03T19:10:43.027Z","type":"session.started","head":"8b7757db42517d8d32eb63197b283a4914de6037"}
+{"seq":2,"ts":"2026-10-03T19:10:47.935Z","type":"human.command","command":"ls &amp;&amp; npm test 2&gt;&amp;1 | tail -4"}
+{"seq":3,"ts":"2026-10-03T19:13:28.522Z","type":"claude.started","claudeSession":"996fb9e7-...","source":"startup"}
+{"seq":14,"ts":"2026-10-03T19:18:34.401Z","type":"prompt","claudeSession":"996fb9e7-...","text":"yes, start on the task"}
+{"seq":15,"ts":"2026-10-03T19:18:52.992Z","type":"tool.start","tool":"Bash","id":"toolu_01Kyo8Ve...",
+    "input":{"command":"cat &gt; src/app.js &lt;&lt;'EOF'\n// The request handler, kept apart from the server ... (5,678 characters)"}}
+{"seq":16,"ts":"2026-10-03T19:18:53.521Z","type":"tool.end","tool":"Bash","ms":325,
+    "response":{"stdout":"  ---\n  duration_ms: 3.763724\n ... # Subtest: GET /notes/:id is a 404 for an u..."}}
+{"seq":18,"ts":"2026-10-03T19:18:59.799Z","type":"checkpoint","sha":"b2eecf51fa39fcf884b225d9a9a4fc71ee38f1f7",
+    "message":"Turn 4: yes, start on the task",
+    "stat":"src/app.js | 47 +++++---\n test/app.test.js | 95 ++++++++\n 2 files changed, 138 insertions(+), 4 deletions(-)"}
+{"seq":19,"ts":"2026-10-03T19:23:30.937Z","type":"human.command","command":"claude"}</code></pre>
+  <p>Read top to bottom, that is the story of your session: you ran the tests yourself, started Claude, chatted for three turns, asked it to start, it wrote both files and ran the tests in one command, the code was committed as <code>b2eecf5</code>, and you quit Claude. Two things in your session are not right yet (the answers are filed one turn late, and quitting Claude is recorded rather than starting it). Chapter 4 explains both.</p>
+
+  <h2>Git: two repos, one push</h2>
+  <p>There are two git repositories for every session. The candidate works in one; the other is the safe copy on your Mac.</p>
+</main>
+
+<div class="wide">
+  <div class="diagram" role="img" aria-label="The working repo inside the container and the stored repo on the host">
+    <p class="diagram-title">Where the code lives</p>
+    <div class="nest">
+      <div class="zone c dashed">
+        <p class="zt">Inside the container</p>
+        <p class="zs">deleted on Submit</p>
+        <div class="row">
+          <div class="chip"><b>/workspace</b><span>The files you and Claude change. Owned by candidate.</span></div>
+          <div class="chip"><b>/workspace/.git</b><span>The working repo. Commits are made here, as candidate, so the files stay candidate's.</span></div>
+        </div>
+        <span class="link-note">after each turn: git push /root/remote/repo.git HEAD:refs/heads/main (as root)</span>
+      </div>
+      <div class="zone d">
+        <p class="zt">On your Mac: .data/sessions/425d157a/repo.git</p>
+        <p class="zs">a bare repo · seen inside the container as /root/remote/repo.git · survives everything</p>
+        <div class="row">
+          <div class="chip"><b>8b7757d</b><span>Start: the starter repo</span></div>
+          <div class="chip"><b>b2eecf5</b><span>Turn 4: yes, start on the task · 2 files, +138 −4</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="cap">Turns 1 to 3 changed no files ("How are you?", "What is this project about?", "Hey"), so the agent made no commit for them. It checks with <code>git diff --cached --quiet</code> first.</p>
+  </div>
+</div>
+
+<main class="wrap">
+  <h3>The checkpoint, in code</h3>
+<pre><code>function checkpoint(message) {
+    <span class="c">// One at a time: a Stop hook and a Submit can arrive together.</span>
+    checkpointing = checkpointing.then(async () =&gt; {
+        await asCandidate(["add", "-A"])                                         <span class="c">// stage everything</span>
+        const dirty = await asCandidate(["diff", "--cached", "--quiet"]).then(() =&gt; false, () =&gt; true)
+        if (!dirty) return null                                                 <span class="c">// nothing changed: no commit</span>
+        await asCandidate(["commit", "-q", "-m", message])
+        const sha = (await asCandidate(["rev-parse", "HEAD"])).stdout.trim()
+        const stat = (await asCandidate(["show", "--stat", "--format=", sha])).stdout.trim()
+        await push()
+        record("checkpoint", { sha, message, stat })
+        return sha
+    })
+    return checkpointing
+}
+
+<span class="c">// Pushed by URL, not a remote name, so root never writes a tracking ref into the candidate's repo.</span>
+const push = () =&gt; asRoot(["-C", "/workspace", "push", "-q", "/root/remote/repo.git", "HEAD:refs/heads/main"])</code></pre>
+  <p>Why push <em>by path</em> instead of the usual <code>git push origin</code>? A normal push also writes a small "where origin is now" file inside <code>/workspace/.git</code>. Root would own that file, and the next time the candidate (or Claude) ran <code>git fetch</code> it would fail with "permission denied". Pushing straight to the path writes nothing on the candidate's side.</p>
+  <p>Why the push runs as <em>root</em>: only root can open <code>/root/remote</code>. The candidate can make commits; only the agent can copy them out.</p>
+
+  <h2>The replay reads only your Mac</h2>
+  <p>The replay page never asks the container anything. Every answer comes from the session folder, using ordinary git commands on the bare repo:</p>
+  <div class="tscroll">
+    <table class="t">
+      <thead><tr><th>Replay asks</th><th>Host server runs</th></tr></thead>
+      <tbody>
+        <tr><td><code>/api/sessions/425d157a/events</code></td><td>Reads <code>events.jsonl</code>, one JSON per line</td></tr>
+        <tr><td><code>/api/sessions/425d157a/commits</code></td><td><code>git --git-dir repo.git log --reverse --format=%H%x09%cI%x09%s main</code></td></tr>
+        <tr><td><code>/api/sessions/425d157a/commits/b2eecf5</code></td><td><code>git show --stat --patch b2eecf5</code>: what changed</td></tr>
+        <tr><td><code>/api/sessions/425d157a/tree/b2eecf5</code></td><td><code>git ls-tree -r --name-only b2eecf5</code>: the files at that moment</td></tr>
+        <tr><td><code>/api/sessions/425d157a/file/b2eecf5?path=src/app.js</code></td><td><code>git show b2eecf5:src/app.js</code>: one file at that moment</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>That is the whole replay. A company reviewing a candidate would scrub through the events, click a checkpoint, and see the code exactly as it was after that turn.</p>
+
+  <h2>When a container dies: resume</h2>
+</main>
+
+<div class="wide">
+  <div class="diagram" role="img" aria-label="Resume after a crash">
+    <p class="diagram-title">Crash, then resume (tested on purpose with docker kill)</p>
+    <div class="flow">
+      <div class="step w"><b>The container dies</b> mid-session (we ran <code>docker kill</code>)<br>Everything inside it is gone: /workspace, the shell, Claude's sign-in</div>
+      <div class="arrow"><span>but the session folder is on the Mac</span></div>
+      <div class="step"><b>The replay still works</b>: events.jsonl and repo.git are untouched. The diff of the last checkpoint still showed.</div>
+      <div class="arrow"><span>POST /api/sessions/&lt;id&gt;/resume</span></div>
+      <div class="step z"><b>A brand-new container</b> starts with the same session folder plugged in</div>
+      <div class="arrow"><span>setupWorkspace() sees repo.git already has commits</span></div>
+      <div class="step z"><b>git clone</b> repo.git into /workspace, hand it to candidate, record <code>session.resumed</code></div>
+      <div class="arrow"><span>result</span></div>
+      <div class="step"><b>The code is back</b> exactly as at the last checkpoint. Lost: only changes made after it, and the sign-in (you sign in again)</div>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+  <h2>Your edits in the side editor</h2>
+  <p>When you press Save, the agent compares the old and new text with git's diff tool and records the difference, then writes the file as the candidate:</p>
+<pre><code>async function saveFile(rel, content) {
+    const abs = inWorkspace(rel)                          <span class="c">// refuses ../../etc/passwd and friends</span>
+    const before = fs.existsSync(abs) ? fs.readFileSync(abs, "utf8") : ""
+    if (before === content) return                        <span class="c">// nothing changed: nothing recorded</span>
+    ...
+    fs.writeFileSync(abs, content)
+    fs.chownSync(abs, 1000, 1000)                         <span class="c">// still the candidate's file</span>
+    const diff = await run("git", ["diff", "--no-index", "--no-color", tmpBefore, abs])
+    record("human.edit", { path: rel, diff: clip(diff) })
+}</code></pre>
+  <p>Your screenshot showed "Saved, recorded as your edit", but your session has no <code>human.edit</code> event. That is correct: you pressed Save without changing the text, so <code>before === content</code> and nothing was recorded. The message on the page is wrong to say "recorded" in that case; a small fix for later.</p>
+
+  <nav class="pager" aria-label="Chapters">
+    <a href="2-terminal-in-the-browser.html"><small>Back</small><span>2. The terminal in the browser</span></a>
+    <a href="4-safety-and-fixes.html"><small>Next</small><span>4. Safety and what we fixed</span></a>
+  </nav>
+</main>
+</body>
+</html>

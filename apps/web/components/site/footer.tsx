@@ -142,7 +142,7 @@ const UNI_GUIDES_GROUP: FooterGroup = {
 };
 
 const BLURB: Record<AudienceId, string> = {
-    students: "The engineering intelligence suite. Build real projects, practise interviews, and land your next software role.",
+    students: "Projects, practice, mock interviews and real incidents. Build real work, practise out loud, and get ready for your next engineering role.",
     companies: "ShipItHQ Hiring. Design your interview once, and meet engineers who already passed it.",
     universities: "ShipItHQ for universities. Placement readiness for your whole campus.",
 };

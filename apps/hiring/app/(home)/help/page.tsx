@@ -8,49 +8,56 @@ import {
 import { Button } from "@repo/ui/components/ui/button"
 import Link from "next/link"
 
+/**
+ * Help (plan/web/story ST-1): every card goes somewhere real and every answer names the real
+ * screen and button. "Live Chat" and "Documentation" were dead links to things that don't
+ * exist; the hiring guides live on the website.
+ */
+const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? "https://www.shipithq.com"
+
 const helpCategories = [
     {
         icon: <Book className="w-6 h-6" />,
-        title: "Documentation",
-        description: "Learn how to use all features",
-        href: "#",
+        title: "Hiring guides",
+        description: "How to set up pipelines, rounds and your team",
+        href: `${WEB_URL}/hire/guides`,
     },
     {
         icon: <MessageCircle className="w-6 h-6" />,
-        title: "Live Chat",
-        description: "Get instant help from our team",
-        href: "#",
+        title: "Contact form",
+        description: "Write to us from the contact page",
+        href: "/contactus",
     },
     {
         icon: <Mail className="w-6 h-6" />,
-        title: "Email Support",
-        description: "We reply within 24 hours",
+        title: "Email support",
+        description: "We reply within two working days",
         href: "mailto:support@shipithq.com",
     },
     {
         icon: <FileText className="w-6 h-6" />,
         title: "FAQs",
-        description: "Find answers to common questions",
-        href: "#",
+        description: "Answers to common questions, below",
+        href: "#faqs",
     },
 ]
 
 const faqs = [
     {
         q: "How do I post a new job?",
-        a: "Navigate to Jobs > Create New Job. Fill in the job details including title, description, requirements, and compensation. Click 'Publish' when ready.",
+        a: "On Home, choose New job. Fill in the role, attach a pipeline of rounds, and post it. Results arrive under Results as students clear the rounds.",
     },
     {
         q: "How do I invite team members?",
-        a: "Go to Team > Invite Member. Enter their email address and select their role (Admin or Recruiter). They'll receive an invitation email.",
+        a: "Open Team and choose Invite a team member. Enter their work email and pick a role: Admin, Hiring manager, Recruiter or Interviewer. They get an invitation email.",
     },
     {
-        q: "Can I create custom assessments?",
-        a: "Yes! Go to Assessments and click 'Create Assessment'. You can create coding challenges, quizzes, or take-home projects tailored to your needs.",
+        q: "How do I set the rounds candidates take?",
+        a: "Open Pipelines. A pipeline is the rounds for a role (aptitude, DSA, system design and voice rounds), each with its own pass mark. Attach one when you post a job.",
     },
     {
-        q: "How do I upgrade my plan?",
-        a: "Visit Billing > Upgrade Plan to see available options. Select a plan and complete the payment process to unlock premium features.",
+        q: "How do I change my plan?",
+        a: "Open Billing, pick a plan and confirm it in the Upgrade dialog.",
     },
 ]
 
@@ -74,7 +81,7 @@ export default function HelpPage() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.1 }}
                         >
-                            <Link href={item.href}>
+                            <Link href={item.href} {...(item.href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
                                 <div className="bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer h-full">
                                     <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mb-4 text-neutral-600 dark:text-neutral-400">
                                         {item.icon}
@@ -91,7 +98,8 @@ export default function HelpPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
-                className="max-w-3xl"
+                className="max-w-3xl scroll-mt-24"
+                id="faqs"
             >
                 <h2 className="font-bold text-xl text-neutral-900 dark:text-white mb-6 flex items-center gap-2">
                     <HelpCircle className="w-5 h-5" />

@@ -7,6 +7,7 @@ import { SITE, BRAND, APP_LINKS } from '@/lib/site'
 import { pageMeta } from '@/lib/seo'
 import { breadcrumbSchema, webPageSchema, jsonLd } from '@/lib/schema'
 import { COMPARISONS } from './_components/comparisons'
+import { SIGNUP_GRANT_CREDITS } from '@repo/pricing'
 
 /**
  * The comparison index.
@@ -52,7 +53,7 @@ export default function CompareIndexPage() {
                 facts={[
                     { value: `${COMPARISONS.length}`, label: 'Comparisons' },
                     { value: '0', label: 'Prices quoted from memory' },
-                    { value: '100', label: 'Free credits at signup' },
+                    { value: `${SIGNUP_GRANT_CREDITS}`, label: 'Free credits at signup' },
                     { value: 'Never', label: 'Credit expiry' },
                 ]}
             />

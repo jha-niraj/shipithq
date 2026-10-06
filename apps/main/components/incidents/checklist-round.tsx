@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { CreditCard } from "./credit"
 import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
 import { ArrowLeft, ArrowRight, Check, Trophy, X } from "lucide-react"
@@ -207,6 +208,7 @@ export function Closing() {
                     </Reveal>
                 ))}
             </div>
+            <CreditCard credit={c.credit} className="mt-10 max-w-[44rem]" />
             <Reveal delay={400} className="mt-12 flex flex-wrap items-center gap-3">
                 {derived.complete && (
                     <span className="inline-flex items-center gap-2 rounded-full bg-neutral-900 dark:bg-white px-3 py-1.5 text-sm font-medium text-white">

@@ -2,12 +2,12 @@
 
 import { useEffect, useId, useMemo, useState } from "react"
 import { Bot, ChevronDown, Cloud, Cpu, Database, Globe, Layers, ListOrdered, Maximize2, Monitor, Plug } from "lucide-react"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@repo/ui/components/ui/sheet"
-import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs"
-import { cn } from "@repo/ui/lib/utils"
-import type { SystemKind, SystemMap as SystemMapData } from "@/content/incidents/types"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet"
+import { Tabs, TabsList, TabsTrigger } from "../ui/tabs"
+import { cn } from "../../lib/utils"
+import type { SystemKind, SystemMap as SystemMapData } from "../../lib/incidents/types"
 import { BOX, DiagramFrame, HaloText, INK, LINE, LitRing, Markers, SUB, arrowId, type Tone } from "./kit"
-import { layered, mapConnectors } from "./layout"
+import { layered, mapConnectors } from "../../lib/incidents/layout"
 
 /*
  * The system map (plan/incidents INC-63): the case's parts (browser, edge, compute,

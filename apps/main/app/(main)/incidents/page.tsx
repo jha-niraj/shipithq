@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { CreditLine } from "@/components/incidents/credit"
 import Link from "next/link"
 import { headers } from "next/headers"
 import { ArrowRight, Award, Check, Flame, FolderCheck, PenLine, Siren, Sparkles } from "lucide-react"
@@ -141,6 +142,7 @@ function Featured({ c, stats }: { c: CaseSummary; stats: IncidentStats | null })
                 <p className="font-mono text-[11px] text-neutral-400">Latest case · {topicLabel(c.topic)} · {c.minutes} min</p>
                 <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{c.title}</h2>
                 <p className="mt-3 max-w-md text-[15px] leading-7 text-neutral-300">{c.summary}</p>
+                <CreditLine credit={c.credit} dark className="mt-3" />
                 <p className="mt-4 font-mono text-[11px] text-neutral-400">{c.steps} steps · {c.quizzes} checks · narrated, with live talks</p>
                 <span className="mt-auto inline-flex items-center gap-2 pt-8 text-sm font-medium">
                     <span className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-neutral-950 transition-colors group-hover:bg-neutral-200">
@@ -193,6 +195,7 @@ function TopicPanel({ topic, blurb, cases, stats }: { topic: IncidentTopicId; bl
                                     </div>
                                     <p className="mt-2 text-[16px] font-semibold leading-snug text-neutral-900 dark:text-white">{c.title}</p>
                                     <p className="mt-1.5 flex-1 text-[13.5px] leading-6 text-neutral-600 dark:text-neutral-400">{c.summary}</p>
+                                    <CreditLine credit={c.credit} className="mt-3" />
                                     <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-neutral-900 dark:text-white">
                                         {st?.complete ? "Play again" : st && st.answered > 0 ? "Carry on" : "Start the case"}
                                         <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />

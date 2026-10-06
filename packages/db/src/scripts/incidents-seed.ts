@@ -55,7 +55,9 @@ type Plan = {
 function authored() {
     return Object.values(INCIDENT_CASES).map((c) => {
         const steps = stepsFor(c);
-        const meta = { sources: c.sources, diagram: c.model.diagram, simulator: c.slug };
+        // `credit` only when the case has one. `system`: the case's map, so the marketing site can
+        // draw a case from the database alone (plan/web/story ST-4).
+        const meta = { sources: c.sources, diagram: c.model.diagram, simulator: c.slug, ...(c.credit ? { credit: c.credit } : {}), ...(c.system ? { system: c.system } : {}) };
         const row: CaseRow = { slug: c.slug, title: c.title, summary: c.summary, topic: c.topic, minutes: c.minutes, meta, version: "" };
         row.version = hash({ row: { ...row, version: undefined }, steps });
         return { row, steps };

@@ -1,8 +1,8 @@
 "use client"
 
 import { ClipboardList, Radio, ShieldAlert } from "lucide-react"
-import { cn } from "@repo/ui/lib/utils"
-import type { IncidentRoles, StatusUpdates } from "@/content/incidents/types"
+import { cn } from "../../lib/utils"
+import type { IncidentRoles, StatusUpdates } from "../../lib/incidents/types"
 import { formatRel } from "./scrub"
 
 /*

@@ -1,4 +1,5 @@
 import { UNI_PLANS } from "@repo/pricing"
+import { Soon } from "@/components/marketing/soon"
 import { cn } from "@repo/ui/lib/utils"
 import { UNI_LINKS } from "@/lib/site"
 import { GhostCta, MONO, PrimaryCta } from "@/components/marketing/primitives"
@@ -94,8 +95,10 @@ export function UniHero() {
                     </h1>
                     <p className="sh-reveal mt-6 max-w-xl text-lg leading-8 text-neutral-800" style={{ ["--sh-reveal-delay" as string]: "0.06s" }}>
                         Assign real projects, voice mock interviews and code assessments to every class. Students do the
-                        work on ShipItHQ, where they already practise, and the placement cell sees each department&apos;s
-                        readiness in one place.
+                        work on ShipItHQ, where they already practise, and{" "}
+                        <Soon what="the Analytics screen that shows each department's readiness" today="the university app has no Analytics screen yet">
+                            the placement cell sees each department&apos;s readiness in one place
+                        </Soon>.
                     </p>
                     <div className="sh-reveal mt-8 flex flex-wrap items-center gap-x-7 gap-y-4" style={{ ["--sh-reveal-delay" as string]: "0.12s" }}>
                         <PrimaryCta href={UNI_LINKS.signup}>Set up your campus</PrimaryCta>

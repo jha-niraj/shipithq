@@ -14,8 +14,10 @@ import { APP_LINKS, APP_URL } from "@/lib/site"
 
 const valueProps = [
 	{ icon: Infit, title: "Credits never expire", desc: "Buy once, spend whenever. Your balance is yours forever." },
-	{ icon: Lock, title: "Encrypted & secure", desc: "AES-256 encryption on every transaction. INR & USD supported." },
-	{ icon: Server, title: "Instant provisioning", desc: "Compute is allocated the moment your payment completes." },
+	// What the payments code does (plan/web/story ST-1): both currencies in @repo/pricing, and
+	// credits added when the payment is verified (apps/main/app/api/payments/verify/route.ts).
+	{ icon: Lock, title: "Pay in INR or USD", desc: "Every pack is priced in both. Each purchase gets a receipt on your Credits page." },
+	{ icon: Server, title: "Credits land at once", desc: "As soon as the payment is verified, the credits are in your balance." },
 ]
 
 export default function PricingClient() {
@@ -112,8 +114,8 @@ export default function PricingClient() {
 						<span className="text-neutral-900 dark:text-white">free.</span>
 					</h2>
 					<p className="mx-auto mt-4 max-w-lg text-neutral-500 dark:text-neutral-400">
-						Create an account, claim your starter credits, and run your first AI
-						agent in minutes.
+						Create an account, claim your starter credits, and start a project,
+						a practice problem or an incident case in minutes.
 					</p>
 					<div className="mt-8 flex flex-wrap justify-center gap-3">
 						<a

@@ -61,7 +61,7 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
         ],
         points: [
             'DSA, system design, web frontend and web backend tracks',
-            'JavaScript, TypeScript, Python 3, C, C++ and Java',
+            'JavaScript, TypeScript, Python, Java and C++',
             'Server-side execution in a container built per run',
             'Real compiler and runtime output, not matched strings',
         ],

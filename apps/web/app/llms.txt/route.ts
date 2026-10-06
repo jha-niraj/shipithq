@@ -40,8 +40,8 @@ engineers master their craft, build a portfolio that stands up to scrutiny, and 
 first or next engineering role. It combines AI-powered career tools, structured interview
 practice, and real project work in one place.
 
-**One sentence:** The engineering intelligence suite for people who want to get hired as
-software engineers.
+**One sentence:** Projects, practice, mock interviews and real incident cases for people who
+want to get hired as software engineers.
 
 ## Who It Is For
 
