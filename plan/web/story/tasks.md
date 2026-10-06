@@ -55,8 +55,8 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
 - **Done when:** each claim from the audit carries it, the tooltip opens on focus and hover, and the
   list below is complete.
 
-### - [ ] ST-3 ScrollStory
-- **Status:** built; first used by /incidents (2026-10-06). Steps down and up correctly at 1440px in Chrome, dimmed text neutral-500 (4.6:1). NOT yet checked at 390px: the Chrome window would not resize below desktop and the site refuses framing, so the phone pass is Niraj's.
+### - [x] ST-3 ScrollStory
+- **Status:** done 2026-10-07. Used by /incidents. Headless Chrome (playwright-core driving the installed Chrome, since the window will not resize below desktop) stepped all six steps at 1440px, each the active one in turn; dimmed text neutral-500 (4.6:1); no sideways scroll at 390px. Changed on the way: below md each step carries its own drawing inline and nothing dims, because the sticky panel above the steps could not stick (a sticky element cannot leave its grid cell) and the tallest panels fill more than half a phone screen.
 - **Why:** DoD 2, 6, 7: one component for every story.
 - **Files:** `apps/web/components/story/scroll-story.tsx` (client), `apps/web/components/story/use-nearest-step.ts`.
 - **Steps:** the playbook's mechanics: steps really scroll; the panel is `position: sticky`; the active
@@ -84,7 +84,7 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
   map, sequence, timeline, dashboard and before/after look unchanged in Chrome.
 
 ### - [ ] ST-5 The drawing kit
-- **Status:** partly built 2026-10-06, only what /incidents needs: `components/story/kit.tsx` with QuizCard, Chat and ReportBands (server-safe, no hooks). The rest (Scene, Log, Screen, Terminal, MarkedTimeline, CompareBars, Sum, Facts, BeforeAfter) waits for ST-7, which is the first page to need them.
+- **Status:** in progress. Built so far, for /incidents: `components/story/kit.tsx` with QuizCard, Chat and ReportBands (server-safe, no hooks). The rest is built with ST-7, the first page that needs it.
 - **Files:** `apps/web/components/story/kit/*`.
 - **Steps:** in web's own style (monochrome lines, one accent, the TONE pastels as fills): Scene,
   Takeaway, Chat (the lead and the reader), Log (prompt, check, verdict lines), Screen, Terminal,
@@ -94,14 +94,13 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
 
 ## Round 2: the Incidents launch
 
-### - [ ] ST-6 shipithq.com/incidents
-- **Status:** built 2026-10-06, not yet done.
-  - `app/(home)/incidents/{page,layout,loading,opengraph-image}.tsx`, `_components/incident-story.tsx`, `lib/incidents.ts` (read-only, cached an hour, failures not cached; listed in apps/web/CLAUDE.md as the fifth DB use), sitemap entry, generated OG card.
-  - Hero: the demo case's system map, broken part lit. Before: how it is learned today vs in a case. Story (ScrollStory, 6 steps, each panel the player's own diagram from the DB): the clock, the dashboard, the first check, the request dying (sequence), the lead (talk opening + closing probe), the fix (MapChange). The review's four bands. Every live case with its own map, minutes, steps, checks and XP from the DB. FAQ (limits from narration/mock/run actions). CTA.
-  - Checked at 1440px in Chrome: every section renders with DB data, all six steps switch, no sideways scroll, no console errors from this page (the /uni hydration warnings are ST-11's).
-  - Left out on purpose: "Being written" cases (none exist: all 4 are LIVE, none DRAFT).
-  - Database at build: no snapshot fallback (Niraj, 2026-10-06: DATABASE_URL goes on web, so the build and the hourly refresh read the DB). If it is ever missing, the case sections hide; nothing invented is shown.
-  - Remaining: the 390px pass.
+### - [x] ST-6 shipithq.com/incidents
+- **Status:** done 2026-10-07.
+  - `app/(home)/incidents/{page,layout,loading,opengraph-image}.tsx`, `_components/incident-story.tsx`, `lib/incidents.ts` (read-only, cached an hour, failures not cached; the fifth DB use in apps/web/CLAUDE.md), sitemap entry, generated OG card (checked: 200 image/png).
+  - Hero: the demo case's system map, broken part lit (scrolls inside its frame at phone width rather than shrinking its labels to ~6px). Before: how it is learned today vs in a case. Story, 6 steps, each panel the player's own diagram from the DB: the clock, the dashboard, the first check, the request dying, the lead (talk opening + closing probe), the fix. The review's four bands. Every live case with its own map, minutes, steps, checks and XP from the DB. FAQ (limits from narration/mock/run actions). CTA.
+  - DoD 2: SequenceDiagram gained `path` and MapChange `view`, each fixing one view and dropping its switch; DashboardView gained `hint` (its default names a timeline the web panel does not have). The player passes none, so it is unchanged (main tsc clean).
+  - Left out on purpose: "Being written" cases (none exist: all 4 are LIVE). No snapshot fallback (Niraj, 2026-10-07: DATABASE_URL goes on web); without it the case sections hide and nothing invented shows.
+  - Checked at 1440px and 390px: every section renders from the DB, every step activates, no sideways scroll, no console errors.
 - **Why:** DoD 1, 2, 3.
 - **Files:** `apps/web/app/(home)/incidents/page.tsx` and `_components/*`; `lib/site.ts` links;
   sitemap; JSON-LD; an og image.

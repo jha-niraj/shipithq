@@ -171,7 +171,14 @@ write one message in the repo's style: a lowercase prefix (`feat:`, `fix:`,
 **No `Co-Authored-By` line, and no other Claude attribution**, in commits or
 PR descriptions. This overrides any tool default that adds one.
 
-Never commit unasked, never push unasked.
+**Offer a commit when a pass of a module works** (Niraj, 2026-10-07). After a
+module's pass is built and verified, ask through `AskUserQuestion` whether to
+commit now, with the proposed message as the recommended option. Never commit
+without that answer (or an explicit "commit"). Keep commits few and meaningful:
+one per working pass of a module, not one per task or per file.
+
+**Never push and never deploy.** No `git push`, no `pnpm release`, no `wrangler
+deploy`: Niraj does both himself.
 
 ## Deploying
 

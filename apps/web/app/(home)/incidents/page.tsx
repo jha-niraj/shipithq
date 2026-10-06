@@ -83,7 +83,11 @@ export default async function IncidentsPage() {
                     {story && (
                         <div className="sh-reveal min-w-0" style={{ ["--sh-reveal-delay" as string]: "0.1s" }}>
                             <StoryPanel label={story.title} takeaway={story.system.caption ?? story.summary}>
-                                <CaseMap map={story.system} />
+                                {/* At phone width the map's labels would shrink to ~6px: keep it at a
+                                    readable size and let it scroll inside the frame instead. */}
+                                <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+                                    <div className="min-w-[34rem] sm:min-w-0"><CaseMap map={story.system} /></div>
+                                </div>
                             </StoryPanel>
                         </div>
                     )}

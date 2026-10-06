@@ -238,8 +238,10 @@ function Legend() {
  * shared tabs) between the system as it was and as it is now, then what each change is
  * and what it costs.
  */
-export function MapChange({ map, lit = null, caption }: { map: SystemMapData; lit?: string | null; caption?: string }) {
-    const [view, setView] = useState<"before" | "after">("after")
+/** `view` fixes Before or After and drops the switch (apps/web stories may not hide content behind a toggle). */
+export function MapChange({ map, lit = null, caption, view: fixed }: { map: SystemMapData; lit?: string | null; caption?: string; view?: "before" | "after" }) {
+    const [chosen, setView] = useState<"before" | "after">("after")
+    const view = fixed ?? chosen
     const a = map.after
     if (!a) return null
     const name = (id: string) => [...map.nodes, ...(a.added ?? [])].find((n) => n.id === id)?.label ?? id
@@ -248,12 +250,14 @@ export function MapChange({ map, lit = null, caption }: { map: SystemMapData; li
         <DiagramFrame caption={caption}>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-[13px] text-neutral-600 dark:text-neutral-400">{view === "after" ? a.note : map.incident?.note ?? "The system as it was."}</p>
-                <Tabs value={view} onValueChange={(v) => setView(v as "before" | "after")}>
-                    <TabsList size="sm" fit>
-                        <TabsTrigger value="before">Before</TabsTrigger>
-                        <TabsTrigger value="after">After the fix</TabsTrigger>
-                    </TabsList>
-                </Tabs>
+                {!fixed && (
+                    <Tabs value={view} onValueChange={(v) => setView(v as "before" | "after")}>
+                        <TabsList size="sm" fit>
+                            <TabsTrigger value="before">Before</TabsTrigger>
+                            <TabsTrigger value="after">After the fix</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                )}
             </div>
             <SystemMap map={map} lit={lit} view={view} showIncident={view === "before"} />
             {view === "after" && notes.length > 0 && (

@@ -35,7 +35,7 @@ export function IncidentStory({ story }: { story: StoryCase }) {
         body: <>The dashboard shows zero errors, the whole time. A job stopped from outside cannot log that it stopped, so an error alert would never have fired.</>,
         panel: () => (
             <StoryPanel label="The dashboard" takeaway="Errors: zero. The only signal was a job with nothing behind it.">
-                <ScrubProvider><DashboardView dashboard={story.board!} lit="errors" /></ScrubProvider>
+                <ScrubProvider><DashboardView dashboard={story.board!} lit="errors" hint="Move across a chart to read it at any moment." /></ScrubProvider>
             </StoryPanel>
         ),
     })
@@ -55,7 +55,7 @@ export function IncidentStory({ story }: { story: StoryCase }) {
         body: <>One request, message by message. The refresh closes the connection at thirty seconds, the handler stops mid-job, and the model&apos;s answers arrive with nobody listening.</>,
         panel: () => (
             <StoryPanel label="The request, as it happened" takeaway="The work lived inside a request, so it had a request's lifetime.">
-                <SequenceDiagram sequence={story.lifecycle!} lit="reload" />
+                <SequenceDiagram sequence={story.lifecycle!} lit="reload" path="failing" />
             </StoryPanel>
         ),
     })
@@ -81,7 +81,7 @@ export function IncidentStory({ story }: { story: StoryCase }) {
         body: <>The work moves out of the request, into a job runner no browser can reach, with a reaper for runs that stall. The map shows what was added and what changed, and why.</>,
         panel: () => (
             <StoryPanel label="The fix, on the system map" takeaway="The work left the request; a refresh can no longer strand a job.">
-                <MapChange map={story.system} />
+                <MapChange map={story.system} view="after" />
             </StoryPanel>
         ),
     })

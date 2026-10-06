@@ -34,7 +34,19 @@ import { usePathname } from "next/navigation"
  *
  * Elements unobserve themselves once fired, so the watched set shrinks as the reader
  * scrolls rather than growing with the page.
+ *
+ * ── Never before React has hydrated the element ──
+ *
+ * This observer mounts in the root layout, so it runs as soon as the layout hydrates; a
+ * page behind its `loading.tsx` boundary hydrates later. Adding `sh-in` to an element
+ * React has not hydrated yet is a hydration mismatch (React 19 reports added attributes
+ * too, so a data attribute would not dodge it): every public page logged one (found
+ * 2026-10-07, plan/web/story ST-11). So an element is revealed only once React has
+ * attached its fiber to the node; one that intersects earlier waits a frame and retries.
+ * If JavaScript never gets that far, the CSS failsafe at 3s still reveals everything.
  */
+const hydrated = (el: Element) => Object.keys(el).some((k) => k.startsWith("__reactFiber$"))
+
 export function RevealObserver() {
     const pathname = usePathname()
 
@@ -47,13 +59,27 @@ export function RevealObserver() {
             return
         }
 
+        // Seen on screen, but React has not hydrated them yet: retried each frame.
+        const waiting = new Set<Element>()
+        let retry = 0
+        const reveal = (el: Element) => {
+            if (!hydrated(el)) {
+                waiting.add(el)
+                if (!retry) retry = requestAnimationFrame(flush)
+                return
+            }
+            waiting.delete(el)
+            el.classList.add("sh-in")
+            observer.unobserve(el)
+        }
+        const flush = () => {
+            retry = 0
+            waiting.forEach(reveal)
+        }
+
         const observer = new IntersectionObserver(
             (entries) => {
-                for (const entry of entries) {
-                    if (!entry.isIntersecting) continue
-                    entry.target.classList.add("sh-in")
-                    observer.unobserve(entry.target)
-                }
+                for (const entry of entries) if (entry.isIntersecting) reveal(entry.target)
             },
             // Fires slightly before the element is fully on screen, so the motion has
             // resolved by the time the reader's eye reaches it rather than starting
@@ -80,6 +106,7 @@ export function RevealObserver() {
 
         return () => {
             if (queued) cancelAnimationFrame(queued)
+            if (retry) cancelAnimationFrame(retry)
             mutations.disconnect()
             observer.disconnect()
         }

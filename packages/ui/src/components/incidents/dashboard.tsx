@@ -31,7 +31,8 @@ function interpolate(points: [number, number][], at: number): number | null {
 
 const fmt = (v: number) => (v >= 100 ? Math.round(v).toLocaleString("en") : +v.toFixed(1))
 
-export function DashboardView({ dashboard, lit = null }: { dashboard: DashboardData; lit?: string | null }) {
+/** `hint`: the line under the charts before a moment is picked; the default assumes a timeline beside it (the case player). */
+export function DashboardView({ dashboard, lit = null, hint = "Move across a chart, or tap a moment on the timeline." }: { dashboard: DashboardData; lit?: string | null; hint?: string }) {
     const { at, setAt } = useScrub()
     const all = dashboard.series.flatMap((s) => s.points.map((p) => p[0]))
     const t0 = Math.min(0, ...all), t1 = Math.max(...all, ...(dashboard.markers ?? []).map((m) => m.at))
@@ -47,7 +48,7 @@ export function DashboardView({ dashboard, lit = null }: { dashboard: DashboardD
                 ))}
             </div>
             <p className="mt-2 text-center text-[12px] text-neutral-500 dark:text-neutral-400">
-                {at === null ? "Move across a chart, or tap a moment on the timeline." : `At ${formatRel(at)}`}
+                {at === null ? hint : `At ${formatRel(at)}`}
             </p>
         </DiagramFrame>
     )

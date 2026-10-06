@@ -11,7 +11,8 @@ import { DiagramFrame, HaloText, LINE, Markers, arrowId, type LineTone } from ".
  * Actors are columns with dashed lifelines; messages are arrows down the page, their time
  * in the left gutter. Requests are solid, responses dashed, async muted, failures rose and
  * ending in a cross. A cut is a rose line across every lifeline where something stops.
- * With variants, a Normal / Failing switch (the shared tabs) shows either path.
+ * With variants, a Normal / Failing switch (the shared tabs) shows either path. `path` fixes one
+ * and drops the switch: a page that must not hide content behind a toggle (apps/web stories).
  *
  * `lit` (a message or actor id from the narration) rings that part and dims the rest;
  * `upTo` builds the diagram as the narration reaches its messages.
@@ -32,9 +33,10 @@ export function formatAt(ms: number): string {
     return `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`
 }
 
-export function SequenceDiagram({ sequence, lit = null, upTo }: { sequence: Sequence; lit?: string | null; upTo?: number }) {
+export function SequenceDiagram({ sequence, lit = null, upTo, path: fixed }: { sequence: Sequence; lit?: string | null; upTo?: number; path?: "normal" | "failing" }) {
     const uid = useId().replace(/:/g, "")
-    const [path, setPath] = useState<"normal" | "failing">(sequence.variants ? "failing" : "normal")
+    const [chosen, setPath] = useState<"normal" | "failing">(sequence.variants ? "failing" : "normal")
+    const path = fixed ?? chosen
     const onPath = (only?: "normal" | "failing") => !only || !sequence.variants || only === path
     const all = sequence.messages.filter((m) => onPath(m.only))
     // `upTo` counts in the full message list, the same way the player names messages.
@@ -60,12 +62,14 @@ export function SequenceDiagram({ sequence, lit = null, upTo }: { sequence: Sequ
             {sequence.variants && (
                 <div className="mb-4 flex items-center justify-between gap-3">
                     <p className="text-[13px] text-neutral-600 dark:text-neutral-400">{path === "normal" ? sequence.variants.normal : sequence.variants.failing}</p>
-                    <Tabs value={path} onValueChange={(v) => setPath(v as "normal" | "failing")}>
-                        <TabsList size="sm" fit>
-                            <TabsTrigger value="normal">{sequence.tabs?.normal ?? "Normal"}</TabsTrigger>
-                            <TabsTrigger value="failing">{sequence.tabs?.failing ?? "Failing"}</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+                    {!fixed && (
+                        <Tabs value={path} onValueChange={(v) => setPath(v as "normal" | "failing")}>
+                            <TabsList size="sm" fit>
+                                <TabsTrigger value="normal">{sequence.tabs?.normal ?? "Normal"}</TabsTrigger>
+                                <TabsTrigger value="failing">{sequence.tabs?.failing ?? "Failing"}</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    )}
                 </div>
             )}
             <div className="overflow-x-auto">
