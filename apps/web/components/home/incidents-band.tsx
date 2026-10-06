@@ -1,34 +1,35 @@
 import { cn } from "@repo/ui/lib/utils"
 import { APP_LINKS } from "@/lib/site"
 import { Eyebrow, GhostCta, MONO, PrimaryCta } from "@/components/marketing/primitives"
+import { getIncidentStory } from "@/lib/incidents"
+import { CaseMap } from "@/app/(home)/incidents/_components/incident-story"
 
 /**
  * Incidents on the student landing (plan/incidents INC-6; Niraj, 2026-09-26: its own
  * section, not a ninth tile). The cases live in the app, public to read, so both
  * actions are app-origin links, rendered as plain <a> by PrimaryCta/GhostCta.
  *
- * The timeline on the right is case one in miniature, CSS only: the job runs, the
- * page is refreshed at 30 s, the work inside the request dies with nothing written.
- * Reduced motion shows that end state, still.
+ * A short story into /incidents (plan/web/story ST-7): three beats of case one beside its own
+ * system map, read from the database like /incidents (lib/incidents.ts, cached an hour). If
+ * that read fails, the old lane drawing stands in, now still: its 8-second loop was a timer,
+ * which the story pages do not use.
  */
+
+// The case's three beats, from its chapters (apps/main content/incidents/the-demo-chapters.ts).
+const BEATS = [
+    { at: "30 s", text: "Someone refreshes the page to nudge it. The request closes." },
+    { at: "Next morning", text: "The job's row still says generating. The error column is empty." },
+    { at: "Everyone", text: "blamed Cloudflare's 30-second limit. It was none of the three." },
+]
 
 const CASE = `${APP_LINKS.incidents}/the-demo-that-died-at-30-seconds`
 
 const MOTION = `
-@keyframes ib-run { 0% { width: 0 } 30%, 100% { width: 25% } }
-@keyframes ib-dead { 0%, 30% { width: 0; opacity: 0 } 31% { opacity: 1 } 58%, 100% { width: 75%; opacity: 1 } }
-@keyframes ib-wait { 0% { width: 0 } 30%, 100% { width: 25% } }
-@keyframes ib-gone { 0%, 30% { opacity: 0 } 34%, 100% { opacity: 1 } }
-@keyframes ib-head { 0% { left: 0 } 30% { left: 25% } 58%, 100% { left: 100% } }
-@keyframes ib-late { 0%, 60% { opacity: 0; transform: translateY(6px) } 66%, 100% { opacity: 1; transform: none } }
-.ib-run { width: 25%; animation: ib-run 8s linear infinite; }
-.ib-dead { width: 75%; animation: ib-dead 8s linear infinite; }
-.ib-wait { width: 25%; animation: ib-wait 8s linear infinite; }
-.ib-gone { animation: ib-gone 8s linear infinite; }
-.ib-head { left: 100%; animation: ib-head 8s linear infinite; }
-.ib-late { animation: ib-late 8s ease-out infinite; }
+.ib-run { width: 25%; }
+.ib-dead { width: 75%; }
+.ib-wait { width: 25%; }
+.ib-head { left: 100%; }
 .ib-stripes { background-image: repeating-linear-gradient(115deg, rgba(0,0,0,.12) 0 6px, transparent 6px 12px); }
-@media (prefers-reduced-motion: reduce) { .ib-run, .ib-dead, .ib-wait, .ib-gone, .ib-head, .ib-late { animation: none; } }
 `
 
 function Lane({ label, children }: { label: string; children: React.ReactNode }) {
@@ -40,7 +41,8 @@ function Lane({ label, children }: { label: string; children: React.ReactNode })
     )
 }
 
-export function IncidentsBand() {
+export async function IncidentsBand() {
+    const story = (await getIncidentStory())?.story
     return (
         <section className="px-4 py-20 sm:px-6 md:py-28">
             <style>{MOTION}</style>
@@ -52,13 +54,30 @@ export function IncidentsBand() {
                         A demo died in front of a client and everyone blamed Cloudflare&apos;s 30-second limit. It was none of the three.
                         Real failures as cases you play: predict what happens, watch it, leave with the fix.
                     </p>
-                    <p className={cn(MONO, "mt-4 text-[11px] uppercase tracking-[0.14em] text-neutral-400")}>Free to read · no codebase needed</p>
+                    <ol className="mt-6 space-y-3 border-l border-white/15 pl-4">
+                        {BEATS.map((b) => (
+                            <li key={b.at} className="text-[14px] leading-6 text-neutral-200">
+                                <span className={cn(MONO, "mr-2 text-[11px] uppercase tracking-[0.12em] text-white")}>{b.at}</span>{b.text}
+                            </li>
+                        ))}
+                    </ol>
+                    <p className={cn(MONO, "mt-6 text-[11px] uppercase tracking-[0.14em] text-neutral-400")}>Free to read · no codebase needed</p>
                     <div className="mt-8 flex flex-wrap items-center gap-5">
                         <PrimaryCta href={CASE} onInk>Open the case</PrimaryCta>
                         <GhostCta href={APP_LINKS.incidents} onInk>All incidents</GhostCta>
                     </div>
                 </div>
 
+                {story ? (
+                    <figure className="min-w-0 rounded-2xl bg-white p-3 text-neutral-900 sm:p-5">
+                        <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+                            <div className="min-w-[34rem] sm:min-w-0"><CaseMap map={story.system} /></div>
+                        </div>
+                        <figcaption className="mt-3 border-t border-neutral-200 pt-3 text-[14px] font-medium">
+                            {story.system.caption ?? "The demo's system: one request carried the whole job."}
+                        </figcaption>
+                    </figure>
+                ) : (
                 <div aria-hidden className="rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/10 sm:p-6">
                     <p className={cn(MONO, "text-[10.5px] uppercase tracking-[0.14em] text-neutral-400")}>The demo · a two-minute job inside the request</p>
                     <div className="mt-5 flex gap-3">
@@ -88,6 +107,7 @@ export function IncidentsBand() {
                         <p className="mt-1 text-[13px] leading-5 text-neutral-400">Nothing failed; something stopped. Which limit was it?</p>
                     </div>
                 </div>
+                )}
             </div>
         </section>
     )

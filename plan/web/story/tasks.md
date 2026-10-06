@@ -84,7 +84,7 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
   map, sequence, timeline, dashboard and before/after look unchanged in Chrome.
 
 ### - [ ] ST-5 The drawing kit
-- **Status:** in progress. Built so far, for /incidents: `components/story/kit.tsx` with QuizCard, Chat and ReportBands (server-safe, no hooks). The rest is built with ST-7, the first page that needs it.
+- **Status:** built as pages need it (2026-10-07): `components/story/kit.tsx` (QuizCard, Chat, ReportBands) and `components/home/posting-card.tsx`; the landing story panels live in `job-story.tsx`. The other planned pieces (Sum, CompareBars, BeforeAfter, Terminal, MarkedTimeline) are built with ST-8 to ST-10, the pages that use them; none is made ahead of a page.
 - **Files:** `apps/web/components/story/kit/*`.
 - **Steps:** in web's own style (monochrome lines, one accent, the TONE pastels as fills): Scene,
   Takeaway, Chat (the lead and the reader), Log (prompt, check, verdict lines), Screen, Terminal,
@@ -115,14 +115,42 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
   back to a static snapshot); signed-out play is free to read, actions need sign-in: say so.
 - **Done when:** DoD 1, 2, 3, 6, 7 hold for the page, and every number on it traces to a file.
 
-### - [ ] ST-7 The landing
-- **Status:** not started.
-- **Steps:** the hero becomes one drawing of the product doing its job (no auto-advance); HeroWindow's
-  four views become steps of a story with one example; StageTabs and ProductTour on ScrollStory;
-  IncidentsBand becomes a short story into `/incidents`; EverythingElse and HowItWorks carry real
-  drawings; numbers from ST-1.
-- **Done when:** DoD 2, 3, 6, 7 hold for `/`, and the existing title, description and JSON-LD are
-  unchanged.
+### - [x] ST-7 The landing
+- **Status:** done 2026-10-07.
+  - Hero: same copy and stats; the drawing is a still `PostingCard` (one pasted job, its four rounds).
+    "See how it works" jumps to the story. The hero grid gained `minmax(0,1fr)`: at 390px its one
+    implicit column grew to its widest child and the section's overflow-hidden clipped the copy.
+  - `components/home/job-story.tsx`, under "How it works" (the wedge's title and sub, "Paste a job"):
+    six steps over one posting: paste, Aptitude, Coding (DSA), System design, Behavioural interview,
+    then the resume. Panels use the round runner's own labels, marked "Example session". Checked against
+    apps/main (sources in the file's header). Projects are NOT in it: nothing matches a project to a
+    job. The resume step says you paste the posting in: the tailor is not linked to an import.
+  - IncidentsBand: three beats of case one beside its own system map from the DB; the old lane drawing
+    is the still fallback (its 8s loop is gone).
+  - Removed from `/`: PasteJobBand, WalkAway, HowItWorks, ProductTour, StageTabs (one tour told five
+    ways, mostly behind tabs and timers). 17 sections to 12, FAQ and CTA included.
+  - Checked headless at 1440px (all six steps activate in turn) and 390px (drawings inline, nothing
+    clipped but the hero's decorative wash, no sideways scroll); no console errors but the dev-only
+    eval notice from web's CSP. Title, description and JSON-LD unchanged.
+- **Why:** DoD 2, 3, 6, 7 for `/`.
+- **Decisions (Niraj, 2026-10-07, AskUserQuestion):** the hero is one still drawing (a pasted job and
+  the rounds it becomes), with the four product views as a scroll story right under it; merge to about
+  11 sections; the story's one example is one pasted job, carried through practice, a project, a mock
+  and the resume.
+- **Files:** `app/page.tsx`; `components/home/{hero,hero-window,stage-tabs,incidents-band,everything-else}.tsx`;
+  `components/marketing/{product-tour,sections}.tsx`; a new `components/home/job-story.tsx`.
+- **Steps:**
+  1. Hero: copy and CTAs as now; the drawing is a still: one job pasted, the rounds it becomes. No timer.
+  2. The product story (ScrollStory): the same job through Practice, Project, Mock, Resume, each panel
+     the product's own labels (as HeroWindow's sources list). Replaces HeroWindow's cycling,
+     StageTabs, ProductTour and HowItWorks, which told the same tour four times.
+  3. IncidentsBand: a short story into `/incidents` (the 30-second case's map and one line).
+  4. EverythingElse: no hidden content; a real drawing per item where it explains something.
+  5. Numbers from ST-1 as now. The other sections stay.
+- **Edge cases:** the existing title, description and JSON-LD unchanged; reduced motion; 390px; the
+  pasted-job example must use only round types and labels the app has.
+- **Done when:** DoD 2, 3, 6, 7 hold for `/` at 1440px and 390px (headless check), no console errors,
+  about 11 sections, and the existing title, description and JSON-LD are unchanged.
 
 ## Round 3: after the launch pages
 

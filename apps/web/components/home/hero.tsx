@@ -5,14 +5,14 @@ import { cn } from "@repo/ui/lib/utils"
 import { APP_LINKS } from "@/lib/site"
 import { LATEST } from "@/content/changelog"
 import { GhostCta, MONO, PrimaryCta } from "@/components/marketing/primitives"
-import { HeroWindow } from "./hero-window"
+import { PostingCard } from "./posting-card"
 
 /**
- * The student landing hero (plan/web/revamp REV-10, REV-101; Niraj, 2026-09-26: a
- * split layout with a live product window). Copy on the left; on the right one app
- * window that cycles through Practice, Project, Mock and Resume on its own
- * (hero-window.tsx). Deliberately unlike the /hire hero, which is a dark band with
- * candidates flowing through gates.
+ * The student landing hero (plan/web/revamp REV-10; plan/web/story ST-7). Copy on the left;
+ * on the right one still drawing: a pasted job and the rounds it becomes (posting-card.tsx).
+ * It used to be a window cycling through four views every 4.8s; the views are now the
+ * job story right under the hero, where nothing advances on its own (Niraj, 2026-10-07).
+ * Deliberately unlike the /hire hero, which is a dark band with candidates flowing through gates.
  *
  * Below lg the window stacks under the copy.
  */
@@ -20,7 +20,7 @@ export function HomeHero() {
     const news = LATEST?.items[0]
     return (
         <section className="relative overflow-hidden bg-neutral-50">
-            <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-4 pb-20 pt-16 sm:px-6 md:pt-20 lg:grid-cols-[1fr_1.1fr] lg:gap-16 lg:pb-28 lg:pt-24">
+            <div className="relative mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)] items-center gap-14 px-4 pb-20 pt-16 sm:px-6 md:pt-20 lg:grid-cols-[1fr_1.1fr] lg:gap-16 lg:pb-28 lg:pt-24">
                 <div className="sh-reveal">
                     {LATEST && news && (
                         <Link
@@ -47,7 +47,7 @@ export function HomeHero() {
 
                     <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-4">
                         <PrimaryCta href={APP_LINKS.signup}>Start free</PrimaryCta>
-                        <GhostCta href="#modules" play>See how it works</GhostCta>
+                        <GhostCta href="#how-it-works" play>See how it works</GhostCta>
                     </div>
 
                     <dl className="mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-neutral-200 pt-6">
@@ -65,7 +65,11 @@ export function HomeHero() {
                 </div>
 
                 <div className="sh-reveal" style={{ ["--sh-reveal-delay" as string]: "0.1s" }}>
-                    <HeroWindow />
+                    <div className="relative">
+                        {/* A soft pastel wash behind the card. */}
+                        <div aria-hidden className="absolute -inset-6 -z-10 rounded-[2rem] bg-[radial-gradient(60%_60%_at_30%_30%,#BFE3D0_0%,transparent_70%),radial-gradient(50%_50%_at_80%_70%,#F2C9C4_0%,transparent_70%)] opacity-70 blur-2xl" />
+                        <PostingCard className="shadow-[0_2px_4px_rgba(0,0,0,0.04),0_32px_64px_-24px_rgba(0,0,0,0.35)]" />
+                    </div>
                 </div>
             </div>
         </section>

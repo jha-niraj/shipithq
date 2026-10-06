@@ -3,16 +3,15 @@ import type { Metadata } from 'next'
 import SiteHeader from "@/components/site/header";
 import SiteFooter from "@/components/site/footer";
 import { HomeHero } from "@/components/home/hero";
-import { PasteJobBand } from "@/components/home/paste-job-band";
+import { JobStory } from "@/components/home/job-story";
 import { HomeModules } from "@/components/home/modules";
 import { EverythingElse } from "@/components/home/everything-else";
 import { IncidentsBand } from "@/components/home/incidents-band";
 import { PricingStrip } from "@/components/home/pricing-strip";
-import { CompareStrip, CtaBand, HowItWorks, NumbersBand } from "@/components/marketing/sections";
-import { ProductTour } from "@/components/marketing/product-tour";
-import { HOME_STEPS, HOME_TOUR } from "@/content/home";
-import { FromTheGuides, PracticeTracks, WalkAway } from "@/components/home/sections";
-import { StageTabs } from "@/components/home/stage-tabs";
+import { CompareStrip, CtaBand, NumbersBand } from "@/components/marketing/sections";
+import { PrimaryCta, Section } from "@/components/marketing/primitives";
+import { HOME_WEDGE } from "@/content/home";
+import { FromTheGuides, PracticeTracks } from "@/components/home/sections";
 import { APP_LINKS } from "@/lib/site";
 import { TestimonialWall } from "@/components/site/testimonial-wall";
 import { TESTIMONIALS } from "@/content/testimonials/students";
@@ -97,17 +96,23 @@ export default function LandingPage() {
             <SiteHeader />
             <main className="relative bg-neutral-50">
                 <HomeHero />
-                {/* The wedge (plan/competition/skillmeet CMP-5): paste a job, practise its rounds. */}
-                <PasteJobBand />
+                {/* plan/web/story ST-7 (Niraj, 2026-10-07): one pasted job carried through its rounds
+                    replaces the cycling hero window, the paste-a-job band, "What you walk away with",
+                    "How it works", the product tour and "Built for your stage", which told one tour
+                    five ways, mostly behind tabs and timers. The wedge (CMP-5) leads it. */}
+                <Section
+                    id="how-it-works"
+                    eyebrow="How it works"
+                    title={HOME_WEDGE.title}
+                    sub={HOME_WEDGE.sub}
+                    action={<PrimaryCta href={APP_LINKS.importJob}>Paste a job</PrimaryCta>}
+                    className="pt-12 md:pt-16"
+                >
+                    <JobStory />
+                </Section>
                 <HomeModules />
-                <WalkAway />
-                <HowItWorks title="From sign-up to an offer, in four steps" steps={HOME_STEPS} />
-                <ProductTour eyebrow="Take the tour" title="See what each part does" tabs={HOME_TOUR} />
-                {/* Two sections between the two sticky scrolls (tour: sticky right; stage:
-                    sticky left), so they never come back to back (REV-114). */}
                 <PracticeTracks />
                 <NumbersBand title="ShipItHQ so far" keys={["developers", "projects", "tasksApproved", "mocks"]} />
-                <StageTabs />
                 <IncidentsBand />
                 <EverythingElse />
                 <CompareStrip />

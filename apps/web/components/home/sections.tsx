@@ -2,57 +2,13 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { cn } from "@repo/ui/lib/utils"
 import { BLOG_CATEGORIES, publishedPosts } from "@/content/blog"
-import { MONO, Section, TONE, type Tone } from "@/components/marketing/primitives"
+import { MONO, Section } from "@/components/marketing/primitives"
 import { CardArt, CardArtStyles, type ArtKind } from "@/components/marketing/card-art"
 
 /**
  * Sections only the student landing has (plan/web/revamp REV-107, REV-109, REV-110),
  * each with its own layout, unlike the /hire sections. Claims restate content/modules.ts.
- * "Built for your stage" is a client component in stage-tabs.tsx.
  */
-
-// ── What you walk away with (bento) ───────────────────────────────────────────
-
-type Tile = { title: string; body: string; art: ArtKind; tone: Tone; span: string; href: string }
-
-const TILES: Tile[] = [
-    { title: "A finished project", body: "Four sprints, twenty tasks, and a mock interview about your own decisions.", art: "projects", tone: "ink", span: "md:col-span-2 md:row-span-2", href: "/features/projects" },
-    { title: "Accepted solutions", body: "Problems that passed hidden tests in a real container.", art: "practice", tone: "mint", span: "", href: "/features/practice" },
-    { title: "A tailored resume", body: "An ATS score, the keywords you were missing, and a public link.", art: "ai", tone: "butter", span: "", href: "/features/ai" },
-    { title: "Mock scores", body: "Communication, technical skills and problem solving, out of 100.", art: "mock", tone: "blush", span: "", href: "/features/mock" },
-    { title: "Jobs that fit", body: "A match score for each role, and the skills to close the gap.", art: "jobs", tone: "sage", span: "", href: "/features/jobs" },
-]
-
-export function WalkAway() {
-    return (
-        <Section eyebrow="What you walk away with" title="Proof, not certificates" sub="Everything here is something you can show an interviewer, not a badge.">
-            <CardArtStyles />
-            <ul className="grid auto-rows-[minmax(15rem,auto)] gap-4 md:grid-cols-4">
-                {TILES.map((t, i) => {
-                    const tone = TONE[t.tone]
-                    const dark = t.tone === "ink"
-                    const big = i === 0
-                    return (
-                        <li key={t.title} className={cn("sh-reveal", t.span)} style={{ ["--sh-reveal-delay" as string]: `${i * 0.06}s` }}>
-                            <Link href={t.href} className={cn("group flex h-full flex-col overflow-hidden rounded-3xl p-6 transition-transform duration-300 hover:-translate-y-1", tone.surface, tone.ink)}>
-                                <div className={cn("flex items-center justify-center", big ? "flex-1 py-6" : "h-28")}>
-                                    <CardArt kind={t.art} dark={dark} className={big ? "max-h-72" : "max-h-28"} />
-                                </div>
-                                <div className="mt-4 flex items-end justify-between gap-3">
-                                    <span>
-                                        <span className={cn("block font-semibold tracking-tight", big ? "font-display text-3xl" : "text-lg")}>{t.title}</span>
-                                        <span className={cn("mt-1 block leading-6", big ? "text-[16px]" : "text-[14px]", dark ? "text-neutral-300" : "text-neutral-800")}>{t.body}</span>
-                                    </span>
-                                    <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-1" aria-hidden />
-                                </div>
-                            </Link>
-                        </li>
-                    )
-                })}
-            </ul>
-        </Section>
-    )
-}
 
 // ── Practice tracks ───────────────────────────────────────────────────────────
 
