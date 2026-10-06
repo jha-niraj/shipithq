@@ -9,6 +9,9 @@ import { pageMeta } from '@/lib/seo'
 import { breadcrumbSchema, webPageSchema, jsonLd } from '@/lib/schema'
 import { FEATURE_MODULES } from './_components/feature-modules'
 import { MODULES } from '@/content/modules'
+import { SIGNUP_GRANT_CREDITS } from '@repo/pricing'
+import { getIncidentStory } from '@/lib/incidents'
+import { CaseMap } from '@/app/(home)/incidents/_components/incident-story'
 
 /** Modules with a detail page at /features/<id> (plan/web/revamp REV-12). Credits has none. */
 const DETAIL_IDS = new Set<string>(MODULES.map((m) => m.id))
@@ -71,7 +74,11 @@ const featureSchema = {
     })),
 }
 
-export default function FeaturesPage() {
+// The Incidents section reads the live cases (lib/incidents.ts, cached an hour).
+export const revalidate = 3600
+
+export default async function FeaturesPage() {
+    const incidents = await getIncidentStory()
     return (
         <>
             <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(featureSchema)} />
@@ -118,7 +125,7 @@ export default function FeaturesPage() {
                         without an active state it answers only the first. The budget exists to
                         stop decoration, not to stop a control doing its job. */}
                     <PageToc
-                        items={FEATURE_MODULES.map((m) => ({ id: m.id, label: m.name }))}
+                        items={[...FEATURE_MODULES.map((m) => ({ id: m.id, label: m.name })), ...(incidents?.story ? [{ id: 'incidents', label: 'Incidents' }] : [])]}
                         className="hidden lg:block"
                     />
 
@@ -201,12 +208,40 @@ export default function FeaturesPage() {
                                 )}
                             </Reveal>
                         ))}
+
+                        {/* plan/web/story ST-8 (Niraj, 2026-10-07): Incidents as its own section, not a
+                            seventh module, so the ItemList JSON-LD above keeps its six; it links to
+                            /incidents rather than a /features/incidents copy. */}
+                        {incidents?.story && (
+                            <Reveal as="section" id="incidents" className="mt-20 scroll-mt-28 border-t border-neutral-200 pt-20">
+                                <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-neutral-500">
+                                    {String(FEATURE_MODULES.length + 1).padStart(2, '0')} · New
+                                </p>
+                                <h2 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">Incidents</h2>
+                                <p className="mt-4 max-w-2xl text-lg leading-relaxed text-neutral-700">
+                                    Real production failures as cases you play: predict what happens, watch it fail, talk it
+                                    through with an AI incident lead, and leave with the fix. {incidents.cases.length} cases live, free to read.
+                                </p>
+                                <figure className="mt-8 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+                                    {/* Scrolls sideways at phone width rather than shrinking its labels. */}
+                                    <div className="overflow-x-auto p-4">
+                                        <div className="min-w-[34rem] sm:min-w-0"><CaseMap map={incidents.story.system} /></div>
+                                    </div>
+                                    <figcaption className="border-t border-neutral-200">
+                                        <Link href="/incidents" className="group flex items-center justify-between gap-3 px-5 py-3.5 text-[15px] font-semibold text-neutral-900 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-900">
+                                            {incidents.story.title}: the case, told start to finish
+                                            <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                                        </Link>
+                                    </figcaption>
+                                </figure>
+                            </Reveal>
+                        )}
                     </div>
                 </div>
 
                 <Reveal className="mt-24 rounded-2xl border border-neutral-200 bg-neutral-50 px-6 py-12 text-center dark:border-neutral-800 dark:bg-neutral-900/40">
                     <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white sm:text-3xl">
-                        100 credits, no card, nothing to cancel.
+                        {SIGNUP_GRANT_CREDITS} credits, no card, nothing to cancel.
                     </h2>
                     <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-neutral-600 dark:text-neutral-400">
                         Enough to run a few practice sets, score a resume and generate a cover letter before you decide whether any of this is for you.

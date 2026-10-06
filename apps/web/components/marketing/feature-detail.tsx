@@ -47,6 +47,11 @@ export interface FeatureDetailProps {
     pricingHref?: string
     /** Not built yet (plan/web/story ST-2): said under the hero, in full. */
     soon?: SoonFacts
+    /**
+     * "How it works" told as one example from start to finish (plan/web/story ST-8). Given, it
+     * replaces the step cards; the /hire pages pass none and keep them until ST-9.
+     */
+    story?: { sub: string; node: React.ReactNode }
 }
 
 const ROW_TONES = ["blush", "mint", "butter"] as const
@@ -107,6 +112,11 @@ export function FeatureDetail(p: FeatureDetailProps) {
             )}
 
             {/* ── How it works: illustrated step cards (REV-98) ── */}
+            {p.story ? (
+            <Section id="how-it-works" eyebrow="How it works" title={`${p.name}, step by step`} sub={p.story.sub}>
+                {p.story.node}
+            </Section>
+            ) : (
             <Section eyebrow="How it works" title={`${p.name}, step by step`}>
                 <ol className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                     {p.steps.map((step, i) => {
@@ -131,6 +141,7 @@ export function FeatureDetail(p: FeatureDetailProps) {
                     })}
                 </ol>
             </Section>
+            )}
 
             {/* ── What is different ── */}
             <Section eyebrow="Why it is different" title="What you will not find elsewhere" className="pt-0 md:pt-0">

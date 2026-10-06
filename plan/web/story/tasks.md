@@ -154,10 +154,39 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
 
 ## Round 3: after the launch pages
 
-### - [ ] ST-8 Feature pages
-- **Steps:** FeatureDetail's "How it works" as a ScrollStory with one example per module (a real
-  problem, a real project, a real interview) and its own drawing per step; `/features` gains a drawing
-  per module.
+### - [x] ST-8 Feature pages
+- **Status:** done 2026-10-07.
+  - `components/features/stories.tsx` (client) and `story-subs.ts` (server-safe sub-headings);
+    FeatureDetail gained `story` (it replaces the step cards; /hire passes none until ST-9).
+  - Five stories, each one real item, every label checked in apps/main (sources in the file header):
+    Practice "Two Sum" (mentor or on your own, the five mentor stages, Run, Submit, the verdicts, Mentor
+    memory); Projects "URL Shortener with Click Analytics" (the four real sprint names, task 3's brief and
+    Done when, marking done with a note, the sprint quiz and mock with their 50% / 75% gates); Mock (the
+    three setup steps, speak or type, live labels, the three scores); AI tools (populate, import, tailor,
+    ATS score, share); Jobs "Backend Engineer, Trace Ingestion" (match, the fit and gap, take the rounds,
+    send your results).
+  - Corrected against the code on the way: no task approval exists (the learner marks a task done), no
+    Apply button (you take the rounds and send results), no job-description field in a mock.
+  - Credits has no detail page, so no story; its section on /features is unchanged.
+  - `/features`: an Incidents section after the six modules (not in FEATURE_MODULES, so the ItemList
+    JSON-LD keeps six), its map drawn from the DB and scrolling at phone width; "100 credits" in the
+    closing band now reads SIGNUP_GRANT_CREDITS.
+  - Checked headless: every step activates in turn at 1440px on all five pages; nothing clipped and no
+    sideways scroll at 390px on all five and on /features; no console errors but the dev-only eval notice.
+- **Why:** DoD 2, 3, 6, 7 on `/features` and `/features/[module]`.
+- **Decisions (Niraj, 2026-10-07, AskUserQuestion):** one real item per module, its own story:
+  Practice one DSA problem run to its verdict; Projects one real blueprint, task by task; Mock one
+  interview from setup to its scores; AI tools one resume from import to tailored; Jobs one listing
+  to its match; Credits one balance spent across a week. `/features` gains a seventh card, Incidents,
+  drawn with its own system map, linking to `/incidents` (no `/features/incidents`).
+- **Files:** `components/marketing/feature-detail.tsx`; `app/(home)/features/_components/feature-modules.ts`;
+  a new `components/features/stories.tsx`; `app/(home)/features/page.tsx`.
+- **Steps:** FeatureDetail's "How it works" cards become a ScrollStory fed by the module's story; each
+  panel uses that item's real labels, checked against apps/main and listed in the file's header;
+  examples are labelled "Example session"; `/features` adds the Incidents card from the DB.
+- **Edge cases:** a claim the code does not back is cut, not softened; 390px; no tabs or timers.
+- **Done when:** each of the six pages' stories steps correctly at 1440px and nothing clips at 390px
+  (headless), `/features` shows the Incidents card, no console errors, titles and JSON-LD unchanged.
 
 ### - [ ] ST-9 /hire
 - **Steps:** CandidateView as a story; the billing and currency toggles replaced by both prices shown;
@@ -171,6 +200,17 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
 ### - [ ] ST-11 Verify
 - **Done when:** every public URL returns 200, a crawl of internal links and assets finds none broken,
   share images load, and each story step is looked at in a 1440px and 390px contact sheet.
+
+### - [ ] ST-12 Credit pack prices before launch (Niraj decides)
+- **Status:** open. Found 2026-10-07; Niraj confirmed they are test values.
+- **Why:** `creditPackages` in `packages/pricing/src/index.ts` (Free 20 credits for ₹1, Starter 25 for
+  ₹12, 50 for ₹22, Pro 75 for ₹30, Max 100 for ₹35; $0.012 to $0.42) feeds the landing's pricing strip
+  (`apps/web/components/home/pricing-strip.tsx`), `packages/ui` pricing-bento, and the charge in
+  `apps/main/app/api/payments/create-order/route.ts`. Launching with them sells credits at test prices.
+- **Steps:** Niraj sets the launch prices in `plan/pricing` (or the module that owns them); the
+  constants follow and reference that doc; web and the payment route read them unchanged.
+- **Done when:** the constants match the decided prices, and /pricing, the landing strip and a test
+  order (Razorpay test mode) all show and charge the same amounts.
 
 ## Coming-soon markers (kept current by ST-2)
 

@@ -7,6 +7,8 @@ import { breadcrumbSchema, faqSchema, jsonLd, webPageSchema } from "@/lib/schema
 import { MODULES, moduleById } from "@/content/modules"
 import { FeatureDetail } from "@/components/marketing/feature-detail"
 import { moduleCards } from "@/components/home/modules"
+import { FeatureStory } from "@/components/features/stories"
+import { STORY_SUBS } from "@/components/features/story-subs"
 
 /**
  * One student module in depth (plan/web/revamp REV-12, REV-81), rendered by the
@@ -39,6 +41,7 @@ export default async function ModulePage({ params }: { params: Promise<{ module:
             <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(page)} />
             <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(faqSchema([...m.detail.faqs, ...(FEATURE_EXTRAS[m.id]?.moreFaqs ?? [])]))} />
             <FeatureDetail
+                story={STORY_SUBS[m.id] ? { sub: STORY_SUBS[m.id]!, node: <FeatureStory id={m.id} /> } : undefined}
                 crumbs={[{ name: "Features", href: "/features" }, { name: m.name }]}
                 kind={m.kind}
                 name={m.name}
