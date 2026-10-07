@@ -64,23 +64,39 @@ export default function ChangelogPage() {
                                     const t = TONE[tone]
                                     return (
                                         <li key={item.title} className="sh-reveal">
-                                            <article className="grid gap-6 rounded-2xl border border-neutral-200 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] sm:grid-cols-[13rem_1fr_auto] sm:items-center sm:p-6">
-                                                <div className={cn("flex h-36 items-center justify-center rounded-xl p-3", t.surface)}>
-                                                    <CardArt kind={item.art} className="max-h-32" />
+                                            {/* plan/web/story ST-13: each release as three frames, before / now / where. */}
+                                            <article className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] sm:p-6">
+                                                <header className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                                                    <div className={cn("flex size-16 shrink-0 items-center justify-center rounded-xl p-1.5", t.surface)}>
+                                                        <CardArt kind={item.art} className="max-h-14" />
+                                                    </div>
+                                                    <h2 className="min-w-0 flex-1 font-display text-xl font-semibold leading-snug tracking-tight text-neutral-900 md:text-2xl">{item.title}</h2>
+                                                    <time dateTime={item.date} className={cn(MONO, "rounded-md bg-neutral-100 px-2.5 py-1.5 text-[12px] tracking-[0.12em] text-neutral-700")}>
+                                                        {day(item.date)}
+                                                    </time>
+                                                </header>
+                                                <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,0.9fr)]">
+                                                    <div className="rounded-xl border border-dashed border-neutral-300 p-4">
+                                                        <p className={cn(MONO, "text-[10.5px] uppercase tracking-[0.14em] text-neutral-600")}>Before</p>
+                                                        <p className="mt-2 text-[14.5px] leading-6 text-neutral-700">{item.before}</p>
+                                                    </div>
+                                                    <div className="rounded-xl bg-neutral-900 p-4 text-white">
+                                                        <p className={cn(MONO, "text-[10.5px] uppercase tracking-[0.14em] text-neutral-300")}>Now</p>
+                                                        <p className="mt-2 text-[14.5px] leading-6 text-neutral-100">{item.body}</p>
+                                                    </div>
+                                                    <div className={cn("flex flex-col rounded-xl p-4", t.surface)}>
+                                                        <p className={cn(MONO, "text-[10.5px] uppercase tracking-[0.14em]", t.muted)}>Where</p>
+                                                        <p className={cn("mt-2 text-[14.5px] leading-6", t.ink)}>{item.where}</p>
+                                                        {item.href && item.cta && (
+                                                            <div className="mt-auto pt-3">
+                                                                <Link href={item.href} className="group inline-flex items-center gap-2 rounded-lg bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-900 ring-1 ring-neutral-900/10 transition-colors hover:bg-white">
+                                                                    {item.cta}
+                                                                    <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                                                                </Link>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div className="min-w-0">
-                                                    <h2 className="font-display text-xl font-semibold leading-snug tracking-tight text-neutral-900 md:text-2xl">{item.title}</h2>
-                                                    <p className="mt-2 max-w-2xl text-[15px] leading-7 text-neutral-600">{item.body}</p>
-                                                    {item.href && item.cta && (
-                                                        <Link href={item.href} className="group mt-4 inline-flex items-center gap-2 rounded-lg bg-neutral-100 px-3.5 py-2 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-200">
-                                                            {item.cta}
-                                                            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
-                                                        </Link>
-                                                    )}
-                                                </div>
-                                                <time dateTime={item.date} className={cn(MONO, "self-start justify-self-start rounded-md bg-neutral-100 px-2.5 py-1.5 text-[12px] tracking-[0.12em] text-neutral-700 sm:justify-self-end")}>
-                                                    {day(item.date)}
-                                                </time>
                                             </article>
                                         </li>
                                     )

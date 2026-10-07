@@ -266,6 +266,46 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
 - **Done when:** every public URL returns 200, a crawl of internal links and assets finds none broken,
   share images load, and each story step is looked at in a 1440px and 390px contact sheet.
 
+### - [x] ST-13 The changelog as before / now / where
+- **Status:** done 2026-10-07. `ChangelogItem` gained `before` and `where`; all ten existing items
+  have them, each "before" taken from the shipping commit's own message (a64e6873, 7b350658, b8840f6a,
+  5b80191f, f3f9005e, b3dc1209, 95f9af5a, 43528cb0, c9057a29). The 2026-10 entry is first: Incidents
+  with four cases (06fbddf8, dbd852e1; before from c6b35925's transcript toggle), the email code in
+  registering (0ec9e146), the site retold as stories, prices in both currencies (this round's commits).
+  /changelog draws each item as Before (dashed) / Now / Where with its link; the navbar pill reads
+  "New in October". Checked headless at 1440px and 390px: nothing clipped, no console errors.
+  September also gained three late items (Niraj, 2026-10-07): browse all jobs (a0fc4e8e), the review
+  step before a pasted job is built (af9e90d1), Home with reports and 22 badges (11654492, 65045d8a).
+- **Decisions (Niraj, 2026-10-07, AskUserQuestion):** each item reads as three frames side by side:
+  what it was like before, what changed, and where to find it; and an October entry is added now
+  (Incidents first), so the navbar pill reads "New in October".
+- **Files:** `content/changelog.ts` (`before` and `where` on each item; the 2026-10 entry);
+  `app/(home)/changelog/page.tsx`.
+- **Steps:** `before` and `now` come from the commit that shipped the item (git log is the source,
+  as the file's header says); `where` is the app location in the user's words plus the existing link.
+  October lists only what is on main and visible to users, with commit dates.
+- **Edge cases:** an item with no link (no button, the frame still says where); 390px stacks the
+  frames; the pill and /changelog read the same entry.
+- **Done when:** every item has before / now / where, each traceable to its commit; October is first;
+  1440px and 390px headless, nothing clipped, no console errors.
+
+### - [ ] ST-14 A story at the top of every blog post
+- **Status:** planned (2026-10-07).
+- **Decision (Niraj, 2026-10-07, AskUserQuestion):** every post gets its own story from its own
+  facts, and the layouts must differ so each feels written for that post, not a shared template.
+- **Files:** `content/post-stories.ts` (one entry per slug: a form and its data); `components/blog/
+  story/*` (one renderer per form); `app/(home)/blogs/[slug]/page.tsx`.
+- **Steps:** build a set of story forms, each suited to a kind of post (a timeline, a before and
+  after, a worked sum, a flow, a decision path, a comparison of numbers, an annotated example, a
+  checklist with stakes, and others as posts need); read each of the 40 posts and write its story
+  from sentences in that post only, choosing the form that fits it; neighbouring posts in a category
+  must not share a form; every number and claim in a story is quoted from or computed from the post.
+- **Edge cases:** posts not yet in active-posts.ts still render theirs (noindex pages are real
+  pages); 390px; server-rendered (static generation must keep working; the posts are SSG).
+- **Done when:** all 40 posts open with their own story; no two posts in a category in a row share a
+  form; each story's facts trace to its post; static build of the blog routes still works (checked
+  by rendering every post locally); 1440px and 390px contact sheet; no console errors.
+
 ### - [ ] ST-12 Credit pack prices before launch (Niraj decides)
 - **Status:** open. Found 2026-10-07; Niraj confirmed they are test values.
 - **Why:** `creditPackages` in `packages/pricing/src/index.ts` (Free 20 credits for ₹1, Starter 25 for
