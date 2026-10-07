@@ -83,8 +83,8 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
 - **Done when:** tsc clean in main, web and ui; both incident check scripts pass; the case player's
   map, sequence, timeline, dashboard and before/after look unchanged in Chrome.
 
-### - [ ] ST-5 The drawing kit
-- **Status:** built as pages need it (2026-10-07): `components/story/kit.tsx` (QuizCard, Chat, ReportBands) and `components/home/posting-card.tsx`; the landing story panels live in `job-story.tsx`. The other planned pieces (Sum, CompareBars, BeforeAfter, Terminal, MarkedTimeline) are built with ST-8 to ST-10, the pages that use them; none is made ahead of a page.
+### - [x] ST-5 The drawing kit
+- **Status:** done 2026-10-07. Built as the pages needed them: `components/story/kit.tsx` (QuizCard, Chat, ReportBands, Sum), `components/home/posting-card.tsx`, `components/compare/two-ways.tsx`, and each story's own panels (job-story, features/stories, hire/role-story). Every piece renders at 1440px and 390px with no hydration warnings (ST-11 contact sheet). CompareBars, BeforeAfter, Terminal and MarkedTimeline were never needed by a page, so they were not built.
 - **Files:** `apps/web/components/story/kit/*`.
 - **Steps:** in web's own style (monochrome lines, one accent, the TONE pastels as fills): Scene,
   Takeaway, Chat (the lead and the reader), Log (prompt, check, verdict lines), Screen, Terminal,
@@ -252,7 +252,17 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
   compare page opens with its two-ways drawing; 1440px and 390px headless; no console errors; titles
   and JSON-LD unchanged.
 
-### - [ ] ST-11 Verify
+### - [x] ST-11 Verify
+- **Status:** done 2026-10-07.
+  - Crawl (headless, local build with the DB): all 91 URLs in sitemap.xml return 200; their 204
+    internal links and assets resolve; every page has an og:image that loads. The app routes the
+    new links point at exist in apps/main (`/incidents/[slug]`, `/jobs/import`, `/register`).
+  - Contact sheet: 8 story pages, 40 steps, 80 frames at 1440px and 390px; every step is the active
+    one at 1440px in turn; no console errors on any of them (the dev-only eval notice from web's CSP
+    aside). Published privately: https://claude.ai/artifact/5eWzi8VuUnJJZMBBu81osN
+  - Fixed during the round and recorded under each task: the site-wide reveal's hydration mismatch
+    (it now waits for React to hydrate an element), the phone layout of every story (drawings
+    inline), and the truth fixes on /hire, the pack highlights and the compare data.
 - **Done when:** every public URL returns 200, a crawl of internal links and assets finds none broken,
   share images load, and each story step is looked at in a 1440px and 390px contact sheet.
 
