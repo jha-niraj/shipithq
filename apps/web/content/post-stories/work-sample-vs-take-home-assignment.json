@@ -1,0 +1,32 @@
+{
+  "slug": "work-sample-vs-take-home-assignment",
+  "form": "decisionPath",
+  "title": "Pick per role: a timed work sample, or a capped take-home",
+  "takeaway": "Most roles are best served by a short work sample; a take-home earns its cost only when independent structure is the job.",
+  "sources": [
+    "Screening at volume, or junior roles: work sample, timed, auto-checked where possible.",
+    "Senior roles where independent structure is the job: a short, capped take-home plus a conversation about it.",
+    "Never both as hard gates in the same loop.",
+    "They filter for free time, not skill."
+  ],
+  "data": {
+    "question": "What does this role need you to see?",
+    "branches": [
+      {
+        "answer": "Screening at volume, or a junior role",
+        "then": "Same task and scoring, under an hour",
+        "verdict": "Timed work sample"
+      },
+      {
+        "answer": "Senior, independent structure is the job",
+        "then": "Capped scope, rubric, paid past 2 hours",
+        "verdict": "Capped take-home plus a talk"
+      },
+      {
+        "answer": "Tempted to use both",
+        "then": "Never both as hard gates in one loop",
+        "verdict": "Choose one gate"
+      }
+    ]
+  }
+}

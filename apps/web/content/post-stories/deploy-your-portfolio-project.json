@@ -1,0 +1,62 @@
+{
+  "slug": "deploy-your-portfolio-project",
+  "form": "flow",
+  "title": "From a claim to evidence: the path from repository to live URL",
+  "takeaway": "Nobody will clone and run your project; getting it live means getting secrets, config and the database right on the way.",
+  "sources": [
+    "A portfolio project that is not deployed is a claim.",
+    "A deployed one is evidence.",
+    "This is the one that actually hurts, and it happens to people who know better.",
+    "Deleting the file does not help - it is in the history, and history is public.",
+    "An empty app is worse than no app."
+  ],
+  "data": {
+    "nodes": [
+      {
+        "id": "repo",
+        "label": "Repository",
+        "note": "A claim nobody will clone and run"
+      },
+      {
+        "id": "secrets",
+        "label": "Secrets out of the repo",
+        "note": ".env.example committed, .env never"
+      },
+      {
+        "id": "config",
+        "label": "No hardcoded localhost",
+        "note": "Hosts and URLs come from the environment"
+      },
+      {
+        "id": "db",
+        "label": "Hosted database, migrated, seeded",
+        "note": "Your local Postgres is not coming with you"
+      },
+      {
+        "id": "live",
+        "label": "Live URL",
+        "note": "Loads for a stranger, with data in it"
+      }
+    ],
+    "edges": [
+      {
+        "from": "repo",
+        "to": "secrets"
+      },
+      {
+        "from": "secrets",
+        "to": "config"
+      },
+      {
+        "from": "config",
+        "to": "db"
+      },
+      {
+        "from": "db",
+        "to": "live",
+        "label": "evidence"
+      }
+    ],
+    "lit": "secrets"
+  }
+}

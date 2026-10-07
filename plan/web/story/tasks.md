@@ -289,8 +289,25 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
 - **Done when:** every item has before / now / where, each traceable to its commit; October is first;
   1440px and 390px headless, nothing clipped, no console errors.
 
-### - [ ] ST-14 A story at the top of every blog post
-- **Status:** planned (2026-10-07).
+### - [x] ST-14 A story at the top of every blog post
+- **Status:** done 2026-10-07.
+  - 15 forms in `components/blog/story/forms.tsx` (flow, bars, decision path, annotated example,
+    funnel, timeline, 2x2 matrix, receipt, before and after, checklist with stakes, dialogue, pattern
+    map, table, ladder, layers), each its own layout; the frame (`post-story.tsx`) takes the
+    category's pastel with dark ink and sits first under the post's header.
+  - 40 stories in `content/post-stories/*.json`, one per post, each written from that post only by
+    reading it in full; `scripts/post-stories.mjs` checks all of them (every source verbatim in its
+    post, every number in its post, no dashes, length limits, no form repeated within a category,
+    every post covered) and generates `content/post-stories.ts`, typed so tsc checks each shape.
+    Result: 40 stories, 0 problems. Two judgement calls tightened by hand: learning-to-code-with-ai's
+    third branch removed (it did not answer its question), and the behavioural matrix's inferred cell
+    reworded to the post's "ideally".
+  - The 2x2 has a phone layout (each cell names its two axis values) after the first pass clipped at
+    390px; numbers are grouped as the posts write them; a receipt that fills its budget says so.
+  - Checked headless: all 40 posts at 1440px and 390px render with their story, no console errors,
+    nothing clipped, no sideways scroll. Posts stay statically generated (pure server components).
+    Contact sheet (same link as ST-11, version 2): https://claude.ai/artifact/5eWzi8VuUnJJZMBBu81osN
+  - apps/web/CLAUDE.md "When adding a post" now includes the story and the check.
 - **Decision (Niraj, 2026-10-07, AskUserQuestion):** every post gets its own story from its own
   facts, and the layouts must differ so each feels written for that post, not a shared template.
 - **Files:** `content/post-stories.ts` (one entry per slug: a form and its data); `components/blog/

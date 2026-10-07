@@ -1,0 +1,42 @@
+{
+  "slug": "pass-marks-technical-assessments",
+  "form": "table",
+  "note": "The post has only two pass-mark numbers (70 and 60), too few for 3 bars in one unit.",
+  "title": "A pass mark marks the floor, not the score of a good candidate",
+  "takeaway": "Anchor the number to the job or to people already doing it, or start at a moderate default and check it after the first cohort.",
+  "sources": [
+    "It marks the floor.",
+    "Someone picks 70% because it sounds reasonable, and from then on it silently decides who you never meet.",
+    "It is slow, but it anchors the number to the job instead of to a feeling.",
+    "Your pass mark should sit comfortably below the score of people you would hire again."
+  ],
+  "data": {
+    "caption": "Three ways to set a pass mark",
+    "columns": [
+      "Method",
+      "The number comes from",
+      "Trade-off"
+    ],
+    "rows": [
+      [
+        "Expert judgement (Angoff)",
+        "Sum of odds a minimally competent pass",
+        "Slow, but anchored to the job"
+      ],
+      [
+        "Benchmark current engineers",
+        "Comfortably below people you'd rehire",
+        "Needs a group already in the role"
+      ],
+      [
+        "Platform default",
+        "Start at 60, revisit after a cohort",
+        "Check it once 30 or more have sat it"
+      ]
+    ],
+    "lit": {
+      "row": 0,
+      "col": 1
+    }
+  }
+}

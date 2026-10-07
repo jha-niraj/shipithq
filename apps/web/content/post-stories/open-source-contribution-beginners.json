@@ -1,0 +1,60 @@
+{
+  "slug": "open-source-contribution-beginners",
+  "form": "flow",
+  "title": "The first PR is won or lost at picking the project",
+  "takeaway": "Pick an active, mid-sized project with a good first issue, then keep the change small enough to review.",
+  "sources": [
+    "The main reason developers fail to make their first contribution is choosing the wrong project.",
+    "Not reading this is the fastest way to get your PR closed immediately.",
+    "Scope creep is the single most common reason PRs get rejected or stall.",
+    "For now: find one project, fix one thing, open one PR."
+  ],
+  "data": {
+    "nodes": [
+      {
+        "id": "pick",
+        "label": "Pick an active, not massive project",
+        "note": "10-200 contributors, a good first issue label"
+      },
+      {
+        "id": "read",
+        "label": "Read CONTRIBUTING.md",
+        "note": "Skipping it gets a PR closed fastest"
+      },
+      {
+        "id": "change",
+        "label": "Make the smallest possible change",
+        "note": "No refactoring, no unrelated improvements"
+      },
+      {
+        "id": "pr",
+        "label": "Open the PR linked to the issue",
+        "note": "Closes #482 links the PR and closes the issue on merge"
+      },
+      {
+        "id": "review",
+        "label": "Respond to every review comment",
+        "note": "Requested changes are collaboration, not rejection"
+      }
+    ],
+    "edges": [
+      {
+        "from": "pick",
+        "to": "read"
+      },
+      {
+        "from": "read",
+        "to": "change"
+      },
+      {
+        "from": "change",
+        "to": "pr"
+      },
+      {
+        "from": "pr",
+        "to": "review"
+      }
+    ],
+    "lit": "pick"
+  }
+}

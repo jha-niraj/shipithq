@@ -1,0 +1,40 @@
+{
+  "slug": "campus-placement-preparation-guide",
+  "form": "checklist",
+  "title": "Prepare for the whole funnel, not just the coding round",
+  "takeaway": "Each stage cuts people for a different reason, and the biggest cut, aptitude, is not where students spend their time.",
+  "sources": [
+    "Students who spend all three months on DSA and none on aptitude regularly get filtered before anyone looks at their code.",
+    "This is where interviews are actually lost.",
+    "The HR round is not a formality.",
+    "They are the ones who prepared for the whole funnel instead of one part of it."
+  ],
+  "data": {
+    "items": [
+      {
+        "item": "Clear the CGPA cutoff and backlogs",
+        "ifSkipped": "Below the cutoff, most doors do not open regardless of skills"
+      },
+      {
+        "item": "Aptitude, two to three hours a week",
+        "ifSkipped": "Filtered before anyone looks at your code"
+      },
+      {
+        "item": "DSA by pattern, 150 to 200 problems",
+        "ifSkipped": "Being unable to write a clean BFS is fatal"
+      },
+      {
+        "item": "Core subjects: OS, DBMS, CN, OOP",
+        "ifSkipped": "Unable to explain a deadlock in the technical interview"
+      },
+      {
+        "item": "Two projects you can defend in depth",
+        "ifSkipped": "Interviewers pick the one you understand least"
+      },
+      {
+        "item": "Treat the HR round as a real round",
+        "ifSkipped": "It eliminates people every season"
+      }
+    ]
+  }
+}

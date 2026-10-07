@@ -1,0 +1,37 @@
+{
+  "slug": "github-profile-software-engineer",
+  "form": "beforeAfter",
+  "title": "The same work, made visible in the ten seconds a recruiter gives",
+  "takeaway": "The README, the pins and the graph are all a recruiter sees; make those three things say something.",
+  "sources": [
+    "A technical recruiter who clicks your GitHub gives it about ten seconds.",
+    "So the whole optimisation is: make those three things say something.",
+    "Almost nobody has one, which is why having a good one is disproportionately effective.",
+    "The first pin is the one that gets clicked."
+  ],
+  "data": {
+    "before": {
+      "label": "Says nothing",
+      "lines": [
+        "No profile README, or a wall of badges",
+        "Good work on page two behind eleven forks",
+        "Pin cards with blank descriptions",
+        "A repository called test"
+      ]
+    },
+    "after": {
+      "label": "Says something",
+      "lines": [
+        "Three sentences on what you build, then links",
+        "Four to six finished, deployed pins, best first",
+        "Each pin has a description and a live URL",
+        "Practice repos private, old ones archived"
+      ]
+    },
+    "change": [
+      "The README says what you build",
+      "The first pin has the most interesting hard part",
+      "Nothing is deleted, only archived or made private"
+    ]
+  }
+}

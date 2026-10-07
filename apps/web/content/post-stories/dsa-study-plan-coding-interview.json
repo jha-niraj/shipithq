@@ -1,0 +1,43 @@
+{
+  "slug": "dsa-study-plan-coding-interview",
+  "form": "timeline",
+  "title": "Three months, and the last two weeks are interviews, not new problems",
+  "takeaway": "Build patterns in months 1 and 2, then shift from studying to performing under a 45-minute timer.",
+  "sources": [
+    "Data structures and algorithms are not facts to memorize.",
+    "Month 3 is not about learning new material.",
+    "This is the most important part of the plan.",
+    "This plan requires 1-1.5 hours per day, 6 days per week."
+  ],
+  "data": {
+    "unit": "weeks",
+    "events": [
+      {
+        "at": "Weeks 1-4",
+        "label": "Foundations",
+        "note": "Arrays, hash maps, linked lists, stacks, trees"
+      },
+      {
+        "at": "Weeks 5-8",
+        "label": "Intermediate patterns",
+        "note": "Binary search, graphs, heaps, DP foundations"
+      },
+      {
+        "at": "Weeks 9-10",
+        "label": "Advanced topics and weak areas",
+        "note": "Audit months 1 and 2, drill what you struggled with"
+      },
+      {
+        "at": "Weeks 11-12",
+        "label": "Mock interviews and simulation",
+        "note": "At least 10 full simulations, 45-minute timer, out loud"
+      },
+      {
+        "at": "Week before",
+        "label": "Review notes, no new material",
+        "note": "1-2 mock interviews per day"
+      }
+    ],
+    "lit": "Weeks 11-12"
+  }
+}

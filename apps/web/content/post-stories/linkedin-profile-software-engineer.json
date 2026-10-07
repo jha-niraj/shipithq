@@ -1,0 +1,40 @@
+{
+  "slug": "linkedin-profile-software-engineer",
+  "form": "checklist",
+  "title": "A twenty-minute pass: get found, then survive ten seconds",
+  "takeaway": "Fix what a recruiter's search and first ten seconds see - headline, About's first lines, skills, location - before any polish.",
+  "sources": [
+    "Your LinkedIn does one job: get found, and survive the ten seconds after.",
+    "Recruiters search by keyword, and your headline is heavily weighted in that search.",
+    "A blank or vague location removes you from most searches.",
+    "That is most of the available value."
+  ],
+  "data": {
+    "items": [
+      {
+        "item": "Headline: title, technologies, goal",
+        "ifSkipped": "Aspiring, enthusiast and passionate match no search anybody runs"
+      },
+      {
+        "item": "First two lines of About define you",
+        "ifSkipped": "About is cut after about two lines on mobile; the rest goes unread"
+      },
+      {
+        "item": "Reorder your top three skills",
+        "ifSkipped": "Recruiters filter on the top three, shown prominently"
+      },
+      {
+        "item": "Set your location",
+        "ifSkipped": "A blank or vague location removes you from most searches"
+      },
+      {
+        "item": "Pin one project to Featured",
+        "ifSkipped": "You lose the only link somebody will actually click"
+      },
+      {
+        "item": "Open to work, recruiter-only if employed",
+        "ifSkipped": "Blank titles and locations there mean you do not appear"
+      }
+    ]
+  }
+}

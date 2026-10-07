@@ -1,0 +1,38 @@
+{
+  "slug": "mock-interviews-at-scale",
+  "form": "sum",
+  "title": "One structured mock fits in twenty-five minutes",
+  "takeaway": "A fixed four-part mock, scored on a short rubric, lets a whole batch be tested on the same things.",
+  "sources": [
+    "A mock for a final-year engineering student can fit in twenty-five minutes:",
+    "A mock is only useful if two students who sat it can compare notes and find they were tested on the same things.",
+    "Use four, each scored 1 to 4:",
+    "Write the questions down."
+  ],
+  "data": {
+    "unit": "minutes",
+    "lines": [
+      {
+        "what": "Introduction",
+        "amount": 3,
+        "note": "a clear, short account of who they are"
+      },
+      {
+        "what": "Project walkthrough",
+        "amount": 8,
+        "note": "explaining a decision, handling a follow-up"
+      },
+      {
+        "what": "Technical question",
+        "amount": 10,
+        "note": "reasoning out loud on one problem"
+      },
+      {
+        "what": "Behavioural question",
+        "amount": 4,
+        "note": "a real example, told with structure"
+      }
+    ],
+    "budget": 25
+  }
+}

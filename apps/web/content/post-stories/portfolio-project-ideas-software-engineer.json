@@ -1,0 +1,51 @@
+{
+  "slug": "portfolio-project-ideas-software-engineer",
+  "form": "matrix",
+  "title": "Worth building means it forces a decision and gets finished",
+  "takeaway": "A to-do app forces no decisions and an abandoned hard project reads as not finishing; only the finished, decision-forcing one counts.",
+  "sources": [
+    "A portfolio project is worth building when it forces a decision you can be interviewed about.",
+    "Three complete, deployed projects beat twelve half-built ones every time.",
+    "If it is not live, it does not count - a repository is a claim, and a running deployment is evidence.",
+    "The reason projects die is scope, not difficulty."
+  ],
+  "data": {
+    "x": {
+      "low": "Forces no decision",
+      "high": "Forces a decision",
+      "name": "The hard part"
+    },
+    "y": {
+      "low": "Abandoned",
+      "high": "Finished and deployed",
+      "name": "Finished"
+    },
+    "cells": [
+      {
+        "x": "low",
+        "y": "low",
+        "label": "A to-do app, left in a repo",
+        "note": "Nothing to ask about and nothing to see"
+      },
+      {
+        "x": "low",
+        "y": "high",
+        "label": "A deployed weather dashboard",
+        "note": "Fine as learning, worthless as a portfolio piece"
+      },
+      {
+        "x": "high",
+        "y": "low",
+        "label": "Commits stop in week two",
+        "note": "Reads as evidence you do not finish things"
+      },
+      {
+        "x": "high",
+        "y": "high",
+        "label": "URL shortener with click counts",
+        "note": "Smallest version that keeps the hard part, live"
+      }
+    ],
+    "lit": "URL shortener with click counts"
+  }
+}

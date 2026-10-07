@@ -1,0 +1,44 @@
+{
+  "slug": "star-method-interview-software-engineers",
+  "form": "annotated",
+  "title": "Most of a STAR answer is Action, and it never stops before the Result",
+  "takeaway": "Keep context to a few seconds, spend 60% on what you did and why, and always land a result with numbers.",
+  "sources": [
+    "Almost every weak answer gets this ratio wrong in the same direction: two minutes of context, twenty seconds of what they actually did, and no result at all.",
+    "Say \"I\", not \"we\".",
+    "The single most common failure in behavioural answers is an answer that just stops."
+  ],
+  "data": {
+    "kind": "text",
+    "heading": "The billing-job story, part by part",
+    "lines": [
+      "S: Second engineer on a four-person billing team.",
+      "S: A quarter of invoices were arriving late.",
+      "T: I owned the fix end to end. Two weeks, no downtime.",
+      "A: I added timing instrumentation around each stage.",
+      "A: 80% of runtime was one N+1 query over 40,000 invoices.",
+      "A: I rewrote it as one batched join: 26 minutes to about 90 seconds.",
+      "A: Behind a feature flag, both paths ran for two nights.",
+      "R: Late invoices went from about 25% to zero.",
+      "R: I wrote up the N+1 pattern and two other jobs got fixed."
+    ],
+    "notes": [
+      {
+        "line": 0,
+        "note": "Situation: be boring and be fast. About 10% of the answer."
+      },
+      {
+        "line": 2,
+        "note": "Task: makes your scope unambiguous, and the constraints show the difficulty."
+      },
+      {
+        "line": 4,
+        "note": "Action gets 60%: say I, not we, with specific decisions and trade-offs."
+      },
+      {
+        "line": 7,
+        "note": "Result: never skip it. Numbers where you have them, then impact beyond the task."
+      }
+    ]
+  }
+}

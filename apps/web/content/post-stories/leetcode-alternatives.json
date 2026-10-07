@@ -1,0 +1,32 @@
+{
+  "slug": "leetcode-alternatives",
+  "form": "decisionPath",
+  "title": "The platform should follow from the interview format",
+  "takeaway": "LeetCode fits the algorithmic screen; a take-home or debugging round needs different practice.",
+  "sources": [
+    "The platform should follow from the format.",
+    "If you skip this step you will spend three months grinding array problems for a company whose entire process is a take-home plus a code walkthrough.",
+    "None of that is trainable on a problem site.",
+    "The mistake is not using LeetCode."
+  ],
+  "data": {
+    "question": "What interview are you preparing for?",
+    "branches": [
+      {
+        "answer": "Algorithmic screen, 45 minutes",
+        "then": "LeetCode, NeetCode or Codeforces, by pattern",
+        "verdict": "LeetCode is genuinely good at this"
+      },
+      {
+        "answer": "Take-home assignment",
+        "then": "Build something small and complete under a four-hour timer",
+        "verdict": "Scoping judgement is not trainable on a problem site"
+      },
+      {
+        "answer": "Pair programming or debugging round",
+        "then": "Exercism, real open source, Codewars",
+        "verdict": "Reading existing code is a distinct skill"
+      }
+    ]
+  }
+}

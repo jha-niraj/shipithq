@@ -1,0 +1,37 @@
+{
+  "slug": "how-to-become-a-software-engineer",
+  "form": "timeline",
+  "title": "12 to 24 months, and the phase people skip is depth",
+  "takeaway": "Reaching employable takes 12 to 24 months; depth in months 9 to 14 separates the hired from tutorial finishers.",
+  "sources": [
+    "The phase people skip is the third one, and it is the one that separates people who get hired from people who have completed a lot of tutorials.",
+    "Bootcamp claims of \"job-ready in 12 weeks\" describe when the classroom ends, not when someone pays you.",
+    "There is no shortcut, and the people who make it are not the fastest learners - they are the ones still going in month fourteen when it stopped being novel and had not yet started paying."
+  ],
+  "data": {
+    "unit": "months",
+    "events": [
+      {
+        "at": "1-3",
+        "label": "Fundamentals",
+        "note": "One language, data structures, control flow"
+      },
+      {
+        "at": "4-8",
+        "label": "Building",
+        "note": "Small projects, then a real one; Git, HTTP, databases"
+      },
+      {
+        "at": "9-14",
+        "label": "Depth",
+        "note": "One stack properly; testing, debugging, reading code"
+      },
+      {
+        "at": "15-20",
+        "label": "Job-ready",
+        "note": "Portfolio, open source, interview prep, applications"
+      }
+    ],
+    "lit": "9-14"
+  }
+}

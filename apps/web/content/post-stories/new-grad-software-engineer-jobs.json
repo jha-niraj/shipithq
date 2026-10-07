@@ -1,0 +1,36 @@
+{
+  "slug": "new-grad-software-engineer-jobs",
+  "form": "funnel",
+  "title": "Track the funnel: where it stops tells you what to fix",
+  "takeaway": "Silence is not feedback; the stage where your search stalls names the problem, and each stage has a different fix.",
+  "sources": [
+    "Track the funnel, not the outcome.",
+    "If you are getting no replies, the problem is upstream - resume or targeting.",
+    "If you get screens and no onsites, it is technical preparation.",
+    "Different problems, different fixes, and you cannot tell which without the numbers."
+  ],
+  "data": {
+    "stages": [
+      {
+        "label": "Applications sent",
+        "note": "Twenty tailored beat two hundred generic"
+      },
+      {
+        "label": "Replies",
+        "note": "None? Upstream: resume or targeting"
+      },
+      {
+        "label": "Screens",
+        "note": "Screens but no onsites: technical preparation"
+      },
+      {
+        "label": "Onsites",
+        "note": "Onsites but no offers: usually behavioural or communication"
+      },
+      {
+        "label": "Offers"
+      }
+    ],
+    "lit": "Replies"
+  }
+}

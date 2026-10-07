@@ -1,0 +1,51 @@
+{
+  "slug": "placement-readiness-metrics",
+  "form": "matrix",
+  "title": "Measure readiness, not activity, and report it by department",
+  "takeaway": "Track a few signals recruiters screen on and show department numbers outside the cell, never activity or a ranked list.",
+  "sources": [
+    "Activity counts reward students who are good at looking busy, and a report with thirty columns gets read once.",
+    "Login times, time spent on a page and keystrokes measure compliance, not readiness.",
+    "Faculty and heads of department need department and section numbers, not a ranked list of names.",
+    "A student who trusts the measurement uses it to decide what to work on."
+  ],
+  "data": {
+    "x": {
+      "low": "Activity",
+      "high": "Readiness signals",
+      "name": "What is tracked"
+    },
+    "y": {
+      "low": "Named students",
+      "high": "Department numbers",
+      "name": "What leaves the cell"
+    },
+    "cells": [
+      {
+        "x": "high",
+        "y": "high",
+        "label": "Department and section numbers",
+        "note": "the movement between runs is what heads of department see"
+      },
+      {
+        "x": "high",
+        "y": "low",
+        "label": "A ranked list of names",
+        "note": "students experience it as monitoring, and game it"
+      },
+      {
+        "x": "low",
+        "y": "high",
+        "label": "Hours logged, videos watched",
+        "note": "rewards students who are good at looking busy"
+      },
+      {
+        "x": "low",
+        "y": "low",
+        "label": "Login times and keystrokes",
+        "note": "measures compliance, not readiness"
+      }
+    ],
+    "lit": "Department and section numbers"
+  }
+}

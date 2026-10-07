@@ -1,0 +1,60 @@
+{
+  "slug": "technical-interview-process-design",
+  "form": "flow",
+  "title": "Design the loop from the job, one round per need, then stop",
+  "takeaway": "A loop built from what the job needs, with a written rubric and gate per round, fits in four rounds and a week.",
+  "sources": [
+    "Most engineering interview loops were not designed.",
+    "This guide is a way to design the loop on purpose: decide what the job needs, pick one round per need, give each round a pass mark, and stop.",
+    "Every round in your loop should map to exactly one of these.",
+    "Rubrics written after the interview describe the candidate you liked."
+  ],
+  "data": {
+    "nodes": [
+      {
+        "id": "job",
+        "label": "List what the job needs",
+        "note": "four or five things done in the first six months"
+      },
+      {
+        "id": "rounds",
+        "label": "Pick one round per need",
+        "note": "maps to none: delete it; two to one need: keep the better"
+      },
+      {
+        "id": "rubric",
+        "label": "Write the rubric first",
+        "note": "strong, acceptable and weak, in observable terms"
+      },
+      {
+        "id": "gate",
+        "label": "Set pass mark and gate",
+        "note": "hard gate or advisory, decided up front"
+      },
+      {
+        "id": "stop",
+        "label": "Stop at four rounds",
+        "note": "a loop that runs in a week, the same for everyone"
+      }
+    ],
+    "edges": [
+      {
+        "from": "job",
+        "to": "rounds"
+      },
+      {
+        "from": "rounds",
+        "to": "rubric"
+      },
+      {
+        "from": "rubric",
+        "to": "gate"
+      },
+      {
+        "from": "gate",
+        "to": "stop"
+      }
+    ],
+    "lit": "job"
+  }
+}

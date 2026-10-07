@@ -75,6 +75,12 @@ When adding a post:
 - Include **real outbound links to authoritative sources** and 2-4 internal links to sibling
   posts. Internal links use `/blogs/<slug>`, never product routes.
 - Add the slug to `content/active-posts.ts` when it should go live.
+- Give it a story (plan/web/story ST-14): `content/post-stories/<slug>.json`, the post's core idea
+  drawn once from its own facts, in a form no other post in its category uses (the forms are in
+  `components/blog/story/types.ts`). Its `sources` are sentences copied verbatim from the post.
+  Then run `node scripts/post-stories.mjs --write` from apps/web: it checks every story against its
+  post (sources verbatim, numbers present, no dashes, no repeated form in a category, every post has
+  one) and regenerates `content/post-stories.ts`. Without `--write` it only checks.
 
 ## Deployment (Cloudflare Workers)
 

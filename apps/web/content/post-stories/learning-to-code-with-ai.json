@@ -1,0 +1,27 @@
+{
+  "slug": "learning-to-code-with-ai",
+  "form": "decisionPath",
+  "title": "Delegate what you can verify faster than you could write",
+  "takeaway": "Hand over the code that is in the way; write the part you are learning yourself, then ask for a critique.",
+  "sources": [
+    "Learning happens when you retrieve something with effort, not when you recognise it as correct.",
+    "Never accept code you could not have written, without first understanding why it works.",
+    "For anything you are actively trying to learn, the worse version you wrote is more valuable than the better version you accepted.",
+    "Where verification is cheap, delegate freely."
+  ],
+  "data": {
+    "question": "Can you verify the output faster than you could produce it?",
+    "branches": [
+      {
+        "answer": "Yes",
+        "then": "Boilerplate, regex, explaining code",
+        "verdict": "Delegate freely"
+      },
+      {
+        "answer": "No",
+        "then": "Checking needs the skill being built",
+        "verdict": "Write it yourself, then ask for critique"
+      }
+    ]
+  }
+}

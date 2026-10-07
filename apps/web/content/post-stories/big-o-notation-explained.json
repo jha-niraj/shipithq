@@ -1,0 +1,43 @@
+{
+  "slug": "big-o-notation-explained",
+  "form": "bars",
+  "title": "One row down the table: twenty million versus a trillion",
+  "takeaway": "Big O is about growth: at a million items, moving from O(n log n) to O(n²) is the gap between a blink and not today.",
+  "sources": [
+    "The row worth internalising is O(n log n) to O(n²).",
+    "At a million elements, that is twenty million operations versus a trillion: the difference between \"finishes while you blink\" and \"does not finish today\".",
+    "Almost every meaningful optimisation in an interview is moving between two adjacent rows of that table.",
+    "Big O notation describes how the work an algorithm does grows as its input grows."
+  ],
+  "data": {
+    "unit": "operations at n = 1,000,000",
+    "bars": [
+      {
+        "label": "O(1) constant",
+        "value": 1,
+        "note": "From the post's table at n = 1,000,000; hash map lookup"
+      },
+      {
+        "label": "O(log n) logarithmic",
+        "value": 20,
+        "note": "From the post's table at n = 1,000,000 (~20); binary search"
+      },
+      {
+        "label": "O(n) linear",
+        "value": 1000000,
+        "note": "From the post's table at n = 1,000,000; one pass over the input"
+      },
+      {
+        "label": "O(n log n) linearithmic",
+        "value": 20000000,
+        "note": "From the post's table at n = 1,000,000 (~20,000,000); comparison sorting"
+      },
+      {
+        "label": "O(n²) quadratic",
+        "value": 1000000000000,
+        "note": "From the post's table at n = 1,000,000; nested loop over the same input"
+      }
+    ],
+    "lit": "O(n²) quadratic"
+  }
+}

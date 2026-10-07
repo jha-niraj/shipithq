@@ -1,0 +1,56 @@
+{
+  "slug": "dynamic-programming-interview-guide",
+  "form": "table",
+  "title": "Coin Change to 6: greedy takes three coins, the table finds two",
+  "takeaway": "Each cell reuses smaller answers, so dp[6] finds 3 + 3 where greedy's 4 + 1 + 1 cannot.",
+  "sources": [
+    "What is hard is recognising that a problem is DP at all, and then choosing what the subproblem should be.",
+    "Greedy takes the biggest coin that fits, every time: 4, then 1, then 1.",
+    "The right answer is 3 + 3.",
+    "Write out a small table by hand before you write the loop, every time."
+  ],
+  "data": {
+    "caption": "Coins [1, 3, 4]: dp[i] is the fewest coins that make i, with dp[0] = 0",
+    "columns": [
+      "i",
+      "dp[i]",
+      "from"
+    ],
+    "rows": [
+      [
+        "1",
+        "1",
+        "dp[0]+1"
+      ],
+      [
+        "2",
+        "2",
+        "dp[1]+1"
+      ],
+      [
+        "3",
+        "1",
+        "dp[0]+1 via 3"
+      ],
+      [
+        "4",
+        "1",
+        "dp[0]+1 via 4"
+      ],
+      [
+        "5",
+        "2",
+        "dp[4]+1 via 1"
+      ],
+      [
+        "6",
+        "2",
+        "dp[3]+1 via 3"
+      ]
+    ],
+    "lit": {
+      "row": 5,
+      "col": 1
+    }
+  }
+}

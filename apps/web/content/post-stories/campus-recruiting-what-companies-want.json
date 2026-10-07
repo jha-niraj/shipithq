@@ -1,0 +1,40 @@
+{
+  "slug": "campus-recruiting-what-companies-want",
+  "form": "checklist",
+  "title": "Each round is for something different, so brief for each",
+  "takeaway": "Early rounds clear a floor and late rounds test judgement; one tip per round avoids preparing for all of them the same way.",
+  "sources": [
+    "Early rounds are about clearing a floor, quickly.",
+    "Late rounds are about judgement.",
+    "Preparing for them the same way wastes time on both.",
+    "An interviewer cannot give credit for reasoning they cannot hear."
+  ],
+  "data": {
+    "items": [
+      {
+        "item": "Online test: timed aptitude practice",
+        "ifSkipped": "Speed and accuracy decide the floor, not cleverness"
+      },
+      {
+        "item": "Coding: handle edge cases first",
+        "ifSkipped": "A clever half-solution loses to correct code on an easy problem"
+      },
+      {
+        "item": "Technical: think out loud",
+        "ifSkipped": "No credit for reasoning the interviewer cannot hear"
+      },
+      {
+        "item": "Know one project deeply",
+        "ifSkipped": "No answer to why you made the choices you made"
+      },
+      {
+        "item": "Design: name one trade-off honestly",
+        "ifSkipped": "A diagram of ten boxes is worth less than one trade-off"
+      },
+      {
+        "item": "HR: four or five real stories",
+        "ifSkipped": "The HR round gets treated as a formality"
+      }
+    ]
+  }
+}

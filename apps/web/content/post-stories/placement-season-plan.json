@@ -1,0 +1,48 @@
+{
+  "slug": "placement-season-plan",
+  "form": "timeline",
+  "title": "Run the season forward: measure first, drives last",
+  "takeaway": "Move the work to the months where it still changes the outcome, so the drives themselves are only logistics.",
+  "sources": [
+    "You cannot plan for a batch you have not measured.",
+    "By then the calendar has already decided the outcome.",
+    "Mock interviews do the most good before the season, not during it.",
+    "The months below assume a season that opens around the start of the final year."
+  ],
+  "data": {
+    "unit": "months",
+    "events": [
+      {
+        "at": "Month 1",
+        "label": "Readiness baseline",
+        "note": "one identical hour for every student, shared with heads of department"
+      },
+      {
+        "at": "Month 2",
+        "label": "Resume clinics, projects",
+        "note": "one written standard; chase students with no project"
+      },
+      {
+        "at": "Month 3",
+        "label": "Mock interviews, first pass",
+        "note": "structured, same questions for the whole batch"
+      },
+      {
+        "at": "Month 4",
+        "label": "Outreach with evidence",
+        "note": "a one-page profile per department"
+      },
+      {
+        "at": "Months 5-6",
+        "label": "Drive logistics",
+        "note": "eligibility lists, one calendar, tested labs"
+      },
+      {
+        "at": "After",
+        "label": "One page per department",
+        "note": "next year's plan starts from it"
+      }
+    ],
+    "lit": "Month 1"
+  }
+}

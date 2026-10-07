@@ -1,0 +1,40 @@
+{
+  "slug": "questions-to-ask-interviewer-software-engineer",
+  "form": "checklist",
+  "title": "The last five minutes are scored, and they are your due diligence",
+  "takeaway": "Bring two or three questions per interviewer about how the work really runs, and let the answers change your decision.",
+  "sources": [
+    "That is a scored moment, and it scores badly.",
+    "Not because it is rude, but because it tells the interviewer you are evaluating nothing.",
+    "The single highest-information question in this list.",
+    "Vagueness here is the most reliable red flag in the whole interview."
+  ],
+  "data": {
+    "items": [
+      {
+        "item": "Ask two or three questions",
+        "ifSkipped": "Saying no tells the interviewer you are evaluating nothing"
+      },
+      {
+        "item": "Ask: one-line change to production?",
+        "ifSkipped": "You miss CI, test suite health, review culture and release process in one answer"
+      },
+      {
+        "item": "Ask about on-call, every time",
+        "ifSkipped": "You miss the most reliable red flag in the interview: vagueness"
+      },
+      {
+        "item": "Ask: success in six months?",
+        "ifSkipped": "An undefined role can turn into something different from what you interviewed for"
+      },
+      {
+        "item": "Match the question to the person",
+        "ifSkipped": "Asking the wrong person is itself a small negative signal"
+      },
+      {
+        "item": "Leave compensation to the recruiter",
+        "ifSkipped": "It consumes time you could spend learning about the work"
+      }
+    ]
+  }
+}

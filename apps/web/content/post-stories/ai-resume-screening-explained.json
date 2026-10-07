@@ -1,0 +1,60 @@
+{
+  "slug": "ai-resume-screening-explained",
+  "form": "flow",
+  "title": "No AI judges your resume; a parser files it and a person searches",
+  "takeaway": "The step that costs interviews is the silent parse, so fix what the parser extracts, then stop optimising for the machine.",
+  "sources": [
+    "There is no AI reading your resume for potential.",
+    "This is the step that fails, and it fails silently.",
+    "Six to eight seconds per resume, in a list view.",
+    "The system parses and indexes; a person decides."
+  ],
+  "data": {
+    "nodes": [
+      {
+        "id": "parse",
+        "label": "Parsed into fields",
+        "note": "Two columns and odd headers lose the structure"
+      },
+      {
+        "id": "index",
+        "label": "Text indexed",
+        "note": "Searchable, keyword by keyword"
+      },
+      {
+        "id": "search",
+        "label": "Recruiter runs a search",
+        "note": "You appear in the results or you do not"
+      },
+      {
+        "id": "skim",
+        "label": "A human skims",
+        "note": "Six to eight seconds per resume, in a list view"
+      },
+      {
+        "id": "screen",
+        "label": "Recruiter and phone screens",
+        "note": "Where the outcome is actually decided"
+      }
+    ],
+    "edges": [
+      {
+        "from": "parse",
+        "to": "index"
+      },
+      {
+        "from": "index",
+        "to": "search"
+      },
+      {
+        "from": "search",
+        "to": "skim"
+      },
+      {
+        "from": "skim",
+        "to": "screen"
+      }
+    ],
+    "lit": "parse"
+  }
+}

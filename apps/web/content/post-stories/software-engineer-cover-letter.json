@@ -1,0 +1,42 @@
+{
+  "slug": "software-engineer-cover-letter",
+  "form": "annotated",
+  "title": "Four short paragraphs that say what the resume cannot",
+  "takeaway": "Hook, one proof with a number, the gap named plainly, a short close: specific, honest, and every claim checkable.",
+  "sources": [
+    "A cover letter is only worth writing when it can say something the resume structurally cannot.",
+    "Under 250 words total.",
+    "Under 200 words.",
+    "Specific, honest about the gap, and every claim is checkable."
+  ],
+  "data": {
+    "kind": "text",
+    "heading": "New graduate letter, under 200 words",
+    "lines": [
+      "Hi [Name],",
+      "I have been using [Product] since my second year of university,",
+      "and the thing that made me apply was the changelog entry about rebuilding the diff view.",
+      "The most relevant thing I have built is a self-hosted analytics tool that ingests and aggregates about two million events a day.",
+      "I have not worked full-time as an engineer yet. What I do have is eleven merged pull requests to [open source project].",
+      "Happy to talk any time. Code and resume attached."
+    ],
+    "notes": [
+      {
+        "line": 2,
+        "note": "The hook: why this company, concretely, and unfakeable at scale"
+      },
+      {
+        "line": 3,
+        "note": "Proof: one relevant thing built, with a number"
+      },
+      {
+        "line": 4,
+        "note": "The gap named in one sentence, then the mitigation"
+      },
+      {
+        "line": 5,
+        "note": "The close: short, no begging"
+      }
+    ]
+  }
+}

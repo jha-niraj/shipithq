@@ -1,0 +1,34 @@
+{
+  "slug": "software-engineer-resume-bullet-points",
+  "form": "beforeAfter",
+  "title": "From what you were responsible for to what changed",
+  "takeaway": "Action verb, what you built, how, and a measurable outcome: a bullet an interviewer can ask about is one that does work.",
+  "sources": [
+    "Action verb + what you built + how + measurable outcome.",
+    "Nobody was ever hired for being responsible for something.",
+    "The first contains none of them and cannot be asked about at all.",
+    "A bullet nobody can ask a question about is a bullet that does no work."
+  ],
+  "data": {
+    "before": {
+      "label": "Before",
+      "lines": [
+        "Responsible for improving database performance"
+      ]
+    },
+    "after": {
+      "label": "After",
+      "lines": [
+        "Cut p95 API latency from 380ms to 210ms",
+        "by adding composite indexes and a Redis cache-aside layer",
+        "for the three hottest endpoints"
+      ]
+    },
+    "change": [
+      "A verb that says what you did: Cut",
+      "Real numbers: 380ms to 210ms",
+      "Named technologies: indexes and Redis",
+      "Enough shape for a follow-up question"
+    ]
+  }
+}

@@ -16,6 +16,8 @@ import { ref, ORG_ID } from '@/lib/schema'
 import { Reveal } from '@/components/reveal'
 import { AuthorByline } from '@/components/author-byline'
 import { KeyTakeaways } from '../_components/key-takeaways'
+import { PostStory } from '@/components/blog/story/post-story'
+import { POST_STORIES } from '@/content/post-stories'
 import { FaqSection } from '../_components/faq-section'
 import { RelatedPosts } from '../_components/related-posts'
 import { PostCover } from '../_components/post-cover'
@@ -211,6 +213,13 @@ export default async function BlogPostPage({ params }: Props) {
                         </div>
                     </header>
                 </div>
+
+                {/* plan/web/story ST-14: the post's own story, first, from its own facts. */}
+                {POST_STORIES[slug] && (
+                    <div className="mx-auto mb-10 max-w-5xl px-6">
+                        <PostStory story={POST_STORIES[slug]!} category={category} />
+                    </div>
+                )}
 
                 <Reveal className="mx-auto mb-12 max-w-5xl px-6">
                     <PostCover slug={slug} title={post.title} category={category} priority />

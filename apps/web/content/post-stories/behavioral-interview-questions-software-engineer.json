@@ -1,0 +1,51 @@
+{
+  "slug": "behavioral-interview-questions-software-engineer",
+  "form": "matrix",
+  "title": "Disagreement, the most-asked question: two traps, one good shape",
+  "takeaway": "A disagreement story scores when evidence settled it and your own position moved at least partly.",
+  "sources": [
+    "The single most-asked behavioural question in engineering.",
+    "Two traps: picking a disagreement where you were obviously right and they were obviously stupid, and picking one where you simply caved.",
+    "The good version is a real technical disagreement resolved through evidence, ideally where your position shifted at least partly.",
+    "Interviewers are not scoring charisma."
+  ],
+  "data": {
+    "x": {
+      "low": "No evidence",
+      "high": "Resolved through evidence",
+      "name": "How it was settled"
+    },
+    "y": {
+      "low": "Never moved",
+      "high": "Shifted at least partly",
+      "name": "Your position"
+    },
+    "cells": [
+      {
+        "x": "low",
+        "y": "low",
+        "label": "You were obviously right",
+        "note": "Trap: they were obviously stupid and you held firm"
+      },
+      {
+        "x": "low",
+        "y": "high",
+        "label": "You simply caved",
+        "note": "Trap: your position moved, but nothing settled it"
+      },
+      {
+        "x": "high",
+        "y": "low",
+        "label": "Settled by evidence",
+        "note": "The good version, short of the ideal: your position did not shift"
+      },
+      {
+        "x": "high",
+        "y": "high",
+        "label": "Evidence, and your view shifted",
+        "note": "The good version: evidence, and your position shifted at least partly"
+      }
+    ],
+    "lit": "Evidence, and your view shifted"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "slug": "ats-resume-software-engineer",
+  "form": "funnel",
+  "title": "30 applications, two replies, and no robot said no",
+  "takeaway": "You are rarely rejected by a robot; a resume that parses badly or misses the recruiter's search terms is simply never surfaced.",
+  "sources": [
+    "You heard back from two.",
+    "The other 28 never even had a human read your application.",
+    "This parsing process is where most resumes fail.",
+    "You are rarely rejected by a robot.",
+    "The critical insight: your resume must be readable by a machine before a human ever sees it."
+  ],
+  "data": {
+    "stages": [
+      {
+        "label": "Submitted",
+        "count": 30,
+        "note": "4 hours of writing, tailored to the job description"
+      },
+      {
+        "label": "Parsed into structured data",
+        "note": "Columns, tables and graphics confuse the parser"
+      },
+      {
+        "label": "Surfaced by the recruiter's search",
+        "note": "Missing the exact terms typed means never surfaced"
+      },
+      {
+        "label": "Heard back",
+        "count": 2,
+        "note": "The other 28 never had a human read them"
+      }
+    ],
+    "lit": "Parsed into structured data"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "slug": "software-engineering-portfolio-guide",
+  "form": "annotated",
+  "title": "A project README that reads as an engineer, not a tutorial-follower",
+  "takeaway": "Anyone can list a stack; the live link, the architecture decisions and what you learned are what a recruiter reads as proof of work.",
+  "sources": [
+    "The mental model is simple: your portfolio is a proof-of-work system.",
+    "The architecture decisions section is what separates a junior portfolio from a mid-level one.",
+    "Anyone can list a stack.",
+    "A project that cannot be seen running is not a portfolio, it is homework."
+  ],
+  "data": {
+    "kind": "code",
+    "heading": "README.md, condensed from the post's skeleton",
+    "lines": [
+      "# Splitwise-for-Trips",
+      "Splits shared holiday expenses in the fewest possible transfers.",
+      "Live demo | API docs",
+      "## Stack",
+      "## Architecture decisions",
+      "Chose Postgres over MongoDB: a genuinely relational shape.",
+      "## Run it locally",
+      "## What I learned",
+      "The naive settlement algorithm was unusably slow above nine people."
+    ],
+    "notes": [
+      {
+        "line": 1,
+        "note": "What it does: one sentence, no jargon"
+      },
+      {
+        "line": 2,
+        "note": "If it is not live, it does not count"
+      },
+      {
+        "line": 5,
+        "note": "A trade-off you made, with the alternative named"
+      },
+      {
+        "line": 8,
+        "note": "One you got wrong signals intellectual honesty"
+      }
+    ]
+  }
+}

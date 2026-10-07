@@ -1,0 +1,51 @@
+{
+  "slug": "ai-tools-developers-2025",
+  "form": "matrix",
+  "title": "One tool per kind of task, not one tool for everything",
+  "takeaway": "Copilot for boilerplate, Perplexity for anything current, and Claude or o1/o3 when the problem is genuinely hard.",
+  "sources": [
+    "The mistake most developers make is using one tool for everything.",
+    "Treat Copilot as a fast typist, not a smart architect.",
+    "For research and factual questions, Perplexity is often better than any other tool.",
+    "Use GPT-4o for everyday coding help, Perplexity for research, and o1/o3 when you have a genuinely hard problem where you need confident accuracy over speed."
+  ],
+  "data": {
+    "x": {
+      "low": "Routine",
+      "high": "Genuinely hard",
+      "name": "How hard the problem is"
+    },
+    "y": {
+      "low": "No",
+      "high": "Yes",
+      "name": "Needs current information"
+    },
+    "cells": [
+      {
+        "x": "low",
+        "y": "low",
+        "label": "Copilot or Cursor",
+        "note": "Boilerplate and autocomplete: a fast typist"
+      },
+      {
+        "x": "high",
+        "y": "low",
+        "label": "Claude or ChatGPT o1/o3",
+        "note": "Architecture, review, multi-step debugging"
+      },
+      {
+        "x": "low",
+        "y": "high",
+        "label": "Perplexity",
+        "note": "Searches the web in real time and cites sources"
+      },
+      {
+        "x": "high",
+        "y": "high",
+        "label": "Perplexity, then Claude",
+        "note": "Research the current state first, then implement"
+      }
+    ],
+    "lit": "Claude or ChatGPT o1/o3"
+  }
+}

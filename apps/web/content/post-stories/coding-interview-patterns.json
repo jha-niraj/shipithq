@@ -1,0 +1,46 @@
+{
+  "slug": "coding-interview-patterns",
+  "form": "patternMap",
+  "title": "Name the pattern from the signal in the question",
+  "takeaway": "Each problem is one of about fifteen patterns, and a word in the question tells you which.",
+  "sources": [
+    "Most coding interview problems are the same fifteen or so problems wearing different clothes.",
+    "The word contiguous is the signal.",
+    "A useful test: after solving a problem, close it and write down the pattern name and the trigger in one sentence.",
+    "Patterns solve exactly one problem: the blank page at minute one of a coding interview."
+  ],
+  "data": {
+    "pairs": [
+      {
+        "signal": "sorted array, find a pair",
+        "pattern": "two pointers",
+        "example": "Container With Most Water"
+      },
+      {
+        "signal": "contiguous subarray, longest or shortest",
+        "pattern": "sliding window",
+        "example": "Minimum Window Substring"
+      },
+      {
+        "signal": "have I seen this, count, group",
+        "pattern": "hash map",
+        "example": "Group Anagrams"
+      },
+      {
+        "signal": "a monotonic yes/no answer",
+        "pattern": "binary search",
+        "example": "Koko Eating Bananas"
+      },
+      {
+        "signal": "every valid arrangement",
+        "pattern": "backtracking",
+        "example": "Subsets"
+      },
+      {
+        "signal": "how many ways, min or max cost",
+        "pattern": "dynamic programming",
+        "example": "Coin Change"
+      }
+    ]
+  }
+}

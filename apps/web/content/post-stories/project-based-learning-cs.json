@@ -1,0 +1,37 @@
+{
+  "slug": "project-based-learning-cs",
+  "form": "beforeAfter",
+  "title": "The same coursework project, assigned for the interview it will face",
+  "takeaway": "Scope, checkpoints and a rubric weighted to decisions and the viva turn a mini project into something a student can defend.",
+  "sources": [
+    "The difference between a project that helps in placements and one that does not is almost entirely in how it is assigned and assessed.",
+    "A project brief of \"build an e-commerce platform\" produces a folder of half-finished pages and a student who cannot explain any of them.",
+    "The decision log is the most valuable artefact in the list.",
+    "Most of the marks sit in the decision log and the viva, which are the parts that cannot be copied."
+  ],
+  "data": {
+    "before": {
+      "label": "Assigned for output",
+      "lines": [
+        "Brief: build an e-commerce platform",
+        "One end-of-semester deadline",
+        "Marks for features and interface polish",
+        "Result: half-finished pages, no story"
+      ]
+    },
+    "after": {
+      "label": "Assigned for the interview",
+      "lines": [
+        "One core feature with a real constraint",
+        "Proposal, core, hardening, decision log, viva",
+        "Decisions 30%, viva 30% of the marks",
+        "Result: a working link and a decision log"
+      ]
+    },
+    "change": [
+      "Scope shrinks to what can be finished and deployed",
+      "Checkpoints replace one panicked week",
+      "Marks move to the parts that cannot be copied"
+    ]
+  }
+}

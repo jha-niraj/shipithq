@@ -1,0 +1,34 @@
+{
+  "slug": "hiring-junior-engineers-without-resume-filter",
+  "form": "funnel",
+  "title": "Screen juniors on what they can do, not on their resume",
+  "takeaway": "Replace the resume filter with one short, identical, auto-scored round, then judge projects by the decisions behind them.",
+  "sources": [
+    "The result is a funnel that looks rigorous and selects for background.",
+    "Instead of reading 400 resumes, send every applicant the same short first round:",
+    "For the candidates who clear the first round, projects are the best evidence a junior has.",
+    "A process that takes a month loses the best of them to the one that takes a week."
+  ],
+  "data": {
+    "stages": [
+      {
+        "label": "Every applicant, no resume filter",
+        "count": 400,
+        "note": "the same 20 to 30 minute round, auto-scored"
+      },
+      {
+        "label": "Cleared the pass mark",
+        "note": "set as a floor, not an ideal"
+      },
+      {
+        "label": "Project conversation",
+        "note": "ten minutes on decisions, not features"
+      },
+      {
+        "label": "Offer within a week",
+        "note": "four rounds, same loop for everyone"
+      }
+    ],
+    "lit": "Every applicant, no resume filter"
+  }
+}

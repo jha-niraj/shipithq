@@ -1,0 +1,37 @@
+{
+  "slug": "open-source-for-your-resume",
+  "form": "beforeAfter",
+  "title": "Merged, numbered and specific, or it does not count",
+  "takeaway": "An open source entry is worth listing only when a reader who clicks the link finds merged work and a named failure.",
+  "sources": [
+    "A merged pull request is one of the few claims on a resume that a hiring manager can verify in thirty seconds.",
+    "Only list merged work.",
+    "It is a link, it is verifiable, and including it signals you expect to be checked.",
+    "Not \"fixed a bug\" - the specific failure."
+  ],
+  "data": {
+    "before": {
+      "label": "An unmerged, vague claim",
+      "lines": [
+        "Contributed to open source",
+        "Fixed a bug",
+        "(an unmerged or still-open PR behind it)"
+      ]
+    },
+    "after": {
+      "label": "A merged, checkable entry",
+      "lines": [
+        "<project> (12k stars) - merged PR #4821",
+        "Fixed a race condition in cache",
+        "invalidation that returned stale reads",
+        "under concurrent writes; added a",
+        "regression test that reproduced it."
+      ]
+    },
+    "change": [
+      "Only merged work is listed",
+      "The PR number makes it verifiable",
+      "The specific failure, not \"fixed a bug\""
+    ]
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "slug": "full-stack-developer-roadmap",
+  "form": "layers",
+  "title": "One of each, built up in order, then ship it",
+  "takeaway": "One frontend framework, one backend runtime, one database, shipped, beats a little of six stacks.",
+  "sources": [
+    "One frontend framework.",
+    "Ship something with those before adding anything.",
+    "Depth in one stack beats familiarity with six, and it is not close.",
+    "Skipping this is the most expensive mistake in the entire roadmap.",
+    "You are not a full stack developer until something you built is running somewhere other than your laptop."
+  ],
+  "data": {
+    "layers": [
+      {
+        "name": "Fundamentals, 6-10 weeks",
+        "items": [
+          "HTML",
+          "CSS before Tailwind",
+          "JavaScript, where the time goes",
+          "Git"
+        ]
+      },
+      {
+        "name": "Frontend, 8-12 weeks",
+        "items": [
+          "Pick React",
+          "Then TypeScript",
+          "Then Next.js or Remix",
+          "Ignore: Redux for now"
+        ]
+      },
+      {
+        "name": "Backend, 10-14 weeks",
+        "items": [
+          "Node with Express",
+          "HTTP properly",
+          "REST API design",
+          "Auth, validation, background jobs"
+        ]
+      },
+      {
+        "name": "Databases, 4-6 weeks",
+        "items": [
+          "Start with PostgreSQL",
+          "Raw SQL, joins, indexes",
+          "Then an ORM",
+          "NoSQL later"
+        ]
+      },
+      {
+        "name": "Shipping, 4-6 weeks",
+        "items": [
+          "Deploy to one host",
+          "Docker basics only",
+          "CI on every push",
+          "Monitoring"
+        ]
+      }
+    ]
+  }
+}

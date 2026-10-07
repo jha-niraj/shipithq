@@ -1,0 +1,40 @@
+{
+  "slug": "technical-phone-screen-guide",
+  "form": "sum",
+  "title": "A 45-minute screen leaves twenty-five minutes to code",
+  "takeaway": "The compression is the difficulty: clarify fast, narrate the whole time, and test before you say done.",
+  "sources": [
+    "It is usually 45 minutes, usually one problem, usually with someone who has your resume open and four other screens booked that day.",
+    "Twenty-five minutes of coding is not long, and it is why the first five minutes matter disproportionately: five minutes spent clarifying is fine, five minutes spent silently reading is a quarter of your coding time gone.",
+    "So the rule for this round specifically is: narrate more than feels natural."
+  ],
+  "data": {
+    "unit": "minutes",
+    "budget": 45,
+    "lines": [
+      {
+        "what": "Introductions and background",
+        "amount": 5
+      },
+      {
+        "what": "Problem given, you ask questions",
+        "amount": 5,
+        "note": "Clarifying is fine; silent reading eats coding time"
+      },
+      {
+        "what": "You solve it, talking",
+        "amount": 25,
+        "note": "Narrate every decision and every long pause"
+      },
+      {
+        "what": "Complexity, edge cases, follow-up",
+        "amount": 5
+      },
+      {
+        "what": "Your questions for them",
+        "amount": 5,
+        "note": "Have two, about the work"
+      }
+    ]
+  }
+}

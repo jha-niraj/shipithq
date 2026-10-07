@@ -1,0 +1,38 @@
+{
+  "slug": "system-design-interview-prep",
+  "form": "timeline",
+  "title": "Fundamentals first, then most of the time on practice",
+  "takeaway": "Reading is not practising; six weeks build the concepts and the final six are repetition and feedback out loud.",
+  "sources": [
+    "The most common mistake developers make is reading about system design without practicing it.",
+    "Build the fundamentals first.",
+    "The final phase is the most important: repetition and feedback.",
+    "System design cannot be crammed."
+  ],
+  "data": {
+    "unit": "weeks",
+    "events": [
+      {
+        "at": "1-2",
+        "label": "Foundational concepts",
+        "note": "Scaling, load balancing, caching, databases"
+      },
+      {
+        "at": "3-4",
+        "label": "Core design patterns",
+        "note": "Rate limiter, URL shortener, news feed, notifications"
+      },
+      {
+        "at": "5-6",
+        "label": "Deep dives",
+        "note": "Databases, caching, queues, consistency"
+      },
+      {
+        "at": "7-12",
+        "label": "Practice problems and mocks",
+        "note": "45 minutes alone per problem, then explain it out loud"
+      }
+    ],
+    "lit": "7-12"
+  }
+}

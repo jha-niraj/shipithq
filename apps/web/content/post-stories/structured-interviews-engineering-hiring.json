@@ -1,0 +1,43 @@
+{
+  "slug": "structured-interviews-engineering-hiring",
+  "form": "annotated",
+  "title": "Same question, same rubric, scores written before anyone talks",
+  "takeaway": "When every candidate answers the same question against the same anchors, the scores measure the candidates, not the conversations.",
+  "sources": [
+    "When the questions differ, the scores measure the conversations.",
+    "Score each answer on a small scale, 1 to 4 works well because it removes the easy middle.",
+    "Collect every interviewer's scores before anyone speaks.",
+    "Structure constrains what you ask and how you judge, not how you behave."
+  ],
+  "data": {
+    "kind": "text",
+    "heading": "One past-behaviour question, scored",
+    "lines": [
+      "Q: Tell me about a time you had to ship with a known bug.",
+      "What did you decide and why?",
+      "Fixed follow-up: What would you do differently?",
+      "Strong: names the trade-off, gives the reason, checked the outcome",
+      "Acceptable: a reasonable decision, but not the reasoning",
+      "Weak: no concrete example, or blames others",
+      "Score 1 to 4, recorded before the debrief"
+    ],
+    "notes": [
+      {
+        "line": 0,
+        "note": "The same question for every candidate for the role, in the same order"
+      },
+      {
+        "line": 2,
+        "note": "Follow-ups are allowed but fixed too"
+      },
+      {
+        "line": 3,
+        "note": "Anchors written before any interview, in observable terms"
+      },
+      {
+        "line": 6,
+        "note": "Independent scores; 1 to 4 removes the easy middle"
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "slug": "software-engineer-career-path",
+  "form": "ladder",
+  "title": "Levels track scope of ownership, not years",
+  "takeaway": "Each rung is a bigger problem with more ambiguity absorbed, and you do the next rung's work before you get its title.",
+  "sources": [
+    "Levels are about scope of ownership.",
+    "Promotion to senior does not come from doing mid-level work faster or more elegantly.",
+    "You operate at the next level first. Then you get the title.",
+    "Levels track scope, not tenure."
+  ],
+  "data": {
+    "rungs": [
+      {
+        "level": "L1 Intern / Junior",
+        "does": "A task: you get told what to do",
+        "signal": "Finishes things, asks for help in time"
+      },
+      {
+        "level": "L2 Software Engineer",
+        "does": "A feature: you fill in the details",
+        "signal": "Ships a feature without being tracked"
+      },
+      {
+        "level": "L3 Senior Engineer",
+        "does": "A project: you define the plan",
+        "signal": "Vague problem in, a plan in a week"
+      },
+      {
+        "level": "L4 Staff Engineer",
+        "does": "Multiple teams: you find the problem",
+        "signal": "Impact across teams, not more code"
+      },
+      {
+        "level": "L5 Principal",
+        "does": "An organisation: what problems matter",
+        "signal": "Decides what problems matter"
+      }
+    ]
+  }
+}

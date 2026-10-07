@@ -1,0 +1,46 @@
+{
+  "slug": "how-to-approach-coding-interview-problems",
+  "form": "dialogue",
+  "title": "The first five minutes, out loud, before any code",
+  "takeaway": "Restate, work an example, state the brute force, name the waste, propose and check: that is the part being scored.",
+  "sources": [
+    "Steps 1 to 6 take five minutes and are the part being scored.",
+    "This is the step people skip, and it is the highest-value one.",
+    "This sentence is the hinge of the entire interview.",
+    "Every optimisation is the removal of a specific waste, and naming it is what turns \"I remembered the answer\" into \"I derived the answer\"."
+  ],
+  "data": {
+    "turns": [
+      {
+        "who": "interviewer",
+        "text": "Given an array of integers and a target, return the indices of the two numbers that add to the target.",
+        "note": "Left underspecified on purpose"
+      },
+      {
+        "who": "candidate",
+        "text": "So I am given an array of integers and a target, and I need to return the indices of the two numbers that add to the target. Is that right?",
+        "note": "Restating catches a misunderstanding while it is still free"
+      },
+      {
+        "who": "candidate",
+        "text": "nums = [2, 7, 11, 15], target = 9. 2 + 7 = 9, so indices 0 and 1.",
+        "note": "One example by hand: the step people skip"
+      },
+      {
+        "who": "candidate",
+        "text": "The brute force is a nested loop over every pair, which is O(n²) time and O(1) space.",
+        "note": "A correct baseline before a clever one"
+      },
+      {
+        "who": "candidate",
+        "text": "The inner loop searches for target - nums[i] every time. That search is the expensive part.",
+        "note": "Naming the waste: the hinge of the interview"
+      },
+      {
+        "who": "candidate",
+        "text": "I would store each value and its index in a hash map as I go. That is O(n) time and O(n) space. Does that sound reasonable to start with?",
+        "note": "Propose, then check before writing code"
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "slug": "mock-technical-interview-guide",
+  "form": "dialogue",
+  "title": "Talking through the maximum subarray instead of going quiet",
+  "takeaway": "Interviewers cannot evaluate a candidate who does not talk; restate, clarify, agree the approach, ask when stuck, then trace.",
+  "sources": [
+    "Most candidates fail communication, not problem-solving.",
+    "They go quiet and code.",
+    "Do not start coding without buy-in.",
+    "Getting a hint does not disqualify you - staying silent for 10 minutes does."
+  ],
+  "data": {
+    "turns": [
+      {
+        "who": "candidate",
+        "text": "So to make sure I understand - I need to find the maximum sum subarray. Is that right?",
+        "note": "Restating lets the interviewer correct you early"
+      },
+      {
+        "who": "candidate",
+        "text": "Can the array be empty? What should I return in that case?",
+        "note": "Clarifying questions earn credit for edge cases"
+      },
+      {
+        "who": "candidate",
+        "text": "Brute force is O(n²). I think dynamic programming gives O(n) time. Does that approach make sense before I code it?",
+        "note": "State the approach and wait for confirmation"
+      },
+      {
+        "who": "candidate",
+        "text": "I am a little stuck on this part. Can I talk through what I am thinking?",
+        "note": "Interviewers almost always give hints when asked"
+      },
+      {
+        "who": "candidate",
+        "text": "Let me trace through with [−2, 1, −3, 4, −1, 2, 1, −5, 4].",
+        "note": "Catching your own bugs beats having them pointed out"
+      }
+    ]
+  }
+}
