@@ -9,6 +9,7 @@ import { pageMeta } from '@/lib/seo'
 import { breadcrumbSchema, webPageSchema, faqSchema, jsonLd } from '@/lib/schema'
 import { FaqAccordion } from '@/components/faq-accordion'
 import { COMPARISONS, COMPARISON_SLUGS, getComparison, SOURCING_NOTE } from '../_components/comparisons'
+import { TwoWays } from '@/components/compare/two-ways'
 
 /**
  * One comparison page per alternative.
@@ -127,6 +128,8 @@ export default async function ComparePage({ params }: Props) {
                         ))}
                     </div>
                 </Reveal>
+
+                <TwoWays c={c} />
 
                 <Reveal as="section" className="mt-16 border-t border-neutral-200 pt-16 dark:border-neutral-800">
                     <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white sm:text-3xl">

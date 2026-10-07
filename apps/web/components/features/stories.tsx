@@ -84,7 +84,7 @@ const PRACTICE: Story = {
                             </div>
                             <div className="rounded-lg border border-neutral-200 p-3">
                                 <p className="flex items-center justify-between text-[13.5px] font-semibold text-neutral-900">On your own <span className="rounded bg-neutral-100 px-1.5 text-[10.5px] font-medium text-neutral-700">Free</span></p>
-                                <p className="mt-1 text-[12.5px] leading-5 text-neutral-700">The editor, the tests and the hints, no mentor.</p>
+                                <p className="mt-1 text-[12.5px] leading-5 text-neutral-700">No mentor, like a real interview. Your work is tested and reviewed when you submit.</p>
                             </div>
                         </div>
                     </Box>

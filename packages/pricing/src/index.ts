@@ -49,6 +49,12 @@ export const SIGNUP_GRANT_CREDITS = 100;
 const baseRateINR = 0.5; // Price per credit in INR
 const baseRateUSD = 0.006; // Price per credit in USD
 
+/**
+ * Highlights are the same four lines on every pack (plan/web/story ST-10, 2026-10-07): a pack is
+ * only credits, so it unlocks no feature. "Everything in Pro", "Priority generation queue" and
+ * "Unlimited resume tailoring" were removed as untrue (tailoring is 20 credits each time). The
+ * prices themselves are test values until ST-12.
+ */
 export const creditPackages: CreditPackage[] = [
 	{
 		slug: "free",
@@ -62,8 +68,9 @@ export const creditPackages: CreditPackage[] = [
 		badge: "Free",
 		highlights: [
 			"20 credits to spend anywhere on the platform",
-			"AI project ideas and feedback",
-			"Community access",
+			"Credits never expire",
+			"Refunded if an AI operation fails",
+			"The same per-operation prices as every pack",
 		],
 		color: "from-neutral-900/80 to-neutral-800/80",
 	},
@@ -79,8 +86,9 @@ export const creditPackages: CreditPackage[] = [
 		badge: "Starter",
 		highlights: [
 			"25 credits to spend anywhere on the platform",
-			"AI project ideas and feedback",
-			"Pathfinder skill assessments",
+			"Credits never expire",
+			"Refunded if an AI operation fails",
+			"The same per-operation prices as every pack",
 		],
 		color: "from-neutral-900/80 to-neutral-800/80",
 	},
@@ -96,9 +104,9 @@ export const creditPackages: CreditPackage[] = [
 		badge: "Most Popular",
 		highlights: [
 			"50 credits to spend anywhere on the platform",
-			"Everything in Starter",
-			"Full project generation runs",
-			"Priority generation queue",
+			"Credits never expire",
+			"Refunded if an AI operation fails",
+			"The same per-operation prices as every pack",
 		],
 		color: "from-neutral-900/80 to-neutral-800/80",
 	},
@@ -114,8 +122,9 @@ export const creditPackages: CreditPackage[] = [
 		badge: "Pro",
 		highlights: [
 			"75 credits to spend anywhere on the platform",
-			"Everything in Most Popular",
-			"Unlimited resume tailoring",
+			"Credits never expire",
+			"Refunded if an AI operation fails",
+			"The same per-operation prices as every pack",
 		],
 		color: "from-neutral-900/80 to-neutral-800/80",
 	},
@@ -131,8 +140,9 @@ export const creditPackages: CreditPackage[] = [
 		badge: "Max",
 		highlights: [
 			"100 credits to spend anywhere on the platform",
-			"Everything in Pro",
-			"Best price per credit",
+			"Credits never expire",
+			"Refunded if an AI operation fails",
+			"The same per-operation prices as every pack",
 		],
 		color: "from-neutral-900/80 to-red-500/80",
 	},

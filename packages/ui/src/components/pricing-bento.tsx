@@ -66,9 +66,14 @@ interface PricingCardProps {
     hrefFor?: (pkg: CreditPackage) => string;
     /** Position in the row, used only to stagger the entrance. */
     index?: number;
+    /**
+     * Show this currency's price too, under the first, with its own checkout link
+     * (apps/web /pricing, plan/web/story ST-10: both prices at once instead of a toggle).
+     */
+    second?: { currency: Currency; hrefFor: (pkg: CreditPackage) => string };
 }
 
-function PricingCard({ pkg, currency, className, onSelect, hrefFor, index = 0 }: PricingCardProps) {
+function PricingCard({ pkg, currency, className, onSelect, hrefFor, index = 0, second }: PricingCardProps) {
     // Honour the OS setting rather than animating regardless. `reduce` skips the
     // entrance and the hover lift both - a card that jumps under the cursor is
     // exactly the motion this setting exists to turn off.
@@ -114,7 +119,9 @@ function PricingCard({ pkg, currency, className, onSelect, hrefFor, index = 0 }:
                 </Badge>
                 <Badge variant="outline" className="ml-auto text-xs">
                     <Zap className="mr-1 size-3 text-neutral-900 dark:text-white" />
-                    <CountUp value={pkg.credits} /> Credits
+                    <CountUp value={pkg.credits} />
+                    {/* A margin, not a space: the badge is a flex row, which drops edge whitespace. */}
+                    <span className="ml-1">Credits</span>
                 </Badge>
             </div>
 
@@ -132,6 +139,16 @@ function PricingCard({ pkg, currency, className, onSelect, hrefFor, index = 0 }:
                     </span>
                 )}
             </div>
+
+            {second && (
+                <p className="flex flex-wrap items-baseline gap-x-2 px-5 pb-1 text-sm text-neutral-700 dark:text-neutral-300">
+                    <span className="font-mono font-semibold text-neutral-900 dark:text-white">{formatPrice(packagePrice(pkg, second.currency), second.currency)}</span>
+                    <span>in {second.currency}</span>
+                    <a href={second.hrefFor(pkg)} className="font-medium text-neutral-900 underline underline-offset-2 hover:no-underline dark:text-white">
+                        Pay in {second.currency}
+                    </a>
+                </p>
+            )}
 
             {savings !== null && (
                 <p className="px-5 pb-1 text-sm font-medium text-neutral-900 dark:text-white">
@@ -206,6 +223,8 @@ export interface PricingBentoProps {
     onRequestFreeCredits?: () => void;
     /** Where "Claim Free Credits" points when no handler is supplied. */
     freeCreditsHref?: string;
+    /** Each card also shows this currency's price and link (see PricingCard). */
+    second?: { currency: Currency; hrefFor: (pkg: CreditPackage) => string };
 }
 
 export function PricingBento({
@@ -215,6 +234,7 @@ export function PricingBento({
     showFreeCredits = true,
     onRequestFreeCredits,
     freeCreditsHref = '/purchase',
+    second,
 }: PricingBentoProps) {
     if (creditPackages.length === 0) return null;
 
@@ -236,6 +256,7 @@ export function PricingBento({
                     }
                     onSelect={onSelect}
                     hrefFor={hrefFor}
+                    second={second}
                 />
             ))}
 

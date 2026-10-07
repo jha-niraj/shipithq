@@ -219,10 +219,38 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
 - **Done when:** /hire has no tabs or toggles in an explaining section, its story steps correctly at
   1440px and nothing clips at 390px (headless), no console errors, title and JSON-LD unchanged.
 
-### - [ ] ST-10 Changelog, compare, pricing, blog
-- **Steps:** each release as a story (before, now, where to find it); each compare page opens with the
-  same job done both ways, counted; pricing gets a worked Sum; posts open with a short story from the
-  post's own facts. Planned in detail when Round 2 ships.
+### - [x] ST-10 Pricing and compare
+- **Status:** done 2026-10-07.
+  - `/pricing`: no currency toggle. `PricingBento` (packages/ui) gained `second`: each card shows INR
+    and, under it, USD with its own "Pay in USD" checkout link; apps/main /purchase passes none.
+  - A worked sum (`Sum` in components/story/kit.tsx, total computed, never typed): one week on the
+    free 100 credits = mentor problem 5, ATS score 5, tailoring 20, cover letter 15, sprint quiz 25,
+    sprint mock 30 = 100, each from apps/main/lib/credits/pricing.ts (practice_set, resume_ats_score,
+    resume_tailor_jd, cover_letter_generate, sprint_quiz, sprint_mock).
+  - Truth fixes: every pack's highlights in packages/pricing claimed tiers ("Everything in Pro"), a
+    "Priority generation queue" and "Unlimited resume tailoring", none of which exist (a pack is only
+    credits; tailoring is 20 each time). All packs now say the same four true lines (refund on failure
+    verified in apps/main/lib/credits/charge.ts). Shown on apps/main /purchase too.
+  - `/compare/[competitor]`: `TwoWays` (components/compare/two-ways.tsx) after "What X is genuinely good
+    at" (not at the very top: the page's own rule is that opening on the other product's gaps reads as
+    an advert). Each row is a step; `gap` ('ours' | 'theirs') and `step: false` are explicit data on 34
+    rows in comparisons.ts, set by reading each cell; our own gaps show too (no human review, no
+    credential, no videos, no tutor, no cohort accountability or career services, no learning by
+    interviewing). No score.
+  - Fixed on the way: the pack badge's "20Credits" (a flex row drops edge whitespace) and the Practice
+    story's "On your own" text, now the app's own.
+  - Checked headless: /pricing and three compare pages at 1440px (no sideways scroll, no console errors)
+    and 390px (nothing clipped); all ten compare pages draw their lanes; web and main tsc clean.
+- **Decisions (Niraj, 2026-10-07, AskUserQuestion):** this round is pricing and compare; the changelog
+  and blog stories wait until after launch. Pack prices show as packages/pricing says (ST-12 sets them).
+- **Steps:**
+  1. `/pricing`: the currency toggle goes, INR and USD both shown; a worked sum, in credits, of what
+     the signup credits buy, from the app's prices (so it holds when ST-12 changes money amounts).
+  2. `/compare/[competitor]`: each page opens with the same job done both ways, counted, from facts
+     already sourced on the page.
+- **Done when:** no toggle on /pricing; every number in the sum traces to apps/main pricing; each
+  compare page opens with its two-ways drawing; 1440px and 390px headless; no console errors; titles
+  and JSON-LD unchanged.
 
 ### - [ ] ST-11 Verify
 - **Done when:** every public URL returns 200, a crawl of internal links and assets finds none broken,

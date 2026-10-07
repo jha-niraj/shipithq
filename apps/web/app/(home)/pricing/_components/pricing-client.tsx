@@ -1,7 +1,6 @@
 "use client"
 
 import { SIGNUP_GRANT_CREDITS } from "@repo/pricing"
-import { useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowRight, Lock, Infinity as Infit, Server, Sparkles } from "lucide-react"
@@ -11,6 +10,7 @@ import { PageHero } from "@/components/page-hero"
 import FaqsAccrodian from "@/components/landingpage/faqs"
 import { pricingFaqs } from "./pricing-faqs"
 import { APP_LINKS, APP_URL } from "@/lib/site"
+import { Sum } from "@/components/story/kit"
 
 const valueProps = [
 	{ icon: Infit, title: "Credits never expire", desc: "Buy once, spend whenever. Your balance is yours forever." },
@@ -20,9 +20,22 @@ const valueProps = [
 	{ icon: Server, title: "Credits land at once", desc: "As soon as the payment is verified, the credits are in your balance." },
 ]
 
-export default function PricingClient() {
-	const [currency, setCurrency] = useState<"INR" | "USD">("INR")
+/**
+ * What the signup credits buy (plan/web/story ST-10), in credits so it holds when the pack
+ * prices change (ST-12). Each amount is apps/main/lib/credits/pricing.ts: practice_set (the
+ * mentor, once per problem), resume_ats_score, resume_tailor_jd, cover_letter_generate,
+ * sprint_quiz, sprint_mock. Change them there first, then here.
+ */
+const FREE_WEEK = [
+	{ what: "One problem with the mentor", amount: 5, note: "Two Sum, step by step; on your own it is free" },
+	{ what: "An ATS score for your resume", amount: 5 },
+	{ what: "Your resume tailored to one job", amount: 20 },
+	{ what: "A cover letter for that job", amount: 15 },
+	{ what: "A sprint quiz on your project", amount: 25, note: "Seeded projects are free to start; retakes are free" },
+	{ what: "A sprint mock interview", amount: 30, note: "About ten minutes, typed or spoken" },
+]
 
+export default function PricingClient() {
 	return (
 		<main className="bg-white dark:bg-neutral-950">
 			{/* ── Hero ─────────────────────────────────────────────────────────── */}
@@ -45,36 +58,33 @@ export default function PricingClient() {
 				]}
 			/>
 
-			{/* The currency toggle moved out of the header and above the cards it
-			    actually controls. In the header it was a control sitting a screen away
-			    from the prices it changed. */}
-			<div className="mx-auto flex w-fit items-center gap-4 rounded-full border border-neutral-200 bg-neutral-100/80 py-2 pl-4 pr-2 mt-10 dark:border-neutral-800 dark:bg-neutral-900">
-				<span className={`font-mono text-sm font-bold transition-colors ${currency === "INR" ? "text-neutral-900 dark:text-white" : "text-neutral-600 dark:text-neutral-400"}`}>
-					INR
-				</span>
-				<button
-					onClick={() => setCurrency(currency === "INR" ? "USD" : "INR")}
-					className="relative h-6 w-12 cursor-pointer rounded-full bg-neutral-900 transition-colors dark:bg-white"
-					aria-label="Toggle currency"
-				>
-					<span
-						className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all dark:bg-neutral-900 ${currency === "USD" ? "left-6" : "left-0.5"}`}
-					/>
-				</button>
-				<span className={`font-mono text-sm font-bold transition-colors ${currency === "USD" ? "text-neutral-900 dark:text-white" : "text-neutral-600 dark:text-neutral-400"}`}>
-					USD
-				</span>
-			</div>
-
 			{/* ── Pricing cards ────────────────────────────────────────────────── */}
 			<section className="relative border-t border-neutral-100 py-20 dark:border-neutral-800">
 				<div className="mx-auto max-w-7xl px-6">
+					{/* No currency toggle (plan/web/story ST-10): each card shows INR and USD, each with
+					    its own checkout link. */}
 					<PricingBento
-						currency={currency}
-						hrefFor={(pkg) => checkoutUrl(APP_URL, pkg, currency)}
+						currency="INR"
+						hrefFor={(pkg) => checkoutUrl(APP_URL, pkg, "INR")}
+						second={{ currency: "USD", hrefFor: (pkg) => checkoutUrl(APP_URL, pkg, "USD") }}
 						showFreeCredits
 						freeCreditsHref={`${APP_URL}/purchase`}
 					/>
+				</div>
+			</section>
+
+			{/* ── What the free credits buy: a worked sum ── */}
+			<section className="border-t border-neutral-100 py-16">
+				<div className="mx-auto grid max-w-5xl grid-cols-[minmax(0,1fr)] items-start gap-8 px-6 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+					<div>
+						<p className="font-mono text-[11px] uppercase tracking-[0.14em] text-neutral-600">Worked out</p>
+						<h2 className="mt-3 text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl">What {SIGNUP_GRANT_CREDITS} free credits buy</h2>
+						<p className="mt-4 text-[15px] leading-relaxed text-neutral-700">
+							One week, priced the way the app charges it. Reading incident cases, practising on your own and
+							retaking a sprint quiz cost nothing, so they are not on the bill.
+						</p>
+					</div>
+					<Sum label={`One week on the free ${SIGNUP_GRANT_CREDITS} credits`} lines={FREE_WEEK} budget={SIGNUP_GRANT_CREDITS} />
 				</div>
 			</section>
 

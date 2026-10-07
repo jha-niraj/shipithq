@@ -45,6 +45,13 @@
 export interface ComparisonRow {
     /** What is being compared. Phrase as a question a reader actually has. */
     dimension: string
+    /**
+     * Which side does NOT cover this, in that side's own words in the cell (plan/web/story ST-10,
+     * drawn by components/compare/two-ways.tsx). Absent: both cover it, however partly.
+     */
+    gap?: 'ours' | 'theirs'
+    /** False for rows that are not part of preparing (cost, timescale, scheduling): left out of the drawing. */
+    step?: false
     /** ShipItHQ's answer. */
     ours: string
     /** The alternative's answer, or how the category works. */
@@ -156,35 +163,35 @@ export const COMPARISONS: readonly Comparison[] = [
                 learnMore: { label: 'Practice', href: '/features/practice' },
             },
             {
-                dimension: 'A project you can be interviewed about',
+                dimension: 'A project you can be interviewed about', gap: 'theirs',
                 ours: 'Generated briefs, then a quiz and a mock interview written from your own build',
                 theirs: 'Not what a problem bank is for',
                 source: 'ours: apps/main/app/(main)/projects',
                 learnMore: { label: 'Projects', href: '/features/projects' },
             },
             {
-                dimension: 'Spoken mock interview',
+                dimension: 'Spoken mock interview', gap: 'theirs',
                 ours: 'Voice mock, no scheduling and nobody to owe a favour to',
                 theirs: 'Not what a problem bank is for',
                 source: 'ours: apps/main/app/(main)/mock/voice',
                 learnMore: { label: 'Mock interviews', href: '/features/mock' },
             },
             {
-                dimension: 'Resume against a specific posting',
+                dimension: 'Resume against a specific posting', gap: 'theirs',
                 ours: 'ATS score, tailoring to a job description, cover letters generated from your own resume',
                 theirs: 'Not what a problem bank is for',
                 source: 'ours: apps/main/app/(main)/ai',
                 learnMore: { label: 'AI tools', href: '/features/ai' },
             },
             {
-                dimension: 'Application tracking',
+                dimension: 'Application tracking', gap: 'theirs',
                 ours: 'Browse, save, follow companies, track what you sent',
                 theirs: 'Not what a problem bank is for',
                 source: 'ours: apps/main/app/(jobs)/jobs',
                 learnMore: { label: 'Jobs', href: '/features/jobs' },
             },
             {
-                dimension: 'How you pay',
+                dimension: 'How you pay', step: false,
                 ours: 'Credits, spent per operation. 100 free at signup, no expiry, no subscription',
                 theirs: 'Not compared - see the note below this table',
                 source: 'ours: SIGNUP_GRANT_CREDITS in apps/main/lib/credits/grant.ts',
@@ -268,7 +275,7 @@ export const COMPARISONS: readonly Comparison[] = [
                 learnMore: { label: 'Mock interviews', href: '/features/mock' },
             },
             {
-                dimension: 'Availability',
+                dimension: 'Availability', step: false,
                 ours: 'Immediately, as many times as you like',
                 theirs: 'Booked sessions with a human; the AI interviewer is offered free',
                 source: 'theirs: interviewing.io front page, accessed 2026-08-20',
@@ -282,21 +289,21 @@ export const COMPARISONS: readonly Comparison[] = [
                 learnMore: { label: 'Practice', href: '/features/practice' },
             },
             {
-                dimension: 'Project work',
+                dimension: 'Project work', gap: 'theirs',
                 ours: 'Briefs, then a quiz and mock written from what you built',
                 theirs: 'Not part of what their front page describes',
                 source: 'theirs: interviewing.io front page, accessed 2026-08-20',
                 learnMore: { label: 'Projects', href: '/features/projects' },
             },
             {
-                dimension: 'Resume and applications',
+                dimension: 'Resume and applications', gap: 'theirs',
                 ours: 'ATS scoring, tailoring, cover letters, application tracking',
                 theirs: 'Not part of what their front page describes',
                 source: 'ours: apps/main/app/(main)/ai and app/(jobs)/jobs',
                 learnMore: { label: 'AI tools', href: '/features/ai' },
             },
             {
-                dimension: 'How you pay',
+                dimension: 'How you pay', step: false,
                 ours: 'Credits per operation. 100 free at signup, no expiry',
                 theirs: 'Not compared - they do not publish prices publicly',
                 source: 'theirs: no price stated on interviewing.io, accessed 2026-08-20',
@@ -367,11 +374,11 @@ export const COMPARISONS: readonly Comparison[] = [
         ],
         rows: [
             { dimension: 'Structure and sequencing', ours: 'A three-month study plan and reading paths, which you follow yourself', theirs: 'A full curriculum somebody built and sequenced', source: 'ours: the blog cluster and its reading paths', learnMore: { label: 'The study plan', href: '/blogs/dsa-study-plan-coding-interview' } },
-            { dimension: 'Accountability', ours: 'None. Nobody notices if you stop', theirs: 'A cohort, deadlines, and instructors who follow up', source: 'ours: no cohort or scheduling feature exists' },
-            { dimension: 'Cost shape', ours: 'Credits spent per operation, 100 free at signup, no subscription', theirs: 'A large up-front commitment, sometimes deferred', source: 'ours: the credit grant and price table' , learnMore: { label: 'Credits', href: '/features#credits' } },
-            { dimension: 'Repetition after it ends', ours: 'Unlimited, on your own schedule', theirs: 'Ends when the cohort does', source: 'ours: mock interviews are on demand', learnMore: { label: 'Mock interviews', href: '/features/mock' } },
+            { dimension: 'Accountability', gap: 'ours', ours: 'None. Nobody notices if you stop', theirs: 'A cohort, deadlines, and instructors who follow up', source: 'ours: no cohort or scheduling feature exists' },
+            { dimension: 'Cost shape', step: false, ours: 'Credits spent per operation, 100 free at signup, no subscription', theirs: 'A large up-front commitment, sometimes deferred', source: 'ours: the credit grant and price table' , learnMore: { label: 'Credits', href: '/features#credits' } },
+            { dimension: 'Repetition after it ends', step: false, ours: 'Unlimited, on your own schedule', theirs: 'Ends when the cohort does', source: 'ours: mock interviews are on demand', learnMore: { label: 'Mock interviews', href: '/features/mock' } },
             { dimension: 'Interview-specific practice', ours: 'Phone screen, behavioural, system design and project defence, each on its own terms', theirs: 'Usually a module near the end', source: 'ours: the interview-prep cluster', learnMore: { label: 'Interview prep', href: '/blogs/topics/interview-prep' } },
-            { dimension: 'Career services', ours: 'Tooling, not people. No introductions and no recruiter relationships', theirs: 'Often a real part of what you are buying', source: 'ours: there is no placement or referral feature' },
+            { dimension: 'Career services', gap: 'ours', ours: 'Tooling, not people. No introductions and no recruiter relationships', theirs: 'Often a real part of what you are buying', source: 'ours: there is no placement or referral feature' },
         ],
         pickThemIf: [
             'You have tried to teach yourself twice and stalled both times. That is the problem a cohort solves and a tool does not.',
@@ -438,11 +445,11 @@ export const COMPARISONS: readonly Comparison[] = [
         ],
         rows: [
             { dimension: 'Quality of material', ours: 'Written guides, free to read, that link out to the best free resources', theirs: 'Excellent, abundant, and free', source: 'ours: 30 published guides', learnMore: { label: 'The blog', href: '/blogs' } },
-            { dimension: 'Does anything check you?', ours: 'Practice sets, generated quizzes, and scored mock interviews', theirs: 'No. Watching is the whole interaction', source: 'ours: practice and mock modules', learnMore: { label: 'Practice', href: '/features/practice' } },
+            { dimension: 'Does anything check you?', gap: 'theirs', ours: 'Practice sets, generated quizzes, and scored mock interviews', theirs: 'No. Watching is the whole interaction', source: 'ours: practice and mock modules', learnMore: { label: 'Practice', href: '/features/practice' } },
             { dimension: 'Does your code run?', ours: 'In a Linux container, with the real toolchain and real compiler output', theirs: 'On your own machine, if you follow along', source: 'ours: the executor image', learnMore: { label: 'Practice', href: '/features/practice' } },
             { dimension: 'Spaced repetition', ours: 'Reading paths and a study plan built around returning to things', theirs: 'Whatever you organise yourself', source: 'ours: the topic hub reading paths', learnMore: { label: 'DSA and practice', href: '/blogs/topics/dsa' } },
-            { dimension: 'Speaking an answer out loud', ours: 'Voice mock interviews, on demand', theirs: 'Not a thing a video can do', source: 'ours: the voice mock module', learnMore: { label: 'Mock interviews', href: '/features/mock' } },
-            { dimension: 'Cost', ours: '100 free credits, then per operation', theirs: 'Free', source: 'ours: the credit grant' },
+            { dimension: 'Speaking an answer out loud', gap: 'theirs', ours: 'Voice mock interviews, on demand', theirs: 'Not a thing a video can do', source: 'ours: the voice mock module', learnMore: { label: 'Mock interviews', href: '/features/mock' } },
+            { dimension: 'Cost', step: false, ours: '100 free credits, then per operation', theirs: 'Free', source: 'ours: the credit grant' },
         ],
         pickThemIf: [
             'You are early enough that the bottleneck is genuinely knowing things, and there is a lot you have not met yet.',
@@ -509,12 +516,12 @@ export const COMPARISONS: readonly Comparison[] = [
             'And it agrees with you. An assistant optimised to be helpful is a poor judge of whether your answer would pass, because "that is a reasonable approach" is almost always the locally helpful response. Preparation needs something willing to say the answer was too slow, or unclear, or that you did not verify it.',
         ],
         rows: [
-            { dimension: 'Explaining a concept', ours: 'Written guides. No conversational tutor', theirs: 'Excellent, at any level, on demand', source: 'ours: the blog', learnMore: { label: 'The blog', href: '/blogs' } },
-            { dimension: 'Running your code', ours: 'A Linux container with the real toolchain and real compiler output', theirs: 'Predicts the output; does not execute it', source: 'ours: the executor image', learnMore: { label: 'Practice', href: '/features/practice' } },
+            { dimension: 'Explaining a concept', gap: 'ours', ours: 'Written guides. No conversational tutor', theirs: 'Excellent, at any level, on demand', source: 'ours: the blog', learnMore: { label: 'The blog', href: '/blogs' } },
+            { dimension: 'Running your code', gap: 'theirs', ours: 'A Linux container with the real toolchain and real compiler output', theirs: 'Predicts the output; does not execute it', source: 'ours: the executor image', learnMore: { label: 'Practice', href: '/features/practice' } },
             { dimension: 'Remembering your context', ours: 'Your resume is stored and every tool works from it', theirs: 'Session-bound; you re-paste each time', source: 'ours: resume parsing and tailoring', learnMore: { label: 'AI tools', href: '/features/ai' } },
             { dimension: 'Willing to fail you', ours: 'Scored feedback against a rubric', theirs: 'Optimised to be helpful, which is a different thing', source: 'ours: mock interview scoring', learnMore: { label: 'Mock interviews', href: '/features/mock' } },
             { dimension: 'Spoken practice', ours: 'Voice mock interviews with follow-ups', theirs: 'Voice modes exist; the interview structure is on you', source: 'ours: the voice mock module', learnMore: { label: 'Mock interviews', href: '/features/mock' } },
-            { dimension: 'Tracking what you applied to', ours: 'An application tracker with match scoring', theirs: 'Not what it is for', source: 'ours: the jobs module', learnMore: { label: 'Jobs', href: '/features/jobs' } },
+            { dimension: 'Tracking what you applied to', gap: 'theirs', ours: 'An application tracker with match scoring', theirs: 'Not what it is for', source: 'ours: the jobs module', learnMore: { label: 'Jobs', href: '/features/jobs' } },
         ],
         pickThemIf: [
             'You want something explained, in which case use one, and use it a lot.',
@@ -579,11 +586,11 @@ export const COMPARISONS: readonly Comparison[] = [
         ],
         rows: [
             { dimension: 'Fundamentals', ours: 'Interview-scoped: DSA, system design, web frontend and backend', theirs: 'Deep and broad - OS, networks, compilers, theory', source: 'ours: the four practice tracks', learnMore: { label: 'Practice', href: '/features/practice' } },
-            { dimension: 'Credential', ours: 'None. Nothing here issues a certificate, deliberately', theirs: 'A recognised qualification that clears filters', source: 'ours: no certification feature exists' },
+            { dimension: 'Credential', gap: 'ours', ours: 'None. Nothing here issues a certificate, deliberately', theirs: 'A recognised qualification that clears filters', source: 'ours: no certification feature exists' },
             { dimension: 'Hiring pipeline', ours: 'A job board and an application tracker', theirs: 'Campus recruiting, which is the easiest route into a large company', source: 'ours: the jobs module', learnMore: { label: 'Jobs', href: '/features/jobs' } },
             { dimension: 'Interview performance', ours: 'The whole point - four rounds, each on its own terms', theirs: 'Rarely taught, and not what coursework rewards', source: 'ours: the interview-prep cluster', learnMore: { label: 'Interview prep', href: '/blogs/topics/interview-prep' } },
             { dimension: 'A defensible project', ours: 'A brief, then an interview generated from what you built', theirs: 'A capstone, usually in a team, often years before you interview', source: 'ours: the projects module', learnMore: { label: 'Projects', href: '/features/projects' } },
-            { dimension: 'Timescale', ours: 'Months', theirs: 'Years', source: 'ours: the three-month study plan' },
+            { dimension: 'Timescale', step: false, ours: 'Months', theirs: 'Years', source: 'ours: the three-month study plan' },
         ],
         pickThemIf: [
             'You have the option and the means. A degree opens doors that nothing here does, including some that close permanently if you skip it.',
@@ -652,11 +659,11 @@ export const COMPARISONS: readonly Comparison[] = [
         ],
         rows: [
             { dimension: 'Curated problem path', ours: 'A three-month plan organised by pattern, published free', theirs: 'A curated roadmap over the classic problem set', source: 'ours: the DSA study plan', learnMore: { label: 'DSA and practice', href: '/blogs/topics/dsa' } },
-            { dimension: 'Video explanations', ours: 'None. Written guides only', theirs: 'A core part of what it offers', source: 'ours: no video feature exists' },
+            { dimension: 'Video explanations', gap: 'ours', ours: 'None. Written guides only', theirs: 'A core part of what it offers', source: 'ours: no video feature exists' },
             { dimension: 'Where code executes', ours: 'A Linux container with the real toolchain', theirs: 'Practice happens against the underlying bank', source: 'ours: the executor image', learnMore: { label: 'Practice', href: '/features/practice' } },
-            { dimension: 'A project you can defend', ours: 'A brief, then a quiz and mock generated from your build', theirs: 'Not what a problem roadmap is for', source: 'ours: the projects module', learnMore: { label: 'Projects', href: '/features/projects' } },
-            { dimension: 'Spoken rehearsal', ours: 'Voice mocks with follow-up questions', theirs: 'Not what a problem roadmap is for', source: 'ours: the voice mock module', learnMore: { label: 'Mock interviews', href: '/features/mock' } },
-            { dimension: 'Resume and applications', ours: 'ATS scoring, tailoring, and an application tracker', theirs: 'Not what a problem roadmap is for', source: 'ours: the AI tools and jobs modules', learnMore: { label: 'AI tools', href: '/features/ai' } },
+            { dimension: 'A project you can defend', gap: 'theirs', ours: 'A brief, then a quiz and mock generated from your build', theirs: 'Not what a problem roadmap is for', source: 'ours: the projects module', learnMore: { label: 'Projects', href: '/features/projects' } },
+            { dimension: 'Spoken rehearsal', gap: 'theirs', ours: 'Voice mocks with follow-up questions', theirs: 'Not what a problem roadmap is for', source: 'ours: the voice mock module', learnMore: { label: 'Mock interviews', href: '/features/mock' } },
+            { dimension: 'Resume and applications', gap: 'theirs', ours: 'ATS scoring, tailoring, and an application tracker', theirs: 'Not what a problem roadmap is for', source: 'ours: the AI tools and jobs modules', learnMore: { label: 'AI tools', href: '/features/ai' } },
         ],
         pickThemIf: [
             'Your problem is "I do not know which problems to solve next", which is the most common problem and the one it is built for.',
@@ -723,11 +730,11 @@ export const COMPARISONS: readonly Comparison[] = [
         ],
         rows: [
             { dimension: 'Who interviews you', ours: 'AI, on demand, with follow-up questions', theirs: 'A matched peer, who you then interview back', source: 'theirs: their own site, accessed 2026-08-21' },
-            { dimension: 'Scheduling', ours: 'None. Start whenever', theirs: 'Both people have to be free at the same time', source: 'theirs: their own site, accessed 2026-08-21' },
+            { dimension: 'Scheduling', step: false, ours: 'None. Start whenever', theirs: 'Both people have to be free at the same time', source: 'theirs: their own site, accessed 2026-08-21' },
             { dimension: 'Feedback quality', ours: 'Scored against a rubric, consistently', theirs: 'From a peer, which varies with who you get', source: 'ours: mock interview scoring', learnMore: { label: 'Mock interviews', href: '/features/mock' } },
-            { dimension: 'Learning by interviewing', ours: 'Not offered', theirs: 'Built in, and genuinely valuable', source: 'theirs: the reciprocal format' },
+            { dimension: 'Learning by interviewing', gap: 'ours', ours: 'Not offered', theirs: 'Built in, and genuinely valuable', source: 'theirs: the reciprocal format' },
             { dimension: 'Coding practice attached', ours: 'Four tracks, executed in a real container', theirs: 'The interview is the product', source: 'ours: the practice module', learnMore: { label: 'Practice', href: '/features/practice' } },
-            { dimension: 'Resume and applications', ours: 'ATS scoring, tailoring, application tracking', theirs: 'Not part of the mock interview format', source: 'ours: the AI tools and jobs modules', learnMore: { label: 'AI tools', href: '/features/ai' } },
+            { dimension: 'Resume and applications', gap: 'theirs', ours: 'ATS scoring, tailoring, application tracking', theirs: 'Not part of the mock interview format', source: 'ours: the AI tools and jobs modules', learnMore: { label: 'AI tools', href: '/features/ai' } },
         ],
         pickThemIf: [
             'You have never done a mock interview and want a real human across from you. It is free, which makes this an easy first move.',
@@ -795,12 +802,12 @@ export const COMPARISONS: readonly Comparison[] = [
             'The other half is that a human review usually does not tell you what a parser extracts, which is a mechanical question with a factual answer. A two-column layout that reads beautifully to a person can flatten into unusable text, and that failure is invisible from the formatted version.',
         ],
         rows: [
-            { dimension: 'Human judgement', ours: 'None. It is tooling, not a person', theirs: 'The whole value, and it is real', source: 'ours: no human review service exists' },
+            { dimension: 'Human judgement', gap: 'ours', ours: 'None. It is tooling, not a person', theirs: 'The whole value, and it is real', source: 'ours: no human review service exists' },
             { dimension: 'What a parser extracts', ours: 'ATS scoring against extracted text', theirs: 'Varies; often not covered', source: 'ours: the resume module', learnMore: { label: 'AI tools', href: '/features/ai' } },
             { dimension: 'Per-application tailoring', ours: 'Paste a posting, get a tailored version. Your original is kept', theirs: 'A snapshot, correct for the moment it was written', source: 'ours: the resume tailoring operation', learnMore: { label: 'AI tools', href: '/features/ai' } },
-            { dimension: 'Repeatable', ours: 'As often as you apply', theirs: 'Per engagement', source: 'ours: tailoring is a metered operation' },
+            { dimension: 'Repeatable', step: false, ours: 'As often as you apply', theirs: 'Per engagement', source: 'ours: tailoring is a metered operation' },
             { dimension: 'Cover letters', ours: 'Generated from your own resume and the posting', theirs: 'Sometimes included', source: 'ours: the cover letter operation', learnMore: { label: 'AI tools', href: '/features/ai' } },
-            { dimension: 'The rest of the process', ours: 'Practice, projects, mocks and application tracking', theirs: 'The resume is the product', source: 'ours: the other four modules', learnMore: { label: 'All features', href: '/features' } },
+            { dimension: 'The rest of the process', gap: 'theirs', ours: 'Practice, projects, mocks and application tracking', theirs: 'The resume is the product', source: 'ours: the other four modules', learnMore: { label: 'All features', href: '/features' } },
         ],
         pickThemIf: [
             'Nobody has ever properly read your resume, in which case one good hour beats any number of automated checks.',
@@ -868,12 +875,12 @@ export const COMPARISONS: readonly Comparison[] = [
             'The second failure is spacing. A plan usually schedules new material, rarely schedules a return to old material, and recall a week later is the thing that tells you it went in.',
         ],
         rows: [
-            { dimension: 'Cost', ours: '100 free credits, then per operation', theirs: 'Free', source: 'ours: the credit grant', learnMore: { label: 'Credits', href: '/features#credits' } },
+            { dimension: 'Cost', step: false, ours: '100 free credits, then per operation', theirs: 'Free', source: 'ours: the credit grant', learnMore: { label: 'Credits', href: '/features#credits' } },
             { dimension: 'Knowing what to include', ours: 'Reading paths that sequence the whole loop, not only the coding round', theirs: 'Limited to what you know exists', source: 'ours: the topic hub reading paths', learnMore: { label: 'The blog', href: '/blogs' } },
             { dimension: 'Spaced return', ours: 'Plans built around coming back to things', theirs: 'Rarely scheduled, in practice', source: 'ours: the three-month study plan' },
             { dimension: 'Something that checks you', ours: 'Scored mocks, generated quizzes, real execution', theirs: 'Self-assessment, which is optimistic', source: 'ours: the mock and practice modules', learnMore: { label: 'Mock interviews', href: '/features/mock' } },
-            { dimension: 'Control', ours: 'You follow it or you do not', theirs: 'Complete, and it is genuinely an advantage', source: 'ours: nothing here is enforced' },
-            { dimension: 'The unglamorous rounds', ours: 'Resume parsing, aptitude, referrals and applications are covered', theirs: 'Usually the parts left out', source: 'ours: the AI tools and jobs modules', learnMore: { label: 'All features', href: '/features' } },
+            { dimension: 'Control', step: false, ours: 'You follow it or you do not', theirs: 'Complete, and it is genuinely an advantage', source: 'ours: nothing here is enforced' },
+            { dimension: 'The unglamorous rounds', gap: 'theirs', ours: 'Resume parsing, aptitude, referrals and applications are covered', theirs: 'Usually the parts left out', source: 'ours: the AI tools and jobs modules', learnMore: { label: 'All features', href: '/features' } },
         ],
         pickThemIf: [
             'You have a plan, you are following it, and it is working. Do not break something that works.',
