@@ -1,11 +1,11 @@
-"use client"
-
 import Link from "next/link"
 import { ArrowRight, Check } from "lucide-react"
 import { HIRING_PLANS, type HiringPlanKey } from "@repo/pricing"
 import { cn } from "@repo/ui/lib/utils"
 import { BRAND, HIRING_LINKS } from "@/lib/site"
 import { Eyebrow, MONO, Section } from "@/components/marketing/primitives"
+import { money, type Currency } from "@/lib/money"
+export type { Currency }
 
 /**
  * The hiring plan cards (plan/web/revamp REV-21, REV-95 to REV-97). Every price, limit,
@@ -14,16 +14,9 @@ import { Eyebrow, MONO, Section } from "@/components/marketing/primitives"
  *
  * No toggles (plan/web/story ST-9; Niraj, 2026-10-07): each paid plan shows its monthly price in
  * INR with USD under it, and the yearly price beside, so every number is on the page at once.
- * `Toggle` and `money` stay exported: /uni's plan cards still use them (uni is later).
  */
 
 const ORDER: HiringPlanKey[] = ["FREE", "PRO", "ENTERPRISE"]
-export type Currency = "INR" | "USD"
-export type Billing = "monthly" | "yearly"
-
-export function money(n: number, c: Currency) {
-    return c === "INR" ? `₹${n.toLocaleString("en-IN")}` : `$${n.toLocaleString("en-US")}`
-}
 
 /** Every price a plan has, at once: monthly INR, monthly USD, and the yearly line. */
 function prices(key: HiringPlanKey) {
@@ -43,30 +36,6 @@ function creditsLine(key: HiringPlanKey) {
     if (p.creditsPerMonth > 0) return `${p.creditsPerMonth.toLocaleString("en-IN")} credits every month`
     if (p.creditsOnSignup > 0) return `${p.creditsOnSignup} credits to start`
     return "A credit allowance agreed with you"
-}
-
-export function Toggle<T extends string>({ value, options, onChange, label }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void; label: string }) {
-    const i = options.findIndex((o) => o.id === value)
-    return (
-        <div role="group" aria-label={label} className="relative inline-grid rounded-lg border border-neutral-200 bg-white p-0.5" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
-            <span
-                aria-hidden
-                className="absolute inset-y-0.5 left-0.5 rounded-md bg-neutral-900 transition-transform duration-300 ease-out"
-                style={{ width: `calc(${100 / options.length}% - 2px)`, transform: `translateX(${i * 100}%)` }}
-            />
-            {options.map((o) => (
-                <button
-                    key={o.id}
-                    type="button"
-                    aria-pressed={value === o.id}
-                    onClick={() => onChange(o.id)}
-                    className={cn(MONO, "relative z-10 h-8 cursor-pointer whitespace-nowrap rounded-md px-4 text-[12px] transition-colors duration-300", value === o.id ? "text-white" : "text-neutral-600 hover:text-neutral-900")}
-                >
-                    {o.label}
-                </button>
-            ))}
-        </div>
-    )
 }
 
 export function HirePlanCards() {

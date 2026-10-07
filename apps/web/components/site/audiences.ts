@@ -98,7 +98,8 @@ export const AUDIENCES: Record<AudienceId, Audience> = {
         // Live since REV-31 (Niraj, 2026-09-26).
         available: true,
         links: UNI_NAV,
-        cta: { label: 'Set up your campus', href: UNI_LINKS.signup },
+        // Early access (plan/web/story ST-15): the form on /uni, not the app's register page.
+        cta: { label: 'Request early access', href: '/uni#early-access' },
         signin: UNI_LINKS.signin,
     },
 }

@@ -10,7 +10,8 @@ import { CardArt, CardArtStyles } from "@/components/marketing/card-art"
 import { CtaBand } from "@/components/marketing/sections"
 import FaqsAccrodian from "@/components/landingpage/faqs"
 import { UniPlanCards } from "../_components/pricing-section"
-import { BRAND, UNI_LINKS } from "@/lib/site"
+import { BRAND } from "@/lib/site"
+import { SoonLabel } from "@/components/marketing/soon"
 import { pageMeta } from "@/lib/seo"
 import { faqSchema, jsonLd } from "@/lib/schema"
 
@@ -38,15 +39,16 @@ const LIMITS: { label: string; key: "maxStudents" | "maxFaculty" | "maxDepartmen
     { label: "Credits a month", key: "maxCreditsPerMonth" },
 ]
 
-const FLAGS: { label: string; key: "hasAnalytics" | "hasAdvancedReports" | "hasPlacementModule" | "hasCompanyPortal" | "hasCustomBranding" | "hasPrioritySupport" | "hasAPIAccess" | "hasWhiteLabel" }[] = [
-    { label: "Analytics", key: "hasAnalytics" },
-    { label: "Advanced reports", key: "hasAdvancedReports" },
-    { label: "Placement module", key: "hasPlacementModule" },
-    { label: "Company portal", key: "hasCompanyPortal" },
-    { label: "Custom branding", key: "hasCustomBranding" },
+// `soon`: not built in apps/uni yet (plan/uni, plan/web/story ST-15); the row says so.
+const FLAGS: { label: string; key: "hasAnalytics" | "hasAdvancedReports" | "hasPlacementModule" | "hasCompanyPortal" | "hasCustomBranding" | "hasPrioritySupport" | "hasAPIAccess" | "hasWhiteLabel"; soon?: true }[] = [
+    { label: "Analytics", key: "hasAnalytics", soon: true },
+    { label: "Advanced reports", key: "hasAdvancedReports", soon: true },
+    { label: "Placement module", key: "hasPlacementModule", soon: true },
+    { label: "Company portal", key: "hasCompanyPortal", soon: true },
+    { label: "Custom branding", key: "hasCustomBranding", soon: true },
     { label: "Priority support", key: "hasPrioritySupport" },
-    { label: "API access", key: "hasAPIAccess" },
-    { label: "White-label", key: "hasWhiteLabel" },
+    { label: "API access", key: "hasAPIAccess", soon: true },
+    { label: "White-label", key: "hasWhiteLabel", soon: true },
 ]
 
 /** Included on every plan. */
@@ -55,19 +57,19 @@ const EVERY_PLAN = [
     "Voice mock interviews by category and level",
     "Quizzes and code assessments with deadlines",
     "Six campus roles with permissions you control",
-    "Students on their own ShipItHQ accounts",
+    "Students on their own ShipItHQ accounts, once rosters land",
     "A monthly credit pool for AI work",
 ]
 
 const FAQS = [
-    { question: "What does the Free plan include?", answer: `Enough to try it with one department: up to ${free.maxStudents} students, ${free.maxFaculty} faculty, ${free.maxDepartments} departments, ${free.maxClassesPerFaculty} classes per faculty member and ${free.maxCreditsPerMonth.toLocaleString("en-IN")} credits a month. Projects, mocks and assessments are all included.` },
+    { question: "What does the Free plan include?", answer: `Enough to try it with one department: up to ${free.maxStudents} students, ${free.maxFaculty} faculty, ${free.maxDepartments} departments, ${free.maxClassesPerFaculty} classes per faculty member and ${free.maxCreditsPerMonth.toLocaleString("en-IN")} credits a month. Designing projects, mocks and assessments is included.` },
     { question: "What do credits pay for?", answer: `AI work: generating project briefs, running voice mock interviews and building assessments. The pool refreshes every month: ${starter.maxCreditsPerMonth.toLocaleString("en-IN")} on Starter and ${growth.maxCreditsPerMonth.toLocaleString("en-IN")} on Growth.` },
-    { question: "Which plan has the placement module?", answer: "Growth and Enterprise, with company portal access. Analytics start on Starter; advanced reports on Growth." },
+    { question: "Which plan will have the placement module?", answer: "Growth and Enterprise, with company portal access. Analytics will start on Starter, advanced reports on Growth. All three are being built." },
     { question: "What does yearly billing save?", answer: `Yearly is the price of ten months: Starter is ₹${starter.yearlyPriceINR.toLocaleString("en-IN")} ($${starter.yearlyPriceUSD}) and Growth ₹${growth.yearlyPriceINR.toLocaleString("en-IN")} ($${growth.yearlyPriceUSD.toLocaleString("en-US")}) a year.` },
-    { question: "Do students pay anything?", answer: "Not for the work you assign: it draws on your institution's credits. Students can use the rest of ShipItHQ on their own accounts as usual." },
-    { question: "Can we start with one department?", answer: "Yes. Start free or on Starter with one department, and move up as more departments join." },
-    { question: "Is there a plan for a university group?", answer: "Enterprise: no limits on students, faculty or departments, API access, white-label options and a dedicated account manager." },
-    { question: "Do you send invoices?", answer: "Yes, every payment has an invoice in the billing section of the university app." },
+    { question: "Will students pay anything?", answer: "Not for the work you assign: it will draw on your institution's credits. Students use the rest of ShipItHQ on their own accounts as usual." },
+    { question: "Can we start with one department?", answer: "Yes. Talk to us, start with one department, and move up as more departments join." },
+    { question: "Is there a plan for a university group?", answer: "Enterprise: no limits on students, faculty or departments, and a dedicated account manager; API access and white-label options are planned." },
+    { question: "How do we pay?", answer: "Checkout is not open yet while the university workspace is in early access. Talk to us and we will start your plan with you, with an invoice." },
 ]
 
 export default function UniPricingPage() {
@@ -81,10 +83,10 @@ export default function UniPricingPage() {
                     crumbs={[{ name: "Universities", href: "/uni" }, { name: "Pricing" }]}
                     eyebrow="University plans"
                     title="Start with a department. Grow to the campus."
-                    sub="Every plan includes projects, voice mock interviews and assessments. Plans differ in how many students, faculty and departments they hold, the credits for AI work, and the modules that come with them."
+                    sub="Every plan includes designing projects, voice mock interviews and assessments. Plans differ in how many students, faculty and departments they hold, the credits for AI work, and the modules that come with them. In early access: talk to us to start one."
                     tone="blush"
                     art="pricing"
-                    ctas={[{ text: "Set up your campus", href: UNI_LINKS.signup, external: true }, { text: "Compare plans", href: "#compare" }]}
+                    ctas={[{ text: "Talk to us", href: "/uni#early-access" }, { text: "Compare plans", href: "#compare" }]}
                     facts={[
                         { value: "₹0", label: "To start" },
                         { value: String(free.maxStudents), label: "Students on Free" },
@@ -115,7 +117,7 @@ export default function UniPricingPage() {
                                 ))}
                                 {FLAGS.map((r) => (
                                     <tr key={r.label}>
-                                        <td className="p-5 text-neutral-700">{r.label}</td>
+                                        <td className="p-5 text-neutral-700">{r.label}{r.soon && <SoonLabel className="ml-2" />}</td>
                                         {UNI_PLAN_ORDER.map((k) => (
                                             <td key={k} className={cn("p-5", col(k))}>
                                                 {UNI_PLANS[k][r.key] ? <Check className="size-4 text-neutral-900" aria-label="Included" /> : <Minus className="size-4 text-neutral-400" aria-label="Not included" />}
@@ -166,10 +168,10 @@ export default function UniPricingPage() {
 
                 <CtaBand
                     title={<>Your next batch, <br className="hidden sm:block" />ready on evidence.</>}
-                    sub={`Start free for up to ${free.maxStudents} students. Move up when more departments join.`}
-                    primary={{ text: "Set up your campus", href: UNI_LINKS.signup }}
-                    secondary={{ text: "Talk to us", href: `mailto:${BRAND.email}` }}
-                    words={["Free to start", "Starter", "Growth", "Enterprise", "Yearly saves two months", "Invoices"]}
+                    sub={`Free for up to ${free.maxStudents} students, and room to grow as departments join. In early access, we start each campus with them.`}
+                    primary={{ text: "Request early access", href: "/uni#early-access" }}
+                    secondary={{ text: "Compare plans", href: "#compare" }}
+                    words={["Free to start", "Starter", "Growth", "Enterprise", "Yearly saves two months", "Early access"]}
                 />
             </main>
             <SiteFooter audience="universities" />

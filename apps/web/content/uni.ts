@@ -1,22 +1,27 @@
 import { UNI_PLANS } from "@repo/pricing"
 import type { ModuleCardData } from "@/components/home/modules"
 import type { FaqItem } from "@/components/faq-accordion"
-import type { Step } from "@/components/marketing/sections"
-import type { TourTab } from "@/components/marketing/product-tour"
 
 /**
  * What shipithq.com/uni says (plan/web/revamp REV-31). Sources are apps/uni paths,
  * checked 2026-09-26.
  *
- * ── What runs today, and what this page promises ──
- * Niraj, 2026-09-26: describe the whole product ("build it properly ... later we will
- * start working on this uni as well core things"). Running today: institution
- * onboarding ((auth)/onboarding), faculty with roles and permissions (/faculty,
- * /faculty/roles), and assignments: AI projects, AI mock interviews, quizzes and code
- * assessments with deadlines (/assignments). Students, classes, placements, analytics
- * and billing have server actions but no working screens yet; they are the uni core
- * work that follows (REV-33). Re-read this file against apps/uni when that lands.
+ * ── Early access, told honestly (Niraj, 2026-10-07, plan/web/story ST-15) ──
+ * Checked against apps/uni on 2026-10-07 (plan/uni/overview.md). Works: register with an
+ * email code, six-step onboarding that creates the departments, inviting faculty (the head
+ * only) with five roles plus University Admin, 21 permissions per person, revoking an
+ * invitation, and DESIGNING a project, a voice mock or an assessment. Not built: creating
+ * classes, students receiving assignments, results and scores, the Students, Placements and
+ * Analytics screens, billing. Every claim about those carries a Soon marker or reads as
+ * planned. When plan/uni UNI-1 to UNI-4 land, re-read this file against apps/uni.
  */
+
+/** Plan lines (UNI_PLANS in @repo/pricing, shared with apps/uni) that are not built yet. */
+export const UNI_PLAN_LINES_NOT_BUILT = new Set([
+    "Basic analytics", "Advanced analytics & reports", "Full analytics suite", "Student verification",
+    "Placement module", "Company portal access", "Custom branding", "API access", "White-label options",
+    "Custom integrations",
+])
 
 const n = (v: number) => v.toLocaleString("en-IN")
 
@@ -48,6 +53,7 @@ export const UNI_MODULES: ModuleCardData[] = [
             "AI mock interviews by category and level",
             "Quizzes and code assessments with deadlines",
         ],
+        soon: { what: "delivering assignments: creating classes, students receiving the work, and results back", today: "faculty can design a project, a voice mock or an assessment, but it cannot reach students yet" },
         meta: ["3 assignment types"],
     },
     {
@@ -62,7 +68,7 @@ export const UNI_MODULES: ModuleCardData[] = [
             "Six roles, from University Admin to TA",
             "Turn single permissions on or off",
         ],
-        meta: ["6 roles", "14 permissions"],
+        meta: ["6 roles", "21 permissions"],
     },
     {
         // app/(main)/placements (screens: REV-33); company side is ShipItHQ Hiring
@@ -96,48 +102,34 @@ export const UNI_MODULES: ModuleCardData[] = [
     },
 ]
 
-export const UNI_STEPS: string[] = [
-    // (auth)/onboarding: university info, departments, campus
-    "Set up your institution in three steps: its details, its departments and the campus.",
-    // /faculty, /faculty/roles
-    "Invite faculty by email with a role and a department, and decide exactly what each role can do.",
-    // /assignments
-    "Assign projects, mock interviews and assessments to classes, each with a deadline.",
-    // /analytics, /placements
-    "Watch readiness by department, and bring companies to the students who are ready.",
-]
-
-export const UNI_STEP_CARDS: Step[] = [
-    { title: "Set up the campus", body: UNI_STEPS[0]!, art: "uni-students" },
-    { title: "Bring in faculty", body: UNI_STEPS[1]!, art: "uni-faculty" },
-    { title: "Assign real work", body: UNI_STEPS[2]!, art: "uni-classes" },
-    { title: "Place who is ready", body: UNI_STEPS[3]!, art: "uni-placements" },
-]
-
 export const UNI_FAQS: FaqItem[] = [
     {
         question: "What is ShipItHQ for universities?",
-        answer: "A workspace for the placement cell and faculty. You assign projects, mock interviews and assessments to classes; students do them on ShipItHQ, where they already practise; and you see how ready each department is before companies arrive.",
+        answer: "A workspace for the placement cell and faculty, in early access. Today you set up your institution and its departments, invite faculty with roles and permissions, and design projects, voice mock interviews and assessments. Classes, students receiving that work, results and department readiness are being built with our first campuses.",
     },
     {
         question: "Who on campus can use it?",
-        answer: "Six roles: University Admin, Department Head, Placement Officer, Finance Officer, Faculty and Teaching Assistant. Each role has its own permissions, and an admin can turn single permissions on or off.",
+        answer: "Six roles: University Admin, Department Head, Placement Officer, Finance Officer, Faculty and Teaching Assistant. The person who sets up the workspace is its University Admin and invites the others; each person's 21 permissions can be turned on or off one by one.",
     },
     {
         question: "What can faculty assign?",
-        answer: "Three kinds of work: a project generated with AI for a stack and a level, an AI mock interview by category (technical, behavioural, HR, system design, coding) and level, and a quiz or code assessment. Each goes to one or more classes, with a deadline.",
+        answer: "Three kinds of work: a project generated with AI for a stack and a level, a voice mock interview by category (technical, behavioural, HR, system design, live coding, general) and level, and a quiz, code or mixed assessment. Faculty can design all three today; sending them to classes is being built.",
     },
     {
         question: "Do students need a separate account?",
-        answer: "No. Students use their ShipItHQ account, the same one they practise and build projects on, so the work you assign sits beside everything else they do.",
+        answer: "No. Students will use their ShipItHQ account, the same one they practise and build projects on. Joining a campus and receiving its assignments there is being built.",
     },
     {
         question: "How many students can we add?",
-        answer: `${n(UNI_PLANS.FREE.maxStudents)} on the free plan, ${n(UNI_PLANS.STARTER.maxStudents)} on Starter, ${n(UNI_PLANS.GROWTH.maxStudents)} on Growth, and no limit on Enterprise. The plans are listed on the pricing page, in rupees or dollars.`,
+        answer: `${n(UNI_PLANS.FREE.maxStudents)} on the free plan, ${n(UNI_PLANS.STARTER.maxStudents)} on Starter, ${n(UNI_PLANS.GROWTH.maxStudents)} on Growth, and no limit on Enterprise, once student rosters are built. The plans are listed on the pricing page in rupees and dollars; talk to us to start one.`,
     },
     {
         question: "What are credits for?",
         answer: `AI work: generating projects, running voice mock interviews and building assessments. Each plan includes a monthly pool, from ${n(UNI_PLANS.FREE.maxCreditsPerMonth)} credits on Free to ${n(UNI_PLANS.GROWTH.maxCreditsPerMonth)} on Growth.`,
+    },
+    {
+        question: "What does early access mean?",
+        answer: "The workspace runs today for setting up a campus, its faculty and their assignments. We are building classes, rosters, delivery to students, results and readiness with a small number of campuses first. Request early access and we will set yours up with you.",
     },
 ]
 
@@ -151,127 +143,133 @@ export interface UniFeature {
     different: string[]
     limits: string[]
     faqs: { question: string; answer: string }[]
+    /** Not built yet: the page reads as planned, in the future tense (plan/web/story ST-15). */
+    planned?: boolean
 }
 
 export const UNI_FEATURES: UniFeature[] = [
     {
         slug: "students",
         card: "uni-students",
+        planned: true,
         headline: "Every student, and how ready they are",
-        intro: "Your students by department and class, verified as belonging to your campus, with a readiness picture built from the practice, projects and mock interviews they actually do on ShipItHQ.",
+        intro: "Being built: your students by department and class, verified as belonging to your campus, with a readiness picture from the practice, projects and mock interviews they do on ShipItHQ.",
         steps: [
-            "Students join with their ShipItHQ account and ask to be verified for your campus.",
-            "Verify them one by one or in bulk, and place them in departments and classes.",
-            "Allocate credits from your pool to a student or a whole class.",
-            "See each student's work in one place: practice, projects, mocks and assessments.",
+            "Students will join with their ShipItHQ account and ask to be verified for your campus.",
+            "Your team will verify them one by one or in bulk, and enroll them in classes.",
+            "You will allocate credits from the campus pool to a student or a whole class.",
+            "Each student's work will sit in one place: practice, projects, mocks and assessments.",
         ],
         different: [
-            "Readiness comes from work students did, not a self-reported form.",
-            "The same account follows the student from first year to their first job.",
-            "Verification keeps the roster to people who really belong to your campus.",
+            "Readiness will come from work students did, not a self-reported form.",
+            "The same account will follow the student from first year to their first job.",
+            "Verification will keep the roster to people who really belong to your campus.",
         ],
         limits: [
             `Students per plan: ${n(UNI_PLANS.FREE.maxStudents)} on Free, ${n(UNI_PLANS.STARTER.maxStudents)} on Starter, ${n(UNI_PLANS.GROWTH.maxStudents)} on Growth.`,
             "Students see only their own work; faculty see the classes they are assigned to.",
         ],
         faqs: [
-            { question: "How do students get onto our roster?", answer: "They use their ShipItHQ account and request to join your campus; your team verifies them, individually or in bulk." },
-            { question: "Can we give students credits?", answer: "Yes. Allocate credits from the institution's monthly pool to a student or a class." },
-            { question: "What does readiness include?", answer: "The practice, projects, mock interviews and assessments a student completes on ShipItHQ." },
+            { question: "Can we add students today?", answer: "Not yet. Rosters, verification and enrolment are the next part being built; request early access and we will bring your campus in as they land." },
+            { question: "Will we be able to give students credits?", answer: "Yes, from the institution's monthly pool, to a student or a class, once rosters are built." },
+            { question: "What will readiness include?", answer: "The practice, projects, mock interviews and assessments a student completes on ShipItHQ." },
         ],
     },
     {
         slug: "assignments",
         card: "uni-classes",
         headline: "Assign work students can talk about",
-        intro: "Give classes a project generated with AI for a stack and a level, an AI mock interview, or a quiz or code assessment, each with a deadline and instructions.",
+        intro: "Design a project generated with AI for a stack and a level, a voice mock interview, or a quiz, code or mixed assessment, each with a deadline and instructions. Sending it to classes is being built.",
         steps: [
-            "Pick the classes and the kind of work: project, mock interview or assessment.",
-            "For a project, choose the type (full stack, frontend, app, programs, AI/ML, AI agent), the level and the stack, and let AI write the brief.",
-            "For a mock, choose the category, level, length and number of questions; for an assessment, quiz, code or mixed.",
-            "Set a deadline and instructions, and publish it to the class.",
+            "Choose the kind of work: a project, a voice mock interview or an assessment.",
+            "For a project, choose the type (full stack, frontend, mobile app, programs, AI/ML, AI agent), the level and the stack, and AI writes the brief.",
+            "For a mock, choose the category, level, length and number of questions; for an assessment, quiz, code or mixed, AI-generated or written by you.",
+            "Add a deadline, credits and instructions. Sending it to a class, and results back, are being built.",
         ],
         different: [
             "Projects are generated for the stack and level you pick, so every batch gets fresh work.",
             "Mock interviews run by voice, at any hour, without booking a faculty member.",
-            "Students do the work where they already practise, not in a separate portal.",
+            "Students will do the work where they already practise, not in a separate portal.",
         ],
         limits: [
             `Classes per faculty member: ${n(UNI_PLANS.FREE.maxClassesPerFaculty)} on Free, ${n(UNI_PLANS.STARTER.maxClassesPerFaculty)} on Starter, ${n(UNI_PLANS.GROWTH.maxClassesPerFaculty)} on Growth.`,
             "AI work draws on the institution's monthly credits.",
         ],
         faqs: [
-            { question: "What kinds of projects can AI generate?", answer: "Full stack, frontend, app, programs, AI/ML and AI agent projects, at the level and with the stack you choose. You can also assign an existing project." },
-            { question: "What categories of mock interview are there?", answer: "Technical, behavioural, HR, system design, coding and general, at the level and length you set." },
-            { question: "Can an assessment include code?", answer: "Yes. Assessments can be a quiz, a code test, or both, with a time limit." },
+            { question: "What kinds of projects can AI generate?", answer: "Full stack, frontend, mobile app, programs, AI/ML and AI agent projects, at the level and with the stack you choose." },
+            { question: "What categories of mock interview are there?", answer: "Technical, behavioural, HR round, system design, live coding and general, at the level and length you set." },
+            { question: "Can an assessment include code?", answer: "Yes. An assessment can be a quiz, a code test, or mixed, with a time limit, and a live mode for in-class tests." },
+            { question: "Can students take them today?", answer: "Not yet. Faculty can design all three today; creating classes and delivering the work to students is the next part being built." },
         ],
     },
     {
         slug: "faculty",
         card: "uni-faculty",
         headline: "The whole faculty, each with the right access",
-        intro: "Invite faculty by email with a role, a job title and a department, and decide exactly what each role can do, down to single permissions.",
+        intro: "Invite faculty with a role, a job title and a department, and decide exactly what each person can do, down to single permissions.",
         steps: [
-            "Invite a faculty member by email with a role, a title and a department.",
-            "Choose from six roles: University Admin, Department Head, Placement Officer, Finance Officer, Faculty and Teaching Assistant.",
-            "Turn single permissions on or off: classes, assignments, grading, verifying students, credits and administration.",
-            "Revoke a pending invitation, or deactivate a member, at any time.",
+            "Invite a faculty member with their email, name, role, title and department; they are sent temporary credentials to sign in.",
+            "Choose a role: Department Head, Placement Officer, Finance Officer, Faculty or Teaching Assistant. Whoever set up the workspace is its University Admin.",
+            "Turn single permissions on or off for each person: 21 of them, from creating assignments to verifying students.",
+            "Revoke an invitation nobody has used.",
         ],
         different: [
             "Roles match how a campus is organised, not a generic admin and member.",
-            "Fourteen permissions across classes, assignments, students and administration.",
-            "Titles from Chancellor to Lab Instructor, so the directory reads like your campus.",
+            "21 permissions, switched per person, not per role only.",
+            "A job title and a department on every member, so the directory reads like your campus.",
         ],
         limits: [
             `Faculty per plan: ${n(UNI_PLANS.FREE.maxFaculty)} on Free, ${n(UNI_PLANS.STARTER.maxFaculty)} on Starter, ${n(UNI_PLANS.GROWTH.maxFaculty)} on Growth.`,
             "Single sign-on is not available yet.",
         ],
         faqs: [
-            { question: "Who can invite faculty?", answer: "Anyone whose role has the invite permission, usually the University Admin and Department Heads." },
-            { question: "Can we change what a role can do?", answer: "Yes. Turn individual permissions on or off for each member." },
-            { question: "What happens to an invitation nobody accepted?", answer: "It stays pending until it is accepted, and you can revoke it." },
+            { question: "Who can invite faculty?", answer: "Today, the University Admin: the person who set up the workspace." },
+            { question: "Can we change what someone can do?", answer: "Yes. Turn individual permissions on or off for each member." },
+            { question: "What happens to an invitation nobody used?", answer: "It stays pending, and you can revoke it." },
         ],
     },
     {
         slug: "placements",
         card: "uni-placements",
         headline: "Bring companies to students who are ready",
-        intro: "Post campus-only jobs, refer companies, and follow every student from applied to placed, with the work they did on ShipItHQ behind each application.",
+        planned: true,
+        intro: "Being built: campus-only jobs, company referrals, and every student followed from applied to placed, with the work they did on ShipItHQ behind each application.",
         steps: [
-            "Post a job for your students only, or share public roles from the ShipItHQ jobs feed.",
-            "Refer companies you work with; they hire through ShipItHQ Hiring.",
-            "Students apply with their projects, practice and mock results behind them.",
-            "Follow each drive: who applied, who was shortlisted, who was placed.",
+            "You will post a job for your students only, or share public roles from the ShipItHQ jobs feed.",
+            "You will refer companies you work with; they hire through ShipItHQ Hiring, which runs today.",
+            "Students will apply with their projects, practice and mock results behind them.",
+            "You will follow each drive: who applied and who was placed.",
         ],
         different: [
-            "Companies see work, not just a CGPA and a resume.",
-            "Campus-only jobs stay visible to your students alone.",
-            "The same platform students prepared on is where they are hired.",
+            "Companies will see work, not just a CGPA and a resume.",
+            "Campus-only jobs will stay visible to your students alone.",
+            "The same platform students prepared on is where they will be hired.",
         ],
         limits: [
             "The placement module is on Growth and Enterprise.",
             "Companies hire through ShipItHQ Hiring, with their own plans.",
         ],
         faqs: [
-            { question: "Can a job be for our students only?", answer: "Yes. Campus-only jobs are visible only to your verified students." },
-            { question: "How do companies get involved?", answer: "Refer them; they hire through ShipItHQ Hiring and can run their own interview rounds." },
-            { question: "Which plan includes placements?", answer: "Growth and Enterprise." },
+            { question: "Can a job be for our students only?", answer: "That is the plan: campus-only jobs visible only to your verified students, once Placements is built." },
+            { question: "How do companies get involved today?", answer: "Through ShipItHQ Hiring, which runs today: a company designs its interview rounds and students who clear them send their results." },
+            { question: "Which plan will include placements?", answer: "Growth and Enterprise." },
         ],
     },
     {
         slug: "analytics",
         card: "uni-analytics",
         headline: "Know how ready each department is",
-        intro: "Readiness by department and class, assignment completion and scores, credit use and placement outcomes, in one view for the placement cell and heads of department.",
+        planned: true,
+        intro: "Being built: readiness by department and class, assignment completion and scores, credit use and placement outcomes, in one view for the placement cell and heads of department.",
         steps: [
-            "See active students and assignments across the campus.",
-            "Compare readiness and completion by department and class.",
-            "Track credit use against the monthly pool.",
-            "Follow placement outcomes season by season.",
+            "You will see active students and assignments across the campus.",
+            "You will compare readiness and completion by department and class.",
+            "You will track credit use against the monthly pool.",
+            "You will follow placement outcomes season by season.",
         ],
         different: [
-            "Built from the work students did, so the numbers mean something.",
-            "Department heads see their department; the placement cell sees the campus.",
+            "Built from the work students did, so the numbers will mean something.",
+            "Department heads will see their department; the placement cell the campus.",
             "Advanced reports on Growth for the numbers accreditation asks about.",
         ],
         limits: [
@@ -279,38 +277,11 @@ export const UNI_FEATURES: UniFeature[] = [
             "API access is on Enterprise.",
         ],
         faqs: [
-            { question: "Which plan includes analytics?", answer: "Starter and above. Advanced reports are on Growth and Enterprise." },
-            { question: "Can a department head see only their department?", answer: "Yes. What each person sees follows their role and permissions." },
-            { question: "Can we export the data?", answer: "API access for your own systems is on Enterprise." },
+            { question: "Which plan will include analytics?", answer: "Starter and above, with advanced reports on Growth and Enterprise." },
+            { question: "Will a department head see only their department?", answer: "Yes. What each person sees will follow their role and permissions." },
+            { question: "Will we be able to export the data?", answer: "API access for your own systems is planned for Enterprise." },
         ],
     },
 ]
 
 export const uniFeatureBySlug = (slug: string) => UNI_FEATURES.find((f) => f.slug === slug)
-
-export const UNI_TOUR: TourTab[] = [
-    {
-        id: "assignments", label: "Assignments", art: "uni-classes", tone: "ink",
-        title: "Coursework students can talk about in interviews",
-        points: ["AI projects for a stack and a level", "Voice mock interviews at any hour", "Quizzes and code tests with deadlines"],
-        href: "/uni/assignments", cta: "How assignments work",
-    },
-    {
-        id: "students", label: "Students", art: "uni-students", tone: "mint",
-        title: "Every student, and how ready they are",
-        points: ["Verified students by department and class", "Readiness from real work", "Credits from the campus pool"],
-        href: "/uni/students", cta: "How the roster works",
-    },
-    {
-        id: "faculty", label: "Faculty", art: "uni-faculty", tone: "blush",
-        title: "The whole faculty, each with the right access",
-        points: ["Six campus roles", "Fourteen permissions", "Invite by email with a department"],
-        href: "/uni/faculty", cta: "How roles work",
-    },
-    {
-        id: "placements", label: "Placements", art: "uni-placements", tone: "butter",
-        title: "Bring companies to students who are ready",
-        points: ["Campus-only jobs", "Company referrals", "Applied to placed, per drive"],
-        href: "/uni/placements", cta: "How placements work",
-    },
-]

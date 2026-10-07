@@ -5,15 +5,22 @@ import SiteHeader from "@/components/site/header"
 import SiteFooter from "@/components/site/footer"
 import { FeatureDetail } from "@/components/marketing/feature-detail"
 import { UNI_FEATURES, UNI_MODULES, uniFeatureBySlug } from "@/content/uni"
-import { BRAND, SITE, UNI_LINKS } from "@/lib/site"
+import { BRAND, SITE } from "@/lib/site"
+import { UniFeatureStory } from "@/components/uni/feature-stories"
 import { pageMeta } from "@/lib/seo"
 import { breadcrumbSchema, faqSchema, jsonLd, webPageSchema } from "@/lib/schema"
 
 /**
  * One university module in depth, shipithq.com/uni/<slug> (plan/web/revamp REV-31):
  * the same layout as the student and hiring feature pages. Limits by plan come from
- * UNI_PLANS.
+ * UNI_PLANS. Early access (plan/web/story ST-15): Faculty and Assignments, which run today, tell
+ * their story; Students, Placements and Analytics read as planned; every call is early access.
  */
+
+const STORY_SUBS: Record<string, string> = {
+    faculty: "One faculty member, from the invitation to exactly the access they need.",
+    assignments: "Designing each of the three kinds of work, then the part that is being built.",
+}
 
 export const dynamicParams = false
 
@@ -68,7 +75,7 @@ export default async function UniFeaturePage({ params }: { params: Promise<{ fea
                 art={card.id}
                 meta={card.meta}
                 ctas={[
-                    { text: "Set up your campus", href: UNI_LINKS.signup, external: true },
+                    { text: "Request early access", href: "/uni#early-access" },
                     { text: "See plans", href: "/uni/pricing" },
                 ]}
                 steps={f.steps}
@@ -76,8 +83,10 @@ export default async function UniFeaturePage({ params }: { params: Promise<{ fea
                 limits={f.limits}
                 faqs={f.faqs}
                 soon={card.soon}
+                planned={f.planned}
+                story={STORY_SUBS[f.slug] ? { sub: STORY_SUBS[f.slug]!, node: <UniFeatureStory slug={f.slug} /> } : undefined}
                 others={UNI_MODULES.filter((m) => m.id !== card.id)}
-                finalCta={{ text: "Set up your campus", href: UNI_LINKS.signup }}
+                finalCta={{ text: "Request early access", href: "/uni#early-access" }}
                 planLimits={PLAN_LIMITS[f.slug]}
                 planNames={UNI_PLAN_ORDER.map((k) => UNI_PLANS[k].name)}
                 pricingHref="/uni/pricing"

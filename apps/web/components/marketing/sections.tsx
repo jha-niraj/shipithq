@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react"
 import { cn } from "@repo/ui/lib/utils"
 import { COMPARISONS } from "@/app/(home)/compare/_components/comparisons"
 import { getLandingNumbers } from "@/lib/landing-numbers"
-import { GhostCta, MONO, PrimaryCta, Section, TONE, isDark, type Tone } from "./primitives"
+import { GhostCta, MONO, PrimaryCta, Section, TONE, type Tone } from "./primitives"
 import { CardArt, CardArtStyles, type ArtKind } from "./card-art"
 import { CountUp } from "./count-up"
 
@@ -12,53 +12,6 @@ import { CountUp } from "./count-up"
  * how it works, the numbers band, the compare strip and the closing band. The
  * product tour is its own client file (product-tour.tsx).
  */
-
-// ── How it works ───────────────────────────────────────────────────────────────
-
-export interface Step {
-    title: string
-    body: string
-    art: ArtKind
-}
-
-const STEP_TONES: Tone[] = ["blush", "ink", "mint", "sand"]
-
-export function HowItWorks({ id = "how-it-works", eyebrow = "How it works", title, steps }: {
-    id?: string
-    eyebrow?: string
-    title: string
-    steps: Step[]
-}) {
-    return (
-        <Section id={id} eyebrow={eyebrow} title={title}>
-            <CardArtStyles />
-            <ol className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {steps.map((s, i) => {
-                    const tone = STEP_TONES[i % STEP_TONES.length]!
-                    const t = TONE[tone]
-                    const dark = isDark(tone)
-                    return (
-                        <li
-                            key={s.title}
-                            className={cn("sh-reveal flex flex-col rounded-2xl p-6", t.surface, t.ink)}
-                            style={{ ["--sh-reveal-delay" as string]: `${i * 0.08}s` }}
-                        >
-                            <div className="flex items-center justify-between">
-                                <span className={cn(MONO, "text-3xl font-medium tracking-tight")}>{String(i + 1).padStart(2, "0")}</span>
-                                {i < steps.length - 1 && <ArrowRight aria-hidden className={cn("hidden size-5 xl:block", t.muted)} />}
-                            </div>
-                            <div className="my-6 flex h-32 items-center justify-center">
-                                <CardArt kind={s.art} dark={dark} className="max-h-32" />
-                            </div>
-                            <h3 className="text-lg font-semibold tracking-tight">{s.title}</h3>
-                            <p className={cn("mt-2 text-[15px] leading-6", dark ? "text-neutral-300" : "text-neutral-800")}>{s.body}</p>
-                        </li>
-                    )
-                })}
-            </ol>
-        </Section>
-    )
-}
 
 // ── Numbers band ───────────────────────────────────────────────────────────────
 

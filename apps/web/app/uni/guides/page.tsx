@@ -11,7 +11,6 @@ import { BLOG_POSTS } from "@/content/blog"
 import { TOPIC_HUBS } from "@/content/topic-hubs"
 import { UNI_GUIDE_ART, UNI_GUIDE_SLUGS } from "@/content/uni-guides"
 import { CardArt, CardArtStyles, type ArtKind } from "@/components/marketing/card-art"
-import { UNI_LINKS } from "@/lib/site"
 import { pageMeta } from "@/lib/seo"
 import { faqSchema, jsonLd } from "@/lib/schema"
 
@@ -46,7 +45,7 @@ export default function UniGuidesPage() {
                     sub={hub.body[0]}
                     tone="butter"
                     art="guides"
-                    ctas={[{ text: "Set up your campus", href: UNI_LINKS.signup, external: true }, { text: "See the product", href: "/uni" }]}
+                    ctas={[{ text: "Request early access", href: "/uni#early-access" }, { text: "See the product", href: "/uni" }]}
                 />
 
                 <Section eyebrow="Read in order" title="Five guides, one season">

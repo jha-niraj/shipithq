@@ -334,13 +334,64 @@ the next. `tsc` in the app being edited after each task; no lint or builds unles
 - **Done when:** the constants match the decided prices, and /pricing, the landing strip and a test
   order (Razorpay test mode) all show and charge the same amounts.
 
+### - [x] ST-15 /uni as early access, told honestly
+- **Status:** done 2026-10-07.
+  - Hero: "Early access" in the eyebrow; the paragraph says what works and what comes next; the
+    readiness board (a drawing of the unbuilt Analytics screen) replaced by a status card: three
+    things that work today, four being built. Calls: "Request early access" and "See what works today".
+  - `components/uni/campus-story.tsx`: six steps, apps/uni's own labels (sources in its header):
+    onboarding's six questions, the invite dialog, 21 permission switches, the three assignment sheets
+    (works today); classes and students, results and readiness (being built, the first showing the
+    app's real "No classes found. Create classes first."). It replaces the semester plan, the four
+    "how it works" cards and the tabbed tour.
+  - `components/uni/early-access.tsx`: a form through `submitContactMessage` (subject "[Uni early
+    access] <institution>", role and size from onboarding's lists). Verified: one test submission saved
+    to `contact_submissions` ("ST-15 test (delete me)", st15-test@example.com) and read back.
+  - Copy fixed: 21 permissions (not 14), six setup questions (not three), the head invites (not
+    "anyone with the permission"), no grading claim, voice mock categories as the app names them;
+    Students, Placements, Analytics pages are `planned: true` ("Being built", future tense);
+    Assignments says delivery is being built. FeatureDetail gained `planned`.
+  - Faculty and Assignments pages tell stories (`components/uni/feature-stories.tsx`), labels checked,
+    the invitation row matching the real "Pending Invitations" list.
+  - Pricing (landing and /uni/pricing): no toggles, INR with USD under it and the yearly line;
+    "Talk to us" on every plan (to the form); unbuilt plan lines and comparison rows marked Soon;
+    invoices, "cancel any time" and "Start free" removed. Navbar and guides calls to early access.
+  - Fixed on the way: `money()` moved to a server-safe `lib/money.ts` (the uni cards became a server
+    component and could not call it from the hire client file; the page half-rendered).
+  - Checked headless: /uni and Faculty and Assignments step correctly at 1440px; all eight /uni pages
+    200 with nothing clipped at 390px; no server or console errors after the fix; web tsc clean.
+- **Why:** the 2026-10-07 check (plan/uni/overview.md) found most of what /uni sells does not work
+  yet: no classes, students never receive assignments, no results, placeholder Students, Placements,
+  Analytics, no checkout. And copy errors: 14 permissions (21), three steps (six), faculty grading.
+- **Decisions (Niraj, 2026-10-07, AskUserQuestion):** early access, honestly: the story shows what
+  works today and draws the rest as being built; the call is "Request early access". Plan prices
+  shown (INR and USD, no toggles) with "Talk to us" on every plan, billing claims removed. The apps/uni
+  gaps recorded as plan/uni (UNI-1 to UNI-8) for the internal round.
+- **Files:** `app/uni/_components/{uni-landing,pricing-section}.tsx`, `app/uni/pricing/page.tsx`,
+  `app/uni/[feature]/page.tsx`, `components/uni/{hero,sections}.tsx`, `content/uni.ts`; new
+  `components/uni/{campus-story,early-access}.tsx`, stories for Faculty and Assignments.
+- **Steps:** hero without the readiness board; a six-step story (set up, invite, permissions,
+  design an assignment: works today; classes and students, results and readiness: being built);
+  an early-access form through `submitContactMessage` (an existing DB use, so no new one); every claim
+  corrected or marked; feature pages: Faculty and Assignments get stories, Students, Placements and
+  Analytics read as planned; pricing without toggles and with "Talk to us".
+- **Done when:** no /uni claim the code does not back is unmarked; no tabs, toggles or timers in an
+  explaining section; the form saves a message; 1440px and 390px headless with nothing clipped and
+  no console errors; titles and JSON-LD unchanged.
+
 ## Coming-soon markers (kept current by ST-2)
 
-Re-read `apps/web/content/uni.ts` against apps/uni when its core screens land (plan/web/revamp REV-33).
+Re-read `apps/web/content/uni.ts` against apps/uni when its core screens land (plan/uni UNI-1 to UNI-4).
+Since ST-15 (2026-10-07) /uni is early access: besides the markers below, the hero, the story's last
+two steps ("Being built") and the Students, Placements and Analytics pages (`planned: true`, read in
+the future tense) say what is not built in their own words.
 
 | Where | Claim | Not built | Today |
 |---|---|---|---|
 | /uni card and /uni/students | Students | the Students screen: rosters, verification, readiness | set-up, faculty and assignments work; rosters have no screen |
 | /uni card and /uni/placements | Placements | the Placements screen: campus jobs, applications, outcomes | companies hire through ShipItHQ Hiring; no Placements screen |
 | /uni card and /uni/analytics | Analytics | the Analytics screen: readiness, completion, credit use | no Analytics screen |
-| /uni hero (`components/uni/hero.tsx`) | "the placement cell sees each department's readiness in one place" | the Analytics screen | no Analytics screen |
+| /uni card and /uni/assignments | Assignments | delivering assignments: classes, students receiving the work, results back | faculty can design all three kinds; nothing reaches students yet |
+| /uni "One account" (`components/uni/sections.tsx`) | Coursework: the work you assign | assignments reaching the student's account | students practise and build on their own |
+| /uni and /uni/pricing plan cards | Basic analytics, Advanced analytics & reports, Full analytics suite, Student verification, Placement module, Company portal access, Custom branding, API access, White-label options, Custom integrations (`UNI_PLAN_LINES_NOT_BUILT`) | those screens and features | not in apps/uni |
+| /uni/pricing comparison rows | Analytics, Advanced reports, Placement module, Company portal, Custom branding, API access, White-label | as above | as above |

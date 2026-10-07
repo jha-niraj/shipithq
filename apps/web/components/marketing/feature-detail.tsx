@@ -52,6 +52,8 @@ export interface FeatureDetailProps {
      * replaces the step cards; the /hire pages pass none and keep them until ST-9.
      */
     story?: { sub: string; node: React.ReactNode }
+    /** Not built yet (plan/web/story ST-15): the step cards read as planned, not as how it works. */
+    planned?: boolean
 }
 
 const ROW_TONES = ["blush", "mint", "butter"] as const
@@ -117,7 +119,7 @@ export function FeatureDetail(p: FeatureDetailProps) {
                 {p.story.node}
             </Section>
             ) : (
-            <Section eyebrow="How it works" title={`${p.name}, step by step`}>
+            <Section eyebrow={p.planned ? "Being built" : "How it works"} title={p.planned ? `${p.name}, as planned` : `${p.name}, step by step`}>
                 <ol className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                     {p.steps.map((step, i) => {
                         const st = TONE[(["ink", "blush", "sage", "butter"] as const)[i % 4]!]
