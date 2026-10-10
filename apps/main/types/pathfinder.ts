@@ -184,19 +184,8 @@ export interface VerificationAIPlan {
         category: string
         codeSnippet?: string | null
     }>
-    codingQuestions?: Array<{
-        id: string
-        title: string
-        description: string
-        difficulty: string
-        category: string
-        constraints: string[]
-        examples: Array<{ input: string; output: string; explanation?: string }>
-        hints: string[]
-        starterCode: { javascript: string; python: string; java?: string }
-        solution: { javascript: string; python: string; explanation: string; timeComplexity: string; spaceComplexity: string }
-        testCases: Array<{ input: string; expectedOutput: string; isHidden: boolean }>
-    }>
+    /** Judged Practice problems that verify coding (plan/pathfinder PF-17). */
+    codingProblemIds?: string[]
     mockInterview?: {
         title: string
         description: string

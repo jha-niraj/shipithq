@@ -3,6 +3,25 @@
 **Status: DIRECTION DECIDED (2026-10-03, Niraj). Plan awaiting approval; nothing built.**
 Tasks: `tasks.md` (AB-*).
 
+**PARKED (2026-10-11, Niraj)** until the voice and hiring agents connect end to end and
+Pathfinder is done. What exists: the local spike in `apps/sandbox` (AB-2, AB-4, AB-5).
+Decisions taken before parking, to fold into this doc and `tasks.md` when it resumes:
+
+- **Our own agent replaces Claude Code in the terminal.** An OpenAI agent (model via
+  `modelFor`), run by ShipItHQ, with Plan and Agent modes and tools over the container
+  (read, write and search files, run commands, diff). It removes AB-1's limit (we may not pay
+  for or intermediate a user's Claude Code usage), lets us meter and cap spend, and records
+  every prompt and tool call natively, which is what scoring "AI fluency" needs. The terminal
+  stays plain bash.
+- **First version is a student practice loop, not an employer round.** One challenge repo,
+  brief, workspace (editor, terminal, agent pane, diff), a review of the diff, a scorecard on
+  the profile. Voice and browser preview come after. Reference: HackerRank Chakra (GA
+  2026-10-05) sells the employer side; the gap is repeated practice tied to a student profile.
+- **v1 container: local Docker**, extending `apps/sandbox`; Cloudflare Containers later.
+- **Agent turns run as worker jobs, streamed** to the pane. A multi-tool turn regularly
+  passes 45s (Chakra's took 44.7s and 48.0s), so it falls on the worker side of the
+  CLAUDE.md inline/worker rule.
+
 ## What the module is
 
 A new kind of hiring round, beside aptitude, DSA, system design and the voice rounds; it

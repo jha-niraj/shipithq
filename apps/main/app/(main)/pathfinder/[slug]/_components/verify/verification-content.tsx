@@ -19,31 +19,12 @@ import { MockVerification } from './mock-verification'
 import { ProjectVerification } from './project-verification'
 import { InlineLoader } from "@repo/ui/components/ui/inline-loader"
 import { AnimatedIcon } from "@repo/ui/components/animated-icons"
+import { codingRequired, type ClientQuizQuestion } from '@/lib/pathfinder/verification-plan'
 
 interface AIPlan {
-    quizQuestions?: {
-        id: string
-        question: string
-        options: string[]
-        correctAnswer: number
-        explanation: string
-        difficulty: string
-        category: string
-        codeSnippet?: string | null
-    }[]
-    codingQuestions?: {
-        id: string
-        title: string
-        description: string
-        difficulty: string
-        category: string
-        constraints: string[]
-        examples: { input: string; output: string; explanation?: string }[]
-        hints: string[]
-        starterCode: { javascript: string; python: string }
-        solution: { javascript: string; python: string; explanation: string; timeComplexity: string; spaceComplexity: string }
-        testCases: { input: string; expectedOutput: string; isHidden: boolean }[]
-    }[]
+    quizQuestions?: ClientQuizQuestion[]
+    /** Judged Practice problems (PF-17); absent on plans made before it. */
+    codingProblemIds?: string[]
     mockInterview?: {
         title: string
         description: string
@@ -182,12 +163,14 @@ function CompletionScreen({ verification }: { verification: Verification }) {
 export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mockInterviewId }: VerificationContentProps) {
     const aiPlan = aiPlanProp ?? null
     const hasProject = !!(aiPlan?.minorProject || aiPlan?.majorProject)
+    // No Practice problem fits some goals; they have no coding section (PF-17).
+    const hasCoding = codingRequired(aiPlan)
 
     // Determine which tab should be active based on status
     const getDefaultTab = () => {
         if (!verification) return 'quiz'
         if (verification.quizStatus !== 'COMPLETED') return 'quiz'
-        if (verification.codingStatus !== 'COMPLETED') return 'coding'
+        if (hasCoding && verification.codingStatus !== 'COMPLETED') return 'coding'
         if (verification.mockStatus !== 'COMPLETED') return 'mock'
         if (hasProject && verification.projectStatus !== 'COMPLETED') return 'project'
         return 'quiz'
@@ -206,7 +189,7 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
 
     return (
         <div className="flex-1 flex flex-col overflow-hidden">
-            <VerificationProgress verification={verification} />
+            <VerificationProgress verification={verification} hasCoding={hasCoding} hasProject={hasProject} />
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
@@ -221,15 +204,17 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
                                     score={verification?.quizScore}
                                 />
                             </TabsTrigger>
-                            <TabsTrigger
-                                value="coding">
-                                <SectionTab
-                                    icon={<Code className="w-4 h-4" />}
-                                    label="Coding"
-                                    status={verification?.codingStatus || 'LOCKED'}
-                                    score={verification?.codingScore}
-                                />
-                            </TabsTrigger>
+                            {hasCoding && (
+                                <TabsTrigger
+                                    value="coding">
+                                    <SectionTab
+                                        icon={<Code className="w-4 h-4" />}
+                                        label="Coding"
+                                        status={verification?.codingStatus || 'LOCKED'}
+                                        score={verification?.codingScore}
+                                    />
+                                </TabsTrigger>
+                            )}
                             <TabsTrigger
                                 value="mock">
                                 <SectionTab
@@ -263,14 +248,14 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
                                 attempts={verification?.quizAttempts || 0}
                             />
                         </TabsContent>
-                        <TabsContent value="coding" className="h-full m-0">
-                            <CodingVerification
-                                goalId={goal.id}
-                                questions={aiPlan?.codingQuestions || []}
-                                status={verification?.codingStatus || 'LOCKED'}
-                                score={verification?.codingScore ?? null}
-                            />
-                        </TabsContent>
+                        {hasCoding && (
+                            <TabsContent value="coding" className="h-full m-0">
+                                <CodingVerification
+                                    goalId={goal.id}
+                                    status={verification?.codingStatus || 'LOCKED'}
+                                />
+                            </TabsContent>
+                        )}
                         <TabsContent value="mock" className="h-full m-0">
                             <MockVerification
                                 goalId={goal.id}
@@ -303,14 +288,19 @@ export function VerificationContent({ goal, verification, aiPlan: aiPlanProp, mo
 }
 
 /** How far through verification you are. The workspace header carries the goal's title. */
-function VerificationProgress({ verification }: { verification: Verification | null }) {
-    const done = [verification?.quizStatus, verification?.codingStatus, verification?.mockStatus, verification?.projectStatus]
-        .filter((s) => s === 'COMPLETED').length
+function VerificationProgress({ verification, hasCoding, hasProject }: { verification: Verification | null; hasCoding: boolean; hasProject: boolean }) {
+    const sections = [
+        verification?.quizStatus,
+        ...(hasCoding ? [verification?.codingStatus] : []),
+        verification?.mockStatus,
+        ...(hasProject ? [verification?.projectStatus] : []),
+    ]
+    const done = sections.filter((s) => s === 'COMPLETED').length
     return (
         <div className="flex items-center gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
             <p className="text-sm font-medium text-neutral-900 dark:text-white">Verification</p>
-            <p className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{done} of 4 sections</p>
-            <Progress value={(done / 4) * 100} className="ml-auto h-1.5 w-32" />
+            <p className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">{done} of {sections.length} sections</p>
+            <Progress value={(done / sections.length) * 100} className="ml-auto h-1.5 w-32" />
         </div>
     )
 }

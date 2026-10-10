@@ -1,9 +1,10 @@
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
+import { pickVerificationProblems } from "@repo/db/pathfinder-coding"
 import type { RunnableJobType } from "../env"
 import { schema } from "../db"
 import { JobDurableObject, RetryableError, type ProgressFn, type StoredJob } from "./base"
 
-const { pathfinderGoals, pathfinderVerifications, mockInterviewVoice } = schema
+const { pathfinderGoals, pathfinderVerifications, mockInterviewVoice, practiceProblem } = schema
 
 /**
  * Pathfinder verification generation.
@@ -14,9 +15,10 @@ const { pathfinderGoals, pathfinderVerifications, mockInterviewVoice } = schema
  * blocking sleep, which no request survives. The user had already been charged
  * by the time Cloudflare killed it.
  *
- * The prompt, the assistant id and the response schema are UNCHANGED from the
- * inline version this replaced. The migration moved where the work runs, and
- * nothing else.
+ * The assistant id and the response schema are unchanged from the inline
+ * version this replaced. One change since (plan/pathfinder PF-17): the prompt
+ * no longer asks for coding questions. The job picks judged Practice problems
+ * instead and stores their ids as `codingProblemIds`.
  */
 
 interface VerificationInput {
@@ -87,7 +89,7 @@ export class VerificationGeneration extends JobDurableObject<VerificationInput> 
 				codingSolved: goal.totalCodingSolved,
 			},
 			instruction:
-				"Generate verification quiz and coding questions tailored to what this user has actually learned. Focus on the topics they practiced. Return the full pathfinder_learning_plan schema with quizQuestions (20-25), codingQuestions (3-8), mockInterview, minorProject, majorProject.",
+				"Generate verification quiz questions tailored to what this user has actually learned. Focus on the topics they practiced. Return the full pathfinder_learning_plan schema with quizQuestions (20-25), mockInterview, minorProject, majorProject. Leave codingQuestions empty: coding is verified with judged practice problems.",
 		}
 
 		const headers = {
@@ -156,6 +158,26 @@ export class VerificationGeneration extends JobDurableObject<VerificationInput> 
 
 		await progress(90, "Saving your plan")
 
+		// Coding is verified with judged Practice problems, never AI-written ones
+		// (plan/pathfinder PF-17): their tests were never run against a solution.
+		const candidates = await db
+			.select({
+				id: practiceProblem.id,
+				title: practiceProblem.title,
+				tags: practiceProblem.tags,
+				difficulty: practiceProblem.difficulty,
+				sortOrder: practiceProblem.sortOrder,
+			})
+			.from(practiceProblem)
+			.where(and(eq(practiceProblem.module, "DSA"), eq(practiceProblem.judgeStatus, "ready"), eq(practiceProblem.isActive, true)))
+		const codingProblemIds = pickVerificationProblems(candidates, {
+			title: goal.title,
+			category: goal.category,
+			topics: subGoalTitles,
+		})
+		delete aiPlan.codingQuestions
+		aiPlan.codingProblemIds = codingProblemIds
+
 		// -- Persist: same writes the inline version made ----------------------
 		const mockConfig = aiPlan.mockInterview as Record<string, unknown> | undefined
 		let mockId: string | null = null
@@ -198,7 +220,9 @@ export class VerificationGeneration extends JobDurableObject<VerificationInput> 
 			.set({
 				generatedPlan: aiPlan as object,
 				mockInterviewId: mockId,
-				codingStatus: "PENDING",
+				// No matching problems: the goal has no coding section (LOCKED, and
+				// `codingProblemIds: []` tells the app it is not required).
+				codingStatus: codingProblemIds.length ? "PENDING" : "LOCKED",
 				mockStatus: "PENDING",
 			})
 			.where(eq(pathfinderVerifications.goalId, job.input.goalId))

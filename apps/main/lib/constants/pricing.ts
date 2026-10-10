@@ -67,6 +67,13 @@ export const PATHFINDER_CREDITS = {
         coding: 0.35,
         mock: 0.35,
     },
+    /**
+     * Judge calls one verification may make on the shared executor pool, over
+     * its whole life: sample runs, and full submits. plan/pathfinder/overview.md
+     * DoD 8 (PF-17); hiring DSA rounds allow 60 runs per attempt.
+     */
+    verificationCodingRuns: 60,
+    verificationCodingSubmits: 30,
 } as const
 
 // -----------------------------------------------------------------------------

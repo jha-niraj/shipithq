@@ -45,7 +45,22 @@ migration docs. They are still true where they don't conflict with this one.
    added by hand, and not by inline LLM calls in a server action. A failed job
    shows a retry.
 8. **Verify can be completed end to end.**
-   - **Quiz and coding:** as they are today, without full-page reloads.
+   - **Quiz and coding are graded on the server** (Niraj, 2026-10-11). Before
+     this, the browser sent its own `isCorrect` and coding sent `passed: true`
+     with no code run, so any score was free.
+     - **Quiz:** the page never receives the answers. The server grades the
+       submitted choices against the stored plan.
+     - **Coding:** uses problems from the Practice DSA bank (`judgeStatus =
+       'ready'`, with a harness, hidden tests and a checked reference solution),
+       judged by `runAgainstTests` exactly as hiring DSA rounds are. They are
+       picked to match the goal's topics. A goal with no matching problems has
+       no coding section, the way a goal with no project plan has no project
+       section. The AI-written coding questions are no longer used.
+     - **Limits:** 60 sample runs and 30 submits per verification, for its
+       whole life (`PATHFINDER_CREDITS.verificationCodingRuns` / `...Submits`).
+       The executor pool is shared; hiring DSA rounds allow 60 runs an attempt.
+   - **Credits and XP for passing are paid once**, even when two submits
+     arrive together.
    - **Mock:** starts a real voice mock interview briefed on the goal. The
      section completes when that session is scored, and the link opens that
      session.

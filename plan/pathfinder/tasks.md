@@ -264,3 +264,196 @@ Derived from `overview.md`. Build in order. `P` = `apps/main/app/(main)/pathfind
 - [x] Status: done (2026-09-27). Both srs docs now open with a pointer here and a list of what is out of date.
 - **Why:** `srs/core-modules/pathfinder/00` and `01` describe files that have since changed.
 - **Done when:** both docs point here for current state, and none of their facts contradict this file.
+
+## PF-15 Pay for a passed verification once
+- [x] Status: done (2026-10-11).
+  - `lib/pathfinder/settle.ts` (`settleVerification`) flips `passed` with `WHERE passed = false
+    RETURNING`, and does the goal's COMPLETED update and the refund in the same
+    `withTransaction`. `checkVerificationCompletion` calls it and awards XP only when it
+    returns true. The `as any` is gone.
+  - On reachability: the mock and project refreshes were already guarded (`mockSessionId`,
+    `projectStatus = IN_PROGRESS`). A quiz or coding submit can only finish a verification when
+    it is the last section, and passing either one reset the next section to PENDING, finished
+    or not (PF-19). The flip guard covers whichever submit lands last. The other gain is the
+    payout itself: before, a failure between statements could leave a passed verification
+    unpaid.
+  - `scripts/practice-checks/pathfinder-verify.ts` on dev, with a throwaway user (deleted):
+    two concurrent settles gave `[false, true]`, 1 refund row, credits 0 to 100 once, the
+    goal COMPLETED. 4 of 4 pass. tsc clean.
+- **Why:** `checkVerificationCompletion` reads `passed`, then sets it, then pays credits and XP
+  in separate statements. Two submits that land together, such as a double click on the last
+  section, both read `passed = false` and both pay. (DoD 8)
+- **Files:** `A/verification.action.ts` (`checkVerificationCompletion`).
+- **Steps:**
+  1. Flip `passed` with `UPDATE ... SET passed = true ... WHERE id = ? AND passed = false
+     RETURNING id`. Continue only when a row comes back.
+  2. Put the goal's COMPLETED update, the credit refund and its `creditTransactions` row in one
+     `withTransaction`, together with the flip, so a failure doesn't leave a passed
+     verification that was never paid. XP (`addXpToUser`) stays after it, as today.
+  3. Drop `(verification as any).goal`. Use the typed `verification.goal`.
+- **Edge cases:** XP already has its own idempotency key (`activityKey.goalCompleted`). The
+  refund doesn't, which is why the flip guards it.
+- **Done when:** two concurrent calls on a verification that's ready to pass produce exactly one
+  refund row and one XP award. Checked with a throwaway user on dev and a script that fires both
+  calls together.
+
+## PF-16 Grade the verification quiz on the server
+- [ ] Status: built (2026-10-11); the server half is verified. Waiting on Niraj's browser pass of
+  the review screen.
+  - `lib/pathfinder/verification-plan.ts` has `stripPlan` / `withoutAnswers` (quiz answers and
+    explanations out, every question given an id, `q<i>` when the plan had none) and `gradeQuiz`.
+  - Both actions that return a verification strip it: `getPathfinderGoal` and
+    `getVerificationStatus`. Nothing else returns the plan, and the store's `verificationAIPlan`
+    setter is never called.
+  - `submitVerificationQuiz` takes `{ questionId, selectedAnswer, timeTaken }` and grades
+    server-side. It returns `review`: on a fail only which questions were wrong, on a pass each
+    answer and its explanation. Withholding answers on a fail is a choice made here, so that a
+    retry is a real retry.
+  - The quiz page runs the shared `Quiz` without `immediateResults` (there is no answer to
+    reveal) and shows `QuizReview` after submitting.
+  - The coding questions' `solution` still reaches the page, because its Solution tab renders
+    it. PF-17 removes those questions.
+  - `scripts/practice-checks/pathfinder-verify.ts` on dev: 13 of 13 pass. Neither action's JSON
+    contains an answer or explanation. A forged attempt (2 right, 3 wrong, all claiming
+    `isCorrect`, plus a repeat and an unknown id) scores 40. A fail reveals nothing; a pass
+    reveals all. tsc clean.
+  - **Browser check for Niraj:** Verify, then Quiz. Answer and submit: the review lists every
+    question. Below 70% it shows only Wrong marks and a Try again button. At 70% or more it
+    shows each answer and its explanation.
+- **Why:** the Verify page receives every question's `correctAnswer`, and
+  `submitVerificationQuiz` counts the `isCorrect` values the browser sends. A crafted request
+  scores 100, which pays the full refund and the maximum XP. (DoD 8)
+- **Files:**
+  - `A/verification.action.ts` (`submitVerificationQuiz`, `VerificationQuizSubmission`, `getVerificationStatus`)
+  - `P/[slug]/_components/verify/quiz-verification.tsx`, `verification-content.tsx`
+- **Steps:**
+  1. The submission carries `{ questionId, selectedAnswer, timeTaken }` only.
+  2. The server loads `generatedPlan.quizQuestions` and grades each `selectedAnswer` against
+     `correctAnswer`, by `questionId`.
+  3. Strip `correctAnswer` and `explanation` from the quiz questions passed to the page.
+     The submit result returns each question's correct answer and explanation, so the review
+     screen still shows them after the attempt.
+- **Edge cases:**
+  - A `questionId` not in the plan, or a duplicate, is ignored.
+  - An unanswered question counts as wrong: the denominator is the plan's question count, not
+    the number of answers sent.
+  - Older plans whose questions have no `id`: match by index, the same way the page numbers them.
+- **Done when:**
+  - the page HTML for Verify contains no `correctAnswer`
+  - a hand-made submission with `isCorrect: true` everywhere but wrong choices scores what the
+    choices earn
+  - a real attempt shows the review with explanations.
+
+## PF-17 Coding verification uses judged Practice problems
+- [ ] Status: built (2026-10-11); the server half is verified against the real judge. Waiting on
+  Niraj's browser pass of the coding tab. Decision: Niraj, 2026-10-11 (overview DoD 8).
+  - **Picker.** `@repo/db/pathfinder-coding` (`pickVerificationProblems`) is pure and shared by
+    the worker and the script. Matching is on words, with stop words, aliases, and words of at
+    least 3 letters. A DSA goal always gets problems. Any other goal needs a problem sharing 2
+    tag words with it; the first rule, any shared word, gave Kafka "Kth Largest in a Stream" and
+    PostgreSQL indexing binary trees. On dev every non-DSA goal gets none; a DSA "Graphs and DP"
+    goal gets Climbing Stairs, Number of Islands and Clone Graph.
+  - **Worker.** `verification-generation.ts` no longer asks for coding questions. It stores
+    `codingProblemIds` and leaves coding LOCKED when the list is empty.
+  - **Actions.** `getVerificationCoding`, `runVerificationSamples` and
+    `submitVerificationCoding` judge with `runSamples` / `runAgainstTests`. Hidden cases are
+    returned blank. Runs are recorded as `VERIFICATION_RUN` rows, so there is no migration.
+    Limits are 60 runs and 30 submits (`PATHFINDER_CREDITS`, overview DoD 8). An executor outage
+    is not counted. A time limit is the code's fault and counts as a failed submit:
+    `JUDGE_TIME_LIMIT_MESSAGE` is now exported from `judge-run.ts`.
+  - **Scoring.** `checkVerificationCompletion` skips coding when `codingRequired` is false and
+    spreads its weight over quiz and mock.
+  - **Page.** `coding-verification.tsx` is rewritten after the hiring DSA runner. The Verify tabs
+    hide Coding when there is none, and the count reads "n of <sections that apply>".
+    `stripPlan` drops the old `codingQuestions`, which carried their solutions.
+  - **Backfill.** `pnpm script pathfinder-coding-problems` finds 0 generated verifications on
+    dev. In the check it moved two old-style ones, then previewed nothing left.
+  - **Checks.** `scripts/practice-checks/pathfinder-verify.ts`: 32 of 32 pass on dev, with
+    shipitworker run locally. That needed a host-rewriting proxy in front of `wrangler dev`,
+    because `container.fetch` uses the URL's port (`:8787`) instead of the container's 8080; the
+    deployed URL has no port. Results:
+    - each reference solution solves its problem, and three solved gives COMPLETED 100
+    - a forged `passed: true` with wrong code fails
+    - the unedited starter times out and counts (30 to 29 submits left)
+    - the page JSON has no hidden test, harness or reference solution
+    - a Kafka goal verifies at 100 with no coding section.
+  - To run the judge parts locally: `apps/main/.env` points the executor at `localhost:3004`,
+    which on Niraj's machine is gurukulhq's web app. Start shipitworker, then run the check
+    with `NEXT_PUBLIC_WORKER_URL` aimed at it.
+  - **Browser check for Niraj:**
+    - A DSA goal's Verify, then Coding: three problems, Run shows the sample cases, a wrong
+      Submit shows failures with hidden cases blank, and solving all three completes the section.
+    - A non-DSA goal: no Coding tab, and the count reads "0 of 2" (or 3 with a project).
+- **Why:** coding verification is not graded. "Run" is `setTimeout(2000)`, and Submit always
+  sends `passed: true` (`coding-verification.tsx:134`). The AI-written problems have tests
+  that no reference solution has ever passed. The Practice bank has 76 judge-ready DSA
+  problems, and hiring DSA rounds already judge them (`lib/hiring/dsa.ts`). (DoD 8)
+- **Files:**
+  - a new `packages/db/src/pathfinder-coding.ts`: `pickVerificationProblems(topics, category)`, shared by the worker and the script
+  - `apps/worker/src/jobs/verification-generation.ts`: stores `codingProblemIds` in `generatedPlan`; stops asking the model for `codingQuestions`
+  - `A/verification.action.ts`: `submitVerificationCoding` judges on the server; add `runVerificationSamples`
+  - `P/[slug]/_components/verify/coding-verification.tsx`: real Run and Submit, the same judge UI as the hiring DSA runner
+  - `apps/main/lib/constants/pricing.ts`: weights over the sections that apply
+  - a new `packages/db/src/scripts/pathfinder-coding-problems.ts`: preview-first backfill for existing verifications
+- **Steps:**
+  1. **Pick problems.** Score each ready, active DSA problem by overlap between its tags and
+     title and the goal's topic titles and category. Take the best 3 (one EASY, two MEDIUM
+     where possible), with ties broken by `sortOrder`. If none score above zero, there is no
+     coding section (`codingProblemIds: []`).
+  2. **Run.** `runVerificationSamples(goalId, problemId, language, code)` checks that the
+     problem is one of this verification's, then calls `runSamples` (lib/hiring/dsa.ts).
+     It runs sample tests only.
+  3. **Submit.** `submitVerificationCoding({ goalId, problemId, language, code })` judges
+     every test with `runAgainstTests` and stores the real `passed`, `testsPassed` and
+     `totalTests`. Hidden cases come back without their input or output. The section score
+     is the mean share of tests passed across the chosen problems, using each problem's best
+     submission. The section completes when every problem has passed all its tests.
+  4. **Weights.** When a goal has no coding section, `checkVerificationCompletion` spreads
+     the coding weight over the sections that remain, so the score is still out of 100.
+  5. **Backfill.** The script previews, for each existing verification, the problems it
+     would pick. With `--apply` it writes `codingProblemIds` and resets an unfinished coding
+     section to PENDING. Already COMPLETED sections are left alone.
+- **Edge cases:**
+  - The judge is unavailable: show an error, and don't record a submission.
+  - A `problemId` that isn't one of this verification's is refused.
+  - The language is limited to what the problem has a harness for.
+  - Each submission is checked against `DSA_RUNS_PER_ATTEMPT`-style limits, so the container
+    can't be used as free compute.
+  - Never select `referenceSolution` or the hidden tests into anything the page receives
+    (`clientSafeProblem`).
+- **Done when:**
+  - on dev, a wrong solution scores below 100 and a correct one completes the section
+  - a hand-made submission with `passed: true` and wrong code fails
+  - a Kafka-style goal shows no coding section and still reaches 100% through its other sections
+  - the backfill previews, applies, then previews nothing left.
+
+## PF-18 Verified goals on the student profile (proposed)
+- [ ] Status: proposed 2026-10-11; needs Niraj's call on what is shown and to whom.
+- **Why:** a verified goal is the strongest proof Pathfinder makes: a graded quiz, judged code,
+  a scored voice mock and a reviewed project. Today it appears nowhere outside the goal,
+  neither on the profile nor to companies in `apps/hiring`. The student profile is the edge
+  ShipItHQ has over interview-only tools.
+- **Done when:** decided and split into tasks once PF-15 to PF-17 make the scores trustworthy.
+
+## PF-19 Passing a section never resets a finished one
+- [ ] Status: built (2026-10-11); the quiz path is verified, the coding path is waiting on one judge run.
+  - `unlock(column)` in `A/verification.action.ts` is `CASE WHEN col = 'LOCKED' THEN 'PENDING'
+    ELSE col END`, used by the quiz (for coding, and only when `codingRequired`) and by coding
+    (for the mock).
+  - `pathfinder-verify.ts` on dev, 4 new checks pass: coding and mock done with the quiz last
+    keeps coding COMPLETED and the verification passes; a LOCKED coding section opens on a quiz
+    pass; a goal with no coding section stays LOCKED.
+  - Not yet run: the coding-then-mock order. It uses the same helper but needs the judge (see
+    PF-17 for running shipitworker locally).
+- **Why:** the worker unlocks coding and mock as soon as the plan is generated, so sections can be
+  done in any order. But passing the quiz sets `codingStatus` to PENDING, and passing coding sets
+  `mockStatus` to PENDING, even when that section is already COMPLETED. A student who finishes
+  the mock and then coding loses the mock, and the verification can never pass on that order.
+  (DoD 8)
+- **Files:** `A/verification.action.ts` (`submitVerificationQuiz`, `submitVerificationCoding`).
+- **Steps:** unlock the next section only when it is LOCKED. In SQL that is a `CASE` on the current
+  value, so a stale read cannot reset it either.
+- **Edge cases:** a goal with no coding section keeps coding LOCKED (PF-17); passing the quiz must
+  not unlock it.
+- **Done when:** on dev, mock COMPLETED then coding passed leaves the mock COMPLETED, and the
+  verification passes.

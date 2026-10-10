@@ -16,6 +16,7 @@ import { revalidatePath } from 'next/cache'
 import { revalidateGoal } from '@/lib/pathfinder/revalidate'
 import { startBackgroundJob } from '@/actions/(main)/workers/jobs.action'
 import { recordActivity, activityKey } from '@repo/db/activity'
+import { withoutAnswers } from '@/lib/pathfinder/verification-plan'
 
 // ================================================================================
 // TYPES
@@ -315,7 +316,8 @@ export async function getPathfinderGoal(slugOrId: string) {
             return { success: false, error: 'Goal not found', goal: null }
         }
 
-        return { success: true, goal }
+        // Never the quiz answers or coding solutions (plan/pathfinder PF-16).
+        return { success: true, goal: { ...goal, verification: withoutAnswers(goal.verification) } }
     } catch (error) {
         console.error('Error fetching goal:', error)
         return { success: false, error: 'Failed to fetch goal', goal: null }

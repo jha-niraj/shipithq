@@ -24,6 +24,13 @@ const JUDGE_TIMEOUT_MS = 60_000
 
 const TIMEOUT_MARKER = "Execution timed out"
 
+/**
+ * The `unavailable` message for a submission that ran past JUDGE_TIMEOUT_MS. It
+ * is the user's code, not the judge being down, so callers that count judge
+ * calls compare against this to count it (plan/pathfinder PF-17).
+ */
+export const JUDGE_TIME_LIMIT_MESSAGE = "Your code ran past the time limit. Look for an infinite loop or a much slower approach than the input size allows."
+
 export async function runAgainstTests(input: {
     kind: "run" | "submit"
     language: string
@@ -63,7 +70,7 @@ export async function runAgainstTests(input: {
                 status: "unavailable",
                 kind,
                 language,
-                message: "Your code ran past the time limit. Look for an infinite loop or a much slower approach than the input size allows.",
+                message: JUDGE_TIME_LIMIT_MESSAGE,
             }
         }
         console.error("[judge] executor call failed:", toErrorMessage(error))

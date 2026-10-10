@@ -13,9 +13,16 @@ import {
     mockVoiceSession,
     projectsV2,
     userProjectV2Progress,
+    practiceProblem,
+    harnessFor,
 } from '@repo/db'
 import { eq, and, or, sql, desc } from 'drizzle-orm'
 import { revalidateGoal } from '@/lib/pathfinder/revalidate'
+import { settleVerification } from '@/lib/pathfinder/settle'
+import { gradeQuiz, withoutAnswers, codingProblemIdsOf, codingRequired } from '@/lib/pathfinder/verification-plan'
+import { loadDsaProblems, runSamples } from '@/lib/hiring/dsa'
+import { runAgainstTests, JUDGE_TIME_LIMIT_MESSAGE } from '@/lib/practice/judge-run'
+import type { PracticeJudgeResult } from '@/types/practice'
 import type { VerificationAIPlan } from '@/types/pathfinder'
 import { PATHFINDER_CREDITS, PATHFINDER_XP } from '@/lib/constants/pricing'
 import { addXpToUser } from '@/actions/(main)/user/level.action'
@@ -32,7 +39,6 @@ export interface VerificationQuizSubmission {
     answers: {
         questionId: string
         selectedAnswer: number
-        isCorrect: boolean
         timeTaken: number
     }[]
     totalTime: number
@@ -43,17 +49,6 @@ export interface VerificationCodingSubmission {
     problemId: string
     code: string
     language: string
-    passed: boolean
-    testsPassed: number
-    totalTests: number
-    testResults?: {
-        testId: string
-        passed: boolean
-        input: string
-        expected: string
-        actual: string
-        error?: string
-    }[]
 }
 
 // ================================================================================
@@ -76,7 +71,7 @@ export async function getVerificationStatus(slugOrId: string) {
             return { success: false, error: 'Goal not found', verification: null }
         }
 
-        const verification = goal.verification ?? null
+        const verification = withoutAnswers(goal.verification ?? null)
         return { success: true, verification }
     } catch (error) {
         console.error('Error fetching verification status:', error)
@@ -100,6 +95,15 @@ export async function getVerificationStatus(slugOrId: string) {
 // in and never polled again; the run still completed and wrote a 22-question
 // plan to the verification row. That is the behaviour this file could not have.
 
+/**
+ * Open the next section only if it is still LOCKED. Passing one section used to
+ * set the next to PENDING outright, which reset it when it was already done
+ * (plan/pathfinder PF-19). Decided in SQL, so a stale read cannot reset it either.
+ */
+function unlock(column: typeof pathfinderVerifications.codingStatus | typeof pathfinderVerifications.mockStatus) {
+    return sql`CASE WHEN ${column} = 'LOCKED' THEN 'PENDING'::verification_section_status ELSE ${column} END`
+}
+
 // ================================================================================
 // SUBMIT VERIFICATION QUIZ
 // ================================================================================
@@ -120,8 +124,19 @@ export async function submitVerificationQuiz(submission: VerificationQuizSubmiss
             return { success: false, error: 'Goal not found' }
         }
 
-        const correctCount = submission.answers.filter((a) => a.isCorrect).length
-        const score = Math.round((correctCount / submission.answers.length) * 100)
+        // Graded here against the stored plan, never from anything the browser
+        // says about correctness (plan/pathfinder PF-16). A failed attempt sees
+        // which questions were wrong but not the answers, so a retry is a retry.
+        const plan = goal.verification.generatedPlan
+        const graded = gradeQuiz(plan, submission.answers, { reveal: false })
+        if (!graded.total) {
+            return { success: false, error: 'Generate the verification questions first' }
+        }
+        const { correctCount, score } = graded
+        const answers = submission.answers.map((a) => ({
+            ...a,
+            isCorrect: graded.review.find((r) => r.questionId === a.questionId)?.correct ?? false,
+        }))
 
         const [attempt] = await db.insert(pathfinderQuizAttempts).values({
             goalId: submission.goalId,
@@ -129,9 +144,9 @@ export async function submitVerificationQuiz(submission: VerificationQuizSubmiss
             quizType: 'VERIFICATION',
             score,
             correctCount,
-            totalQuestions: submission.answers.length,
+            totalQuestions: graded.total,
             timeTaken: submission.totalTime,
-            answers: submission.answers,
+            answers,
             startedAt: new Date(Date.now() - submission.totalTime * 1000),
         }).returning({ id: pathfinderQuizAttempts.id })
 
@@ -140,7 +155,7 @@ export async function submitVerificationQuiz(submission: VerificationQuizSubmiss
             await recordActivity(db, session.user.id, {
                 type: 'PATHFINDER_QUIZ_COMPLETED',
                 title: `Scored ${score} on the ${goal.title} verification quiz`,
-                description: `${correctCount} of ${submission.answers.length} correct - ${score >= 70 ? 'passed' : 'not passed'}`,
+                description: `${correctCount} of ${graded.total} correct - ${score >= 70 ? 'passed' : 'not passed'}`,
                 xp: 0,
                 minutes: submission.totalTime / 60,
                 key: activityKey.pathfinderQuiz(attempt.id),
@@ -157,7 +172,8 @@ export async function submitVerificationQuiz(submission: VerificationQuizSubmiss
                 quizScore: score,
                 quizAttempts: goal.verification.quizAttempts + 1,
                 quizCompletedAt: passed ? new Date() : undefined,
-                ...(passed ? { codingStatus: 'PENDING' as VerificationSectionStatus } : {}),
+                // Unlock coding only if it is still LOCKED and the goal has it (PF-19).
+                ...(passed && codingRequired(plan) ? { codingStatus: unlock(pathfinderVerifications.codingStatus) } : {}),
             })
             .where(eq(pathfinderVerifications.id, goal.verification.id))
 
@@ -166,7 +182,8 @@ export async function submitVerificationQuiz(submission: VerificationQuizSubmiss
         }
 
         await revalidateGoal(submission.goalId, { verify: true })
-        return { success: true, score, passed }
+        const review = passed ? gradeQuiz(plan, submission.answers, { reveal: true }).review : graded.review
+        return { success: true, score, passed, review }
     } catch (error) {
         console.error('Error submitting verification quiz:', error)
         return { success: false, error: 'Failed to submit quiz' }
@@ -177,75 +194,190 @@ export async function submitVerificationQuiz(submission: VerificationQuizSubmiss
 // SUBMIT VERIFICATION CODING
 // ================================================================================
 
-export async function submitVerificationCoding(submission: VerificationCodingSubmission) {
+// Coding is judged Practice problems (plan/pathfinder PF-17): the server runs
+// the code, and nothing the browser says about passing counts. Runs check the
+// sample tests; a submit runs every test. Both are counted against the
+// verification's limits, because the executor pool is shared.
+
+const RUN = 'VERIFICATION_RUN'
+const SUBMIT = 'VERIFICATION'
+
+type CodingGoal = NonNullable<Awaited<ReturnType<typeof loadGoalWithVerification>>>
+type CodingContext =
+    | { error: string }
+    | { userId: string; goal: CodingGoal; v: NonNullable<CodingGoal['verification']>; problemIds: string[] }
+
+function loadGoalWithVerification(goalId: string, userId: string) {
+    return db.query.pathfinderGoals.findFirst({
+        where: and(eq(pathfinderGoals.id, goalId), eq(pathfinderGoals.userId, userId)),
+        with: { verification: true },
+    })
+}
+
+/** The owner's goal, its verification, and the problem ids that verify it. */
+async function codingContext(goalId: string): Promise<CodingContext> {
+    const session = await getSession(headers())
+    const userId = session?.user?.id
+    if (!userId) return { error: 'Unauthorized' }
+    const goal = await loadGoalWithVerification(goalId, userId)
+    const v = goal?.verification
+    if (!goal || !v) return { error: 'Goal not found' }
+    const problemIds = codingProblemIdsOf(v.generatedPlan)
+    if (problemIds === null) return { error: 'These coding problems are from an older version. Refresh the verification to get judged ones.' }
+    return { userId, goal, v, problemIds }
+}
+
+async function judgeCalls(goalId: string, type: string) {
+    const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(pathfinderCodingSubmissions)
+        .where(and(eq(pathfinderCodingSubmissions.goalId, goalId), eq(pathfinderCodingSubmissions.submissionType, type)))
+    return row?.n ?? 0
+}
+
+/** Best share of tests passed per problem, from the submits so far. */
+async function codingProgress(goalId: string, problemIds: string[]) {
+    const subs = await db.select({
+        problemId: pathfinderCodingSubmissions.problemId,
+        passed: pathfinderCodingSubmissions.passed,
+        testsPassed: pathfinderCodingSubmissions.testsPassed,
+        totalTests: pathfinderCodingSubmissions.totalTests,
+    }).from(pathfinderCodingSubmissions)
+        .where(and(eq(pathfinderCodingSubmissions.goalId, goalId), eq(pathfinderCodingSubmissions.submissionType, SUBMIT)))
+    const best = Object.fromEntries(problemIds.map((id) => {
+        const mine = subs.filter((x) => x.problemId === id)
+        const share = Math.max(0, ...mine.map((x) => (x.totalTests ? (x.testsPassed ?? 0) / x.totalTests : 0)))
+        return [id, { share, solved: mine.some((x) => x.passed) }]
+    }))
+    const score = problemIds.length
+        ? Math.round((problemIds.reduce((t, id) => t + best[id]!.share, 0) / problemIds.length) * 100)
+        : 0
+    return { best, score, allSolved: problemIds.length > 0 && problemIds.every((id) => best[id]!.solved) }
+}
+
+/** Hidden cases as pass/fail only, so a retry can't learn them. */
+function withoutHidden(r: PracticeJudgeResult): PracticeJudgeResult {
+    return r.status === 'ok'
+        ? { ...r, cases: r.cases.map((c) => (c.hidden ? { ...c, input: '', expectedOutput: '', actualOutput: '' } : c)) }
+        : r
+}
+
+/** The coding section for the page: the problems (no hidden tests), progress and limits. */
+export async function getVerificationCoding(goalId: string) {
     try {
-        const session = await getSession(headers())
-        if (!session?.user?.id) {
-            return { success: false, error: 'Unauthorized' }
+        const ctx = await codingContext(goalId)
+        if ('error' in ctx) return { success: false as const, error: ctx.error }
+        const [problems, progress, runs, submits] = await Promise.all([
+            loadDsaProblems(ctx.problemIds),
+            codingProgress(goalId, ctx.problemIds),
+            judgeCalls(goalId, RUN),
+            judgeCalls(goalId, SUBMIT),
+        ])
+        return {
+            success: true as const,
+            problems,
+            solved: ctx.problemIds.filter((id) => progress.best[id]!.solved),
+            score: progress.score,
+            runsLeft: Math.max(0, PATHFINDER_CREDITS.verificationCodingRuns - runs),
+            submitsLeft: Math.max(0, PATHFINDER_CREDITS.verificationCodingSubmits - submits),
+        }
+    } catch (error: unknown) {
+        console.error('Error loading verification coding:', error)
+        return { success: false as const, error: 'Could not load the coding problems' }
+    }
+}
+
+/** Run one problem's sample tests. */
+export async function runVerificationSamples(input: VerificationCodingSubmission): Promise<PracticeJudgeResult> {
+    const fail = (message: string): PracticeJudgeResult => ({ status: 'unavailable', kind: 'run', language: input.language, message })
+    try {
+        const ctx = await codingContext(input.goalId)
+        if ('error' in ctx) return fail(ctx.error)
+        if (!ctx.problemIds.includes(input.problemId)) return fail('That problem is not part of this verification.')
+        if (await judgeCalls(input.goalId, RUN) >= PATHFINDER_CREDITS.verificationCodingRuns) {
+            return fail("You've used all the test runs for this verification. Submit to be judged.")
+        }
+        const code = input.code.slice(0, 50_000)
+        const r = await runSamples(input.problemId, input.language, code)
+        // Counted when the judge answered, or the code ran out of time; an
+        // outage is ours, not a run.
+        const timedOut = r.status === 'unavailable' && r.message === JUDGE_TIME_LIMIT_MESSAGE
+        if (r.status !== 'unavailable' || timedOut) {
+            await db.insert(pathfinderCodingSubmissions).values({
+                goalId: input.goalId, userId: ctx.userId, submissionType: RUN, problemId: input.problemId,
+                code, language: input.language, passed: r.status === 'ok' && r.passed,
+                testsPassed: r.status === 'ok' ? r.samplePassed : 0, totalTests: r.status === 'ok' ? r.sampleTotal : 0,
+            })
+        }
+        return r
+    } catch (error: unknown) {
+        console.error('Error running verification samples:', error)
+        return fail('Could not run the tests. Try again.')
+    }
+}
+
+/** Judge one problem against every test, and move the section on. */
+export async function submitVerificationCoding(input: VerificationCodingSubmission) {
+    try {
+        const ctx = await codingContext(input.goalId)
+        if ('error' in ctx) return { success: false as const, error: ctx.error }
+        if (!ctx.problemIds.includes(input.problemId)) return { success: false as const, error: 'That problem is not part of this verification.' }
+        if (ctx.v.codingStatus === 'COMPLETED') return { success: false as const, error: 'You already passed the coding section.' }
+        if (await judgeCalls(input.goalId, SUBMIT) >= PATHFINDER_CREDITS.verificationCodingSubmits) {
+            return { success: false as const, error: "You've used all the submits for this verification." }
         }
 
-        const goal = await db.query.pathfinderGoals.findFirst({
-            where: and(eq(pathfinderGoals.id, submission.goalId), eq(pathfinderGoals.userId, session.user.id)),
-            with: { verification: true },
-        })
+        const [row] = await db.select({ harness: practiceProblem.harness, judgeTests: practiceProblem.judgeTests, judgeStatus: practiceProblem.judgeStatus })
+            .from(practiceProblem).where(eq(practiceProblem.id, input.problemId))
+        const harness = row?.judgeStatus === 'ready' ? harnessFor(row.harness, input.language) : null
+        if (!row || !harness) return { success: false as const, error: `There are no tests for ${input.language} on this problem.` }
 
-        if (!goal || !goal.verification) {
-            return { success: false, error: 'Goal not found' }
-        }
+        const code = input.code.slice(0, 50_000)
+        const result = await runAgainstTests({ kind: 'submit', language: input.language, harness, code, tests: row.judgeTests ?? [] })
+        // The judge being down is ours: nothing is recorded or counted. Running
+        // out of time is the code's: a failed submit, counted like any other.
+        const timedOut = result.status === 'unavailable' && result.message === JUDGE_TIME_LIMIT_MESSAGE
+        if (result.status === 'unavailable' && !timedOut) return { success: false as const, error: result.message }
 
+        const total = (row.judgeTests ?? []).length
+        const passedCount = result.status === 'ok' ? result.cases.filter((c) => c.passed).length : 0
         await db.insert(pathfinderCodingSubmissions).values({
-            goalId: submission.goalId,
-            userId: session.user.id,
-            submissionType: 'VERIFICATION',
-            problemId: submission.problemId,
-            code: submission.code,
-            language: submission.language,
-            passed: submission.passed,
-            testsPassed: submission.testsPassed,
-            totalTests: submission.totalTests,
-            testResults: submission.testResults,
+            goalId: input.goalId, userId: ctx.userId, submissionType: SUBMIT, problemId: input.problemId,
+            code, language: input.language, passed: result.status === 'ok' && result.passed,
+            testsPassed: passedCount, totalTests: total,
+            testResults: result.status === 'ok'
+                ? result.cases.map((c) => ({ testId: c.id, passed: c.passed, input: c.hidden ? '' : c.input, expected: c.hidden ? '' : c.expectedOutput, actual: c.hidden ? '' : c.actualOutput }))
+                : undefined,
         })
 
-        const allSubmissions = await db.query.pathfinderCodingSubmissions.findMany({
-            where: and(
-                eq(pathfinderCodingSubmissions.goalId, submission.goalId),
-                eq(pathfinderCodingSubmissions.submissionType, 'VERIFICATION')
-            ),
-        })
-
-        const passedProblems = new Set(
-            allSubmissions.filter((s) => s.passed).map((s) => s.problemId)
-        )
-
-        const aiPlan = (goal.verification as { generatedPlan?: { codingQuestions?: unknown[] } } | null)?.generatedPlan as { codingQuestions?: unknown[] } | null
-        const totalProblems = aiPlan?.codingQuestions?.length || 5
-
-        const score = Math.round((passedProblems.size / totalProblems) * 100)
-        const allPassed = passedProblems.size >= totalProblems
-
+        const progress = await codingProgress(input.goalId, ctx.problemIds)
         await db.update(pathfinderVerifications)
             .set({
-                codingScore: score,
-                codingAttempts: goal.verification.codingAttempts + 1,
-                ...(allPassed
+                codingScore: progress.score,
+                codingAttempts: ctx.v.codingAttempts + 1,
+                ...(progress.allSolved
                     ? {
                         codingStatus: 'COMPLETED' as VerificationSectionStatus,
                         codingCompletedAt: new Date(),
-                        mockStatus: 'PENDING' as VerificationSectionStatus,
+                        mockStatus: unlock(pathfinderVerifications.mockStatus),
                     }
                     : {}),
             })
-            .where(eq(pathfinderVerifications.id, goal.verification.id))
+            .where(eq(pathfinderVerifications.id, ctx.v.id))
 
-        if (allPassed) {
-            await checkVerificationCompletion(goal.verification.id)
+        if (progress.allSolved) {
+            await checkVerificationCompletion(ctx.v.id)
         }
 
-        await revalidateGoal(submission.goalId, { verify: true })
-        return { success: true, passed: submission.passed, overallPassed: allPassed }
-    } catch (error) {
+        await revalidateGoal(input.goalId, { verify: true })
+        return {
+            success: true as const,
+            result: withoutHidden(result),
+            score: progress.score,
+            solved: ctx.problemIds.filter((id) => progress.best[id]!.solved),
+            overallPassed: progress.allSolved,
+        }
+    } catch (error: unknown) {
         console.error('Error submitting verification coding:', error)
-        return { success: false, error: 'Failed to submit coding' }
+        return { success: false as const, error: 'Failed to submit coding' }
     }
 }
 
@@ -522,55 +654,41 @@ async function checkVerificationCompletion(verificationId: string) {
     } | null
     const projectRequired = !!(aiPlan?.minorProject || aiPlan?.majorProject)
 
+    const hasCoding = codingRequired(verification.generatedPlan)
     const quizComplete = verification.quizStatus === 'COMPLETED'
-    const codingComplete = verification.codingStatus === 'COMPLETED'
+    const codingComplete = !hasCoding || verification.codingStatus === 'COMPLETED'
     const mockComplete = verification.mockStatus === 'COMPLETED'
     const projectComplete = projectRequired
         ? verification.projectStatus === 'COMPLETED'
         : true
 
     if (quizComplete && codingComplete && mockComplete && projectComplete) {
+        // A goal with no coding section spreads coding's weight over the other
+        // two, so its score is still out of 100 (PF-17).
         const w = PATHFINDER_CREDITS.verificationWeights
-        const weightedScore = Math.round(
+        const wCoding = hasCoding ? w.coding : 0
+        const wTotal = w.quiz + wCoding + w.mock
+        const weightedScore = Math.round((
             (verification.quizScore || 0) * w.quiz +
-            (verification.codingScore || 0) * w.coding +
+            (verification.codingScore || 0) * wCoding +
             (verification.mockScore || 0) * w.mock
-        )
+        ) / wTotal)
         const overallScore = weightedScore
 
         const refundCredits = Math.floor(
             (verification.verificationCreditsCharged || 0) * (weightedScore / 100)
         )
 
-        await db.update(pathfinderVerifications)
-            .set({
-                passed: true,
-                overallScore,
-                completedAt: new Date(),
-            })
-            .where(eq(pathfinderVerifications.id, verificationId))
-
-        await db.update(pathfinderGoals)
-            .set({
-                status: 'COMPLETED',
-                completedAt: new Date(),
-                progressPercent: 100,
-            })
-            .where(eq(pathfinderGoals.id, verification.goalId))
-
-        if (refundCredits > 0) {
-            const goal = (verification as any).goal
-            await db.update(users)
-                .set({ credits: sql`${users.credits} + ${refundCredits}` })
-                .where(eq(users.id, goal.userId))
-            await db.insert(creditTransactions).values({
-                userId: goal.userId,
-                amount: refundCredits,
-                type: 'REWARD',
-                description: `Pathfinder Verification Refund: ${weightedScore}% score (${refundCredits} credits)`,
-                currency: 'INR',
-            })
-        }
+        // Pays once, even when two submits land together (plan/pathfinder PF-15).
+        const flipped = await settleVerification({
+            verificationId,
+            goalId: verification.goalId,
+            userId: verification.goal?.userId ?? null,
+            overallScore,
+            refundCredits,
+            refundDescription: `Pathfinder Verification Refund: ${weightedScore}% score (${refundCredits} credits)`,
+        })
+        if (!flipped) return
 
         // Verification is the module's payoff - a multi-week goal, four sections
         // passed. Until now it granted nothing; the reward half of the feature was

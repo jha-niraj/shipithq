@@ -40,7 +40,8 @@
         "./badges": "./src/badges.ts",
         "./progress": "./src/progress/index.ts",
         "./progress-calendar": "./src/progress/calendar.ts",
-        "./option-builtins": "./src/option-builtins.ts"
+        "./option-builtins": "./src/option-builtins.ts",
+        "./pathfinder-coding": "./src/pathfinder-coding.ts"
     },
     "scripts": {
         "db:generate": "dotenv -e ../../apps/main/.env -- drizzle-kit generate",
