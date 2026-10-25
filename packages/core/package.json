@@ -1,0 +1,27 @@
+{
+    "name": "@repo/core",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./typed-fields": "./src/typed-fields/index.ts",
+        "./geo": "./src/geo/index.ts",
+        "./csv": "./src/csv/index.ts",
+        "./documents": "./src/documents/index.ts",
+        "./list/move-item": "./src/list/move-item.ts"
+    },
+    "scripts": {
+        "lint": "eslint . --max-warnings 0",
+        "check-types": "tsc --noEmit"
+    },
+    "dependencies": {
+        "zod": "^4.2.1"
+    },
+    "devDependencies": {
+        "@repo/eslint-config": "workspace:*",
+        "@repo/typescript-config": "workspace:*",
+        "@types/node": "^22.15.3",
+        "eslint": "^9.39.1",
+        "typescript": "5.9.2"
+    }
+}

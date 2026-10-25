@@ -1476,3 +1476,318 @@ h1, h2, h3, h4, h5, h6,
 @utility scroll-fade-x {
     mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
 }
+
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   Gurukul base UI - generic blocks (merged 2026-10-25, plan/repo/skills/base-ui-manifest.md section 4).
+   Animations, resets and utilities the shared components assume. Theme, colours, fonts and the root
+   font size above are ShipItHQ's and untouched. Left out because ShipItHQ already has them: the
+   `* { border-border }` base rule, the button cursor rules (theirs is a superset), and the
+   vt-theme-reveal view transitions.
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+/* ===== Accordion animations ===== */
+@theme inline {
+    --animate-accordion-down: accordion-down 0.2s ease-out;
+    --animate-accordion-up: accordion-up 0.2s ease-out;
+    --animate-collapsible-down: collapsible-down 0.2s ease-out;
+    --animate-collapsible-up: collapsible-up 0.2s ease-out;
+}
+
+@keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+}
+@keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+}
+
+/* Collapsible needs its own pair: Radix publishes the measured height on a per-primitive custom
+   property, so the accordion keyframes above cannot be reused - `--radix-accordion-content-height`
+   is simply undefined inside a Collapsible, and the height would animate to nothing. */
+@keyframes collapsible-down {
+    from { height: 0; }
+    to { height: var(--radix-collapsible-content-height); }
+}
+@keyframes collapsible-up {
+    from { height: var(--radix-collapsible-content-height); }
+    to { height: 0; }
+}
+
+@layer base {
+    /* No up/down spinner on number inputs, anywhere. */
+    input[type='number']::-webkit-inner-spin-button,
+    input[type='number']::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        appearance: none;
+        margin: 0;
+    }
+    input[type='number'] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+    }
+
+    /* Sharper text rendering on both platforms (the body colours stay in the base block above). */
+    body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+    }
+}
+
+/* ── Grain cover ─────────────────────────────────────────────────────────────
+   GrainCover (components/ui/grain-cover.tsx): soft colour blobs, blurred past the
+   edges, with film grain on top. Decorative only - AGENTS.md colour carve-out. */
+/* In the components layer so a utility on the same element (absolute, rounded-*) wins. */
+@layer components {
+    .gk-grain {
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+    }
+    .gk-grain-blobs {
+        position: absolute;
+        inset: -20%;
+        z-index: -2;
+        filter: blur(38px) saturate(1.05);
+        pointer-events: none;
+    }
+    .gk-grain-noise {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        opacity: 0.42;
+        mix-blend-mode: overlay;
+        pointer-events: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    }
+    .gk-grain-drift {
+        animation: gk-grain-drift 14s ease-in-out infinite alternate;
+    }
+}
+@keyframes gk-grain-drift {
+    to { transform: translate(4%, -3%) rotate(8deg) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gk-grain-drift { animation: none; }
+}
+
+/* House chart load animation: the one amber datum dot pops in once the line has drawn (useChartMotion). */
+@keyframes gk-chart-pop {
+    0% { transform: scale(0); opacity: 0; }
+    65% { transform: scale(1.4); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+.gk-chart-pop {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: gk-chart-pop 380ms ease-out 870ms both;
+}
+@media (prefers-reduced-motion: reduce) {
+    .gk-chart-pop { animation: none; }
+}
+
+/* A guarded sheet's Cancel button, flashed when someone clicks outside (SheetContent guardOutside). */
+@keyframes gk-sheet-flash {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-3px); }
+    40% { transform: translateX(3px); }
+    60% { transform: translateX(-2px); }
+    80% { transform: translateX(2px); }
+}
+.gk-sheet-flash {
+    box-shadow: 0 0 0 2px var(--background, #fff), 0 0 0 4px rgb(245 158 11);
+    animation: gk-sheet-flash 420ms ease-out;
+    transition: box-shadow 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+    .gk-sheet-flash { animation: none; }
+}
+
+@keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+    animation: marquee 40s linear infinite;
+}
+
+.animate-marquee:hover {
+    animation-play-state: paused;
+}
+
+/* ── Skeleton shimmer ────────────────────────────────────────────────────────
+   A highlight that sweeps across each block, rather than a whole-page opacity
+   pulse. A screenful of blocks fading in unison reads as a stalled screen; a
+   sweep reads as work in progress. The highlight is an ::after overlay so the
+   block keeps its own background colour in both themes, and each block can be
+   given its own animation-delay to make a group ripple instead of blink. */
+@keyframes gk-shimmer-sweep {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+}
+
+.gk-shimmer {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.gk-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--foreground) 8%, transparent) 50%,
+        transparent 100%
+    );
+    animation: gk-shimmer-sweep 1.6s ease-in-out infinite;
+}
+
+/* Real content settling in behind the skeleton once data arrives. */
+@keyframes gk-rise {
+    from { opacity: 0; transform: translate3d(0, 8px, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.gk-rise {
+    animation: gk-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Motion here is decoration, never a signal, so it all drops out cleanly. */
+@media (prefers-reduced-motion: reduce) {
+    .gk-shimmer::after { animation: none; opacity: 0.45; }
+    .gk-rise { animation: none; }
+
+    /* tw-animate-css does NOT honour reduced-motion on its own, so every `animate-in` /
+       `animate-out` surface (Select, DropdownMenu, Popover, Tooltip, Dialog, Sheet) would keep
+       zooming and sliding for a user who asked it not to.
+
+       Collapsed to a near-instant fade rather than `animation: none`, and that distinction is
+       load-bearing: Radix keeps an exiting element MOUNTED until its animation ends, reading the
+       computed style to know when. Remove the animation outright and the close never reports
+       completion in some browsers, leaving a dismissed menu on screen. A 1ms animation still
+       fires animationend, so the element unmounts correctly while no motion is perceived.
+
+       The transform helpers are zeroed so nothing slides or scales; only opacity moves. */
+    .animate-in,
+    .animate-out {
+        animation-duration: 1ms !important;
+        animation-delay: 0ms !important;
+        --tw-enter-translate-x: 0 !important;
+        --tw-enter-translate-y: 0 !important;
+        --tw-exit-translate-x: 0 !important;
+        --tw-exit-translate-y: 0 !important;
+        --tw-enter-scale: 1 !important;
+        --tw-exit-scale: 1 !important;
+        --tw-enter-rotate: 0 !important;
+        --tw-exit-rotate: 0 !important;
+    }
+
+    /* Height disclosures land open/closed instead of sliding. */
+    [data-state][class*="animate-accordion"],
+    [data-state][class*="animate-collapsible"] {
+        animation-duration: 1ms !important;
+    }
+}
+
+/* ─── Print: show only the page content, never the app chrome ──────────────────
+   Hides anything marked .no-print / [data-no-print], expands the main scroll
+   viewport so multi-row content isn't clipped to one screen, and flattens the
+   bordered "card" shell so reports print full-width. Add `no-print` (or the
+   Tailwind `print:hidden`) to any element that must not appear on paper. */
+@media print {
+    .no-print,
+    [data-no-print] { display: none !important; }
+
+    /* The main content lives inside a Radix ScrollArea - let it expand fully. */
+    [data-radix-scroll-area-viewport] {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    html, body { background: #fff !important; }
+    @page { margin: 14mm; }
+}
+
+/* ── Safe area: keep bottom-anchored chrome off the iOS home indicator ───────
+   `safe-area-bottom` was in use in four places in apps/main - the /m bottom nav, the
+   attendance action bar, the quick-view intro and the PWA install banner - and was
+   never defined anywhere. It was a no-op class, so on an iPhone with a gesture bar
+   every one of those sat underneath it: the install banner's dismiss button was the
+   worst of them, since the home indicator swallowed the tap.
+
+   Two halves are required and neither works alone. `env(safe-area-inset-*)` resolves
+   to 0 unless the document opts in with `viewport-fit=cover` (set via the `viewport`
+   export in each app's root layout), and opting in without padding for the inset is
+   what puts content under the indicator in the first place.
+
+   It ADDS to the element's own bottom padding rather than replacing it. A bare
+   `padding-bottom: env(...)` on the same element would win over Tailwind's `pb-2`/`py-3`
+   (same specificity, declared later in this file), so a bar that wanted 0.75rem of
+   breathing room would silently lose it on every phone without an inset. Each call site
+   states its own floor with `[--gk-safe-pb:0.75rem]`, and the inset is added on top. */
+.safe-area-bottom {
+    padding-bottom: calc(var(--gk-safe-pb, 0px) + env(safe-area-inset-bottom));
+}
+
+/* The top half of the same problem: the /m shell header sits under the notch / status bar on a
+   notched phone once `viewport-fit=cover` is on. Same composing trick - the call site states its own
+   floor with `[--gk-safe-pt:1rem]` and the inset is added to it. */
+.safe-area-top {
+    padding-top: calc(var(--gk-safe-pt, 0px) + env(safe-area-inset-top));
+}
+
+/* ── Native textarea scrollbars ──────────────────────────────────────────────
+ * The house rule is "never a native scrollbar, always ScrollArea". A <textarea>
+ * is the one place that rule cannot be followed: it scrolls inside its own
+ * shadow box, and no wrapper element can take that over - putting a ScrollArea
+ * around one scrolls the BOX, not the text in it.
+ *
+ * So the bar is themed instead of replaced, which is the closest honest thing.
+ * Applies only to textarea, so no app container can quietly opt back into a
+ * native bar by borrowing this.
+ */
+textarea {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(212 212 212) transparent;
+}
+.dark textarea {
+    scrollbar-color: rgb(64 64 64) transparent;
+}
+textarea::-webkit-scrollbar { width: 8px; height: 8px; }
+textarea::-webkit-scrollbar-track { background: transparent; }
+textarea::-webkit-scrollbar-thumb {
+    background-color: rgb(212 212 212);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+.dark textarea::-webkit-scrollbar-thumb { background-color: rgb(64 64 64); }
+
+/* ── No visible scrollbars in the apps (manual pass M17, Niraj 2026-10-20) ────
+ * "It should not be visible at all ... scrolling should just work." Opt-in by
+ * a class on <html> (apps/main, apps/shishya-main, apps/admin) because this
+ * stylesheet is also the marketing site's, which keeps its own behaviour.
+ * Hides every native bar - page, textarea, anything - while wheel, trackpad,
+ * touch and keyboard scrolling keep working. ScrollArea's own bars are hidden
+ * in the component itself (scroll-area.tsx).
+ */
+.gk-no-scrollbars,
+.gk-no-scrollbars * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.gk-no-scrollbars::-webkit-scrollbar,
+.gk-no-scrollbars *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+

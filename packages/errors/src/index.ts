@@ -18,6 +18,9 @@ export { isFailure, failureKind, failureRetryable, failureMessage } from './resu
 export type { ClassifiedError } from './classify';
 export { classifyError, isTransient } from './classify';
 
+// Cross-layer quota signal (written by @repo/db, read by classify)
+export { noteQuotaExhausted, clearQuotaSignal, quotaExhaustedRecently } from './quota-signal';
+
 // Deliberate domain errors
 export { AppError, isAppError } from './app-error';
 export {

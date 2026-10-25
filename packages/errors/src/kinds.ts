@@ -13,12 +13,13 @@ export type ErrorKind =
     | 'validation'   // bad user input (Zod / form) - show field-level message
     | 'conflict'     // version / unique conflict, already exists
     | 'ratelimit'    // too many requests - retryable after a delay
+    | 'quota'        // a hard provider limit is exhausted - NOT retryable, needs an operator
     | 'unknown';     // anything unclassified - generic, log for triage
 
 /** Every kind, for exhaustive iteration in UIs and tests. */
 export const ERROR_KINDS: readonly ErrorKind[] = [
     'network', 'auth', 'forbidden', 'notfound',
-    'validation', 'conflict', 'ratelimit', 'unknown',
+    'validation', 'conflict', 'ratelimit', 'quota', 'unknown',
 ] as const;
 
 /** Kinds where an immediate retry could plausibly succeed. */
@@ -36,6 +37,9 @@ export function kindToHttpStatus(kind: ErrorKind): number {
         case 'conflict': return 409;
         case 'ratelimit': return 429;
         case 'network': return 503;
+        // 503, not 402: the caller of OUR api has not exceeded anything - our
+        // dependency has. Billing status is between us and the provider.
+        case 'quota': return 503;
         case 'unknown': return 500;
     }
 }

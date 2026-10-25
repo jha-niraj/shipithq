@@ -1,141 +1,74 @@
-"use client"
-
 import * as React from "react"
 import { cn } from "../../lib/utils"
-import { ScrollArea } from "./scroll-area"
 
-/**
- * A textarea that scrolls with the app's own scrollbar.
- *
- * ── Why it is built inside-out ──
- *
- * A `<textarea>` is a leaf element. A `ScrollArea` cannot be placed inside one, so the only
- * way to give it a styled scrollbar is to stop it scrolling at all: the textarea grows to
- * fit its content and never overflows, and a `ScrollArea` wrapped around it caps the height
- * and does the scrolling. That is what makes this different from putting a `ScrollArea`
- * beside a textarea - the two would fight over which one owns the overflow.
- *
- * ── Staying a drop-in ──
- *
- * There are ~69 call sites across the monorepo and they pass `className` expecting it to
- * describe the BOX: `h-24`, `min-h-[200px]`, `text-xs`, `resize-none`. So `className` lands
- * on the wrapper, which is the element that now carries the border, the background and the
- * height. Two details make that safe:
- *
- *   - Tailwind's preflight sets `font: inherit` on form controls, so `text-xs` on the
- *     wrapper still reaches the textarea.
- *   - `cn` is tailwind-merge, so a caller's `min-h-[200px]` replaces the default rather
- *     than colliding with it.
- *
- * `resize-none` becomes a no-op because a drag handle cannot coexist with auto-grow - the
- * height is derived from the content on every change. Passing it is harmless.
- *
- * ── The focus ring ──
- *
- * The ring has to move to the wrapper, because the textarea inside it is borderless and
- * transparent. `has-[textarea:focus-visible]` is what puts it there without a state hook.
- *
- * No ring OFFSET (taken from gurukulhq, 2026-09-22). `ring-offset-2` paints a band of
- * `--tw-ring-offset-color` between the box and the ring, nothing here sets that variable, and its
- * initial value is white: every focused textarea wore a white hairline, glaring in dark mode. The
- * border darkens and a 40% ring shows instead, matching `input.tsx`.
- *
- * ── The radius ──
- *
- * `rounded-lg`, like `Input`, set here rather than at each call site (Niraj,
- * 2026-09-23). This wrapper IS the visible field - it carries the border and the
- * background, and the textarea inside it is transparent - so the radius belongs
- * to it. Said here and not in the template literal, which `cn()` joins verbatim.
- *
- * The VIEWPORT stays square: `ScrollArea` puts `rounded-[inherit]` on it, and
- * inside this wrapper's padding that draws a second, tighter rounded box.
- */
-export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
-    /** Classes for the scrolling viewport. Rarely needed - heights belong on `className`. */
-    viewportClassName?: string
+export interface TextareaProps
+	extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+	/** Kept for shipithq apps: ShipItHQ's textarea sat in a ScrollArea and took classes for its viewport.
+	 *  This textarea scrolls natively, so the prop is accepted and ignored. */
+	viewportClassName?: string
 }
 
+/**
+ * THE FOCUS RING HAS NO OFFSET, AND THAT IS THE WHOLE POINT.
+ *
+ * This used to be `focus:ring-2 focus:ring-ring focus:ring-offset-2`. `ring-offset-2` paints a 2px
+ * band of `--tw-ring-offset-color` BETWEEN the control and its ring, and nothing in this repo ever
+ * sets that variable - Tailwind's initial value for it is `#fff`. So every focused textarea in the
+ * app wore a hard WHITE hairline around it: on a light sheet it read as a focus ring stuck on, and
+ * in dark mode it was a glaring white outline on a neutral-900 field. It showed the instant a sheet
+ * opened rather than on a deliberate focus, because Radix autofocuses the first tabbable element
+ * and in a message sheet that is the textarea.
+ *
+ * `input.tsx` in this same folder already had it right - a plain `focus-visible:ring-2` at 40%,
+ * with the border darkening - so this is the shared control being brought back in line rather than
+ * a call site being patched. The two controls sit next to each other in half the forms in the app
+ * and used to focus differently.
+ *
+ * The comments live OUT here, not inside the class template literal. `cn` joins that string
+ * verbatim, so anything written between the classes is emitted into the DOM's `class` attribute -
+ * and a comment that mentioned `ring-offset-2` would have shipped it as a real class and put the
+ * white band straight back.
+ *
+ * `resize-none sm:resize-y`: the drag-to-resize grabber is a desktop affordance with no touch
+ * equivalent - on a phone it is a decoration in the corner that also lets a stray drag reflow the
+ * form. Vertical only, from `sm`.
+ */
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-    ({ className, viewportClassName, style, onChange, ...props }, ref) => {
-        const inner = React.useRef<HTMLTextAreaElement>(null)
-        // Callers that hold a ref do it to focus the field or read its value, so the ref
-        // must still resolve to the textarea and not to the wrapper.
-        React.useImperativeHandle(ref, () => inner.current as HTMLTextAreaElement, [])
+	// `viewportClassName` is pulled out so it never reaches the DOM (kept for shipithq apps).
+	({ className, viewportClassName: _viewportClassName, ...props }, ref) => {
+		return (
+			<textarea
+				ref={ref}
+				className={cn(
+					`
+						flex min-h-[96px] w-full
+						rounded-xl border
+						bg-white dark:bg-neutral-900
+						border-gray-200 dark:border-neutral-700
+						px-3 py-2 text-sm
 
-        const grow = React.useCallback(() => {
-            const el = inner.current
-            if (!el) return
-            // Reset first: `scrollHeight` never reports a height smaller than the element
-            // already is, so without this the box can only ever grow.
-            el.style.height = "auto"
-            el.style.height = `${el.scrollHeight}px`
-        }, [])
+						resize-none sm:resize-y
 
-        // Runs on `value` too, not just on input. A programmatic set - an AI rewrite, a
-        // profile sync, a form reset - changes the content without ever firing `onChange`,
-        // and the box would keep the height of whatever was there before.
-        React.useLayoutEffect(grow, [grow, props.value, props.defaultValue, props.rows])
+						text-gray-900 dark:text-gray-100
+						placeholder:text-gray-400 dark:placeholder:text-neutral-500
 
-        return (
-            <ScrollArea
-                reflow
-                // `auto`, not Radix's default `hover`. On a scroll container you are looking
-                // at, a bar that only appears once the pointer is already inside it does not
-                // tell you there is more text - the content just looks cut off. `auto` shows
-                // it whenever the content actually overflows.
-                type="auto"
-                className={cn(
-                    `
-                        max-h-64 min-h-[96px] w-full
-                        rounded-lg border
-                        border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900
-                        px-3 py-2 text-sm
-                        text-neutral-900 dark:text-neutral-100
-                        transition-colors
-                        hover:bg-neutral-50 dark:hover:bg-neutral-800
-                        has-[textarea:focus-visible]:border-neutral-400 dark:has-[textarea:focus-visible]:border-neutral-500
-                        has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring/40
-                        has-[textarea:disabled]:cursor-not-allowed has-[textarea:disabled]:opacity-50
-                    `,
-                    className,
-                )}
-                /*
-                 * The viewport is SQUARE, whatever the field's radius is.
-                 *
-                 * `ScrollArea` puts `rounded-[inherit]` on its viewport, which is
-                 * right for a panel whose scroller fills it edge to edge. Here it
-                 * is wrong twice over: the radius belongs to this wrapper, which
-                 * draws the border, and the viewport sits INSIDE its `px-3 py-2`
-                 * padding - so an inherited radius draws a second, inset rounded
-                 * box with a tighter curve than the one you can see. That is the
-                 * inner rounded rectangle Niraj found in the inspector
-                 * (2026-09-23). The wrapper is `overflow-hidden`, so it already
-                 * clips its content to its own corners; nothing needs a radius in
-                 * here at all.
-                 */
-                viewportClassName={cn("rounded-none", viewportClassName)}
-            >
-                <textarea
-                    ref={inner}
-                    onChange={(e) => {
-                        grow()
-                        onChange?.(e)
-                    }}
-                    className={cn(`
-                        block w-full resize-none border-0 bg-transparent p-0
-                        text-inherit placeholder:text-neutral-500 dark:placeholder:text-neutral-400
-                        focus:outline-none focus:ring-0
-                        disabled:cursor-not-allowed
-                    `)}
-                    // `overflow: hidden` is what hands the scrolling to the wrapper. Inline
-                    // rather than a class because `grow()` writes `height` inline on the same
-                    // element and the two need to sit together.
-                    style={{ overflow: "hidden", ...style }}
-                    {...props}
-                />
-            </ScrollArea>
-        )
-    },
+						transition-colors
+						hover:bg-gray-50 dark:hover:bg-neutral-800
+
+						focus-visible:outline-none
+						focus-visible:border-neutral-400 dark:focus-visible:border-neutral-500
+						focus-visible:ring-2
+						focus-visible:ring-ring/40
+
+						disabled:cursor-not-allowed
+						disabled:opacity-50
+          			`,
+					className
+				)}
+				{...props}
+			/>
+		)
+	}
 )
 Textarea.displayName = "Textarea"
 

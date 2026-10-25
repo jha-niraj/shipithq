@@ -62,8 +62,15 @@ export const POPPER_ORIGIN = {
 } as const
 
 /**
- * A modal panel (Dialog, AlertDialog, CommandDialog). Held a touch longer than a popper because
- * it takes the whole screen's attention and a fast modal reads as a jump-cut.
+ * Height disclosure for Collapsible. Accordion has its own pair of keyframes in globals.css and
+ * keeps them; this is the same technique against Radix's collapsible custom property.
+ */
+export const COLLAPSE_MOTION =
+    "overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up"
+
+/**
+ * Kept for shipithq apps. A modal panel (Dialog, AlertDialog, CommandDialog). Held a touch longer than a popper
+ * because it takes the whole screen's attention and a fast modal reads as a jump-cut.
  */
 export const MODAL_MOTION = [
     "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
@@ -71,16 +78,9 @@ export const MODAL_MOTION = [
     "duration-200 data-[state=closed]:duration-150 ease-out",
 ].join(" ")
 
-/** The scrim behind a modal. Fade only - a scrim that scales draws the eye to itself. */
+/** Kept for shipithq apps. The scrim behind a modal. Fade only - a scrim that scales draws the eye to itself. */
 export const OVERLAY_MOTION = [
     "data-[state=open]:animate-in data-[state=open]:fade-in-0",
     "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
     "duration-200 data-[state=closed]:duration-150",
 ].join(" ")
-
-/**
- * Height disclosure for Collapsible. Accordion has its own pair of keyframes in globals.css and
- * keeps them; this is the same technique against Radix's collapsible custom property.
- */
-export const COLLAPSE_MOTION =
-    "overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up"

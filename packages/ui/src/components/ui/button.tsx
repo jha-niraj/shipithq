@@ -4,38 +4,27 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "../../lib/utils"
 
-// Base (cursor-pointer) and size radii aligned with gurukulhq's button (2026-09-22).
-// rounded-md since 2026-09-25 (plan/ui-pass UI-18): rounded-xl is 14px here, which on
-// a 36px button reads as a pill. Niraj asked for less rounded; 8px matches the
-// project workspace's own controls.
+/*
+ * The base radius is `rounded-xl`, and this is the fix for a lot of drift.
+ *
+ * It was `rounded-md`, while `apps/main/CLAUDE.md` mandates `rounded-xl` on every Button,
+ * SelectTrigger, Input and Textarea. Every author who read the rule corrected the default by hand,
+ * and the ones who did not read it shipped `rounded-md` - which is how the codebase ended up with
+ * 298 hand-written `rounded-full`s across 75 files plus countless `rounded-xl`s. None of that was
+ * carelessness at the call site; it was a default nobody agreed with, corrected differently each
+ * time.
+ *
+ * The `sm` and `lg` size variants carried their OWN `rounded-md`, which would have beaten the base
+ * and left the fix doing nothing for the commonest case in this product - `apps/main/CLAUDE.md`
+ * specifies `size="sm"` for every header button. Their radius is removed so the base decides, which
+ * is what a base is for.
+ */
 const buttonVariants = cva(
-	"cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+	"cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
 	{
 		variants: {
 			variant: {
 				default: "bg-primary text-primary-foreground hover:bg-primary/90",
-				/**
-				 * The primary CTA for a monochrome brand.
-				 *
-				 * INVERTS with the theme - ink-on-white in light mode, white-on-ink in
-				 * dark - so it is always the highest-contrast element on its surface.
-				 * A fixed dark button disappears entirely on a dark card, which is
-				 * exactly what happened when the orange accent was retired.
-				 *
-				 * `group` + the ::after sweep give it the sheen: a soft highlight
-				 * travels across on hover. `overflow-hidden` clips it to the pill and
-				 * `motion-reduce` drops it for anyone who asked for less motion.
-				 */
-				sheen: [
-					"relative overflow-hidden isolate group",
-					"bg-neutral-900 text-white hover:bg-neutral-800",
-					"dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200",
-					"after:absolute after:inset-0 after:-translate-x-full after:content-['']",
-					"after:bg-gradient-to-r after:from-transparent after:via-white/25 after:to-transparent",
-					"dark:after:via-neutral-900/20",
-					"hover:after:translate-x-full after:transition-transform after:duration-700",
-					"motion-reduce:after:hidden",
-				].join(" "),
 				destructive:
 					"bg-destructive text-destructive-foreground hover:bg-destructive/90",
 				outline:
@@ -50,6 +39,8 @@ const buttonVariants = cva(
 				sm: "h-9 px-3",
 				lg: "h-11 px-8",
 				icon: "h-10 w-10",
+				/* Ported ReUI components (color-picker, signature-pad) use shadcn's small icon size. */
+				"icon-sm": "h-8 w-8",
 			},
 		},
 		defaultVariants: {
@@ -86,7 +77,7 @@ Button.displayName = "Button";
 
 // export default function ShimmerButton({ content, onClick } : ButtonProps) {
 //     return (
-//         <button onClick={onClick} className="inline-flex h-10 animate-shimmer items-center justify-center rounded-2xl border border-slate-800 bg-[linear-gradient(110deg,#000103,45%,#262626,55%,#000103)] bg-[length:200%_100%] px-6 font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50">
+//         <button onClick={onClick} className="inline-flex h-10 animate-shimmer items-center justify-center rounded-2xl border border-slate-800 bg-[linear-gradient(110deg,#000103,45%,#1e2631,55%,#000103)] bg-[length:200%_100%] px-6 font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50">
 //             {
 //                 content
 //             }

@@ -5,10 +5,15 @@ import { Check, ChevronDown, Search, MapPin } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { COUNTRIES } from './country-phone-input';
 
+import { Input } from './input';
 // ─── Nepal data ────────────────────────────────────────────────────────────────
 export const NEPAL_PROVINCES: Record<string, string[]> = {
+    // JHAPA WAS MISSING. Found by counting: this map held 76 districts and Nepal has 77, and the
+    // one absent was one of the largest in the country (Birtamod, Damak, Bhadrapur). Any picker
+    // built on this - including the school and volunteer forms on /yatra - simply could not accept
+    // a school from Jhapa.
     'Koshi Province': [
-        'Bhojpur', 'Dhankuta', 'Ilam', 'Khotang', 'Morang', 'Okhaldhunga',
+        'Bhojpur', 'Dhankuta', 'Ilam', 'Jhapa', 'Khotang', 'Morang', 'Okhaldhunga',
         'Panchthar', 'Sankhuwasabha', 'Solukhumbu', 'Sunsari', 'Taplejung',
         'Terhathum', 'Udayapur',
     ],
@@ -25,6 +30,12 @@ export const NEPAL_PROVINCES: Record<string, string[]> = {
         'Baglung', 'Gorkha', 'Kaski', 'Lamjung', 'Manang', 'Mustang',
         'Myagdi', 'Nawalpur', 'Parbat', 'Syangja', 'Tanahun',
     ],
+    // NAMING NOTE, deliberately NOT changed here: the entry below reads 'Nawalparasi (East)', but
+    // the eastern half of old Nawalparasi is Nawalpur, which is correctly listed under Gandaki.
+    // Lumbini's half is Nawalparasi WEST (Parasi). Left as-is because this string may already be
+    // stored against records in the app database, and silently renaming a value a picker has been
+    // writing for months is a data-migration decision, not a typo fix. Worth doing - with a
+    // migration - rather than worth doing quietly.
     'Lumbini Province': [
         'Arghakhanchi', 'Banke', 'Bardiya', 'Dang', 'Eastern Rukum',
         'Gulmi', 'Kapilvastu', 'Nawalparasi (East)', 'Palpa', 'Pyuthan', 'Rolpa',
@@ -85,18 +96,18 @@ function ListPicker({
     return (
         <div className="flex flex-col gap-2">
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-600 dark:text-neutral-400" />
-                <input
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
+                <Input
                     autoFocus
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder={`Search ${placeholder.toLowerCase()}…`}
-                    className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-400"
+                    className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-400 h-auto text-inherit dark:text-inherit hover:bg-neutral-50 dark:hover:bg-neutral-900"
                 />
             </div>
             <div className="max-h-52 overflow-y-auto rounded-xl border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-100 dark:divide-neutral-800">
                 {filtered.length === 0 ? (
-                    <p className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 text-center">No results</p>
+                    <p className="px-4 py-3 text-sm text-neutral-400 text-center">No results</p>
                 ) : (
                     filtered.map((opt) => (
                         <button
@@ -134,13 +145,13 @@ function CountryPicker({ value, onChange }: { value: string; onChange: (code: st
     return (
         <div className="flex flex-col gap-2">
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-600 dark:text-neutral-400" />
-                <input
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
+                <Input
                     autoFocus
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search country…"
-                    className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-400"
+                    className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-400 h-auto text-inherit dark:text-inherit hover:bg-neutral-50 dark:hover:bg-neutral-900"
                 />
             </div>
             <div className="max-h-56 overflow-y-auto rounded-xl border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-100 dark:divide-neutral-800">
@@ -220,9 +231,9 @@ export function LocationSelector({ value, onChange, className }: LocationSelecto
                 onClick={() => { setOpen((o) => !o); setStep('country'); }}
                 className="flex items-center gap-2 w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-4 py-2.5 text-sm text-left hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
             >
-                <MapPin className="h-4 w-4 text-neutral-600 dark:text-neutral-400 shrink-0" />
-                <span className={cn('flex-1 truncate', !value.country && 'text-neutral-600 dark:text-neutral-400')}>{summary}</span>
-                <ChevronDown className={cn('h-4 w-4 text-neutral-600 dark:text-neutral-400 shrink-0 transition-transform', open && 'rotate-180')} />
+                <MapPin className="h-4 w-4 text-neutral-400 shrink-0" />
+                <span className={cn('flex-1 truncate', !value.country && 'text-neutral-400')}>{summary}</span>
+                <ChevronDown className={cn('h-4 w-4 text-neutral-400 shrink-0 transition-transform', open && 'rotate-180')} />
             </button>
 
             {open && (
@@ -230,9 +241,9 @@ export function LocationSelector({ value, onChange, className }: LocationSelecto
                     {/* Step breadcrumb */}
                     <div className="flex items-center gap-1 text-xs text-neutral-500">
                         {(['country', ...(value.country === 'NP' ? ['province', 'district'] : value.country === 'IN' ? ['province'] : []), 'city'] as (typeof step)[])
-                            .map((s, i) => (
+                            .map((s, i, arr) => (
                                 <span key={s} className="flex items-center gap-1">
-                                    {i > 0 && <span className="text-neutral-600 dark:text-neutral-400">›</span>}
+                                    {i > 0 && <span className="text-neutral-300">›</span>}
                                     <button
                                         type="button"
                                         onClick={() => setStep(s)}
@@ -284,12 +295,12 @@ export function LocationSelector({ value, onChange, className }: LocationSelecto
                             <label className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
                                 {value.country === 'NP' ? 'Municipality / City' : 'City / Town'}
                             </label>
-                            <input
+                            <Input
                                 autoFocus
                                 value={value.city ?? ''}
                                 onChange={(e) => onChange({ ...value, city: e.target.value })}
                                 placeholder="e.g. Kathmandu"
-                                className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-400"
+                                className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-400 h-auto text-inherit dark:text-inherit hover:bg-neutral-50 dark:hover:bg-neutral-900"
                                 onKeyDown={(e) => { if (e.key === 'Enter') setOpen(false); }}
                             />
                             <button

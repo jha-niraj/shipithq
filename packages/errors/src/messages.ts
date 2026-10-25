@@ -13,6 +13,7 @@ export const ERROR_TITLES: Record<ErrorKind, string> = {
     validation: 'Check your input',
     conflict: 'Conflict',
     ratelimit: 'Too many requests',
+    quota: 'Service limit reached',
     unknown: 'Something went wrong',
 };
 
@@ -24,6 +25,7 @@ export const ERROR_MESSAGES: Record<ErrorKind, string> = {
     validation: 'Please review the highlighted fields and try again.',
     conflict: 'This was just changed elsewhere. Refresh and try again.',
     ratelimit: 'Too many requests. Please wait a moment and try again.',
+    quota: 'A service limit has been reached. This needs an administrator - retrying will not help.',
     unknown: 'Something went wrong. Please try again.',
 };
 

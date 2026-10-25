@@ -1,11 +1,5 @@
 # StatBand - the one way a screen shows its headline numbers
 
-> **ShipItHQ copy** (2026-09-22, plan/stat-band). Ported from gurukulhq. The one change:
-> `tone` is `neutral`, `emerald` or `rose` only, because the palette is monochrome with no
-> orange, yellow or gold (CLAUDE.md). When migrating, a green "good" value becomes
-> `emerald`, a red "bad" value `rose`, and an amber or orange warning value `neutral` - the
-> number and its hint say it. Everything else below applies as written.
-
 Two files are all you need. Copy them into a project and hand an agent this document:
 
 | | |
@@ -75,8 +69,7 @@ import { Users, Activity, AlertCircle } from "lucide-react"
 | `label` | short, plain. Rendered uppercase; write it in sentence case. |
 | `value` | **already formatted.** Do the `toLocaleString`, the currency, the `%` yourself. |
 | `hint` | small text beside the value - "3 published", "of 162", "+12 this week". A node, so a delta badge works. |
-| `progress` | 0-100. A thin track under the value, only for a figure that IS a proportion. |
-| `tone` | tints the VALUE. `neutral` `emerald` `rose`. |
+| `tone` | tints the VALUE. `neutral` `emerald` `teal` `lime` `amber` `orange` `rose` `gold`. |
 | `href` | makes the cell a link. |
 | `onClick` + `active` | makes the cell a filter button. Renders `aria-pressed`. |
 | `disabled` | for a button cell that cannot be pressed now. |

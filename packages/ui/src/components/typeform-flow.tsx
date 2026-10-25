@@ -1,16 +1,19 @@
 "use client"
 
 import {
-	useEffect, useRef, useCallback, useState, useMemo, type KeyboardEvent, type ReactNode,
+	useEffect, useRef, useCallback, useState, useMemo, type KeyboardEvent,
 } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
 	X, ArrowUp, Check, Upload, FileText, Trash2, ChevronDown, Search, MapPin,
 } from "lucide-react"
 import { NEPAL_PROVINCES, INDIA_STATES, type LocationValue } from "./ui/location-selector"
-import { COUNTRIES, CountryPhoneInput } from "./ui/country-phone-input"
+import { COUNTRIES } from "./ui/country-phone-input"
+import { PhoneInput } from "./ui/phone-input"
 import { ScrollArea } from "./ui/scroll-area"
 
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type FlowStepType =
@@ -48,33 +51,18 @@ export interface FlowStep {
 	placeholder?: string
 	required?: boolean
 	options?: string[]
-	/**
-	 * For a "short_text" step: choices shown under the input as the person types (up to
-	 * six). Arrows move, Enter picks the highlighted one, and anything typed is still a
-	 * valid answer - the select with "Other" (plan/ui-forms UF-5).
-	 */
-	suggestions?: string[]
 	/** When set, the choices are computed from the answers so far (e.g. boards by country). */
 	dynamicOptions?: (answers: Record<string, unknown>) => string[]
 	/** Lay the choice options out in a 2-column grid instead of a single-column stack.
 	 *  Use for long lists (grade, subjects) so they take roughly half the vertical space
 	 *  and do not force the pane to scroll. Applies to single_choice / multiple_choice only. */
-	columns?: 1 | 2 | 3
-	/** Shown above the question, one per step (Niraj, 2026-09-28: not the same arrow on every step). */
-	icon?: ReactNode
+	columns?: 1 | 2
 	/** For a "country_phone" step: the id of a "location" step whose selected country
 	 *  pre-fills the phone's dial code, so the student does not have to re-pick it. */
 	countrySourceStepId?: string
 	/** Short label shown in the side-panel step list. Falls back to `question`. */
 	navLabel?: string
 	validate?: (value: unknown) => string | null
-	/** Server-checked validation, run on advance AFTER `validate` passes (so a
-	 *  malformed value never costs a round trip). Return an error string to block
-	 *  the step, or null to allow it. Use for uniqueness checks - a username, a
-	 *  slug - where the answer only exists on the server. The OK button shows a
-	 *  checking state while it runs. */
-	/** Runs on advance, after `validate`. Gets every answer so far too, for a step that saves them. */
-	validateAsync?: (value: unknown, answers: Record<string, unknown>) => Promise<string | null>
 	// ── "file" step config ──
 	/** Named upload slots. If omitted, a single unnamed slot (id === step.id) is used. */
 	slots?: FlowFileSlot[]
@@ -233,9 +221,9 @@ function firstIncompleteRequiredIdx(steps: FlowStep[], answers: Record<string, u
 
 const THEMED_VAR_CLASSES =
 	"[--tf-accent:#171717] [--tf-accent-ink:#ffffff] [--tf-accent-tint:#17171712] " +
-	"[--tf-surface:#ffffff] [--tf-bg:#fafaf9] [--tf-text:#171717] [--tf-text-dim:#737373] [--tf-border:#e5e5e5] [--tf-scrim:rgba(250,250,249,0.28)] " +
+	"[--tf-surface:#ffffff] [--tf-bg:#fafaf9] [--tf-text:#171717] [--tf-text-dim:#6b7280] [--tf-border:#e5e5e5] [--tf-scrim:rgba(250,250,249,0.28)] " +
 	"dark:[--tf-accent:#fafafa] dark:[--tf-accent-ink:#171717] dark:[--tf-accent-tint:#ffffff14] " +
-	"dark:[--tf-surface:#161616] dark:[--tf-bg:#0a0a0a] dark:[--tf-text:#fafafa] dark:[--tf-text-dim:#a3a3a3] dark:[--tf-border:#2a2a2a] dark:[--tf-scrim:rgba(10,10,10,0.58)]"
+	"dark:[--tf-surface:#161616] dark:[--tf-bg:#0a0a0a] dark:[--tf-text:#fafafa] dark:[--tf-text-dim:#9ca3af] dark:[--tf-border:#2a2a2a] dark:[--tf-scrim:rgba(10,10,10,0.58)]"
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -250,7 +238,7 @@ export function TypeformFlow({
 	submitLabel = "Submit",
 	thankYouTitle = "You're all set!",
 	thankYouDesc = "We'll be in touch soon.",
-	accentColor = "#171717",
+	accentColor = "#f97316",
 	themed = false,
 	renderSidePanel,
 	background,
@@ -265,10 +253,6 @@ export function TypeformFlow({
 	const [direction, setDirection] = useState(1)
 	const [error, setError] = useState<string | null>(null)
 	const [isSubmitting, setIsSubmitting] = useState(false)
-	// Kept separate from isSubmitting so a server-side field check ("is this
-	// username free?") reads as "Checking…" rather than claiming the whole form
-	// is being submitted - the two happen at different points in the flow.
-	const [isChecking, setIsChecking] = useState(false)
 	const [isDone, setIsDone] = useState(false)
 	// When persisting, gate the content until the draft has been read so we resume at the
 	// right step without flashing the welcome screen first.
@@ -409,7 +393,7 @@ export function TypeformFlow({
 	}, [])
 
 	// ── Validate current step (reads the ref, not stale state) ───────────────
-	const validateCurrent = useCallback(async (): Promise<boolean> => {
+	const validateCurrent = useCallback((): boolean => {
 		if (!currentStep) return true
 		const val = answersRef.current[currentStep.id]
 
@@ -460,30 +444,13 @@ export function TypeformFlow({
 			}
 		}
 
-		// Server-checked last, and only once the cheap checks pass.
-		if (currentStep.validateAsync) {
-			setIsChecking(true)
-			try {
-				const msg = await currentStep.validateAsync(val, answersRef.current)
-				if (msg) {
-					showError(msg)
-					return false
-				}
-			} catch {
-				showError("Couldn't check that just now. Please try again.")
-				return false
-			} finally {
-				setIsChecking(false)
-			}
-		}
-
 		return true
 	}, [currentStep, showError])
 
 	// ── goNext ────────────────────────────────────────────────────────────────
 	const goNext = useCallback(async () => {
 		if (!currentStep) return
-		if (!(await validateCurrent())) return
+		if (!validateCurrent()) return
 
 		if (currentIdx === steps.length - 1) {
 			// Last step → submit
@@ -634,8 +601,8 @@ export function TypeformFlow({
 			"--tf-surface": "#ffffff",
 			"--tf-bg": "#fffbf5",
 			"--tf-text": "#171717",
-			"--tf-text-dim": "#737373",
-			"--tf-border": "#e5e5e5",
+			"--tf-text-dim": "#6b7280",
+			"--tf-border": "#e5e7eb",
 			"--tf-scrim": "rgba(255,251,245,0.82)",
 		} as React.CSSProperties)
 
@@ -714,14 +681,9 @@ export function TypeformFlow({
 					</div>
 
 					{/* Content */}
-					{/* tf-center-scroll: Radix wraps viewport children in a
-					    `display: table` box, which kills percentage heights - so the
-					    old `flex min-h-full items-center` wrapper never actually
-					    centred and the step sat at the top of the panel. See the rule
-					    in styles/globals.css. */}
-					<ScrollArea className="tf-center-scroll relative z-10 flex-1 min-h-0 w-full">
-						{/* 768px, up from 576 (Niraj, 2026-09-28): room for 3-column choices on every step. */}
-						<div className="max-w-3xl w-full mx-auto px-6 py-8">
+					<ScrollArea className="relative z-10 flex-1 min-h-0 w-full">
+						<div className="flex min-h-full items-center justify-center">
+						<div className="max-w-xl w-full mx-auto px-6 py-8">
 							<AnimatePresence mode="wait" custom={direction}>
 								{!ready ? null : isDone ? (
 									<ThankYouScreen
@@ -756,6 +718,7 @@ export function TypeformFlow({
 								) : null}
 							</AnimatePresence>
 						</div>
+						</div>
 					</ScrollArea>
 
 					{/* Bottom bar */}
@@ -780,17 +743,15 @@ export function TypeformFlow({
 								<div className="flex items-center gap-3">
 									<button
 										onClick={() => void goNext()}
-										disabled={isSubmitting || isChecking}
+										disabled={isSubmitting}
 										className="px-6 py-2.5 rounded-xl font-semibold text-sm active:scale-95 transition-all disabled:opacity-60 shadow-sm cursor-pointer"
 										style={{ backgroundColor: "var(--tf-accent)", color: "var(--tf-accent-ink)" }}
 									>
-										{isChecking
-											? "Checking…"
-											: isSubmitting
-												? "Submitting…"
-												: currentIdx === steps.length - 1
-													? submitLabel
-													: "OK"}
+										{isSubmitting
+											? "Submitting…"
+											: currentIdx === steps.length - 1
+												? submitLabel
+												: "OK"}
 									</button>
 									{currentStep?.type !== "single_choice" && (
 										<span className="text-xs hidden sm:block" style={{ color: "var(--tf-text-dim)" }}>
@@ -963,14 +924,15 @@ function StepContent({
 	error,
 }: StepContentProps) {
 	const [inputFocused, setInputFocused] = useState(false)
-	const [highlight, setHighlight] = useState(-1)
 
 	// Common question header
 	const header = (
 		<div className="mb-8">
-			{step.type !== "welcome" && step.icon && (
-				<div className="mb-4 flex size-10 items-center justify-center rounded-xl [&_svg]:size-5" style={{ backgroundColor: "var(--tf-accent-tint)", color: "var(--tf-accent)" }}>
-					{step.icon}
+			{step.type !== "welcome" && (
+				<div className="flex items-baseline gap-2 mb-3">
+					<span className="font-mono font-bold text-base" style={{ color: "var(--tf-accent)" }}>
+						↗
+					</span>
 				</div>
 			)}
 			<h2 className="text-3xl md:text-4xl font-display font-bold leading-tight" style={{ color: "var(--tf-text)" }}>
@@ -1014,29 +976,10 @@ function StepContent({
 		step.type === "phone" ||
 		step.type === "number"
 	) {
-		const typed = String(value ?? "").trim().toLowerCase()
-		const matches = step.type === "short_text" && step.suggestions?.length
-			? step.suggestions.filter((sug) => sug.toLowerCase() !== typed && (!typed || sug.toLowerCase().includes(typed))).slice(0, 6)
-			: []
 		return (
 			<div className="py-4">
 				{header}
-				<input
-					role={matches.length ? "combobox" : undefined}
-					aria-expanded={matches.length ? true : undefined}
-					aria-autocomplete={matches.length ? "list" : undefined}
-					onKeyDown={(e) => {
-						if (!matches.length) return
-						if (e.key === "ArrowDown") { e.preventDefault(); setHighlight((h) => Math.min(h + 1, matches.length - 1)) }
-						else if (e.key === "ArrowUp") { e.preventDefault(); setHighlight((h) => Math.max(h - 1, -1)) }
-						else if (e.key === "Enter" && highlight >= 0 && matches[highlight]) {
-							// Pick the highlighted choice; the flow's own Enter (next step) doesn't run.
-							e.preventDefault()
-							e.stopPropagation()
-							onChange(matches[highlight])
-							setHighlight(-1)
-						}
-					}}
+				<Input
 					ref={inputRef}
 					type={
 						step.type === "email"
@@ -1049,36 +992,15 @@ function StepContent({
 					}
 					inputMode={step.type === "number" || step.type === "phone" ? "numeric" : undefined}
 					value={(value as string) ?? ""}
-					onChange={(e) => { setHighlight(-1); onChange(step.type === "number" ? e.target.value.replace(/[^0-9]/g, "") : e.target.value) }}
+					onChange={(e) => onChange(step.type === "number" ? e.target.value.replace(/[^0-9]/g, "") : e.target.value)}
 					onFocus={() => setInputFocused(true)}
 					onBlur={() => setInputFocused(false)}
 					placeholder={step.placeholder ?? "Type your answer here…"}
-					className={`${inputBaseCls} placeholder:opacity-40`}
+					className={`${inputBaseCls} h-auto rounded-none px-0 text-inherit placeholder:opacity-40 hover:bg-transparent focus-visible:ring-0 dark:bg-transparent dark:text-inherit dark:hover:bg-transparent`}
 					style={inputBorderStyle}
 					autoComplete="off"
 					spellCheck={false}
 				/>
-				{matches.length > 0 && (
-					<ul role="listbox" className="mt-3 flex flex-wrap gap-2">
-						{matches.map((sug, i) => (
-							<li key={sug} role="option" aria-selected={i === highlight}>
-								<button
-									type="button"
-									onMouseDown={(e) => e.preventDefault()}
-									onClick={() => { onChange(sug); setHighlight(-1) }}
-									className="cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition-colors"
-									style={{
-										borderColor: i === highlight ? "var(--tf-accent)" : "var(--tf-border)",
-										backgroundColor: i === highlight ? "var(--tf-accent-tint)" : "transparent",
-										color: "var(--tf-text)",
-									}}
-								>
-									{sug}
-								</button>
-							</li>
-						))}
-					</ul>
-				)}
 				<ErrorMessage error={error} />
 			</div>
 		)
@@ -1088,7 +1010,7 @@ function StepContent({
 		return (
 			<div className="py-4">
 				{header}
-				<textarea
+				<Textarea
 					ref={textareaRef}
 					value={(value as string) ?? ""}
 					onChange={(e) => onChange(e.target.value)}
@@ -1096,7 +1018,7 @@ function StepContent({
 					onBlur={() => setInputFocused(false)}
 					placeholder={step.placeholder ?? "Type your answer here…"}
 					rows={4}
-					className="w-full bg-transparent border-0 border-b-2 outline-none text-xl md:text-2xl font-display pb-3 pt-1 placeholder:opacity-40 transition-colors duration-200 resize-none leading-relaxed"
+					className="w-full bg-transparent border-0 border-b-2 outline-none text-xl md:text-2xl font-display pb-3 pt-1 placeholder:opacity-40 transition-colors duration-200 resize-none leading-relaxed min-h-0 rounded-none dark:bg-transparent text-inherit dark:text-inherit hover:bg-transparent dark:hover:bg-transparent px-0 sm:resize-none focus-visible:ring-0"
 					style={inputBorderStyle}
 				/>
 				<p className="text-sm mt-2" style={{ color: "var(--tf-text-dim)" }}>
@@ -1121,7 +1043,7 @@ function StepContent({
 		return (
 			<div className="py-4">
 				{header}
-				<div className={step.columns === 3 ? "grid grid-cols-2 gap-2 sm:grid-cols-3" : step.columns === 2 ? "grid grid-cols-2 gap-2" : "space-y-2"}>
+				<div className={step.columns === 2 ? "grid grid-cols-1 gap-2.5 sm:grid-cols-2" : "space-y-2.5"}>
 					{opts.map((opt, i) => {
 						const letter = LETTERS[i] ?? String(i + 1)
 						const isSelected = isMulti
@@ -1140,27 +1062,28 @@ function StepContent({
 										setTimeout(() => onNext(), 320)
 									}
 								}}
-								className="group flex w-full min-w-0 items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors duration-150 cursor-pointer"
+								className="group w-full min-w-0 flex items-center gap-3 px-3 py-3.5 rounded-xl border-2 text-left transition-all duration-200 cursor-pointer sm:gap-4 sm:px-4"
 								style={{
 									borderColor: isSelected ? "var(--tf-accent)" : "var(--tf-border)",
 									backgroundColor: isSelected ? "var(--tf-accent-tint)" : "var(--tf-surface)",
+									transform: isSelected ? "scale(1.01)" : undefined,
 								}}
 							>
 								<span
-									className="w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-mono font-bold shrink-0 transition-colors duration-150"
+									className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 transition-all duration-200"
 									style={{
 										backgroundColor: isSelected ? "var(--tf-accent)" : "var(--tf-accent-tint)",
 										color: isSelected ? "var(--tf-accent-ink)" : "var(--tf-text-dim)",
 									}}
 								>
 									{isSelected && isMulti ? (
-										<Check className="w-3.5 h-3.5" strokeWidth={2.5} />
+										<Check className="w-4 h-4" strokeWidth={2.5} />
 									) : (
 										letter
 									)}
 								</span>
 								<span
-									className="min-w-0 text-[14px] font-medium leading-snug transition-colors duration-150"
+									className="min-w-0 flex-1 text-base font-medium transition-colors duration-200"
 									style={{ color: "var(--tf-text)" }}
 								>
 									{opt}
@@ -1176,7 +1099,7 @@ function StepContent({
 
 	if (step.type === "country_phone") {
 		// Pre-fill the dial code from the country the student already picked in the
-		// linked location step. CountryPhoneInput reads defaultCountryCode on mount,
+		// linked location step. PhoneInput reads defaultCountry on mount,
 		// and this step is always reached AFTER the location step, so the country is set.
 		const src = step.countrySourceStepId
 			? (answers[step.countrySourceStepId] as FlowLocationValue | undefined)
@@ -1184,10 +1107,12 @@ function StepContent({
 		return (
 			<div className="py-4">
 				{header}
-				<CountryPhoneInput
+				<PhoneInput
+					variant="lg"
 					value={(value as string) ?? ""}
-					onChange={(e164) => onChange(e164)}
-					defaultCountryCode={src?.country || "NP"}
+					onChange={(e164) => onChange(e164 ?? "")}
+					defaultCountry={src?.country || "NP"}
+					aria-invalid={!!error}
 				/>
 				<ErrorMessage error={error} />
 			</div>
@@ -1297,12 +1222,12 @@ function InlineSelect({
 						{searchable && (
 							<div className="relative mb-2">
 								<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "var(--tf-text-dim)" }} />
-								<input
+								<Input
 									autoFocus
 									value={search}
 									onChange={(e) => setSearch(e.target.value)}
 									placeholder={`Search ${label.toLowerCase()}…`}
-									className="w-full rounded-lg border pl-8 pr-3 py-2 text-sm outline-none"
+									className="w-full rounded-lg border pl-8 pr-3 py-2 text-sm outline-none h-auto bg-transparent dark:bg-transparent text-inherit dark:text-inherit hover:bg-transparent dark:hover:bg-transparent"
 									style={{ borderColor: "var(--tf-border)", backgroundColor: "var(--tf-bg)", color: "var(--tf-text)" }}
 								/>
 							</div>
@@ -1424,11 +1349,11 @@ function LocationStep({
 						<label className="text-sm font-medium" style={{ color: "var(--tf-text-dim)" }}>Address</label>
 						<div className="flex items-center gap-2 w-full rounded-xl border px-4 py-3" style={{ borderColor: "var(--tf-border)", backgroundColor: "var(--tf-surface)" }}>
 							<MapPin className="h-4 w-4 shrink-0" style={{ color: "var(--tf-text-dim)" }} />
-							<input
+							<Input
 								value={loc.address ?? ""}
 								onChange={(e) => setAddress(e.target.value)}
 								placeholder="e.g. Kalanki, Ward 14, Kathmandu"
-								className="flex-1 bg-transparent outline-none text-base placeholder:opacity-40"
+								className="flex-1 bg-transparent outline-none text-base placeholder:opacity-40 h-auto border-0 rounded-none dark:bg-transparent text-inherit dark:text-inherit hover:bg-transparent dark:hover:bg-transparent px-0 focus-visible:ring-0"
 								style={{ color: "var(--tf-text)" }}
 							/>
 						</div>
@@ -1508,7 +1433,7 @@ function FileStep({
 									<button
 										type="button"
 										onClick={() => remove(slot.id)}
-										className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-600 dark:text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors shrink-0 cursor-pointer"
+										className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors shrink-0 cursor-pointer"
 										aria-label={`Remove ${slot.label}`}
 									>
 										<Trash2 className="w-4 h-4" />

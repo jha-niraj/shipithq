@@ -1,7 +1,5 @@
 "use client"
 
-// From gurukulhq's tabs (2026-09-22), gray mapped to neutral, plus `TabsNav` for route tabs.
-
 import * as React from "react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
 import { motion, useReducedMotion } from "framer-motion"
@@ -37,102 +35,28 @@ const TabsContext = React.createContext<TabsContextValue | null>(null)
 export type TabsSize = "sm" | "default" | "lg"
 
 /**
- * `card` is the original bordered container. `segmented` is the bare strip.
+ * `segmented` is the DEFAULT now. `card` is the old bordered row, kept for anyone who wants it.
  *
- * The difference is the CONTAINER, not the trigger: `card` draws a border and a surface around the
- * row, `segmented` draws nothing and lets a raised chip mark the active tab. A bordered box says
- * "this is a component"; a bare strip says "these are choices", which is what a filter row wants.
+ * ## What changed, and why the default moved
  *
- * This variant exists because the shape was already in the product THREE times and never in here:
- * `reports-layout-client.tsx` hand-rolled it from `<button>` elements, `apps/student` built
- * `TabNav` for it, and the shared component could only do the bordered 44px row that both of them
- * were escaping.
+ * The shape below was hand-rolled a FOURTH time - the Studio filter row - and that one is the one
+ * Niraj picked out as the look the app should have. Rather than leave the component as the thing
+ * people keep escaping, the escape became the default.
+ *
+ * The difference is the CONTAINER and the ACTIVE MARK, not the trigger:
+ *
+ * - `segmented` draws a hairline border round the row and marks the active tab with an INVERTED
+ *   chip - white on dark, near-black on light. Inversion is what makes it unmistakable at a
+ *   glance without a second colour: the active tab is the only thing on the row wearing the
+ *   opposite of the page.
+ * - `card` fills a bordered box and marks the active tab with a grey fill. It says "this is a
+ *   component"; the segmented strip says "these are choices", which is what a filter row wants
+ *   and what most of our tab rows actually are.
+ *
+ * The three earlier hand-rolls this replaces: `reports-layout-client.tsx` built it from
+ * `<button>` elements, `apps/shishya-main` built `TabNav` for it, and Studio built it again.
  */
 export type TabsVariant = "card" | "segmented"
-
-
-// ── Shared classes ───────────────────────────────────────────────────────────
-// One definition of how a tab strip looks, used by the Radix tabs below AND by
-// `TabsNav` (tabs that are links). Two copies of these strings is how the two
-// kinds would drift apart.
-
-function tabsListClass(variant: TabsVariant, size: TabsSize, fit: boolean) {
-	return cn(
-		"flex",
-		variant === "card"
-			? `
-      rounded-xl border
-      bg-white dark:bg-neutral-900
-      border-neutral-200 dark:border-neutral-700
-      overflow-hidden
-      `
-			// A bare strip: a faint trough so the raised active chip has something to sit in,
-			// and no border. `overflow-hidden` is deliberately NOT set here - it would clip
-			// the chip's shadow, which is the only thing marking the active tab.
-			: "gap-0.5 rounded-xl bg-neutral-100/70 p-0.5 dark:bg-neutral-800/50",
-		fit ? "w-fit max-w-full" : "w-full",
-		variant === "card" && size === "sm" && "gap-0.5 p-0.5",
-	)
-}
-
-function tabsTriggerClass(size: TabsSize, fit: boolean, variant: TabsVariant) {
-	return cn(
-		`
-      relative flex min-w-0
-      items-center justify-center
-      font-semibold
-      cursor-pointer
-      transition-colors
-      text-neutral-600 dark:text-neutral-300
-
-      hover:bg-neutral-200/60 dark:hover:bg-neutral-700/40
-
-      data-[state=active]:text-neutral-900
-      dark:data-[state=active]:text-white
-
-      focus-visible:outline-none
-      focus-visible:ring-2
-      focus-visible:ring-ring/40
-
-      disabled:pointer-events-none
-      disabled:opacity-50
-      `,
-		// `flex-none` in a fit list, so a trigger is as wide as its own label. Without this
-		// `flex-1` still splits whatever width the list ends up with.
-		fit ? "flex-none" : "flex-1",
-		/*
-		 * The scale, and why `default` is no longer 44px.
-		 *
-		 * It was `min-h-11`, and a 44px strip under a dense page header reads as a second
-		 * toolbar - which is precisely what drove two separate teams to build their own tab
-		 * components rather than use this one. 32px is the working default now; `lg` keeps
-		 * the old height for anywhere a tab row genuinely IS the page's primary navigation.
-		 */
-		size === "sm" && "min-h-7 rounded-lg px-2.5 py-0.5 text-xs [&_[data-tabs-trigger-inner]_svg]:size-3.5",
-		size === "default" && "min-h-8 rounded-lg px-3 py-1 text-[13px] [&_[data-tabs-trigger-inner]_svg]:size-3.5",
-		size === "lg" && "min-h-11 px-2 py-2.5 text-sm [&_[data-tabs-trigger-inner]_svg]:size-4",
-		// A bare strip carries its own weight in the label, not in a container.
-		variant === "segmented" && "font-medium",
-	)
-}
-
-function tabsHighlightClass(variant: TabsVariant) {
-	return cn(
-		"absolute inset-0 z-0 rounded-[inherit]",
-		// `card` fills with a flat grey. `segmented` RAISES a white chip instead - the shadow is
-		// what separates it from the trough, and it is the whole reason the borderless strip
-		// reads as a control rather than as text.
-		// In dark mode the chip has to be LIGHTER than the trough it sits in. It was
-		// `dark:bg-neutral-900`, darker than the `neutral-800/50` strip and darker than a
-		// hovered tab, so the selected tab read as the one you were not on (Niraj,
-		// 2026-09-22: "it was like showing really not visible").
-		variant === "card"
-			? "bg-neutral-200 dark:bg-neutral-700"
-			: "bg-white shadow-sm ring-1 ring-neutral-900/5 dark:bg-neutral-700 dark:shadow-none dark:ring-white/10",
-	)
-}
-
-const HIGHLIGHT_SPRING = { type: "spring", stiffness: 420, damping: 34 } as const
 
 /**
  * Tabs root. Thin wrapper over Radix Root that mirrors the active value into context so the
@@ -160,7 +84,7 @@ function Tabs({
 	)
 
 	return (
-		<TabsContext.Provider value={{ value, layoutId, size: "default", fit: false, variant: "card" }}>
+		<TabsContext.Provider value={{ value, layoutId, size: "default", fit: false, variant: "segmented" }}>
 			<TabsPrimitive.Root value={value} onValueChange={handleValueChange} {...props}>
 				{children}
 			</TabsPrimitive.Root>
@@ -187,8 +111,10 @@ export type TabsListProps = React.ComponentPropsWithoutRef<typeof TabsPrimitive.
 	 */
 	fit?: boolean
 	/**
-	 * `segmented` (default, the product's tab look: CLAUDE.md, Niraj 2026-09-29) or `card`, the
-	 * bordered container, kept for the few places that pass it on purpose.
+	 * `segmented` (default) is the bordered strip with an inverted active chip.
+	 *
+	 * Reach for `card` only where the tab row genuinely IS a component in its own right rather
+	 * than a set of choices among other controls.
 	 */
 	variant?: TabsVariant
 }
@@ -200,7 +126,7 @@ export type TabsListProps = React.ComponentPropsWithoutRef<typeof TabsPrimitive.
 const TabsList = React.forwardRef<
 	React.ElementRef<typeof TabsPrimitive.List>,
 	TabsListProps
->(({ className, size = "default", fit = false, variant = "segmented", ...props }, ref) => {
+>(({ className, size = "default", fit = false, variant = "card", ...props }, ref) => {
 	const parent = React.useContext(TabsContext)
 	// The list, not the root, decides size, fit and variant - a page can have two lists with
 	// different shapes. Re-providing here rather than threading props down keeps TabsTrigger's
@@ -213,19 +139,34 @@ const TabsList = React.forwardRef<
 		<TabsPrimitive.List
 			ref={ref}
 			className={cn(
-				tabsListClass(variant, size, fit),
+				"flex",
+				variant === "card"
+					? `
+      rounded-xl border
+      bg-white dark:bg-neutral-900
+      border-gray-200 dark:border-neutral-700
+      overflow-hidden
+      `
+					/*
+					 * A hairline box round the row, and NO fill.
+					 *
+					 * This was a filled trough (`bg-neutral-100/70`) with no border, which on the new
+					 * dark ground read as a grey slab - the strip drawing more attention than the
+					 * choice inside it. A border states the group and spends almost nothing doing it.
+					 * Same reasoning as the palette's "depth is fill, not outline": here the row is
+					 * not a surface, so it gets the outline instead of the fill.
+					 *
+					 * `overflow-hidden` is deliberately NOT set - it would clip the active chip.
+					 */
+					: "gap-0.5 rounded-xl border border-neutral-200 p-1 dark:border-neutral-800",
+				fit ? "w-fit max-w-full" : "w-full",
+				variant === "card" && size === "sm" && "gap-0.5 p-0.5",
 				className
 			)}
 			{...props}
 		/>
 	)
-	// A list that hugs its labels (`fit`) is the header kind: in `PageHeader`'s tab slot it
-	// scrolls sideways when there's no room, as `TabsNav` does (plan/jobs-polish JP-20). A
-	// full-width list already shrinks to its container, so it stays as it is.
-	const body = fit
-		? <ScrollArea orientation="horizontal" className="min-w-0 max-w-full">{list}</ScrollArea>
-		: list
-	return ctx ? <TabsContext.Provider value={ctx}>{body}</TabsContext.Provider> : body
+	return ctx ? <TabsContext.Provider value={ctx}>{list}</TabsContext.Provider> : list
 })
 TabsList.displayName = TabsPrimitive.List.displayName
 
@@ -250,13 +191,55 @@ const TabsTrigger = React.forwardRef<
 	const isActive = ctx ? ctx.value === props.value : false
 	const size = ctx?.size ?? "default"
 	const fit = ctx?.fit ?? false
-	const variant = ctx?.variant ?? "card"
+	const variant = ctx?.variant ?? "segmented"
 
 	return (
 		<TabsPrimitive.Trigger
 			ref={ref}
 			className={cn(
-				tabsTriggerClass(size, fit, variant),
+				`
+      relative flex min-w-0
+      items-center justify-center
+      font-semibold
+      cursor-pointer
+      transition-colors
+      text-neutral-600 dark:text-neutral-400
+
+      hover:bg-neutral-100 dark:hover:bg-neutral-800
+
+      focus-visible:outline-none
+      focus-visible:ring-2
+      focus-visible:ring-ring
+      focus-visible:ring-offset-2
+
+      disabled:pointer-events-none
+      disabled:opacity-50
+      `,
+				// `flex-none` in a fit list, so a trigger is as wide as its own label. Without this
+				// `flex-1` still splits whatever width the list ends up with.
+				fit ? "flex-none" : "flex-1",
+				/*
+				 * The scale, and why `default` is no longer 44px.
+				 *
+				 * It was `min-h-11`, and a 44px strip under a dense page header reads as a second
+				 * toolbar - which is precisely what drove two separate teams to build their own tab
+				 * components rather than use this one. 32px is the working default now; `lg` keeps
+				 * the old height for anywhere a tab row genuinely IS the page's primary navigation.
+				 */
+				size === "sm" && "min-h-7 rounded-lg px-2.5 py-0.5 text-xs [&_[data-tabs-trigger-inner]_svg]:size-3.5",
+				size === "default" && "min-h-8 rounded-lg px-3 py-1 text-[13px] [&_[data-tabs-trigger-inner]_svg]:size-3.5",
+				size === "lg" && "min-h-11 px-2 py-2.5 text-sm [&_[data-tabs-trigger-inner]_svg]:size-4",
+				/*
+				 * The ACTIVE label reads against the chip, so it inverts with it - and this has to
+				 * be stated PER VARIANT. The rule it replaces was one shared line written for the
+				 * grey fill (`data-[state=active]:text-gray-900 dark:...:text-white`); on an
+				 * inverted chip that is white text on a white chip.
+				 */
+				variant === "card" && "data-[state=active]:text-gray-900 dark:data-[state=active]:text-white",
+				variant === "segmented" && [
+					"font-medium",
+					"data-[state=active]:text-white dark:data-[state=active]:text-neutral-900",
+				],
 				className
 			)}
 			{...props}
@@ -265,8 +248,22 @@ const TabsTrigger = React.forwardRef<
 				<motion.span
 					layoutId={ctx.layoutId}
 					aria-hidden
-					className={tabsHighlightClass(variant)}
-					transition={HIGHLIGHT_SPRING}
+					className={cn(
+						"absolute inset-0 z-0 rounded-[inherit]",
+							/*
+							 * `card` fills with a flat grey. `segmented` INVERTS.
+							 *
+							 * White on dark, near-black on light - the active tab is the only thing on
+							 * the row wearing the opposite of the page, which makes it unmistakable
+							 * without spending a second colour. The raised white chip this replaces
+							 * worked on a light trough and vanished on a dark one; inversion works on
+							 * both grounds.
+							 */
+						variant === "card"
+							? "bg-gray-200 dark:bg-neutral-700"
+								: "bg-neutral-900 dark:bg-white",
+					)}
+					transition={{ type: "spring", stiffness: 420, damping: 34 }}
 				/>
 			) : null}
 			<span
@@ -341,8 +338,7 @@ const TabsContent = React.forwardRef<
 	<TabsPrimitive.Content
 		ref={ref}
 		className={cn(
-			// No ring offset: its band is white (nothing sets --tw-ring-offset-color), glaring in dark mode.
-			"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+			"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
 			contentClassName,
 		)}
 		{...props}
@@ -352,8 +348,9 @@ const TabsContent = React.forwardRef<
 ))
 TabsContent.displayName = TabsPrimitive.Content.displayName
 
-
-// ── TabsNav: tabs that are links ─────────────────────────────────────────────
+// ── TabsNav: tabs that are links - kept for shipithq apps ───────────────────
+// ShipItHQ's route tabs (12 app files). Drawn with the same classes as TabsList + TabsTrigger
+// above (Gurukul's look), made of `<Link>`s so middle-click, prefetch and `aria-current` work.
 
 export interface TabsNavItem {
 	href: string
@@ -361,19 +358,33 @@ export interface TabsNavItem {
 	/** The caller decides, from its own pathname: nested routes differ per section. */
 	active: boolean
 	icon?: React.ReactNode
-	/** `false` keeps the scroll position on the switch (tabs in `?tab=` below a header). Default true, as `<Link>`. */
+	/** `false` keeps the scroll position on the switch. Default true, as `<Link>`. */
 	scroll?: boolean
 }
 
-/**
- * Tabs for NAVIGATION between routes, drawn exactly like `TabsList` + `TabsTrigger` (same classes,
- * same sliding highlight) but made of `<Link>`s.
- *
- * Radix Tabs cannot do this: its triggers are buttons that swap panels on one page, and wrapping a
- * Link in a trigger with `asChild` fails because the trigger renders its own highlight and label
- * spans inside. Route tabs want real links (middle-click, prefetch, `aria-current`), so this is its
- * own component rather than a trick on the Radix one. Added in ShipItHQ, 2026-09-22.
- */
+function tabsNavListClass(variant: TabsVariant, size: TabsSize, fit: boolean) {
+	return cn(
+		"flex",
+		variant === "card"
+			? "overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
+			: "gap-0.5 rounded-xl border border-neutral-200 p-1 dark:border-neutral-800",
+		fit ? "w-fit max-w-full" : "w-full",
+		variant === "card" && size === "sm" && "gap-0.5 p-0.5",
+	)
+}
+
+function tabsNavTriggerClass(size: TabsSize, fit: boolean, variant: TabsVariant) {
+	return cn(
+		"relative flex min-w-0 shrink-0 cursor-pointer items-center justify-center font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:text-neutral-400 dark:hover:bg-neutral-800",
+		fit ? "flex-none" : "flex-1",
+		size === "sm" && "min-h-7 rounded-lg px-2.5 py-0.5 text-xs [&_[data-tabs-trigger-inner]_svg]:size-3.5",
+		size === "default" && "min-h-8 rounded-lg px-3 py-1 text-[13px] [&_[data-tabs-trigger-inner]_svg]:size-3.5",
+		size === "lg" && "min-h-11 px-2 py-2.5 text-sm [&_[data-tabs-trigger-inner]_svg]:size-4",
+		variant === "card" && "data-[state=active]:text-gray-900 dark:data-[state=active]:text-white",
+		variant === "segmented" && "font-medium data-[state=active]:text-white dark:data-[state=active]:text-neutral-900",
+	)
+}
+
 function TabsNav({
 	items,
 	size = "sm",
@@ -396,36 +407,40 @@ function TabsNav({
 	React.useEffect(() => {
 		ref.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "nearest" })
 	}, [active])
-	// `min-w-0` so the strip can shrink inside a flex row and scroll, instead of pushing
-	// past its container (the jobs header ran under the Harbor rail, plan/jobs-polish
-	// JP-13). The shared ScrollArea, horizontal, rather than a native scroller with its
-	// bar hidden: a thin bar on hover says there's more.
 	return (
 		<nav ref={ref} aria-label={ariaLabel} className={cn("min-w-0 max-w-full", className)}>
 			<ScrollArea orientation="horizontal" className="w-full" viewportClassName="pb-0">
-			<div className={tabsListClass(variant, size, fit)}>
-				{items.map((item) => (
-					<Link
-						key={item.href}
-						href={item.href}
-						scroll={item.scroll}
-						aria-current={item.active ? "page" : undefined}
-						data-state={item.active ? "active" : "inactive"}
-						className={cn(tabsTriggerClass(size, fit, variant), "shrink-0")}
-					>
-						{item.active ? (
-							<motion.span layoutId={layoutId} aria-hidden className={tabsHighlightClass(variant)} transition={HIGHLIGHT_SPRING} />
-						) : null}
-						<span
-							data-tabs-trigger-inner
-							className="relative z-10 inline-flex min-w-0 max-w-full items-center justify-center gap-1.5 [&_svg]:inline-block [&_svg]:shrink-0 [&_svg]:size-4"
+				<div className={tabsNavListClass(variant, size, fit)}>
+					{items.map((item) => (
+						<Link
+							key={item.href}
+							href={item.href}
+							scroll={item.scroll}
+							aria-current={item.active ? "page" : undefined}
+							data-state={item.active ? "active" : "inactive"}
+							className={tabsNavTriggerClass(size, fit, variant)}
 						>
-							{item.icon != null ? <span className="inline-flex shrink-0" aria-hidden>{item.icon}</span> : null}
-							<span className="min-w-0 truncate leading-tight">{item.label}</span>
-						</span>
-					</Link>
-				))}
-			</div>
+							{item.active ? (
+								<motion.span
+									layoutId={layoutId}
+									aria-hidden
+									className={cn(
+										"absolute inset-0 z-0 rounded-[inherit]",
+										variant === "card" ? "bg-gray-200 dark:bg-neutral-700" : "bg-neutral-900 dark:bg-white",
+									)}
+									transition={{ type: "spring", stiffness: 420, damping: 34 }}
+								/>
+							) : null}
+							<span
+								data-tabs-trigger-inner
+								className="relative z-10 inline-flex min-w-0 max-w-full items-center justify-center gap-1.5 [&_svg]:inline-block [&_svg]:shrink-0 [&_svg]:size-4"
+							>
+								{item.icon != null ? <span className="inline-flex shrink-0" aria-hidden>{item.icon}</span> : null}
+								<span className="min-w-0 truncate leading-tight">{item.label}</span>
+							</span>
+						</Link>
+					))}
+				</div>
 			</ScrollArea>
 		</nav>
 	)

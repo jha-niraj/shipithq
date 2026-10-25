@@ -9,7 +9,24 @@ const Card = React.forwardRef<
 	<div
 		ref={ref}
 		className={cn(
-			"bg-white dark:bg-neutral-900 shadow-2xl rounded-xl flex flex-col justify-between h-full text-card-foreground p-4",
+			// `h-full` and `justify-between` were BOTH removed from this default, and the pair is
+			// worth explaining because each looked harmless on its own.
+			//
+			// `h-full` did no work in the case it was presumably added for: a Card that is a direct
+			// grid or flex child already stretches to the row height, because `align-items: stretch`
+			// is the default. Where it DID have an effect was the nested case - a Card inside a
+			// column div that is itself a stretched grid item. The column's height is definite, so
+			// each Card claimed 100% OF IT; two stacked Cards claimed 200% of the row between them.
+			//
+			// `justify-between` then turned that extra height into a visible hole: it pins the first
+			// child to the top and the last to the bottom and dumps all the slack in the middle. So
+			// a "Marking rules" card rendered as a title, a screen of nothing, and its controls far
+			// below - which reads as a page that failed to load, not as a tall card.
+			//
+			// A card that genuinely wants its footer pinned in a grid of equal-height cards should
+			// say so on the footer with `mt-auto`. That is precise, it only affects the one element
+			// it is written on, and it cannot open a hole in a card that never asked for one.
+			"bg-white dark:bg-neutral-900 shadow-2xl rounded-xl flex flex-col text-card-foreground p-4 gap-4",
 			className
 		)}
 		{...props}
@@ -36,16 +53,7 @@ const CardTitle = React.forwardRef<
 	<h3
 		ref={ref}
 		className={cn(
-			// LEFT aligned. This carried `text-center`, and because it is the shared Card
-			// every title in the app was centred - which is why "Connected Accounts" sat in
-			// the middle of the settings page while the card above it looked fine (that one
-			// happened to override it).
-			//
-			// A centred heading over left-aligned body text is a mismatch you notice without
-			// being able to name, and it is wrong for a form in particular: the eye returns
-			// to the left edge for every field, so the heading should start there too.
-			// Cards that genuinely want centring pass `text-center` themselves.
-			"text-2xl font-semibold leading-none tracking-tight",
+			"text-xl font-semibold leading-none tracking-tight",
 			className
 		)}
 		{...props}
@@ -69,9 +77,6 @@ const CardContent = React.forwardRef<
 	HTMLDivElement,
 	React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-	// Same as CardTitle: `text-center` was baked in here too, so every label, value and
-	// helper line in every card inherited it. On a settings form that put labels over the
-	// middle of their own inputs.
 	<div ref={ref} className={cn("pt-0", className)} {...props} />
 ))
 CardContent.displayName = "CardContent"

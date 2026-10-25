@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
-import { Check, ChevronDown, ChevronUp } from "lucide-react"
+import { Check, ChevronDown, ChevronUp, Search } from "lucide-react"
 import { cn } from "../../lib/utils"
 import { POPPER_MOTION, POPPER_ORIGIN } from "../../lib/motion"
 
@@ -45,23 +45,20 @@ const SelectTrigger = React.forwardRef<
 	 *
 	 * The comment sits HERE and not inside the template literal below, because `cn()` joins that
 	 * literal verbatim - a comment written inside it ships as class names in the DOM.
-	 *
-	 * `rounded-lg`, like `Input` and `Textarea` (Niraj, 2026-09-23): a trigger is a form control
-	 * and sits in rows beside them, so they share one radius, set in one place.
 	 */
 	<SelectPrimitive.Trigger
 		ref={ref}
 		className={cn(
 			`
       flex w-full items-center justify-between
-      rounded-lg border
+      rounded-xl border
       bg-white dark:bg-neutral-900
-      border-neutral-200 dark:border-neutral-700
+      border-gray-200 dark:border-neutral-700
       px-3 font-medium
-      text-neutral-700 dark:text-neutral-200
+      text-gray-700 dark:text-gray-200
 
       transition-colors
-      hover:bg-neutral-50 dark:hover:bg-neutral-800
+      hover:bg-gray-50 dark:hover:bg-neutral-800
 
       focus-visible:outline-none
       focus-visible:border-neutral-400 dark:focus-visible:border-neutral-500
@@ -82,7 +79,7 @@ const SelectTrigger = React.forwardRef<
 		<SelectPrimitive.Icon asChild>
 			{/* shrink-0: the value is now flex-1, so without this the chevron is the thing that
 			    gets squashed when an option is long. */}
-			<ChevronDown className="h-4 w-4 shrink-0 text-neutral-500 dark:text-neutral-400" />
+			<ChevronDown className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" />
 		</SelectPrimitive.Icon>
 	</SelectPrimitive.Trigger>
 ))
@@ -98,7 +95,7 @@ const SelectScrollUpButton = React.forwardRef<
 	<SelectPrimitive.ScrollUpButton
 		ref={ref}
 		className={cn(
-			"flex items-center justify-center py-1 text-neutral-500 dark:text-neutral-400",
+			"flex items-center justify-center py-1 text-gray-500 dark:text-gray-400",
 			className
 		)}
 		{...props}
@@ -116,7 +113,7 @@ const SelectScrollDownButton = React.forwardRef<
 	<SelectPrimitive.ScrollDownButton
 		ref={ref}
 		className={cn(
-			"flex items-center justify-center py-1 text-neutral-500 dark:text-neutral-400",
+			"flex items-center justify-center py-1 text-gray-500 dark:text-gray-400",
 			className
 		)}
 		{...props}
@@ -126,6 +123,159 @@ const SelectScrollDownButton = React.forwardRef<
 ))
 SelectScrollDownButton.displayName =
 	SelectPrimitive.ScrollDownButton.displayName
+
+/**
+ * Search inside a long Select.
+ *
+ * Past `SELECT_SEARCH_THRESHOLD` items the BASE SelectContent grows a search field of its own, so
+ * every long data-driven list (students, staff, classes) gets search with no call-site change, and
+ * a short list (Type, Status) renders exactly as before. `searchable` on SelectContent forces it on
+ * or off; `searchPlaceholder` renames the field.
+ *
+ * Filtering works on the React children, not the DOM: SelectItem / SelectGroup / SelectLabel /
+ * SelectSeparator are found by walking children (through fragments, arrays and plain wrappers). An
+ * item a call site hides inside its own component cannot be seen, so it is neither counted nor
+ * filtered - it simply stays visible.
+ *
+ * A non-matching item is NOT unmounted. Radix portals the selected item's text into the trigger and
+ * mirrors every item into the hidden native <select> for forms, so unmounting the selected item
+ * while searching would blank the trigger. It is rendered `hidden` AND `disabled` instead: disabled
+ * is what makes Radix's arrow-key navigation and typeahead skip it.
+ */
+const SELECT_SEARCH_THRESHOLD = 8
+
+type SelectChildProps = {
+	children?: React.ReactNode
+	textValue?: string
+	description?: React.ReactNode
+	className?: string
+	disabled?: boolean
+}
+
+type SelectNodeKind = "item" | "group" | "label" | "separator" | "other"
+
+function isSelectChild(node: React.ReactNode): node is React.ReactElement<SelectChildProps> {
+	return React.isValidElement(node)
+}
+
+function selectNodeKind(element: React.ReactElement<SelectChildProps>): SelectNodeKind {
+	// `unknown` first: comparing an element type to a forwardRef component directly is a
+	// "no overlap" error under strict types, though it is exactly the identity check wanted.
+	const type: unknown = element.type
+	if (type === SelectItem || type === SelectPrimitive.Item) return "item"
+	if (type === SelectPrimitive.Group) return "group"
+	if (type === SelectLabel || type === SelectPrimitive.Label) return "label"
+	if (type === SelectSeparator || type === SelectPrimitive.Separator) return "separator"
+	return "other"
+}
+
+function countSelectItems(children: React.ReactNode): number {
+	let count = 0
+	React.Children.forEach(children, (child) => {
+		if (!isSelectChild(child)) return
+		if (selectNodeKind(child) === "item") count += 1
+		else count += countSelectItems(child.props.children)
+	})
+	return count
+}
+
+function textOfNode(node: React.ReactNode): string {
+	if (typeof node === "string" || typeof node === "number") return String(node)
+	if (Array.isArray(node)) return node.map((part: React.ReactNode) => textOfNode(part)).join(" ")
+	if (isSelectChild(node)) return textOfNode(node.props.children)
+	return ""
+}
+
+/** `textValue` wins when present (Radix's own name for an item's plain text); the description is searchable too. */
+function textOfItem(item: React.ReactElement<SelectChildProps>): string {
+	const label = item.props.textValue ?? textOfNode(item.props.children)
+	return `${label} ${textOfNode(item.props.description)}`.toLowerCase()
+}
+
+function filterSelectChildren(
+	children: React.ReactNode,
+	terms: string[],
+	inGroup: boolean
+): { nodes: React.ReactNode[]; visible: number } {
+	const filtering = terms.length > 0
+	let visible = 0
+	const nodes =
+		React.Children.map(children, (child): React.ReactNode => {
+			if (!isSelectChild(child)) return child
+			const kind = selectNodeKind(child)
+			if (kind === "item") {
+				const text = textOfItem(child)
+				if (terms.every((term) => text.includes(term))) {
+					visible += 1
+					return child
+				}
+				return React.cloneElement(child, {
+					disabled: true,
+					className: cn(child.props.className, "hidden"),
+				})
+			}
+			// While filtering, a loose label or a separator describes rows that may be gone. A label
+			// INSIDE a group stays: the group itself is hidden when none of its items match.
+			if (kind === "separator" || (kind === "label" && !inGroup)) {
+				return filtering ? React.cloneElement(child, { className: cn(child.props.className, "hidden") }) : child
+			}
+			if (kind === "label" || countSelectItems(child.props.children) === 0) return child
+			const inner = filterSelectChildren(child.props.children, terms, inGroup || kind === "group")
+			visible += inner.visible
+			if (kind === "group" && filtering && inner.visible === 0) {
+				return React.cloneElement(child, { className: cn(child.props.className, "hidden"), children: inner.nodes })
+			}
+			return React.cloneElement(child, { children: inner.nodes })
+		}) ?? []
+	return { nodes, visible }
+}
+
+/** Enabled, visible options in DOM order - the hidden non-matches carry `data-disabled`. */
+function visibleOptions(viewport: HTMLElement | null): HTMLElement[] {
+	if (!viewport) return []
+	return Array.from(viewport.querySelectorAll<HTMLElement>('[role="option"]:not([data-disabled])'))
+}
+
+function SelectSearchField({
+	inputRef,
+	value,
+	onValueChange,
+	placeholder,
+	onOpened,
+}: {
+	inputRef: React.RefObject<HTMLInputElement | null>
+	value: string
+	onValueChange: (value: string) => void
+	placeholder: string
+	/** Must be stable (a `useCallback`): it is an effect dependency. */
+	onOpened: () => void
+}) {
+	// Radix renders the content's children twice over a select's life: into a detached
+	// DocumentFragment while closed (so the trigger and native <select> know the items), and into
+	// the real popover while open. Only the open copy is connected to the document.
+	React.useEffect(() => {
+		if (inputRef.current?.isConnected) onOpened()
+	}, [inputRef, onOpened])
+	return (
+		<div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 dark:border-neutral-800">
+			<Search className="h-4 w-4 shrink-0 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+			{/* `w-0 flex-1`: the field takes the width the list already has and never widens the
+			    popover by its own intrinsic size. */}
+			<input
+				ref={inputRef}
+				type="text"
+				value={value}
+				onChange={(event) => onValueChange(event.target.value)}
+				placeholder={placeholder}
+				aria-label={placeholder}
+				autoComplete="off"
+				autoCorrect="off"
+				spellCheck={false}
+				className="h-9 w-0 min-w-0 flex-1 bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400 dark:text-gray-200 dark:placeholder:text-gray-500"
+			/>
+		</div>
+	)
+}
 
 /**
  * SelectContent
@@ -138,16 +288,150 @@ type SelectContentProps = React.ComponentPropsWithoutRef<typeof SelectPrimitive.
 	 * (e.g. "No subjects yet"). Defaults to a generic fallback.
 	 */
 	emptyMessage?: string
+	/**
+	 * Search field at the top of the list. Left unset, it appears on its own once the list has
+	 * more than 8 items. `true` forces it on, `false` forces it off.
+	 */
+	searchable?: boolean
+	/** Placeholder (and accessible name) of the search field. */
+	searchPlaceholder?: string
 }
 
 const SelectContent = React.forwardRef<
 	React.ElementRef<typeof SelectPrimitive.Content>,
 	SelectContentProps
->(({ className, children, position = "popper", emptyMessage = "No options available", ...props }, ref) => {
+>(({
+	className,
+	children,
+	position = "popper",
+	emptyMessage = "No options available",
+	searchable,
+	searchPlaceholder = "Search...",
+	onKeyDownCapture,
+	onFocusCapture,
+	onEscapeKeyDown,
+	onCloseAutoFocus,
+	...props
+}, ref) => {
 	// Empty when there are no rendered item children - e.g. `{items.map(...)}` with
 	// an empty array yields zero children. A hardcoded/sentinel item (like "All")
 	// counts as content, so those selects never show this fallback.
 	const isEmpty = React.Children.toArray(children).length === 0
+	const isSearchable = !isEmpty && (searchable ?? countSelectItems(children) > SELECT_SEARCH_THRESHOLD)
+
+	const [query, setQuery] = React.useState("")
+	const inputRef = React.useRef<HTMLInputElement>(null)
+	const viewportRef = React.useRef<HTMLDivElement>(null)
+	const autoFocusPendingRef = React.useRef(false)
+	const autoFocusTimerRef = React.useRef<number | undefined>(undefined)
+
+	React.useEffect(() => () => window.clearTimeout(autoFocusTimerRef.current), [])
+
+	const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+	const filtered = isSearchable ? filterSelectChildren(children, terms, false) : null
+	const noMatch = filtered !== null && terms.length > 0 && filtered.visible === 0
+
+	/*
+	 * Opening focuses the search field - on a fine pointer only, because on a phone a focused field
+	 * throws the keyboard up over half the list the moment the select opens.
+	 *
+	 * It cannot simply focus on mount: once the popover is positioned Radix focuses the selected item
+	 * (or the content) itself, after our effects. So we arm a flag and take the focus back on that
+	 * first Radix focus (see `onFocusCapture`), and disarm it shortly after so a later hover - Radix
+	 * also focuses an item under the mouse - is never pulled back to the field.
+	 */
+	const handleOpened = React.useCallback(() => {
+		const finePointer = typeof window !== "undefined" && window.matchMedia?.("(pointer: fine)").matches
+		if (!finePointer) return
+		autoFocusPendingRef.current = true
+		window.clearTimeout(autoFocusTimerRef.current)
+		autoFocusTimerRef.current = window.setTimeout(() => {
+			if (!autoFocusPendingRef.current) return
+			autoFocusPendingRef.current = false
+			inputRef.current?.focus({ preventScroll: true })
+		}, 300)
+	}, [])
+
+	const handleFocusCapture = (event: React.FocusEvent<HTMLDivElement>) => {
+		onFocusCapture?.(event)
+		const input = inputRef.current
+		if (!autoFocusPendingRef.current || !input || event.target === input) return
+		autoFocusPendingRef.current = false
+		window.clearTimeout(autoFocusTimerRef.current)
+		input.focus({ preventScroll: true })
+	}
+
+	/*
+	 * Keys. Radix's content-level keydown runs typeahead on any printable key (it jumps focus to the
+	 * first item starting with that letter) and claims Home/End and the arrows. In a searchable list:
+	 * - in the field, everything except Tab, Escape and ArrowDown stops here, so typing edits the
+	 *   query and Home/End move the caret. ArrowDown is left to Radix: the field is not one of its
+	 *   items, so it focuses the first enabled (= first visible) item. Enter picks the first match.
+	 * - in the list, a printable key or Backspace moves focus to the field first, so the character
+	 *   lands in the query instead of driving typeahead. Space still selects while the query is empty.
+	 *   ArrowUp on the first visible item returns to the field.
+	 * Escape is handled in `onEscapeKeyDown`: Radix listens for it on the document in the capture
+	 * phase, before any of this runs.
+	 */
+	const handleKeyDownCapture = (event: React.KeyboardEvent<HTMLDivElement>) => {
+		onKeyDownCapture?.(event)
+		const input = inputRef.current
+		if (!isSearchable || !input || event.defaultPrevented) return
+		const modifier = event.ctrlKey || event.metaKey || event.altKey
+
+		if (event.target === input) {
+			if (event.key === "Tab" || event.key === "Escape" || event.key === "ArrowDown") return
+			if (event.key === "Enter" && terms.length > 0) {
+				event.preventDefault()
+				const first = visibleOptions(viewportRef.current)[0]
+				if (first) {
+					first.focus()
+					// Radix's item selects on Enter keydown. Dispatched on the next task so it is not a
+					// nested event inside this one. `click()` is not used: Radix ignores clicks once the
+					// mouse has moved over the list (it selects on pointerup for a mouse instead).
+					window.setTimeout(() => {
+						first.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+					})
+				}
+			}
+			event.stopPropagation()
+			return
+		}
+
+		if (event.key === "ArrowUp" && !modifier) {
+			const first = visibleOptions(viewportRef.current)[0]
+			if (first && event.target === first) {
+				event.preventDefault()
+				event.stopPropagation()
+				input.focus({ preventScroll: true })
+			}
+			return
+		}
+
+		const printable = event.key.length === 1 && (event.key !== " " || query !== "")
+		if (!modifier && (printable || event.key === "Backspace")) {
+			// Moving focus during keydown sends the character (or the deletion) to the field.
+			event.stopPropagation()
+			input.focus({ preventScroll: true })
+		}
+	}
+
+	const handleEscapeKeyDown = (event: KeyboardEvent) => {
+		onEscapeKeyDown?.(event)
+		if (event.defaultPrevented || !isSearchable || query === "") return
+		// First Escape clears the query, the next one closes.
+		event.preventDefault()
+		setQuery("")
+		inputRef.current?.focus({ preventScroll: true })
+	}
+
+	const handleCloseAutoFocus = (event: Event) => {
+		onCloseAutoFocus?.(event)
+		autoFocusPendingRef.current = false
+		window.clearTimeout(autoFocusTimerRef.current)
+		setQuery("")
+	}
+
 	return (
 		<SelectPrimitive.Portal>
 			<SelectPrimitive.Content
@@ -157,8 +441,8 @@ const SelectContent = React.forwardRef<
 					`
         z-[80] max-h-96 overflow-hidden
         rounded-xl border
-        bg-white dark:bg-neutral-900
-        border-neutral-200 dark:border-neutral-700
+        bg-white dark:bg-popover
+        border-gray-200 dark:border-neutral-800
         shadow-xl
         `,
 					// The menu now arrives instead of appearing. POPPER_MOTION carries the exit
@@ -171,10 +455,26 @@ const SelectContent = React.forwardRef<
 					"data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1",
 					className
 				)}
+				onKeyDownCapture={handleKeyDownCapture}
+				onFocusCapture={handleFocusCapture}
+				onEscapeKeyDown={handleEscapeKeyDown}
+				onCloseAutoFocus={handleCloseAutoFocus}
 				{...props}
 			>
+				{/* Above the viewport, not inside it: the viewport is the scroller, so the field
+				    stays put while the list scrolls under it. */}
+				{isSearchable ? (
+					<SelectSearchField
+						inputRef={inputRef}
+						value={query}
+						onValueChange={setQuery}
+						placeholder={searchPlaceholder}
+						onOpened={handleOpened}
+					/>
+				) : null}
 				<SelectScrollUpButton />
 				<SelectPrimitive.Viewport
+					ref={viewportRef}
 					className={cn(
 						"p-1",
 						position === "popper" &&
@@ -188,9 +488,18 @@ const SelectContent = React.forwardRef<
 						// a short message, but a real problem the moment either is longer: on a phone the
 						// box can run past the edge of whatever it is inside (a sheet, the viewport
 						// itself). Capping the width lets normal text wrapping do its job.
-						<div className="w-[min(20rem,calc(100vw-4rem))] select-none whitespace-normal px-3 py-6 text-center text-sm text-neutral-500 dark:text-neutral-400">
+						<div className="w-[min(20rem,calc(100vw-4rem))] select-none whitespace-normal px-3 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
 							{emptyMessage}
 						</div>
+					) : filtered ? (
+						<>
+							{filtered.nodes}
+							{noMatch ? (
+								<div className="select-none px-3 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+									No match
+								</div>
+							) : null}
+						</>
 					) : (
 						children
 					)}
@@ -212,7 +521,7 @@ const SelectLabel = React.forwardRef<
 	<SelectPrimitive.Label
 		ref={ref}
 		className={cn(
-			"px-2 py-1.5 text-xs font-semibold text-neutral-500 dark:text-neutral-400",
+			"px-2 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400",
 			className
 		)}
 		{...props}
@@ -248,11 +557,11 @@ const SelectItem = React.forwardRef<
       relative flex w-full cursor-pointer select-none items-center
       data-[gk-two-line=true]:items-start
       rounded-lg py-2 pl-8 pr-2 text-sm
-      text-neutral-700 dark:text-neutral-200
+      text-gray-700 dark:text-gray-200
 
       transition-colors duration-150
-      focus:bg-neutral-100 dark:focus:bg-neutral-800
-      data-[state=checked]:bg-neutral-200
+      focus:bg-gray-100 dark:focus:bg-neutral-800
+      data-[state=checked]:bg-gray-200
       dark:data-[state=checked]:bg-neutral-700
 
       data-[disabled]:pointer-events-none
@@ -267,13 +576,13 @@ const SelectItem = React.forwardRef<
 			{/* Radix only mounts the indicator once an item is selected, so this plays on the
 			    tick itself appearing - the row reads as being chosen rather than redrawn. */}
 			<SelectPrimitive.ItemIndicator className="animate-in fade-in-0 zoom-in-75 duration-150">
-				<Check className="h-4 w-4 text-neutral-900 dark:text-white" />
+				<Check className="h-4 w-4 text-gray-900 dark:text-white" />
 			</SelectPrimitive.ItemIndicator>
 		</span>
 		{description ? (
 			<span className="flex min-w-0 flex-col">
 				<SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-				<span className="text-xs text-neutral-500 dark:text-neutral-400">{description}</span>
+				<span className="text-xs text-gray-500 dark:text-gray-400">{description}</span>
 			</span>
 		) : (
 			<SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
@@ -292,7 +601,7 @@ const SelectSeparator = React.forwardRef<
 	<SelectPrimitive.Separator
 		ref={ref}
 		className={cn(
-			"my-1 h-px bg-neutral-200 dark:bg-neutral-700",
+			"my-1 h-px bg-gray-200 dark:bg-neutral-700",
 			className
 		)}
 		{...props}

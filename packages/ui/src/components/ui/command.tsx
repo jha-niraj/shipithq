@@ -41,9 +41,6 @@ const CommandInput = React.forwardRef<
 	React.ElementRef<typeof CommandPrimitive.Input>,
 	React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
 >(({ className, ...props }, ref) => (
-	// cmdk selects on this exact attribute for its input-wrapper styling; it is a
-	// library hook, not a React DOM prop, so the unknown-property rule is wrong here.
-	// eslint-disable-next-line react/no-unknown-property
 	<div className="flex items-center border-b px-3" cmdk-input-wrapper="">
 		<Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
 		<CommandPrimitive.Input
@@ -65,7 +62,7 @@ const CommandList = React.forwardRef<
 >(({ className, ...props }, ref) => (
 	<CommandPrimitive.List
 		ref={ref}
-		className={cn("sh-thin-scroll max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
+		className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
 		{...props}
 	/>
 ))
@@ -121,6 +118,9 @@ const CommandItem = React.forwardRef<
 		ref={ref}
 		className={cn(
 			"relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+			// Softens the highlight as it tracks arrow-key movement down the list. Kept short:
+			// a slow transition here lags behind held-down keys and feels broken.
+			"transition-colors duration-100",
 			className
 		)}
 		{...props}

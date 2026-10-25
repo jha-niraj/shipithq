@@ -1,5 +1,5 @@
 import * as React from "react"
-import Link from "next/link"
+import { AppLink } from "../app-link"
 import { ScrollArea } from "./scroll-area"
 import { Skeleton } from "./skeleton"
 import { cn } from "../../lib/utils"
@@ -49,25 +49,14 @@ import { cn } from "../../lib/utils"
  * Pair it with `StatBandSkeleton` using the SAME `count`, `cols` and `size`, or the page shifts
  * when the numbers land.
  *
- * ## ShipItHQ copy
- *
- * Ported from gurukulhq on 2026-09-22 (plan/stat-band). One change: the tones are cut to
- * `neutral`, `emerald` and `rose`, because this product's palette is monochrome with no
- * orange, yellow or brand gold (CLAUDE.md). See STAT-BAND.md beside this file.
- *
  * ## Portability
  *
  * Self-contained on purpose so it can be copied into another product: it needs only `ScrollArea`,
- * `Skeleton`, `cn` and `next/link`. No "use client" - a server component may render it, and the
+ * `Skeleton`, `cn` and `AppLink` (a linked cell prefetches its page shell on intent, never on sight). No "use client" - a server component may render it, and the
  * icon it passes stays a plain component reference because this file is not a client boundary.
  */
 
-/**
- * `emerald` for a value whose state is good (passed, paid, on track), `rose` for bad
- * (overdue, failed, at risk). Everything else is `neutral`. A warning is not a colour here:
- * the palette has no amber, so the number and its hint say it.
- */
-export type StatBandTone = "neutral" | "emerald" | "rose"
+export type StatBandTone = "neutral" | "emerald" | "teal" | "lime" | "amber" | "orange" | "rose" | "gold"
 
 export interface StatBandItem {
 	/** Stable key. Falls back to the label. */
@@ -113,6 +102,13 @@ export interface StatBandProps extends Omit<React.HTMLAttributes<HTMLDivElement>
 	size?: "sm" | "md"
 	/** Drops the outer border and background, for a band already inside a bordered card. */
 	flush?: boolean
+	/**
+	 * Lays the cells out by the band's OWN width (a container query) instead of the viewport's, for a band inside a
+	 * narrow box - a floating panel, a side column - where a viewport breakpoint would pick a grid the box cannot fit.
+	 * Below 24rem it is the scrolling row; from there, one row of up to four cells. Pair with `size="sm"`. Pass the
+	 * same value to the skeleton.
+	 */
+	compact?: boolean
 }
 
 export type StatBandCols = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
@@ -129,10 +125,27 @@ const COLS: Record<StatBandCols, string> = {
 	8: "sm:grid-cols-4 lg:grid-cols-8",
 }
 
+/** `compact`: columns by the band's own width. Up to four cells share one row from 24rem; more wrap to a grid. */
+const COMPACT_COLS: Record<StatBandCols, string> = {
+	1: "@sm:grid-cols-1",
+	2: "@sm:grid-cols-2",
+	3: "@sm:grid-cols-3",
+	4: "@sm:grid-cols-4",
+	5: "@sm:grid-cols-3 @3xl:grid-cols-5",
+	6: "@sm:grid-cols-3 @3xl:grid-cols-6",
+	7: "@sm:grid-cols-4 @3xl:grid-cols-7",
+	8: "@sm:grid-cols-4 @3xl:grid-cols-8",
+}
+
 const TONE: Record<StatBandTone, string> = {
 	neutral: "text-neutral-900 dark:text-white",
 	emerald: "text-emerald-700 dark:text-emerald-400",
+	teal: "text-teal-700 dark:text-teal-400",
+	lime: "text-lime-700 dark:text-lime-400",
+	amber: "text-amber-700 dark:text-amber-400",
+	orange: "text-orange-700 dark:text-orange-400",
 	rose: "text-rose-700 dark:text-rose-400",
+	gold: "text-[#8a6720] dark:text-[#c9a961]",
 }
 
 const SIZE = {
@@ -170,6 +183,7 @@ function Frame({
 	cols,
 	size,
 	flush,
+	compact = false,
 	className,
 	children,
 	...props
@@ -177,6 +191,7 @@ function Frame({
 	cols: StatBandCols
 	size: "sm" | "md"
 	flush: boolean
+	compact?: boolean
 	className?: string
 	children: React.ReactNode
 } & Omit<React.HTMLAttributes<HTMLDivElement>, "children">) {
@@ -187,6 +202,7 @@ function Frame({
 				// its own right and bottom hairline 1px OUTSIDE itself, so this is what trims the
 				// ones on the band's outer edge instead of letting them double the frame border.
 				"w-full min-w-0 shrink-0 overflow-hidden",
+				compact && "@container",
 				!flush && "rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950",
 				className,
 			)}
@@ -218,9 +234,9 @@ function Frame({
 						 */
 						"[&>*]:shadow-[1px_1px_0_0_var(--color-neutral-200)]",
 						"dark:[&>*]:shadow-[1px_1px_0_0_var(--color-neutral-800)]",
-						// from sm: the grid, cells fill their column
-						"sm:grid sm:[&>*]:w-auto",
-						COLS[cols],
+						// from sm: the grid, cells fill their column (compact: from the band's own 24rem)
+						compact ? "@sm:grid @sm:[&>*]:w-auto" : "sm:grid sm:[&>*]:w-auto",
+						compact ? COMPACT_COLS[cols] : COLS[cols],
 					)}
 				>
 					{children}
@@ -230,11 +246,11 @@ function Frame({
 	)
 }
 
-export function StatBand({ items, cols, size = "md", flush = false, className, ...props }: StatBandProps) {
+export function StatBand({ items, cols, size = "md", flush = false, compact = false, className, ...props }: StatBandProps) {
 	const s = SIZE[size]
 	const c = cols ?? defaultCols(items.length)
 	return (
-		<Frame cols={c} size={size} flush={flush} className={className} {...props}>
+		<Frame cols={c} size={size} flush={flush} compact={compact} className={className} {...props}>
 			{items.map((item) => {
 				const Icon = item.icon
 				const interactive = Boolean(item.href || item.onClick)
@@ -302,9 +318,9 @@ export function StatBand({ items, cols, size = "md", flush = false, className, .
 				const key = item.key ?? item.label
 				if (item.href) {
 					return (
-						<Link key={key} href={item.href} title={item.title} className={cellClass}>
+						<AppLink key={key} href={item.href} title={item.title} className={cellClass}>
 							{body}
-						</Link>
+						</AppLink>
 					)
 				}
 				if (item.onClick) {
@@ -341,18 +357,20 @@ export function StatBandSkeleton({
 	cols,
 	size = "md",
 	flush = false,
+	compact = false,
 	className,
 }: {
 	count?: number
 	cols?: StatBandCols
 	size?: "sm" | "md"
 	flush?: boolean
+	compact?: boolean
 	className?: string
 }) {
 	const s = SIZE[size]
 	const c = cols ?? defaultCols(count)
 	return (
-		<Frame cols={c} size={size} flush={flush} className={className} aria-hidden>
+		<Frame cols={c} size={size} flush={flush} compact={compact} className={className} aria-hidden>
 			{Array.from({ length: count }).map((_, i) => (
 				<div key={i} className={cn("flex min-w-0 items-center", s.cell)}>
 					<Skeleton className={cn("shrink-0", s.chip)} delay={i * 0.06} />

@@ -1,13 +1,15 @@
 import { cn } from "../../lib/utils"
 
 /**
- * The in-component skeleton primitive.
+ * A placeholder block.
  *
- * Uses the same `.sk-shimmer` sweep as the route-level skeleton kit (defined in
- * styles/globals.css) rather than `animate-pulse`. A route's `loading.tsx` and
- * the component's own loading state now animate identically, so the handoff
- * between them is invisible - previously the sweep switched to a pulse partway
- * through the load, which read as a second, slower page.
+ * Uses the sweeping `gk-shimmer` highlight rather than `animate-pulse`: a whole page of
+ * blocks fading in unison reads as a stalled screen, while a sweep reads as work in
+ * progress. Pass `delay` (seconds) so a group of blocks ripples instead of blinking as one.
+ * Under `prefers-reduced-motion` the sweep drops out and the block sits still.
+ *
+ * `Shimmer` in `@repo/ui/components/skeleton-kit` is the same block; that module also holds
+ * the layout-mirroring primitives (tables, stat rows, headers) that page skeletons compose.
  */
 function Skeleton({
 	className,
@@ -15,13 +17,17 @@ function Skeleton({
 	style,
 	...props
 }: React.HTMLAttributes<HTMLDivElement> & {
-	/** Seconds to offset the shimmer, so a row of blocks sweeps in sequence. */
+	/** Seconds to offset the sweep by, so a group ripples instead of pulsing as one. */
 	delay?: number
 }) {
 	return (
 		<div
-			className={cn("sk-shimmer rounded-md", className)}
-			style={delay ? { animationDelay: `${delay}s`, ...style } : style}
+			aria-hidden
+			style={delay ? { ...style, animationDelay: `${delay}s` } : style}
+			className={cn(
+				"gk-shimmer rounded-md bg-neutral-200/80 dark:bg-neutral-800",
+				className
+			)}
 			{...props}
 		/>
 	)
